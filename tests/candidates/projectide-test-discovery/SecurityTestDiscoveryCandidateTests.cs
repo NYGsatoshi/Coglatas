@@ -387,7 +387,7 @@ public sealed class SecurityTestDiscoveryCandidateTests
         var artifact = files.Artifact(); NonExecuting(artifact);
         Assert.False(artifact.GetProperty("evaluatorMatches").GetBoolean());
         Assert.Equal("coglatas.invalid-test-discovery", artifact.GetProperty("reason").GetString());
-        var invalid = Assert.Single(artifact.GetProperty("tests").EnumerateArray().Where(test => test.GetProperty("decodeStatus").GetString() == "Invalid"));
+        var invalid = Assert.Single(artifact.GetProperty("tests").EnumerateArray(), test => test.GetProperty("decodeStatus").GetString() == "Invalid");
         Assert.Equal(JsonValueKind.Null, invalid.GetProperty("assertionCount").ValueKind);
         Assert.Contains(artifact.GetProperty("tests").EnumerateArray(), test => test.GetProperty("decodeStatus").GetString() == "Decoded");
     }

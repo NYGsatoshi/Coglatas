@@ -93,6 +93,18 @@ ZIP bytes, native discovery/TRX, binary/process receipts and actual workflow
 objects still require independent audit before merge; configuration and local
 Python controls alone do not establish hosted execution.
 
+## Retained initial build failure
+
+[PR #2094 run 44285545824](https://github.com/NYGsatoshi/Coglatas/actions/runs/44285545824)
+stopped during the strict Release build on both hosts. The only build diagnostic
+was xUnit2031 at the mixed invalid-definition/evaluator-mismatch assertion:
+`Assert.Single` must receive its predicate directly instead of a preceding
+`Where` call. Both original eleven-file archives remain failed evidence; no
+native facts or CLI child processes executed. The equivalent predicate overload
+preserves the exact-one-invalid-definition assertion. All 24 facts, 35 process
+identities, Product pins, admission guards and `-warnaserror` remain in force.
+The corrected source requires fresh originals from both hosted OS jobs.
+
 ## Remaining responsibilities
 
 This is `SYNTHETIC_TEST_DISCOVERY_CORE_AND_CLI_ONLY`. Frozen local context is
