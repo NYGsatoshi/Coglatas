@@ -24,7 +24,7 @@ Native/Avalonia UI.
   method names, bodies and helpers remain byte-identical to source blob
   `680b7da997b4d9abee16536b7915df749d293972`.
 - Composition script `compose_and_verify.py` Git blob
-  `222114dc16d4774b70759b4dbb3abaf33f2684d7`.
+  `013408cef3c8d285d3b9f667929711e49415a5cb`.
   It checks the exact original Test Git blob/index, regular nonsymlink candidate
   bytes and unchanged immutable Product HEAD before composition execution, after
   restore, immediately after native tests and after compiled discovery. It rejects
@@ -140,4 +140,36 @@ independent Security approval.
 
 ```text
 python -B tests/candidates/projectide-trace-profile/compose_and_verify.py --product-head ea339ed0bc094630654262ebb28568a95ba4198f --worktree <fresh-product-worktree> --evidence <fresh-evidence-directory>
+```
+
+## Git environment isolation regressions
+
+Every Git subprocess, including the raw committed-source read and detached
+worktree creation, removes inherited `GIT_*` variables case-insensitively.
+It preserves non-Git settings and never edits the caller's process environment.
+This closes a reproduced source-binding gap: with `GIT_DIR` and `GIT_WORK_TREE`
+pointing at a different disposable repository, the old runner resolved that
+repository's HEAD despite receiving the intended checkout as its working
+directory. No Product API or existing C# test source changes in this repair.
+
+`test_compose_and_verify.py` contains **eight** regression methods. It admits
+original retained native TRX/discovery before constructing fixtures, freezes
+the unchanged C# blob and method roster, reproduces the old redirect with a
+read-only unprotected Git call, and executes the actual runner's `main()`
+against real disposable Git repositories. Separate controls cover a clean
+environment, foreign repository/worktree, foreign index, foreign object/common
+directories, counted Git configuration and parameter-based Git configuration.
+Each controlled composition verifies the intended Test/Product/blob/tree and
+all six false qualification flags, and compares every file in the foreign
+repository before and after, including its index and object database.
+
+Only the controls' `dotnet` command outputs are supplied from the retained
+native inputs. These controls do **not** execute C#, add native passing cases,
+or turn retained results into fresh execution evidence. The advisory first
+runs the actual unchanged native candidate on each OS, then runs the eight
+controls with that same host's original TRX and compiled discovery. It pins
+the controls blob and retains their log separately in the workflow context.
+
+```text
+python -B tests/candidates/projectide-trace-profile/test_compose_and_verify.py --native-trx <original-candidate.trx> --compiled-discovery <original-compiled-discovery.log> -v
 ```
