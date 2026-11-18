@@ -1,0 +1,224 @@
+name: ProjectIDE semantic index Web admission advisory
+
+on:
+  pull_request:
+    branches: [SecurityTestImplimation]
+    paths:
+      - .github/workflows/projectide-semantic-index-web-advisory.yml
+      - tests/candidates/projectide-semantic-index-web/**
+
+permissions:
+  contents: read
+
+env:
+  PRODUCT_HEAD: 09347c1113f5f9c007bbbc5052278d5b5151feb5
+  SOURCE_BLOB: 45213690098c1ae4fc2b79b4eedb1432844a07f9
+  RUNNER_BLOB: 93ffe90330edc87a0ad1192e9052434be09844b5
+  CONTROLS_BLOB: 40a59fa87ed4d8382edef1a7bd4f7d3537bbe190
+
+concurrency:
+  group: semantic-index-web-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  synthetic-angular-ubuntu:
+    name: Semantic index Web reader and store (ubuntu-24.04)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+      WORKFLOW_HEAD: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Preserve committed source bytes
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot disable checkout newline conversion' }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot select committed LF checkout bytes' }
+      - name: Checkout immutable independent Test owner
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind exact candidate and runner identities
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $actualTest = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $actualTest -ne $env:TEST_HEAD) { throw 'Independent Test HEAD mismatch' }
+          $source = git rev-parse 'HEAD:tests/candidates/projectide-semantic-index-web/projectide-semantic-index-security.candidate.spec.ts'
+          if ($LASTEXITCODE -ne 0 -or $source -ne $env:SOURCE_BLOB) { throw 'Frozen Angular source mismatch' }
+          $runner = git rev-parse 'HEAD:tests/candidates/projectide-semantic-index-web/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Composition runner mismatch' }
+          $controls = git rev-parse 'HEAD:tests/candidates/projectide-semantic-index-web/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission control source mismatch' }
+          $workflow = git rev-parse 'HEAD:.github/workflows/projectide-semantic-index-web-advisory.yml'
+          if ($LASTEXITCODE -ne 0) { throw 'Workflow identity unavailable' }
+          git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
+          if ($LASTEXITCODE -ne 0) { throw 'Frozen Product commit unavailable' }
+          $context = Join-Path $env:RUNNER_TEMP 'semantic-index-web-context'
+          New-Item -ItemType Directory -Path $context | Out-Null
+          @{
+            productHead = $env:PRODUCT_HEAD
+            productTree = '5abb6b4f4389f200a289a84b99a0dd13e60072cc'
+            testHead = $actualTest
+            workflowHead = $env:WORKFLOW_HEAD
+            sourceBlob = $source
+            runnerBlob = $runner
+            controlsBlob = $controls
+            workflowBlob = $workflow
+            runnerOs = $env:RUNNER_OS
+            runId = '${{ github.run_id }}'
+            runAttempt = '${{ github.run_attempt }}'
+            executionScope = 'SYNTHETIC_SEMANTIC_INDEX_WEB_READER_STORE_ONLY'
+            requiredCheckQualified = $false
+            independentReviewComplete = $false
+            nativeUiQualified = $false
+            productionQualified = $false
+            trustQualified = $false
+            releaseQualified = $false
+          } | ConvertTo-Json | Set-Content -Encoding utf8NoBOM (Join-Path $context 'workflow-context.json')
+      - name: Set up composition interpreter
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12'
+      - name: Set up supported frontend runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '26'
+      - name: Pin the Product package manager
+        shell: pwsh
+        run: |
+          npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned npm installation failed' }
+          $version = npm --version
+          if ($LASTEXITCODE -ne 0 -or $version -ne '11.17.0') { throw 'Pinned npm version mismatch' }
+      - name: Execute the immutable Angular candidate against original Product
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -B tests/candidates/projectide-semantic-index-web/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/semantic-index-web-composed" --evidence "$env:RUNNER_TEMP/semantic-index-web-evidence"
+          if ($LASTEXITCODE -ne 0) { throw 'Original Angular execution or source admission failed; retain evidence' }
+      - name: Refuse malformed retained evidence and actual source drift
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'semantic-index-web-context'
+          $log = Join-Path $context 'admission-controls.log'
+          python -B tests/candidates/projectide-semantic-index-web/test_compose_and_verify.py --evidence "$env:RUNNER_TEMP/semantic-index-web-evidence" --report "$context/admission-controls.json" -v *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content $log
+          if ($controlsExitCode -ne 0) { throw 'Retained Angular evidence admission controls failed' }
+      - name: Retain original reports and immutable source receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: semantic-index-web-ubuntu-24.04-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/semantic-index-web-context
+            ${{ runner.temp }}/semantic-index-web-evidence
+          if-no-files-found: error
+
+  synthetic-angular-windows:
+    name: Semantic index Web reader and store (windows-latest)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+      WORKFLOW_HEAD: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Preserve committed source bytes
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot disable checkout newline conversion' }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot select committed LF checkout bytes' }
+      - name: Checkout immutable independent Test owner
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind exact candidate and runner identities
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $actualTest = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $actualTest -ne $env:TEST_HEAD) { throw 'Independent Test HEAD mismatch' }
+          $source = git rev-parse 'HEAD:tests/candidates/projectide-semantic-index-web/projectide-semantic-index-security.candidate.spec.ts'
+          if ($LASTEXITCODE -ne 0 -or $source -ne $env:SOURCE_BLOB) { throw 'Frozen Angular source mismatch' }
+          $runner = git rev-parse 'HEAD:tests/candidates/projectide-semantic-index-web/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Composition runner mismatch' }
+          $controls = git rev-parse 'HEAD:tests/candidates/projectide-semantic-index-web/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission control source mismatch' }
+          $workflow = git rev-parse 'HEAD:.github/workflows/projectide-semantic-index-web-advisory.yml'
+          if ($LASTEXITCODE -ne 0) { throw 'Workflow identity unavailable' }
+          git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
+          if ($LASTEXITCODE -ne 0) { throw 'Frozen Product commit unavailable' }
+          $context = Join-Path $env:RUNNER_TEMP 'semantic-index-web-context'
+          New-Item -ItemType Directory -Path $context | Out-Null
+          @{
+            productHead = $env:PRODUCT_HEAD
+            productTree = '5abb6b4f4389f200a289a84b99a0dd13e60072cc'
+            testHead = $actualTest
+            workflowHead = $env:WORKFLOW_HEAD
+            sourceBlob = $source
+            runnerBlob = $runner
+            controlsBlob = $controls
+            workflowBlob = $workflow
+            runnerOs = $env:RUNNER_OS
+            runId = '${{ github.run_id }}'
+            runAttempt = '${{ github.run_attempt }}'
+            executionScope = 'SYNTHETIC_SEMANTIC_INDEX_WEB_READER_STORE_ONLY'
+            requiredCheckQualified = $false
+            independentReviewComplete = $false
+            nativeUiQualified = $false
+            productionQualified = $false
+            trustQualified = $false
+            releaseQualified = $false
+          } | ConvertTo-Json | Set-Content -Encoding utf8NoBOM (Join-Path $context 'workflow-context.json')
+      - name: Set up composition interpreter
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12'
+      - name: Set up supported frontend runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '26'
+      - name: Pin the Product package manager
+        shell: pwsh
+        run: |
+          npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned npm installation failed' }
+          $version = npm --version
+          if ($LASTEXITCODE -ne 0 -or $version -ne '11.17.0') { throw 'Pinned npm version mismatch' }
+      - name: Execute the immutable Angular candidate against original Product
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -B tests/candidates/projectide-semantic-index-web/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/semantic-index-web-composed" --evidence "$env:RUNNER_TEMP/semantic-index-web-evidence"
+          if ($LASTEXITCODE -ne 0) { throw 'Original Angular execution or source admission failed; retain evidence' }
+      - name: Refuse malformed retained evidence and actual source drift
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'semantic-index-web-context'
+          $log = Join-Path $context 'admission-controls.log'
+          python -B tests/candidates/projectide-semantic-index-web/test_compose_and_verify.py --evidence "$env:RUNNER_TEMP/semantic-index-web-evidence" --report "$context/admission-controls.json" -v *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content $log
+          if ($controlsExitCode -ne 0) { throw 'Retained Angular evidence admission controls failed' }
+      - name: Retain original reports and immutable source receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: semantic-index-web-windows-latest-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/semantic-index-web-context
+            ${{ runner.temp }}/semantic-index-web-evidence
+          if-no-files-found: error
