@@ -1,5 +1,11 @@
 # AI Context
 
+[Private semantic-index lookup reuse](verification/projectide-semantic-index-lookup-reuse.md)
+retains only exact positional tables after fresh full-index construction. Public
+rows, metadata, input/coverage facts and query ownership stay current. Bounds,
+refusal and cancellation prevent partial lookup publication; retention grants no
+runtime authority or independent acceptance.
+
 [Incremental reference binding](verification/projectide-incremental-reference-binding.md)
 reuses exact structural and typed-value resolution only after fresh dependency
 admission and matching original lookup facts. Current diagnostics, global

@@ -9,14 +9,15 @@ public static class SyntheticSemanticIndexProjection
     public const string Format = "coglatas.local-semantic-index-projection/1";
     public const int MaximumProjectionBytes = 4_194_304;
     /// <summary>Absent when the prepared projection exceeds its local export bound; original Compiler facts remain available.</summary>
-    public static SourceJson? Export(CoreCompilation compilation, int maximumProjectionBytes = MaximumProjectionBytes)
+    public static SourceJson? Export(CoreCompilation compilation, int maximumProjectionBytes = MaximumProjectionBytes,
+        ProjectSemanticIndexLookupCache? lookupCache = null)
     {
         ArgumentNullException.ThrowIfNull(compilation);
         if (maximumProjectionBytes is < 1 or > MaximumProjectionBytes) throw new ArgumentOutOfRangeException(nameof(maximumProjectionBytes));
         if (compilation.Model is not { } model) return null;
         var input = compilation.Input;
         var binding = compilation.Dependencies?.Binding ?? CompilerBindingClosure.Build(model, input.InputDigest);
-        var index = CompilerSemanticIndex.Build(binding, input.InputDigest);
+        var index = CompilerSemanticIndex.Build(binding, input.InputDigest, lookupCache: lookupCache);
         var references = new Dictionary<CompilerBoundReference, int>(ReferenceEqualityComparer.Instance);
         for (var ordinal = 0; ordinal < index.References.Count; ordinal++) references.Add(index.References[ordinal], ordinal);
         var definitions = new List<object>(); var completions = new List<object>(); var searches = new List<object>();

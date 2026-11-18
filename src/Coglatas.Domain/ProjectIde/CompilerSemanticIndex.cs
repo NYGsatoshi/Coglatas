@@ -46,14 +46,12 @@ public sealed class CompilerSemanticIndex
     public ContentDigest Digest { get; }
     /// <summary>Separate derived-index work; original Compiler logical operations and receipts remain unchanged.</summary>
     public int LogicalOperationsConsumed { get; }
-    private readonly Dictionary<string, CompilerIndexedSymbol> _locations;
-    private readonly Dictionary<string, CompilerIndexedSymbol> _keys;
-    private readonly Dictionary<string, CompilerBoundReference[]> _origins;
+    private readonly SemanticIndexLookupTables _lookups;
     private readonly HashSet<SourceRevisionContext> _contexts;
 
     private CompilerSemanticIndex(CompilerBindingClosure binding, CompilerSemanticIndexState state,
         IEnumerable<CompilerBindingRegion> regions, IEnumerable<CompilerIndexedSymbol> symbols, IEnumerable<CompilerBoundReference> references,
-        int maximumOperations, ref int remaining, bool charge, CancellationToken token)
+        int maximumOperations, ref int remaining, bool charge, CancellationToken token, ProjectSemanticIndexLookupCache? lookupCache = null, SemanticIndexLookupScope? lookupScope = null)
     {
         Input = binding.Input; BindingClosureDigest = binding.Digest; State = state; IncludesDeclaredSnapshots = binding.IncludesDeclaredSnapshots;
         Regions = new ImmutableListView<CompilerBindingRegion>(regions);
@@ -61,14 +59,11 @@ public sealed class CompilerSemanticIndex
         References = new ImmutableListView<CompilerBoundReference>(references.OrderBy(item => item.Origin.Data.CanonicalText, StringComparer.Ordinal)
             .ThenBy(item => item.State).ThenBy(item => item.SymbolKey, StringComparer.Ordinal));
         _contexts = Regions.Select(region => region.Source.Context).ToHashSet();
-        _keys = Symbols.GroupBy(item => item.Symbol.Key, StringComparer.Ordinal).Where(group => group.Count() == 1)
-            .ToDictionary(group => group.Key, group => group.Single(), StringComparer.Ordinal);
-        _locations = Symbols.GroupBy(item => item.Symbol.Location.Data.CanonicalText, StringComparer.Ordinal).Where(group => group.Count() == 1)
-            .ToDictionary(group => group.Key, group => group.Single(), StringComparer.Ordinal);
-        _origins = References.GroupBy(item => item.Origin.Data.CanonicalText, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
+        var preparedLookups = lookupScope is null ? null : lookupCache!.Prepare(lookupScope, LookupDependencies(Symbols, References),
+            () => new SemanticIndexLookupTables(Symbols, References), token);
+        _lookups = preparedLookups?.Tables ?? new SemanticIndexLookupTables(Symbols, References);
         IndexCoverageComplete = state == CompilerSemanticIndexState.Complete && IncludesDeclaredSnapshots &&
-            _keys.Count == Symbols.Count && _locations.Count == Symbols.Count && Symbols.All(item => item.Symbol.Status == ValueDecodeStatus.Decoded);
+            _lookups.KeyCount == Symbols.Count && _lookups.LocationCount == Symbols.Count && Symbols.All(item => item.Symbol.Status == ValueDecodeStatus.Decoded);
         Data = SourceJson.FromObject(new {
             format = Format, compilerInputId = Input.InputId.ToString(), rootInputDigest = Input.InputDigest.Data.Value,
             bindingClosureDigest = BindingClosureDigest.Data.Value, state = State.ToString(), includesDeclaredSnapshots = IncludesDeclaredSnapshots,
@@ -82,14 +77,17 @@ public sealed class CompilerSemanticIndex
         if (charge && !ProjectSemanticBinder.WithinBudget(Data.Value, ref remaining, token)) throw new FormatException("Semantic index exhausted its derived-work budget.");
         LogicalOperationsConsumed = maximumOperations - Math.Max(0, remaining);
         Digest = ContentDigest.Compute(Format, Data.ToCanonicalBytes()); token.ThrowIfCancellationRequested();
+        if (preparedLookups is not null) lookupCache!.Commit(preparedLookups, token);
     }
 
     /// <summary>Build from the actual closure, preserving explicit reachable-only/incomplete scope. No Compiler result or permission is cached.</summary>
-    public static CompilerSemanticIndex Build(CompilerBindingClosure binding, ContentDigest expectedInput, int? maximumOperations = null, CancellationToken cancellationToken = default)
+    public static CompilerSemanticIndex Build(CompilerBindingClosure binding, ContentDigest expectedInput, int? maximumOperations = null, CancellationToken cancellationToken = default,
+        ProjectSemanticIndexLookupCache? lookupCache = null)
     {
         ArgumentNullException.ThrowIfNull(binding); ArgumentNullException.ThrowIfNull(expectedInput); cancellationToken.ThrowIfCancellationRequested();
         var maximum = maximumOperations ?? binding.Input.ExecutionProfile.MaximumOperations;
         if (maximum < 1 || maximum > binding.Input.ExecutionProfile.MaximumOperations) throw new ArgumentOutOfRangeException(nameof(maximumOperations));
+        var lookupScope = lookupCache?.BeginBinding(binding.Input.Source.Context.Branch, cancellationToken);
         var remaining = maximum;
         CompilerSemanticIndex Empty(CompilerSemanticIndexState state) => new(binding, state, [], [], [], maximum, ref remaining, false, cancellationToken);
         if (!binding.Input.InputDigest.Equals(expectedInput) || binding.State == CompilerBindingClosureState.StaleInput) return Empty(CompilerSemanticIndexState.StaleInput);
@@ -143,9 +141,20 @@ public sealed class CompilerSemanticIndex
             }
             var state = binding.State == CompilerBindingClosureState.ResourceLimit ? CompilerSemanticIndexState.ResourceLimit :
                 binding.State == CompilerBindingClosureState.Complete && binding.IncludesDeclaredSnapshots ? CompilerSemanticIndexState.Complete : CompilerSemanticIndexState.Incomplete;
-            return new(binding, state, binding.Regions, symbols, references, maximum, ref remaining, true, cancellationToken);
+            return new(binding, state, binding.Regions, symbols, references, maximum, ref remaining, true, cancellationToken, lookupCache, lookupScope);
         }
         catch (FormatException) { return Empty(CompilerSemanticIndexState.ResourceLimit); }
+    }
+
+    private static IEnumerable<string> LookupDependencies(IReadOnlyList<CompilerIndexedSymbol> symbols, IReadOnlyList<CompilerBoundReference> references)
+    {
+        yield return "symbols"; yield return symbols.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        foreach (var symbol in symbols)
+        {
+            yield return symbol.Symbol.Key; yield return symbol.Symbol.Location.Data.CanonicalText;
+        }
+        yield return "origins"; yield return references.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        foreach (var reference in references) yield return reference.Origin.Data.CanonicalText;
     }
 
     private CompilerIndexQueryState Check(ProjectLocation location, ContentDigest inputDigest)
@@ -154,8 +163,8 @@ public sealed class CompilerSemanticIndex
         if (State == CompilerSemanticIndexState.ResourceLimit) return CompilerIndexQueryState.ResourceLimit;
         return _contexts.Contains(location.Context) ? CompilerIndexQueryState.Ready : CompilerIndexQueryState.OutOfScope;
     }
-    private CompilerIndexedSymbol? Unique(ProjectLocation location) => _locations.TryGetValue(location.Data.CanonicalText, out var symbol) &&
-        _keys.ContainsKey(symbol.Symbol.Key) && symbol.Symbol.Status == ValueDecodeStatus.Decoded ? symbol : null;
+    private CompilerIndexedSymbol? Unique(ProjectLocation location) => _lookups.TryLocation(location.Data.CanonicalText, out var position) &&
+        _lookups.HasKey(Symbols[position].Symbol.Key) && Symbols[position].Symbol.Status == ValueDecodeStatus.Decoded ? Symbols[position] : null;
     public CompilerIndexedSymbol? Inspect(ProjectLocation location, ContentDigest inputDigest)
     {
         ArgumentNullException.ThrowIfNull(location); ArgumentNullException.ThrowIfNull(inputDigest);
@@ -165,11 +174,11 @@ public sealed class CompilerSemanticIndex
     {
         ArgumentNullException.ThrowIfNull(origin); ArgumentNullException.ThrowIfNull(inputDigest); cancellationToken.ThrowIfCancellationRequested();
         var state = Check(origin, inputDigest); if (state != CompilerIndexQueryState.Ready) return new(state, null, null);
-        if (!_origins.TryGetValue(origin.Data.CanonicalText, out var matches) || matches.Length != 1) return new(CompilerIndexQueryState.Unavailable, null, null);
-        var reference = matches[0]; cancellationToken.ThrowIfCancellationRequested();
+        if (!_lookups.TryOrigin(origin.Data.CanonicalText, out var position)) return new(CompilerIndexQueryState.Unavailable, null, null);
+        var reference = References[position]; cancellationToken.ThrowIfCancellationRequested();
         if (reference.State != ReferenceResolutionState.Resolved) return new(CompilerIndexQueryState.Unresolved, null, reference.State);
-        return reference.SymbolKey is { } key && _keys.TryGetValue(key, out var target) && target.Symbol.Status == ValueDecodeStatus.Decoded
-            ? new(CompilerIndexQueryState.Ready, target, reference.State) : new(CompilerIndexQueryState.Unavailable, null, reference.State);
+        return reference.SymbolKey is { } key && _lookups.TryKey(key, out var targetPosition) && Symbols[targetPosition].Symbol.Status == ValueDecodeStatus.Decoded
+            ? new(CompilerIndexQueryState.Ready, Symbols[targetPosition], reference.State) : new(CompilerIndexQueryState.Unavailable, null, reference.State);
     }
     public CompilerIndexReferencePage FindReferences(ProjectLocation target, ContentDigest inputDigest, int pageSize = MaximumPageSize,
         CompilerIndexCursor? cursor = null, CancellationToken cancellationToken = default)
@@ -209,7 +218,7 @@ public sealed class CompilerSemanticIndex
         {
             cancellationToken.ThrowIfCancellationRequested(); var row = Symbols[offset++]; scanned++;
             if (!row.IsDocument && row.Symbol.PortId is null && row.Symbol.Kind == type.ExpectedKind &&
-                row.Symbol.Status == ValueDecodeStatus.Decoded && _keys.ContainsKey(row.Symbol.Key)) rows.Add(row);
+                row.Symbol.Status == ValueDecodeStatus.Decoded && _lookups.HasKey(row.Symbol.Key)) rows.Add(row);
         }
         cancellationToken.ThrowIfCancellationRequested();
         return new(CompilerIndexQueryState.Ready, Input.InputDigest, symbol.Symbol.Location, type.ExpectedKind, new ImmutableListView<CompilerIndexedSymbol>(rows),

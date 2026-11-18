@@ -69,6 +69,7 @@ var cases = new List<object>();
 var comparisonRuns = new Dictionary<string, ProjectSimulationRun>(StringComparer.Ordinal);
 var symbolBindingCache = new ProjectSymbolBindingCache();
 var referenceBindingCache = new ProjectReferenceBindingCache();
+var semanticIndexLookupCache = new ProjectSemanticIndexLookupCache();
 var renameFixture = RenameFixture();
 var documentOriginal = Input("document-before", 130);
 var documentDeclarations = Json(documentOriginal.Source.Declarations.Value.EnumerateArray()
@@ -289,7 +290,7 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
             Console.WriteLine("The original scoped Source transport is unavailable at its existing byte bound.");
         }
         if (scopedProjection is not null) fixture["scopedSources"] = JsonSerializer.SerializeToNode(scopedProjection.Value);
-        if (semanticIndexProfile && SyntheticSemanticIndexProjection.Export(compilation) is { } indexProjection)
+        if (semanticIndexProfile && SyntheticSemanticIndexProjection.Export(compilation, lookupCache: semanticIndexLookupCache) is { } indexProjection)
             fixture["semanticIndex"] = JsonSerializer.SerializeToNode(indexProjection.Value);
         if (outputSnapshotProfile && !premiseProfile) {
             object Capture(CompilerOutputSnapshotMode mode, int budget) {

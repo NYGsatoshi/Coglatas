@@ -4,6 +4,11 @@ namespace Coglatas.ProjectIde.Workbench.Synthetic;
 
 public sealed partial class SyntheticWorkbenchViewModel
 {
+    private readonly ProjectSemanticIndexLookupCache? _semanticIndexLookupCache;
+    public SyntheticWorkbenchViewModel() { }
+    public SyntheticWorkbenchViewModel(ProjectSemanticIndexLookupCache lookupCache)
+    { ArgumentNullException.ThrowIfNull(lookupCache); _semanticIndexLookupCache = lookupCache; }
+
     private sealed record SemanticIndexOwner(CompilerSemanticIndex Index, CoreCompilation Compilation, long ScopedGeneration);
     private sealed record SemanticQueryOwner(CompilerSemanticIndex Index, CompilerIndexedSymbol Symbol, long Generation);
     private SemanticIndexOwner? _semanticIndexOwner;
@@ -40,7 +45,7 @@ public sealed partial class SyntheticWorkbenchViewModel
         if (!Current() || compilation?.Dependencies is not { } dependencies || desired is null)
         { if (generation == _semanticIndexGeneration) { SemanticIndexReadState = "Unavailable"; Changed(); } return false; }
         CompilerSemanticIndex index;
-        try { index = CompilerSemanticIndex.Build(dependencies.Binding, desired.Input.ExpectedInputDigest, cancellationToken: token); }
+        try { index = CompilerSemanticIndex.Build(dependencies.Binding, desired.Input.ExpectedInputDigest, cancellationToken: token, lookupCache: _semanticIndexLookupCache); }
         catch (OperationCanceledException)
         { if (Current()) { ClearSemanticIndex(); Changed(); } throw; }
         if (!Current()) return false;

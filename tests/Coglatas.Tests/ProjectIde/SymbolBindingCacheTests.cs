@@ -391,11 +391,11 @@ public sealed class SymbolBindingCacheTests
         return actual;
     }
 
-    private static void AssertFullIndexEquivalent(CoreCompilation full, CoreCompilation actual)
+    internal static CompilerSemanticIndex AssertFullIndexEquivalent(CoreCompilation full, CoreCompilation actual, ProjectSemanticIndexLookupCache? lookupCache = null)
     {
         var input = full.Model!.Input;
         var expected = CompilerSemanticIndex.Build(full.Dependencies?.Binding ?? CompilerBindingClosure.Build(full.Model, input.InputDigest), input.InputDigest);
-        var current = CompilerSemanticIndex.Build(actual.Dependencies?.Binding ?? CompilerBindingClosure.Build(actual.Model!, input.InputDigest), input.InputDigest);
+        var current = CompilerSemanticIndex.Build(actual.Dependencies?.Binding ?? CompilerBindingClosure.Build(actual.Model!, input.InputDigest), input.InputDigest, lookupCache: lookupCache);
         var originalResult = actual.Result.Data; var originalSource = input.Source.Data;
         Assert.Equal(expected.Data, current.Data); Assert.Equal(expected.Digest, current.Digest);
         Assert.Equal(expected.LogicalOperationsConsumed, current.LogicalOperationsConsumed);
@@ -443,5 +443,6 @@ public sealed class SymbolBindingCacheTests
         }
         Assert.Equal(originalResult, actual.Result.Data); Assert.Equal(originalSource, input.Source.Data);
         Assert.Equal(expected.Data, current.Data); Assert.Equal(expected.Digest, current.Digest);
+        return current;
     }
 }

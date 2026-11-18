@@ -10,6 +10,11 @@ Typed entity-reference completion requires an actual decoded port declaration an
 
 ## Paired local consumers
 
+An optional [private lookup session](projectide-semantic-index-lookup-reuse.md)
+can reuse exact symbol/location/origin position tables. Public index rows,
+current input/coverage data and query ownership are always fresh; a cache entry
+supplies no Source, permission or earlier public symbol/reference object.
+
 The pure Windows Workbench requires existing original scoped Source admission, current compilation/request/result and current object membership. Selection, Source, input, result, reset, disposal and cancellation invalidate owned state while preserving newer publications.
 
 The offline Angular preview admits original Source bytes, input/result, regional maps and binding frames before reading the separately labelled local index projection. It verifies the canonical index hash, exact roster and prepared query membership/bounds. Ordered reference and candidate membership positions are built once; prepared pages are checked against those positions with the original 32-result/256-scan boundaries, including empty pages. This avoids replaying a full reference scan for every symbol while retaining the separate one-million-work reader cap. A pending read that loses its admitted Source terminates as unavailable without clearing a newer read. The browser computes no Compiler verdict or semantic resolution. Project symbols, typed candidates, reference pages and definitions navigate only to their original admitted regional Source. Current query/page/member ownership, permission checks, generation guards and bounded display pages apply to every action. Full captured index coverage grants no current runtime query/open/apply authority.
