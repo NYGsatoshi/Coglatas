@@ -13,8 +13,8 @@ permissions:
 env:
   PRODUCT_HEAD: 09347c1113f5f9c007bbbc5052278d5b5151feb5
   ANGULAR_BLOB: f4271b707d98b1d49d0d63e5e9a3cb9a7ec1bfe3
-  RUNNER_BLOB: f5233993b716dfcf6a7a759e1985d70774a3161d
-  CONTROLS_BLOB: b4704c302b243aa9956e7aae6f225df33975c09d
+  RUNNER_BLOB: cfa27e1aaf1a1116dbc6cd332313da6080d9196e
+  CONTROLS_BLOB: fa4c36ad76113f2bea1db2c587a724c6ad70c5de
 
 concurrency:
   group: run-comparison-web-${{ github.event.pull_request.number }}

@@ -134,6 +134,12 @@ def verify_working_tree(worktree: Path, raw_sources: dict[str, bytes], source_bl
             raise ValueError("Composed candidate index identity or mode changed")
     if git(worktree, "rev-parse", "HEAD") != PRODUCT_HEAD:
         raise ValueError("Composed Product HEAD changed")
+    # Inspect raw path flags before accepting empty tracked diffs.
+    flags = run(["git", "-c", "core.autocrlf=false", "ls-files", "-v", "-z", "--"],
+                worktree, preserve_output=True)
+    if any(len(record) < 3 or record[1] != " " or record[0] != "H"
+           for record in flags.split("\0") if record):
+        raise ValueError("Git index flags hide tracked Product source")
     expected = sorted(raw_sources)
     if (git(worktree, "diff", "--cached", "--name-only", "HEAD", "--").splitlines() != expected
             or git(worktree, "diff", "--name-only", "--")):
