@@ -1,0 +1,209 @@
+name: ProjectIDE Regional observation exact-source advisory
+
+on:
+  pull_request:
+    branches: [SecurityTestImplimation]
+    paths:
+      - .github/workflows/projectide-regional-observation-advisory.yml
+      - tests/candidates/projectide-regional-observation/**
+
+permissions:
+  contents: read
+
+env:
+  PRODUCT_HEAD: 09347c1113f5f9c007bbbc5052278d5b5151feb5
+  SOURCE_BLOB: d34160ea0d13f33f5b54b62bcd32989d068a6aec
+  RUNNER_BLOB: 854ad646be6748a87412ec139a04b16eb6ce62ff
+  CONTROLS_BLOB: 150fa58e026bc20335ec3915cda6f59aeba01fec
+
+concurrency:
+  group: regional-observation-qualification-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  regional-observation-ubuntu:
+    name: Regional observation independent synthetic composition (ubuntu-24.04)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      DOTNET_CLI_UI_LANGUAGE: en-US
+      TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Preserve committed source bytes
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot preserve committed source bytes' }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot use LF checkout policy' }
+      - name: Checkout immutable independent Security Test head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact source blobs and Product SDK policy
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $actual = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $actual -ne $env:TEST_HEAD) { throw 'Independent Test HEAD mismatch' }
+          $case = git rev-parse 'HEAD:tests/candidates/projectide-regional-observation/SecurityRegionalObservationCandidateTests.cs'
+          if ($LASTEXITCODE -ne 0 -or $case -ne $env:SOURCE_BLOB) { throw 'Candidate source blob mismatch' }
+          $runner = git rev-parse 'HEAD:tests/candidates/projectide-regional-observation/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Independent runner blob mismatch' }
+          $controls = git rev-parse 'HEAD:tests/candidates/projectide-regional-observation/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Verifier controls blob mismatch' }
+          git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
+          if ($LASTEXITCODE -ne 0) { throw 'Exact Product commit not present' }
+          $policy = git show "$($env:PRODUCT_HEAD):global.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Immutable Product SDK policy absent' }
+          $context = Join-Path $env:RUNNER_TEMP 'regional-observation-qualification-context'
+          New-Item -ItemType Directory -Path $context | Out-Null
+          $policy | Set-Content -Encoding utf8NoBOM (Join-Path $context 'global.json')
+          @{
+            testHead = $actual
+            productHead = $env:PRODUCT_HEAD
+            sourceBlob = $case
+            runnerBlob = $runner
+            controlsBlob = $controls
+            runnerOs = $env:RUNNER_OS
+            runId = '${{ github.run_id }}'
+            runAttempt = '${{ github.run_attempt }}'
+            executionScope = 'SYNTHETIC_REGIONAL_OBSERVATION_CORE_ONLY'
+            requiredCheckQualified = $false
+            independentReviewComplete = $false
+            nativeUiQualified = $false
+            productionQualified = $false
+            trustQualified = $false
+            releaseQualified = $false
+          } | ConvertTo-Json | Set-Content -Encoding utf8NoBOM (Join-Path $context 'workflow-context.json')
+      - name: Install exact Product .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: ${{ runner.temp }}/regional-observation-qualification-context/global.json
+      - name: Install pinned composition Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12'
+      - name: Run synthetic verifier regression controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'regional-observation-qualification-context'
+          $log = Join-Path $context 'admission-controls.log'
+          python -B -m unittest discover -s tests/candidates/projectide-regional-observation -p test_compose_and_verify.py -v *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content -LiteralPath $log
+          if ($controlsExitCode -ne 0) { throw 'Regional observation synthetic verifier controls failed' }
+      - name: Run exact independent source and real compiled xUnit controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -B tests/candidates/projectide-regional-observation/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/regional-observation-qualification-product" --evidence "$env:RUNNER_TEMP/regional-observation-qualification-evidence"
+          if ($LASTEXITCODE -ne 0) { throw 'Regional observation independent synthetic qualification did not complete' }
+      - name: Retain original source, TRX and compiled discovery receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: regional-observation-qualification-ubuntu-24.04-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/regional-observation-qualification-context
+            ${{ runner.temp }}/regional-observation-qualification-evidence
+          if-no-files-found: error
+          retention-days: 7
+
+
+  regional-observation-windows:
+    name: Regional observation independent synthetic composition (windows-latest)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      DOTNET_CLI_UI_LANGUAGE: en-US
+      TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Preserve committed source bytes
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot preserve committed source bytes' }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot use LF checkout policy' }
+      - name: Checkout immutable independent Security Test head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact source blobs and Product SDK policy
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $actual = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $actual -ne $env:TEST_HEAD) { throw 'Independent Test HEAD mismatch' }
+          $case = git rev-parse 'HEAD:tests/candidates/projectide-regional-observation/SecurityRegionalObservationCandidateTests.cs'
+          if ($LASTEXITCODE -ne 0 -or $case -ne $env:SOURCE_BLOB) { throw 'Candidate source blob mismatch' }
+          $runner = git rev-parse 'HEAD:tests/candidates/projectide-regional-observation/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Independent runner blob mismatch' }
+          $controls = git rev-parse 'HEAD:tests/candidates/projectide-regional-observation/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Verifier controls blob mismatch' }
+          git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
+          if ($LASTEXITCODE -ne 0) { throw 'Exact Product commit not present' }
+          $policy = git show "$($env:PRODUCT_HEAD):global.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Immutable Product SDK policy absent' }
+          $context = Join-Path $env:RUNNER_TEMP 'regional-observation-qualification-context'
+          New-Item -ItemType Directory -Path $context | Out-Null
+          $policy | Set-Content -Encoding utf8NoBOM (Join-Path $context 'global.json')
+          @{
+            testHead = $actual
+            productHead = $env:PRODUCT_HEAD
+            sourceBlob = $case
+            runnerBlob = $runner
+            controlsBlob = $controls
+            runnerOs = $env:RUNNER_OS
+            runId = '${{ github.run_id }}'
+            runAttempt = '${{ github.run_attempt }}'
+            executionScope = 'SYNTHETIC_REGIONAL_OBSERVATION_CORE_ONLY'
+            requiredCheckQualified = $false
+            independentReviewComplete = $false
+            nativeUiQualified = $false
+            productionQualified = $false
+            trustQualified = $false
+            releaseQualified = $false
+          } | ConvertTo-Json | Set-Content -Encoding utf8NoBOM (Join-Path $context 'workflow-context.json')
+      - name: Install exact Product .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: ${{ runner.temp }}/regional-observation-qualification-context/global.json
+      - name: Install pinned composition Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12'
+      - name: Run synthetic verifier regression controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'regional-observation-qualification-context'
+          $log = Join-Path $context 'admission-controls.log'
+          python -B -m unittest discover -s tests/candidates/projectide-regional-observation -p test_compose_and_verify.py -v *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content -LiteralPath $log
+          if ($controlsExitCode -ne 0) { throw 'Regional observation synthetic verifier controls failed' }
+      - name: Run exact independent source and real compiled xUnit controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -B tests/candidates/projectide-regional-observation/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/regional-observation-qualification-product" --evidence "$env:RUNNER_TEMP/regional-observation-qualification-evidence"
+          if ($LASTEXITCODE -ne 0) { throw 'Regional observation independent synthetic qualification did not complete' }
+      - name: Retain original source, TRX and compiled discovery receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: regional-observation-qualification-windows-latest-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/regional-observation-qualification-context
+            ${{ runner.temp }}/regional-observation-qualification-evidence
+          if-no-files-found: error
+          retention-days: 7
