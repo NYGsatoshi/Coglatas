@@ -451,4 +451,32 @@ describe('Current bundle ownership and non-destructive discovery Source', () => 
     expect(inventory).toMatchObject({ state: 'Ready', discoveredTests: 2 }); expect(store.localTests()).toBeNull();
     for (const row of inventory.tests) { expect(await store.navigateDiscoveredTest(row)).toBe(true); expect(store.sourceLocation()).toEqual(row.location); }
   });
+
+  it('rejects coordinated plan and retained-roster forgery after binding exhaustion', async () => {
+    const value = current('tests-discovery-unavailable'); const p = value.localProjectTestDiscovery; const plan = JSON.parse(p.plan.text);
+    const declaration = value.declarations.find((d: { kind: string }) => d.kind === 'coglatas.project-test');
+    expect(p.binding.retainedTests).toHaveLength(0); expect(value.semanticInspection).toBeNull();
+    plan.tests = [{ declarationDigest: hash('coglatas.project-test-declaration/1', p.definitions[0].text), status: declaration.status }]; plan.discoveryComplete = true;
+    p.binding.retainedTests = [{ testId: declaration.identity, decodeStatus: declaration.status }];
+    p.plan.text = JSON.stringify(plan); p.plan.digest = hash('coglatas.project-test-plan/1', p.plan.text);
+    Object.assign(p.inventory, { state: 'Ready', inputDigest: value.inputDigest, planDigest: p.plan.digest, discoveredTests: 1, bindingComplete: plan.bindingComplete, evaluatorMatches: true,
+      tests: [{ testId: declaration.identity, location: declaration.location, displayName: declaration.data.displayName, decodeStatus: declaration.status, assertionCount: declaration.data.payload.assertions.length }] });
+    await expect(readLocalTestDiscovery(value)).rejects.toThrow();
+  });
+  it.each(['Invalid', 'Unsupported'])('rejects coordinated supplemental %s status without an inspection', async status => {
+    const value = asset('execution-plan-v1').cases.find((c: { key: string }) => c.key === 'tests-plan-budget-hypothesis');
+    expect(value.semanticInspection).toBeNull(); const p = value.localProjectTestDiscovery; const plan = JSON.parse(p.plan.text);
+    value.declarations.find((d: { kind: string }) => d.kind === 'coglatas.project-test').status = status;
+    p.binding.retainedTests[0].decodeStatus = status; plan.tests[0].status = status;
+    Object.assign(p.inventory.tests[0], { decodeStatus: status, assertionCount: null });
+    p.plan.text = JSON.stringify(plan); p.plan.digest = hash('coglatas.project-test-plan/1', p.plan.text); p.inventory.planDigest = p.plan.digest;
+    await expect(readLocalTestDiscovery(value)).rejects.toThrow();
+  });
+  it('admits independently matching retained evidence in a different order', async () => {
+    const value = current('test-assertion-navigation'); const inspection = value.semanticInspection;
+    value.localProjectTestDiscovery.binding = { inputDigest: value.inputDigest, sourceDigest: value.sourceDigest, bindingComplete: inspection.bindingComplete,
+      retainedTests: inspection.symbols.filter((s: { kind: string }) => s.kind === 'coglatas.project-test').map((s: { location: { entityId: string }; status: string }) => ({ testId: s.location.entityId, decodeStatus: s.status })).reverse(),
+      references: inspection.references.map((r: { origin: unknown; state: string; symbolKey: string | null }) => ({ origin: r.origin, state: r.state, symbolKey: r.symbolKey })) };
+    expect((await readLocalTestDiscovery(value))!.inventory).toMatchObject({ state: 'Ready', discoveredTests: 2 });
+  });
 });
