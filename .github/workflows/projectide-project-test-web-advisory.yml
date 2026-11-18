@@ -103,7 +103,10 @@ jobs:
           $context = Join-Path $env:RUNNER_TEMP 'project-test-web-context'
           $status = git -c core.autocrlf=false status --porcelain --untracked-files=all
           if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect Test checkout status' }
-          $status | Set-Content (Join-Path $context 'source-status.txt')
+          [System.IO.File]::WriteAllText(
+            (Join-Path $context 'source-status.txt'),
+            ($status -join "`n"),
+            [System.Text.UTF8Encoding]::new($false))
           if ($status) { throw 'Independent Test checkout is not clean' }
           python --version | Set-Content (Join-Path $context 'python-version.txt')
           if ($LASTEXITCODE -ne 0) { throw 'Python runtime unavailable' }
@@ -210,7 +213,10 @@ jobs:
           $context = Join-Path $env:RUNNER_TEMP 'project-test-web-context'
           $status = git -c core.autocrlf=false status --porcelain --untracked-files=all
           if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect Test checkout status' }
-          $status | Set-Content (Join-Path $context 'source-status.txt')
+          [System.IO.File]::WriteAllText(
+            (Join-Path $context 'source-status.txt'),
+            ($status -join "`n"),
+            [System.Text.UTF8Encoding]::new($false))
           if ($status) { throw 'Independent Test checkout is not clean' }
           python --version | Set-Content (Join-Path $context 'python-version.txt')
           if ($LASTEXITCODE -ne 0) { throw 'Python runtime unavailable' }
