@@ -94,6 +94,13 @@ def single_element(parent: ET.Element, name: str) -> ET.Element:
     return elements[0]
 
 
+def has_exact_historical_frame(stack: str, identity: str) -> bool:
+    """Require an exact zero-argument native method frame, not incidental prose."""
+    pattern = (r"(?m)^[ \t]*at[ \t]+" + re.escape(identity)
+               + r"\(\)(?:[ \t]+in[ \t]+[^\r\n]+)?[ \t]*\r?$")
+    return re.search(pattern, stack) is not None
+
+
 def native_inventory(path: Path, *, historical: bool = False) -> list[str]:
     """Admit the frozen raw fact identities and their complete native TRX binding."""
     trx = ET.parse(path).getroot()
@@ -128,6 +135,9 @@ def native_inventory(path: Path, *, historical: bool = False) -> list[str]:
             raise ValueError("Native TRX contains missing or unsupported inventory records")
         containers.append(children)
     cases, definitions, entries = containers
+    if any(item.find(".//{*}InnerResults") is not None
+           or item.find(".//{*}UnitTestResult") is not None for item in cases):
+        raise ValueError("Native TRX contains nested result records")
     if any(item.get("outcome") == "Passed" and item.find(".//{*}ErrorInfo") is not None for item in cases):
         raise ValueError("Native TRX passing result contains error information")
     names = [item.get("testName", "") for item in cases]
@@ -143,7 +153,7 @@ def native_inventory(path: Path, *, historical: bool = False) -> list[str]:
             error = single_element(output, "ErrorInfo")
             message = single_element(error, "Message").text or ""
             stack = single_element(error, "StackTrace").text or ""
-            if message != HISTORICAL_INVARIANT or item.get("testName", "") not in stack:
+            if message != HISTORICAL_INVARIANT or not has_exact_historical_frame(stack, item.get("testName", "")):
                 raise ValueError("Historical native failure does not identify the retained-lifetime assertion")
             verified_failures.add(item.get("testName"))
     result_pairs = [(item.get("testId"), item.get("executionId")) for item in cases]
@@ -239,6 +249,12 @@ def verify_working_tree(worktree: Path, raw: bytes, source_blob: str, *, product
         raise ValueError("Composed candidate index identity changed")
     if git(worktree, "ls-files", "--stage", "--", DESTINATION) != "100644 " + source_blob + " 0\t" + DESTINATION:
         raise ValueError("Composed candidate index mode or stage changed")
+    # Inspect NUL-delimited tracked path flags before trusting cached/working diffs.
+    flags = command(["git", "-c", "core.autocrlf=false", "ls-files", "-v", "-z", "--"],
+                    worktree, preserve_output=True)
+    if any(len(record) < 3 or record[1] != " " or record[0] != "H"
+           for record in flags.split("\0") if record):
+        raise ValueError("Git index flags hide tracked Product source")
     staged = git(worktree, "diff", "--cached", "--name-only", "HEAD", "--").splitlines()
     unstaged = git(worktree, "diff", "--name-only", "--").splitlines()
     if staged != [DESTINATION] or unstaged:
@@ -250,6 +266,19 @@ def verify_working_tree(worktree: Path, raw: bytes, source_blob: str, *, product
     untracked = [name for name in untracked_raw.split("\0") if name]
     if any(not (allow_generated and name.startswith(GENERATED_OUTPUT_PREFIXES)) for name in untracked):
         raise ValueError("Untracked Product source appeared during independent composition")
+
+
+SOURCE_ONLY_MSBUILD_PROPERTIES = (
+    "-p:ImportDirectoryBuildProps=false",
+    "-p:ImportDirectoryBuildTargets=false",
+)
+
+
+def source_only_dotnet(subcommand: str, *args: str) -> list[str]:
+    """Reject imports from untracked parent directories of the Product worktree."""
+    if subcommand not in ("restore", "test"):
+        raise ValueError("Unsupported native SDK action")
+    return ["dotnet", subcommand, *SOURCE_ONLY_MSBUILD_PROPERTIES, *args]
 
 
 def main() -> None:
@@ -317,17 +346,17 @@ def main() -> None:
         if sdk != "10.0.403":
             raise ValueError("Actual SDK does not match Product global.json pin")
         project = "tests/Coglatas.Tests/Coglatas.Tests.csproj"
-        command(["dotnet", "restore", project, "--nologo"], worktree, evidence / "restore.log")
+        command(source_only_dotnet("restore", project, "--nologo"), worktree, evidence / "restore.log")
         # Restore must not change the actual compiler input or any tracked Product source.
         verify_working_tree(worktree, raw, source_blob, product_head=arguments.product_head, allow_generated=True)
-        command(["dotnet", "test", project, "-c", "Release", "--no-restore", "-warnaserror",
+        command(source_only_dotnet("test", project, "-c", "Release", "--no-restore", "-warnaserror",
                  "--filter", selection,
                  "--logger", "trx;LogFileName=candidate.trx",
-                 "--results-directory", str(evidence)], worktree, evidence / "xunit.log", expected_exit=1 if arguments.historical else 0)
+                 "--results-directory", str(evidence)), worktree, evidence / "xunit.log", expected_exit=1 if arguments.historical else 0)
         verify_working_tree(worktree, raw, source_blob, product_head=arguments.product_head, allow_generated=True)
         names = native_inventory(evidence / "candidate.trx", historical=arguments.historical)
-        discovery = command(["dotnet", "test", project, "-c", "Release", "--no-build",
-                             "--list-tests", "--filter", selection],
+        discovery = command(source_only_dotnet("test", project, "-c", "Release", "--no-build",
+                             "--list-tests", "--filter", selection)
                             worktree, evidence / "compiled-discovery.log", preserve_output=True)
         if compiled_inventory(discovery, historical=arguments.historical) != names:
             raise ValueError("Original native TRX and compiled discovery identities differ")
