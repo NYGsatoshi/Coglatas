@@ -402,4 +402,53 @@ describe('Current bundle ownership and non-destructive discovery Source', () => 
       if (key === 'tests-graph-base') expect(store.localTests()).toBe(failed); prior = current;
     }
   });
+
+  it.each(['Invalid', 'Unsupported'])('rejects explicit retained %s state conflicting with the same Core inspection', async status => {
+    const value = current('tests-pass'); const p = value.localProjectTestDiscovery; const inspection = value.semanticInspection;
+    p.binding = { inputDigest: value.inputDigest, sourceDigest: value.sourceDigest, bindingComplete: inspection.bindingComplete,
+      retainedTests: inspection.symbols.filter((s: { kind: string }) => s.kind === 'coglatas.project-test').map((s: { location: { entityId: string } }) => ({ testId: s.location.entityId, decodeStatus: status })),
+      references: inspection.references.map((r: { origin: unknown; state: string; symbolKey: string | null }) => ({ origin: r.origin, state: r.state, symbolKey: r.symbolKey })) };
+    const plan = JSON.parse(p.plan.text); plan.tests[0].status = status;
+    value.declarations.find((d: { kind: string }) => d.kind === 'coglatas.project-test').status = status;
+    Object.assign(p.inventory.tests[0], { decodeStatus: status, assertionCount: null });
+    p.plan.text = JSON.stringify(plan); p.plan.digest = hash('coglatas.project-test-plan/1', p.plan.text); p.inventory.planDigest = p.plan.digest;
+    await expect(readLocalTestDiscovery(value)).rejects.toThrow();
+  });
+  it.each([false, true])('settles superseded definition navigation after proof failure=%s', async failProof => {
+    const store = await ready('simulation-v1', 'tests-simulation-root-base'); const row = store.localTestDiscovery()!.inventory.tests[0];
+    const task = store.context()!.declarations.find(d => d.kind === 'coglatas.task')!;
+    if (task.recordType !== 'entity') throw new Error('Expected actual Task');
+    expect(store.select({ kind: 'entity', id: task.identity })).toBe(true);
+    const original = crypto.subtle.digest.bind(crypto.subtle); let release!: () => void; let entered!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; }); const began = new Promise<void>(resolve => { entered = resolve; });
+    vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(async (algorithm, value) => { entered(); await gate; return failProof ? new ArrayBuffer(32) : original(algorithm, value); });
+    const pending = store.navigateDiscoveredTest(row); await began; expect(store.testDiscoveryNavigationState()).toBe('loading');
+    expect(store.navigate()).toBe(false); const selection = store.selection(); release(); expect(await pending).toBe(false);
+    expect(store.testDiscoveryNavigationState()).toBe('idle'); expect(store.selection()).toBe(selection);
+  });
+  it('settles a definition action abandoned by its focus owner', async () => {
+    const store = await ready('simulation-v1', 'tests-simulation-root-base'); const row = store.localTestDiscovery()!.inventory.tests[0];
+    const original = crypto.subtle.digest.bind(crypto.subtle); let release!: () => void; let entered!: () => void; let current = true;
+    const gate = new Promise<void>(resolve => { release = resolve; }); const began = new Promise<void>(resolve => { entered = resolve; });
+    vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(async (algorithm, value) => { entered(); await gate; return original(algorithm, value); });
+    const pending = store.navigateDiscoveredTest(row, () => current); await began; current = false; release();
+    expect(await pending).toBe(false); expect(store.testDiscoveryNavigationState()).toBe('idle'); expect(store.sourceTarget()).toBeNull();
+  });
+  it('does not settle a newer definition attempt when the older attempt completes', async () => {
+    const store = await ready('simulation-v1', 'tests-simulation-root-base'); const row = store.localTestDiscovery()!.inventory.tests[0];
+    const original = crypto.subtle.digest.bind(crypto.subtle); let releaseOld!: () => void; let releaseNew!: () => void; let enteredOld!: () => void; let enteredNew!: () => void;
+    const oldGate = new Promise<void>(resolve => { releaseOld = resolve; }); const newGate = new Promise<void>(resolve => { releaseNew = resolve; });
+    const oldBegan = new Promise<void>(resolve => { enteredOld = resolve; }); const newBegan = new Promise<void>(resolve => { enteredNew = resolve; });
+    vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(async (algorithm, value) => { enteredOld(); await oldGate; return original(algorithm, value); })
+      .mockImplementationOnce(async (algorithm, value) => { enteredNew(); await newGate; return original(algorithm, value); });
+    const older = store.navigateDiscoveredTest(row); await oldBegan; const newer = store.navigateDiscoveredTest(row); await newBegan;
+    releaseOld(); expect(await older).toBe(false); expect(store.testDiscoveryNavigationState()).toBe('loading');
+    releaseNew(); expect(await newer).toBe(true); expect(store.testDiscoveryNavigationState()).toBe('ready'); expect(store.sourceLocation()).toEqual(row.location);
+  });
+
+  it.each(['root-diagnostic-premises', 'predicate-recordings', 'operator-recordings', 'pass-recordings'])('lists both original Test definitions in the served %s profile', async profile => {
+    const store = await ready(profile + '-v1', 'test-assertion-navigation'); const inventory = store.localTestDiscovery()!.inventory;
+    expect(inventory).toMatchObject({ state: 'Ready', discoveredTests: 2 }); expect(store.localTests()).toBeNull();
+    for (const row of inventory.tests) { expect(await store.navigateDiscoveredTest(row)).toBe(true); expect(store.sourceLocation()).toEqual(row.location); }
+  });
 });

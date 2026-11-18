@@ -82,17 +82,19 @@ export async function readLocalTestDiscovery(current: PreviewCase): Promise<Admi
   if (value.semanticInspection && (value.semanticInspection.compilerInputId !== value.inputId ||
       !equal(value.semanticInspection.inputDigest, value.inputDigest) || !equal(value.semanticInspection.sourceDigest, value.sourceDigest) ||
       !equal(value.semanticInspection.context, value.context))) return fail();
-  const binding = data.binding ?? (value.semanticInspection ? {
+  const inspectionBinding = value.semanticInspection ? {
     inputDigest: value.inputDigest, sourceDigest: value.sourceDigest,
     bindingComplete: value.semanticInspection.bindingComplete,
     retainedTests: value.semanticInspection.symbols.filter(item => item.kind === 'coglatas.project-test' && sameContext(item.location.context, value.context))
       .map(item => ({ testId: item.location.entityId, decodeStatus: item.status })),
     references: value.semanticInspection.references.map(item => ({ origin: item.origin, state: item.state, symbolKey: item.symbolKey }))
-  } : fail());
+  } : null;
+  const binding = data.binding ?? inspectionBinding ?? fail();
   if (!bindingEvidence(binding) || !equal(binding.inputDigest, value.inputDigest) || !equal(binding.sourceDigest, value.sourceDigest) ||
       binding.bindingComplete !== plan['bindingComplete'] || !equal(binding.references, plan['references'])) return fail();
-  if (value.semanticInspection && (binding.bindingComplete !== value.semanticInspection.bindingComplete ||
-      !equal(binding.references, value.semanticInspection.references.map(item => ({ origin: item.origin, state: item.state, symbolKey: item.symbolKey }))))) return fail();
+  const orderedTests = (tests: DiscoveryBinding['retainedTests']) => [...tests].sort((a, b) => a.testId < b.testId ? -1 : a.testId > b.testId ? 1 : 0);
+  if (inspectionBinding && (!bindingEvidence(inspectionBinding) || binding.bindingComplete !== inspectionBinding.bindingComplete ||
+      !equal(binding.references, inspectionBinding.references) || !equal(orderedTests(binding.retainedTests), orderedTests(inspectionBinding.retainedTests)))) return fail();
   const snapshotsComplete = await readSnapshotMaterialization(value);
   if (binding.bindingComplete && !snapshotsComplete) return fail();
   const contexts: PreviewCase['context'][] = [value.context];

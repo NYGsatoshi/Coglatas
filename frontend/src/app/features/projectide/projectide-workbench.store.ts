@@ -999,6 +999,7 @@ export class ProjectIdeWorkbenchStore {
     this.choose(result.after.key); this.loadResult(); return true;
   }
   private testDiscoveryGeneration = 0;
+  private testDiscoveryNavigationIntent: number | null = null;
   readonly testDiscoveryReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable' | 'unsupported'>('idle');
   readonly testDiscoveryNavigationState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
   private readonly testDiscoverySnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedProjectTestDiscovery; sourceMap: PreviewCase['sourceMap']; source: PreviewCase['source']; manifest: PreviewCase['manifest']; declarations: PreviewCase['declarations'] } | null>(null);
@@ -1041,6 +1042,10 @@ export class ProjectIdeWorkbenchStore {
     if (!admitted || !context || !bundle || !admitted.inventory.tests.includes(test)) { this.testDiscoveryNavigationState.set('unavailable'); return false; }
     try { readPreviewBundle(bundle); } catch { this.clear('unsupported'); return false; }
     const intent = ++this.sourceIntentGeneration; this.testDiscoveryNavigationState.set('loading');
+    this.testDiscoveryNavigationIntent = intent;
+    const settleAbandoned = () => {
+      if (this.testDiscoveryNavigationIntent === intent && this.testDiscoveryNavigationState() === 'loading') this.testDiscoveryNavigationState.set('idle');
+    };
     const owns = () => isCurrent() && intent === this.sourceIntentGeneration && generation === this.testDiscoveryGeneration &&
       context === this.context() && context === this.result() && bundle === this.bundle() && bundle.cases.includes(context) && this.localTestDiscovery() === admitted;
     let proof: AdmittedScopedSources | null = null; let record: SourceRecord | null = null;
@@ -1054,10 +1059,10 @@ export class ProjectIdeWorkbenchStore {
       }
       if (!record) throw new Error('definition-source-unavailable');
     } catch {
-      if (owns()) this.testDiscoveryNavigationState.set('unavailable');
+      if (owns()) this.testDiscoveryNavigationState.set('unavailable'); else settleAbandoned();
       return false;
     }
-    if (!owns()) return false;
+    if (!owns()) { settleAbandoned(); return false; }
     // A definition target owns its proof; shared Source and recording admissions stay intact.
     this.selection.set(null); this.referenceSelection.set(null); this.scopedTarget.set(null);
     this.target.set({ record, location: test.location, context, result: context, sourceMap: context.sourceMap, discovery: { admitted, test }, scopedProof: proof ?? undefined });
@@ -1065,6 +1070,7 @@ export class ProjectIdeWorkbenchStore {
   }
   private clearLocalTestDiscovery(): void {
     if (untracked(() => this.target())?.discovery) { this.sourceIntentGeneration++; this.target.set(null); this.navigationState.set(''); }
+    this.testDiscoveryNavigationIntent = null;
     this.testDiscoveryGeneration++; this.testDiscoverySnapshot.set(null); this.testDiscoveryReadState.set('idle'); this.testDiscoveryNavigationState.set('idle');
   }
   private testGeneration = 0;
