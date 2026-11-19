@@ -160,7 +160,7 @@ class NativeInventoryControls(ExactRejection):
                         root = native_fixture()
                         parent = (root.find(NAMESPACE + "ResultSummary") if location == "summary" else
                                   root.find(NAMESPACE + "Results")[0] if location == "case" else
-                                  root.find(NAMESPACE + "TestDefinitions"))
+                                  root.find(NAMESPACE + "TestDefinitions")[0])
                         ET.SubElement(parent, namespace + name)
                         self.reject("Native TRX contains nested result records", lambda: self.read(root))
 
@@ -178,7 +178,7 @@ class NativeInventoryControls(ExactRejection):
             with self.subTest(location=location):
                 root = native_fixture()
                 parent = (root.find(NAMESPACE + "Results")[0] if location == "case" else
-                          root.find(NAMESPACE + "TestDefinitions") if location == "definitions" else root)
+                          root.find(NAMESPACE + "TestDefinitions")[0] if location == "definitions" else root)
                 nested = ET.SubElement(parent, NAMESPACE + "RunInfos")
                 ET.SubElement(nested, NAMESPACE + "RunInfo", outcome="Information")
                 self.reject("Native TRX contains errors or unsupported run information", lambda: self.read(root))
@@ -188,7 +188,7 @@ class NativeInventoryControls(ExactRejection):
             for location in ("root", "definitions"):
                 with self.subTest(namespace=namespace, location=location):
                     root = native_fixture()
-                    parent = root if location == "root" else root.find(NAMESPACE + "TestDefinitions")
+                    parent = root if location == "root" else root.find(NAMESPACE + "TestDefinitions")[0]
                     ET.SubElement(parent, namespace + "ErrorInfo")
                     self.reject("Native TRX contains errors or unsupported run information", lambda: self.read(root))
 
