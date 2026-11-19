@@ -68,8 +68,10 @@ All Source contexts, private-document names and materializations are synthetic.
 The supplied local `IsAuthorized` flag is an input admission fixture, not a
 persisted current actor/tenant authorization proof.
 
-The issue #2095 admission boundary additionally refuses nested native result
-records while preserving the complete flat roster and counters. Raw NUL-delimited
+Issue #2095 limits native result records to the direct, frozen roster. The
+reader rejects additional result records, aggregation containers and error
+information anywhere in the document. It admits native informational run
+messages under the summary and excludes other outcomes from qualification. Raw NUL-delimited
 Git index flags reject tracked changes hidden by assume-unchanged or skip-worktree
 before ordinary diffs are trusted. Restore, test and compiled discovery explicitly
 disable ancestor `Directory.Build.props` and `Directory.Build.targets` imports;
@@ -80,7 +82,7 @@ native C# execution credit; fresh hosted execution remains a separate gate.
 
 ## Verifier controls and qualification limits
 
-Nineteen Python unittest methods exercise synthetic positive TRX/discovery
+Twenty-two Python unittest methods exercise synthetic positive TRX/discovery
 inventories, exact-error negative mutations and real disposable Git
 HEAD/index/source/environment isolation. An index-only unrelated edit hidden by
 restored working bytes and an unexpected untracked C# input must both fail
