@@ -23,7 +23,7 @@ They do not execute a compiler, test manifest, simulator or comparison engine.
 | Product `CompilerInputManifest.cs` | `862bdf70c22ee3daee9ab821f7191061ed0f7a50` |
 | Product `SourceContext.cs` | `e191cc347f72c0a5e915a4b12f7239d7ca0f9081` |
 | Independent C# candidate | `abdd8eb8d2975567602d22d19f969458587b3a04` |
-| Independent composition runner | `04614357f9a534a133b0eb33445c995d3b3e4c87` |
+| Independent composition runner | `1ed0af6a743c3c98a31111861431644b1b277eb4` |
 
 The runner admits only the pinned Product commit and tree. It stages only the
 exact independent Test blob at
@@ -165,7 +165,8 @@ pointing at a different disposable repository, the old runner resolved that
 repository's HEAD despite receiving the intended checkout as its working
 directory. No Product API or existing C# test source changes in this repair.
 
-`test_compose_and_verify.py` contains **eight** regression methods. It admits
+The initial Git-isolation follow-up added **eight** regression methods, preserved
+by the current suite. They admit
 original retained native TRX/discovery before constructing fixtures, freezes
 the unchanged C# blob and method roster, reproduces the old redirect with a
 read-only unprotected Git call, and executes the actual runner's `main()`
@@ -179,10 +180,64 @@ repository before and after, including its index and object database.
 Only the controls' `dotnet` command outputs are supplied from the retained
 native inputs. These controls do **not** execute C#, add native passing cases,
 or turn retained results into fresh execution evidence. The advisory first
-runs the actual unchanged native candidate on each OS, then runs the eight
-controls with that same host's original TRX and compiled discovery. It pins
+runs the actual unchanged native candidate on each OS, then runs the preserved
+eight controls and the current bounded admission follow-up with that same host's original TRX and compiled discovery. It pins
 the controls blob and retains their log separately in the workflow context.
 
 ```text
 python -B tests/candidates/projectide-scenario-core/test_compose_and_verify.py --native-trx <original-candidate.trx> --compiled-discovery <original-compiled-discovery.log> -v
 ```
+
+## Bounded #2095 admission follow-up
+
+The current runner preserves all twenty C# facts and the same Product/source
+identities. It rejects nested TRX result records, including Passed or
+NotExecuted descendants hidden beneath an otherwise valid outer roster, and
+contradictory native error or non-informational run-level information. Original
+counter, namespace, method, identity-bijection and discovery checks remain.
+
+Raw NUL-delimited Git inventories reject `assume-unchanged` and `skip-worktree`
+before trusting tracked differences. Staged and unstaged deltas are checked
+separately. Ignored compiler inputs are included in the untracked inventory;
+after restore only the exact `bin/` and `obj/` roots of committed Product
+projects are admitted as generated output. Every restore/test/discovery
+command disables external ancestor Directory.Build props and targets; the
+frozen Product has neither committed import file.
+
+The preserved eight Git-environment methods are joined by report, disposable
+Git and SDK regression methods, for 35 controls. Synthetic reports are labeled
+as such; retained-native controls still read the host's unchanged original
+TRX/discovery. The SDK probe actually invokes restore/test/discovery against a
+separate package-free project: poisoned parent props and targets fail each
+unprotected command, and guarded commands exclude them. These probes neither
+compile Product tests nor add native passing-case credit. The advisory pins
+the current runner/control blobs and retains controls separately from the
+actual twenty hosted C# executions. Python uses isolated imports.
+
+Fresh final-head Windows/Ubuntu execution, original archive/run/job audit and
+ordinary CI remain separate requirements. Executing-workflow provenance is
+still absent for this cohort and is not inferred from the Test checkout.
+Allowed generated-output roots are not a hermetic dependency attestation.
+#1951, #1032, #907 and broader #2095 remain open; all six qualification fields
+stay false, #1144 BLOCKED, #1128 SUSPENDED/NOT_EVALUATED and Release NO_GO.
+
+Direct runner and control execution also checks each script's committed blob
+and actual unfiltered bytes immediately before isolated Python starts. The
+control invocation additionally binds the runner it imports. Three actual
+PowerShell regression methods exercise all four host/entrypoint blocks with
+working changes, changed commits, Git-normalized CRLF bytes, and local or
+PYTHONPATH import shadows. Original pinned canaries must run only after the
+specific refused input has been restored; these are bootstrap controls, not
+Product execution.
+
+## Review follow-up: admission policy and control completeness
+
+The native reader rejects `TestResultAggregation` explicitly, including empty records, alongside all nested result families. Both staged and unstaged Git path comparisons disable rename detection, so a Product deletion cannot disappear when paired with the candidate addition.
+
+Run-level admission intentionally permits only `Information` RunInfo outcomes. `Warning`, `Passed`, `Completed`, error outcomes and unknown values make the receipt incomplete even when every candidate case passes. This is a strict local admission policy, not a claim that every warning is a native test failure.
+
+Ignored and ordinary untracked source paths are refused **outside** the registered output roots. Within an allowed root, acceptance depends on the path and execution phase; it does not establish how a file was produced. In particular, an ignored C# file under a registered `obj/` root is admitted after restore. These checks do not make the build hermetic.
+
+Disposable SDK probes pin `10.0.403` with roll-forward disabled and check the selected version before creating either parent import. Their known Git fixture files are explicitly force-staged. Execution controls give each script distinct committed canary bytes and its own pin, require every role's bindings, and verify exactly which isolated canaries ran. These controls add no Product/native execution credit.
+
+The complete committed suite contains 35 unittest methods.

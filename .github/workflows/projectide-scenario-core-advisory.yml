@@ -13,8 +13,8 @@ permissions:
 env:
   PRODUCT_HEAD: ea339ed0bc094630654262ebb28568a95ba4198f
   SOURCE_BLOB: abdd8eb8d2975567602d22d19f969458587b3a04
-  RUNNER_BLOB: 04614357f9a534a133b0eb33445c995d3b3e4c87
-  CONTROLS_BLOB: 8c076a38aa9c4a4d1b71523a72eae97f93e3d52d
+  RUNNER_BLOB: 1ed0af6a743c3c98a31111861431644b1b277eb4
+  CONTROLS_BLOB: 144873e6d73be759ad6e9969b27a2b8f75b2b181
 
 concurrency:
   group: scenario-core-qualification-${{ github.event.pull_request.number }}
@@ -91,14 +91,26 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python -B tests/candidates/projectide-scenario-core/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/scenario-core-qualification-product" --evidence "$env:RUNNER_TEMP/scenario-core-qualification-evidence"
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-scenario-core/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-scenario-core/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-scenario-core/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/scenario-core-qualification-product" --evidence "$env:RUNNER_TEMP/scenario-core-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Scenario Core independent synthetic qualification did not complete' }
       - name: Exercise Git isolation over original native outputs
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $log = "$env:RUNNER_TEMP/scenario-core-qualification-context/admission-controls.log"
-          python -B tests/candidates/projectide-scenario-core/test_compose_and_verify.py --native-trx "$env:RUNNER_TEMP/scenario-core-qualification-evidence/candidate.trx" --compiled-discovery "$env:RUNNER_TEMP/scenario-core-qualification-evidence/compiled-discovery.log" -v *> $log
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-scenario-core/test_compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:CONTROLS_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-scenario-core/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:CONTROLS_BLOB) { throw 'Working execution script identity mismatch' }
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-scenario-core/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-scenario-core/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-scenario-core/test_compose_and_verify.py --native-trx "$env:RUNNER_TEMP/scenario-core-qualification-evidence/candidate.trx" --compiled-discovery "$env:RUNNER_TEMP/scenario-core-qualification-evidence/compiled-discovery.log" -v *> $log
           $result = $LASTEXITCODE
           Get-Content $log
           if ($result -ne 0) { throw 'Scenario Core Git isolation controls failed' }
@@ -184,14 +196,26 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python -B tests/candidates/projectide-scenario-core/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/scenario-core-qualification-product" --evidence "$env:RUNNER_TEMP/scenario-core-qualification-evidence"
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-scenario-core/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-scenario-core/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-scenario-core/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/scenario-core-qualification-product" --evidence "$env:RUNNER_TEMP/scenario-core-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Scenario Core independent synthetic qualification did not complete' }
       - name: Exercise Git isolation over original native outputs
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $log = "$env:RUNNER_TEMP/scenario-core-qualification-context/admission-controls.log"
-          python -B tests/candidates/projectide-scenario-core/test_compose_and_verify.py --native-trx "$env:RUNNER_TEMP/scenario-core-qualification-evidence/candidate.trx" --compiled-discovery "$env:RUNNER_TEMP/scenario-core-qualification-evidence/compiled-discovery.log" -v *> $log
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-scenario-core/test_compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:CONTROLS_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-scenario-core/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:CONTROLS_BLOB) { throw 'Working execution script identity mismatch' }
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-scenario-core/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-scenario-core/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-scenario-core/test_compose_and_verify.py --native-trx "$env:RUNNER_TEMP/scenario-core-qualification-evidence/candidate.trx" --compiled-discovery "$env:RUNNER_TEMP/scenario-core-qualification-evidence/compiled-discovery.log" -v *> $log
           $result = $LASTEXITCODE
           Get-Content $log
           if ($result -ne 0) { throw 'Scenario Core Git isolation controls failed' }
