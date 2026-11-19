@@ -16,8 +16,8 @@ The separately merged 20-fact Scenario Core cohort remains unchanged.
 - Product commit: `ea339ed0bc094630654262ebb28568a95ba4198f`.
 - Product tree: `3170396d28e390759acc454194eba411afef2749`.
 - Independent C# blob: `73969c88ae939bc805e8e853b0022ef609a58f03`.
-- Composition runner blob: `57ba12f2185d2b5e1ad927f9c168d7be0cf060fe`.
-- Verifier controls blob: `a6972cc07f5d440d72e89a94dfc7d8e02e9b3d86`.
+- Composition runner blob: `e103f47cfe3931f81a24110e0aaab54b7c2b17f5`.
+- Verifier controls blob: `d578bf71bbc4e69495c15b22704e0829567239e1`.
 - Product SDK: .NET `10.0.403`, with the original roll-forward policy.
 - Execution scope: `SYNTHETIC_RUN_COMPARISON_CORE_ONLY`.
 
@@ -78,8 +78,10 @@ materialization matches its declared pin. Compiler publication and actual plan
 production are asserted before recording. No hand-authored summary or fabricated
 recording substitutes for a genuine run in these facts.
 
-The issue #2095 admission boundary additionally refuses nested native result
-records while preserving the complete flat roster and counters. Raw NUL-delimited
+Issue #2095 limits native result records to the direct, frozen roster. The
+reader rejects additional result records, aggregation containers and error
+information anywhere in the document. It admits native informational run
+messages under the summary and excludes other outcomes from qualification. Raw NUL-delimited
 Git index flags reject tracked changes hidden by assume-unchanged or skip-worktree
 before ordinary diffs are trusted. Restore, test and compiled discovery explicitly
 disable ancestor `Directory.Build.props` and `Directory.Build.targets` imports;
@@ -96,7 +98,7 @@ and 25 rejections) and 11 actual Git/source controls. Those historical commands
 were not committed as a reusable regression suite; their counts apply only to
 that preparation, with no C# execution or native qualification claim.
 
-The committed `test_compose_and_verify.py` now supplies **17 portable unittest
+The committed `test_compose_and_verify.py` now supplies **20 portable unittest
 methods**. Synthetic 22-case TRX and discovery positives precede targeted
 counter, Execution, identity-bijection, class/method, container and raw-name
 refusals. The split-class/dotted-method control preserves the concatenated full
