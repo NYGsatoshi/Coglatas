@@ -165,3 +165,14 @@ paths beneath an external temporary parent.
 ## Whole-document native TRX admission (#2095)
 
 The independent reader rejects all result records outside the counted direct native test rows, including extension-namespace and aggregated records anywhere in the TRX. It refuses unbound error information and only admits informational RunInfo records directly under the native ResultSummary/RunInfos path. Counter totals alone are not evidence that every result in the document passed. The synthetic controls exercise these refusal cases; original C# identities and qualification flags remain unchanged.
+
+## Exact isolated Python admission (#2095)
+
+Both OS jobs preserve the original twenty-four compiled Core/CLI C# facts,
+thirty-five genuine CLI invocations, immutable Product source, original raw
+results and all six false qualification flags. The pre-execution provenance
+verifier, provenance controls, candidate controls and native runner now bind
+committed and unfiltered working Git bytes before isolated `python -I -B`
+loading. The controls include actual uppercase Windows-cache refusals and a
+hostile PYTHONPATH canary. Historical receipts remain source-specific; this
+change cannot qualify user authority, Native UI, Trust, Production or Release.
