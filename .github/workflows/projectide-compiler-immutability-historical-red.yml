@@ -25,7 +25,8 @@ jobs:
       VULNERABLE_PRODUCT_HEAD: 2b2c86a447779c2d9d19e4b88f1274a70737d54e
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
       SOURCE_BLOB: 067043361a2e7a83613886234e1afc0b499d70e9
-      RED_RUNNER_BLOB: acd00c742086151dfcaf54bc25765cc9cfb25aa2
+      RED_RUNNER_BLOB: 87ad90e659408eec11ef188a86fd52dfc0b86874
+      RED_CONTROLS_BLOB: e6d76f125b65148ebf5e9beaaa244449b1b6343d
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
@@ -50,6 +51,8 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $case -ne $env:SOURCE_BLOB) { throw 'Historical Test source blob mismatch' }
           $runner = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/replay_vulnerable.py'
           if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RED_RUNNER_BLOB) { throw 'Historical replay runner blob mismatch' }
+          $controls = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/test_replay_vulnerable.py'
+          if ($LASTEXITCODE -ne 0 -or $controls -ne $env:RED_CONTROLS_BLOB) { throw 'Historical replay controls blob mismatch' }
           git cat-file -e "$($env:VULNERABLE_PRODUCT_HEAD)^{commit}"
           if ($LASTEXITCODE -ne 0) {
             # A historical commit is not necessarily reachable from advertised branch tips.
@@ -69,6 +72,7 @@ jobs:
             vulnerableProductHead = $env:VULNERABLE_PRODUCT_HEAD
             sourceBlob = $case
             replayRunnerBlob = $runner
+            replayControlsBlob = $controls
             runnerOs = $env:RUNNER_OS
             runId = '${{ github.run_id }}'
             runAttempt = '${{ github.run_attempt }}'
@@ -92,8 +96,29 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python -B tests/candidates/projectide-compiler-immutability/replay_vulnerable.py --vulnerable-head $env:VULNERABLE_PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/historical-compiler-product" --evidence "$env:RUNNER_TEMP/historical-compiler-evidence"
+          $committed = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/replay_vulnerable.py'
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RED_RUNNER_BLOB) { throw 'Python executable committed blob mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-compiler-immutability/replay_vulnerable.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RED_RUNNER_BLOB) { throw 'Python executable working bytes mismatch' }
+          python -I -B tests/candidates/projectide-compiler-immutability/replay_vulnerable.py --vulnerable-head $env:VULNERABLE_PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/historical-compiler-product" --evidence "$env:RUNNER_TEMP/historical-compiler-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Actual historical RED outcome was not independently qualified' }
+      - name: Exercise historical admission regressions over original native outputs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $log = "$env:RUNNER_TEMP/historical-compiler-context/admission-controls.log"
+          $committed = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/replay_vulnerable.py'
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RED_RUNNER_BLOB) { throw 'Python executable committed blob mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-compiler-immutability/replay_vulnerable.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RED_RUNNER_BLOB) { throw 'Python executable working bytes mismatch' }
+          $committed = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/test_replay_vulnerable.py'
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RED_CONTROLS_BLOB) { throw 'Python executable committed blob mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-compiler-immutability/test_replay_vulnerable.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RED_CONTROLS_BLOB) { throw 'Python executable working bytes mismatch' }
+          python -I -B tests/candidates/projectide-compiler-immutability/test_replay_vulnerable.py --native-trx "$env:RUNNER_TEMP/historical-compiler-evidence/historical-red.trx" --compiled-discovery "$env:RUNNER_TEMP/historical-compiler-evidence/compiled-discovery.log" -v *> $log
+          $result = $LASTEXITCODE
+          Get-Content $log
+          if ($result -ne 0) { throw 'Historical native evidence admission controls failed' }
       - name: Retain original negative TRX and source/receipt hashes
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
