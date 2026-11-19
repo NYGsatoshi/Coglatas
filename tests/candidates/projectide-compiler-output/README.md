@@ -19,7 +19,7 @@ snapshot queries on that accepted compilation through public APIs.
   facts**. The original eleven method identities, bodies and helpers remain
   byte-for-byte intact from Test blob
   `a7832c98fcded823532b974eee11b74168ddfbf2`.
-- Independent composition runner `04d0959a5d0d492217acedccb189f667b8bdcadc`
+- Independent composition runner `bdbbe91e7f646a147faabe721830536572b8a077`
   (current Security Test-owner runner model). The runner stages **only** the
   original exact Test blob into a detached, clean Product worktree, verifies
   the actual source bytes, Git index identity, Product HEAD and unrelated
@@ -111,7 +111,7 @@ repairs two malformed-input admissions in the original #2055 runner:
   even when the first container retains all 35 valid passing facts.
 
 `test_compose_and_verify.py` requires retained native TRX and compiled discovery
-inputs. Its 21 controls include the unchanged authentic positive and both
+inputs. Its current 34 controls include the unchanged authentic positive and both
 counterexamples, namespace and complete-inventory refusals, native identity
 bijection, counter and discovery failures, and real temporary Git/worktree
 composition boundaries. Only the `dotnet` outputs in the temporary main-path
@@ -173,3 +173,32 @@ Repeat on a fresh checkout with the immutable Product commit available:
 ```text
 python -B tests/candidates/projectide-compiler-output/compose_and_verify.py --product-head d570a6727b5e5af5c8902c1bf2d0575c66c29143 --worktree <fresh-product-path> --evidence <fresh-evidence-path>
 ```
+
+
+## Shared admission boundary follow-up (#2095)
+
+The unchanged 35 C# facts now run behind complete nested-result admission checks,
+including records hidden outside the direct Results container. Passing counters
+cannot conceal run-level errors. Binary NUL-delimited Git checks reject both
+`assume-unchanged` and `skip-worktree`, independently compare staged and unstaged
+Product changes, and reject ignored as well as ordinary untracked inputs.
+After restore, only `bin/` and `obj/` roots beside committed Product projects
+are admitted as generated output; arbitrary nested or unregistered output names
+remain rejected. The fixed Product tree contains no tracked Directory.Build
+props/targets. Every restore, test and discovery call suppresses ancestor imports.
+
+Both workflow launch blocks independently check committed and actual Python
+bytes with `git hash-object --no-filters` immediately before isolated Python
+execution. Controls exercise the real PowerShell launch blocks with changed
+working, normalized CRLF and committed bytes and a neighboring import shadow.
+A disposable real SDK project demonstrates poisoned ancestor imports failing
+without the switches and succeeding with them. This SDK control executes no
+Product xUnit. Native candidate totals remain exactly 35 on each hosted OS.
+The newline-filename Git control is explicitly skipped on Windows, whose
+filesystem forbids that fixture; all other Python controls remain required.
+
+This cohort has no shared provenance helper. The advisory still does not retain
+an executing-workflow provenance receipt; independent original API/job/archive
+and source review remains necessary. Generated output admission is not continuous
+build attestation, package provenance, Product authorization, or permission to
+close the broader #2095 inventory. All six qualification fields remain false.
