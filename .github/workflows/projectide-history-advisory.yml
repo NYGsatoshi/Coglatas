@@ -13,8 +13,8 @@ permissions:
 env:
   PRODUCT_HEAD: ea339ed0bc094630654262ebb28568a95ba4198f
   SOURCE_BLOB: 8ddbb5b95651fb6a3ba68f1d6db67f6421dac9df
-  RUNNER_BLOB: 6230ca0a40c5b5f384cd4078f1c534fe8425c4b7
-  CONTROLS_BLOB: ff688f47ec3d2a1abe1a41b0f346cbd867e817f6
+  RUNNER_BLOB: 746d05e10c5808219b2e280cd626106e4918ab8c
+  CONTROLS_BLOB: 010f9791df5edee780a8982e4a8cde09f44da6be
 
 concurrency:
   group: history-qualification-${{ github.event.pull_request.number }}
@@ -93,7 +93,15 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $context = Join-Path $env:RUNNER_TEMP 'history-qualification-context'
           $log = Join-Path $context 'admission-controls.log'
-          python -B -m unittest discover -s tests/candidates/projectide-history -p test_compose_and_verify.py -v *> $log
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-history/test_compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:CONTROLS_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters 'tests/candidates/projectide-history/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:CONTROLS_BLOB) { throw 'Working execution script identity mismatch' }
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-history/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters 'tests/candidates/projectide-history/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-history/test_compose_and_verify.py -v *> $log
           $controlsExitCode = $LASTEXITCODE
           Get-Content -LiteralPath $log
           if ($controlsExitCode -ne 0) { throw 'History synthetic verifier controls failed' }
@@ -101,7 +109,11 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python -B tests/candidates/projectide-history/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/history-qualification-product" --evidence "$env:RUNNER_TEMP/history-qualification-evidence"
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-history/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters 'tests/candidates/projectide-history/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-history/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/history-qualification-product" --evidence "$env:RUNNER_TEMP/history-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'History independent synthetic qualification did not complete' }
       - name: Retain original source, TRX and compiled discovery receipts
         if: always()
@@ -187,7 +199,15 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $context = Join-Path $env:RUNNER_TEMP 'history-qualification-context'
           $log = Join-Path $context 'admission-controls.log'
-          python -B -m unittest discover -s tests/candidates/projectide-history -p test_compose_and_verify.py -v *> $log
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-history/test_compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:CONTROLS_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters 'tests/candidates/projectide-history/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:CONTROLS_BLOB) { throw 'Working execution script identity mismatch' }
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-history/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters 'tests/candidates/projectide-history/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-history/test_compose_and_verify.py -v *> $log
           $controlsExitCode = $LASTEXITCODE
           Get-Content -LiteralPath $log
           if ($controlsExitCode -ne 0) { throw 'History synthetic verifier controls failed' }
@@ -195,7 +215,11 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python -B tests/candidates/projectide-history/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/history-qualification-product" --evidence "$env:RUNNER_TEMP/history-qualification-evidence"
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-history/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters 'tests/candidates/projectide-history/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-history/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/history-qualification-product" --evidence "$env:RUNNER_TEMP/history-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'History independent synthetic qualification did not complete' }
       - name: Retain original source, TRX and compiled discovery receipts
         if: always()
