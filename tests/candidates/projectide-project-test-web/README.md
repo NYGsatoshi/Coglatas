@@ -133,3 +133,14 @@ original source and Product pins.
 The additional provenance controls grant no native execution or qualification
 credit. Earlier receipts remain unchanged with the precise limitation documented
 in that contract; they are never retroactively restamped.
+
+## Isolated Angular advisory Python execution (#2095)
+
+The previously frozen Angular fixture, immutable Product source, original Vitest
+report, tenet/session-neutral synthetic receipt controls, and all six false
+qualification flags remain unchanged. Both host jobs now verify exact committed
+Git objects and unfiltered working script bytes before running provenance tests,
+Angular composition or strict retained-report admission. Python `-I -B` plus
+explicit provenance control loading replaces search-path-mutating discovery.
+Portable refusal controls exercise uppercase Windows cache aliases and a real
+hostile PYTHONPATH canary without running new Product or Angular code.
