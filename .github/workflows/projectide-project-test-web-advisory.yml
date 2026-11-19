@@ -17,7 +17,7 @@ env:
   PRODUCT_HEAD: 09347c1113f5f9c007bbbc5052278d5b5151feb5
   ANGULAR_BLOB: a3e91af4d3e97a0671761b3a3affe78b63484c60
   RUNNER_BLOB: ed61aa9b1a77b91946eebd25b582f1b9e9c28c80
-  CONTROLS_BLOB: 02a766ea433107240bcef18faa0c89ab51a7fded
+  CONTROLS_BLOB: f07711b61a7982dcb190c246f13ba1dc07e1c33d
 
 concurrency:
   group: project-test-web-${{ github.event.pull_request.number }}

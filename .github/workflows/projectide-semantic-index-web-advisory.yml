@@ -17,7 +17,7 @@ env:
   PRODUCT_HEAD: 09347c1113f5f9c007bbbc5052278d5b5151feb5
   SOURCE_BLOB: 45213690098c1ae4fc2b79b4eedb1432844a07f9
   RUNNER_BLOB: 23728902ccc211fd801220382be41ad76377048a
-  CONTROLS_BLOB: b224dbb2374b81861fb7103847e164a38c2fdcf3
+  CONTROLS_BLOB: 5cfba67aa53ea196d297e867c1e9f595cb9310f1
 
 concurrency:
   group: semantic-index-web-${{ github.event.pull_request.number }}

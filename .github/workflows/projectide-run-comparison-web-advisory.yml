@@ -14,7 +14,7 @@ env:
   PRODUCT_HEAD: 09347c1113f5f9c007bbbc5052278d5b5151feb5
   ANGULAR_BLOB: f4271b707d98b1d49d0d63e5e9a3cb9a7ec1bfe3
   RUNNER_BLOB: cfa27e1aaf1a1116dbc6cd332313da6080d9196e
-  CONTROLS_BLOB: 0d58d9ca7938e93e621058c93e189cacffd196b2
+  CONTROLS_BLOB: be727a5612e6e9fe3e2b70fdb058798abb11e211
 
 concurrency:
   group: run-comparison-web-${{ github.event.pull_request.number }}

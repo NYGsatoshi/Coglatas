@@ -16,7 +16,7 @@ env:
   PROVENANCE_CONTROLS_BLOB: c9f7ec729870758b86b21f806423ce1bb726933c
   SOURCE_BLOB: a61a5f0fe947c251830cfd097ed6ccf128b07b11
   RUNNER_BLOB: 56ce0926cb6d87babd0d37356eab14cd88dec657
-  CONTROLS_BLOB: 1b7a20e8d77635e8cfb881e924c328b3f831e110
+  CONTROLS_BLOB: 9124838eab1b43ac735eaa451431430e19e72169
 
 concurrency:
   group: reference-cache-qualification-${{ github.event.pull_request.number }}

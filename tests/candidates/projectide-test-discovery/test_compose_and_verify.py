@@ -53,7 +53,7 @@ class WorkflowPythonIsolationControls(unittest.TestCase):
             matches = [block for block in guarded if block.startswith(title + "\n")]
             self.assertEqual(2, len(matches), title)
             for block in matches:
-                found = re.findall(r"@\{ Path = '([^']+)'; Sha = \$env:([A-Z_]+) \}", block)
+                found = [list(entry) for entry in re.findall(r"@\{ Path = '([^']+)'; Sha = \$env:([A-Z_]+) \}", block)]
                 self.assertEqual(pairs, found)
                 first_interpreter = block.index("python -I -B")
                 for required in (
