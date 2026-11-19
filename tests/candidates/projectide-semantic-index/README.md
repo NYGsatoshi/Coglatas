@@ -103,7 +103,12 @@ exact class and bare method names, unique test and execution IDs, complete
 identity bijections, and the identical compiled discovery roster. Duplicate,
 foreign, aliased, unsupported or additional records fail admission.
 
-The committed **16 Python unittest methods** run synthetic TRX/discovery
+The full report is checked for extra native result records, inner result
+collections and result aggregations. An ErrorInfo anywhere is contradictory.
+Only informational RunInfo entries in the native summary's RunInfos collection
+are admitted. A warning leaves this passing-only cohort unqualified.
+
+The committed Python unittest methods run synthetic TRX/discovery
 positives and exact-error negative controls, plus real disposable Git source,
 HEAD, index, unrelated-source and hostile-environment controls. The two added
 source-inventory controls reproduce an unrelated staged-only Product change

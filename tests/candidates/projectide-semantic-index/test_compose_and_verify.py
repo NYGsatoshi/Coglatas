@@ -74,6 +74,44 @@ class NativeInventoryControls(ExactRejection):
                 ET.SubElement(inner, NAMESPACE + "UnitTestResult", outcome=outcome)
                 self.reject("Native TRX contains nested result records", lambda: self.read(root))
 
+    def test_only_direct_cases_may_contribute_result_records(self) -> None:
+        for namespace in (NAMESPACE, "{urn:extension}", ""):
+            for name in ("UnitTestResult", "GenericTestResult", "InnerResults", "TestResultAggregation"):
+                for location in ("summary", "case"):
+                    with self.subTest(namespace=namespace, name=name, location=location):
+                        root = native_fixture()
+                        parent = (root.find(NAMESPACE + "ResultSummary") if location == "summary"
+                                  else root.find(NAMESPACE + "Results")[0])
+                        ET.SubElement(parent, namespace + name)
+                        self.reject("Native TRX contains nested result records", lambda: self.read(root))
+
+    def test_informational_summary_messages_preserve_the_roster(self) -> None:
+        root = native_fixture()
+        infos = ET.SubElement(root.find(NAMESPACE + "ResultSummary"), NAMESPACE + "RunInfos")
+        ET.SubElement(infos, NAMESPACE + "RunInfo", outcome="Information")
+        self.assertEqual(IDENTITIES, self.read(root))
+
+    def test_contradictory_or_unbound_diagnostics_are_rejected(self) -> None:
+        for name, namespace, location, outcome in (
+            ("ErrorInfo", NAMESPACE, "summary", None),
+            ("ErrorInfo", "{urn:extension}", "case", None),
+            ("RunInfo", NAMESPACE, "summary", None),
+            ("RunInfo", NAMESPACE, "summary", "Error"),
+            ("RunInfo", NAMESPACE, "summary", "Warning"),
+            ("RunInfo", NAMESPACE, "case", "Information"),
+            ("RunInfo", "{urn:extension}", "summary", "Information"),
+        ):
+            with self.subTest(name=name, namespace=namespace, location=location, outcome=outcome):
+                root = native_fixture()
+                parent = (root.find(NAMESPACE + "ResultSummary") if location == "summary"
+                          else root.find(NAMESPACE + "Results")[0])
+                if name == "RunInfo":
+                    parent = ET.SubElement(parent, NAMESPACE + "RunInfos")
+                record = ET.SubElement(parent, namespace + name)
+                if outcome is not None:
+                    record.set("outcome", outcome)
+                self.reject("Native TRX contains errors or unsupported run information", lambda: self.read(root))
+
     def test_complete_native_shape_and_discovery_match(self) -> None:
         self.assertEqual(IDENTITIES, self.read(native_fixture()))
         for newline in ("\n", "\r\n"):
