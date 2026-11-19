@@ -24,8 +24,8 @@ distinct from durable transaction atomicity.
 | Product shared `ProjectDraftRename.cs` transition | `fb998c7ee934ef39c577f0f677eabcc3f7d81156` |
 | Product `ProjectSourceCodec.cs` | `b0c3323032d708f18fc65acc9a9bb15419b4a99f` |
 | Independent C# candidate | `8ddbb5b95651fb6a3ba68f1d6db67f6421dac9df` |
-| Independent composition runner | `d290959313bf3075f80d86846a2a2fcae16d984e` |
-| Committed verifier controls | `e336d5a55ee56bf5e7629ae9efa3fc6065e42126` |
+| Independent composition runner | `51cbe89f2a20c659848981cc3efd5d97d12cfeff` |
+| Committed verifier controls | `f442480744b64a409ae17c0935a3f08093caadac` |
 
 The runner stages only the exact independent Test blob at
 `tests/Coglatas.Tests/ProjectIde/SecurityProjectHistoryCandidateTests.cs` in a
@@ -175,10 +175,12 @@ python -B tests/candidates/projectide-history/compose_and_verify.py --product-he
 ## Shared evidence admission follow-up (#2095)
 
 The unchanged native candidate and immutable Product pin retain their original
-execution scope. Native admission now rejects every nested result record,
-including Passed or NotExecuted copies under otherwise complete passing outer
-metadata, and refuses ErrorInfo or non-informational RunInfo records. Copied
-report controls preserve the authentic outer names, counters and identities.
+execution scope. Native admission rejects every InnerResults container and
+every XML record whose local name ends in TestResult outside the exact direct
+inventory. This includes Passed or NotExecuted GenericTestResult copies beneath
+cases, summaries or definitions with otherwise complete passing outer metadata.
+It also refuses ErrorInfo or non-informational RunInfo records. Copied-report
+controls preserve the authentic outer names, counters and identities.
 
 Before relying on a Product diff, every composition check reads NUL-delimited
 Git path/index records as raw bytes and rejects assume-unchanged, skip-worktree
