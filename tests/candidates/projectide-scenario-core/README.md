@@ -241,3 +241,7 @@ Ignored and ordinary untracked source paths are refused **outside** the register
 Disposable SDK probes pin `10.0.403` with roll-forward disabled and check the selected version before creating either parent import. Their known Git fixture files are explicitly force-staged. Execution controls give each script distinct committed canary bytes and its own pin, require every role's bindings, and verify exactly which isolated canaries ran. These controls add no Product/native execution credit.
 
 The complete committed suite contains 35 unittest methods.
+
+## Native TRX run-message boundary (#2095)
+
+Only an informational RunInfo inside one native ResultSummary/RunInfos container qualifies for the original Scenario Core result roster. Out-of-scope, foreign-namespace, duplicate or unknown child run messages, and any error/warning evidence, are refused even when the frozen twenty C# candidate facts have passing counters. This only strengthens independent advisory evidence admission; the Product, C# source and six false qualification flags are unchanged.

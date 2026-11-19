@@ -17,8 +17,8 @@ env:
   PRODUCT_HEAD: 8d2346890f0a89bac4c887dc262d25bc33d11508
   CSHARP_BLOB: 58a57ad5afbac3723cac307473f22dea86534b41
   ANGULAR_BLOB: e956562c1a1aa160c303bf8827d3c7146e0c4589
-  RUNNER_BLOB: c02444ed9ced53237411046b0884bc37bb3d6cfd
-  CONTROLS_BLOB: a44a1d47691429fbecbaa4bec79b820cab31d7a5
+  RUNNER_BLOB: 433ca5cc9d1408813ab08cbec9e25bc9b67d7511
+  CONTROLS_BLOB: 7893c3a913d357b3ba9aa677a9c57e07a290f0ca
 
 concurrency:
   group: inspector-composition-${{ github.event.pull_request.number }}

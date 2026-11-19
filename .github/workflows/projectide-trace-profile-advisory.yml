@@ -13,8 +13,8 @@ permissions:
 env:
   PRODUCT_HEAD: ea339ed0bc094630654262ebb28568a95ba4198f
   SOURCE_BLOB: aa5420d0237cbba892983ad627997e1676c45286
-  RUNNER_BLOB: e1a984b65fea03533f32d6faee18111f5bccd2a9
-  CONTROLS_BLOB: e08d563ed9477e87f1374af09d1dae94ddfd8be7
+  RUNNER_BLOB: 2db8d8852b5cf3317fdebd7d612e8b8393a09a4a
+  CONTROLS_BLOB: d313cb109bd75a15b2de46e2dc206265a5e806fc
 
 concurrency:
   group: trace-profile-qualification-${{ github.event.pull_request.number }}

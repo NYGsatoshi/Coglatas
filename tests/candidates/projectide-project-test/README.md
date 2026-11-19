@@ -184,3 +184,7 @@ from the unchanged native suite and fresh hosted Windows/Ubuntu execution.
 All six broader qualification flags remain false. Complete shared #2095
 acceptance, current authority, Native UI, production and Release qualification
 remain open; #1144 stays BLOCKED, #1128 SUSPENDED / NOT_EVALUATED and Release NO_GO.
+
+## Whole-document RunInfo admission (#2095)
+
+Only `Information` RunInfo records directly under the native `ResultSummary/RunInfos` are admitted alongside the frozen twelve C# Project Test facts. Extra or misplaced RunInfos, duplicate native containers, unsupported children and extension-namespace records are rejected regardless of passing TRX counters. The original Product/source SHA and all six false qualification flags are unchanged; this is security evidence hardening, not release or Product qualification.
