@@ -2,7 +2,8 @@ import { I18nService } from '../../../core/i18n/i18n.service';
 import { TestBed } from '@angular/core/testing';
 
 import { TaskGridRow } from '../projects.types';
-import { TaskTableComponent } from './task-table.component';
+import { TaskStageCategoryCellComponent, TaskTableComponent } from './task-table.component';
+import { taskStageWorkStatus } from '../projects.mapper';
 
 beforeEach(() => localStorage.setItem('coglatas.locale', 'en'));
 
@@ -94,6 +95,143 @@ describe('TaskTableComponent', () => {
         'hasArtifact',
         'rowActions'
       ]);
+  });
+
+  it('keeps unsafe desktop titles as plain text and distinguishes missing data from denied actions', () => {
+    const instance = TestBed.createComponent(TaskTableComponent).componentInstance;
+    const render = (columnId: string, data?: TaskGridRow): HTMLElement | string => {
+      const column = instance.columns.find(candidate => (candidate.colId ?? candidate.field) === columnId);
+      expect(column?.cellRenderer).toEqual(expect.any(Function));
+      return (column!.cellRenderer as (params: { data?: TaskGridRow }) => HTMLElement | string)({ data });
+    };
+    const textOnlyTitle = '<img src=x onerror=alert(1)>';
+    const deniedRow = row({
+      title: textOnlyTitle,
+      status: 'blocked',
+      stageCategory: undefined,
+      workflowStageName: '',
+      statusLabel: 'Fallback stage',
+      isBlocked: undefined,
+      updatedAt: '',
+      createdAt: '',
+      hasArtifact: undefined,
+      rowActions: [
+        { id: 'openDetail', label: 'Open', disabled: false },
+        { id: 'edit', label: 'Edit task', disabled: true, disabledReason: 'Permission denied' }
+      ]
+    });
+
+    const title = render('title', deniedRow) as HTMLElement;
+    expect(title.textContent).toBe(textOnlyTitle);
+    expect(title.querySelector('img')).toBeNull();
+    expect(title.dataset['taskId']).toBe('task-1');
+    expect(title.dataset['testid']).toBe('task-state-row-task-1-desktop');
+    expect((render('workflowStageName', deniedRow) as HTMLElement).textContent).toBe('Fallback stage');
+    const blocked = render('isBlocked', deniedRow) as HTMLElement;
+    expect(blocked.textContent).toBe('Blocked');
+    expect(blocked.dataset['blocked']).toBe('true');
+    expect((render('updatedAt', deniedRow) as HTMLElement).textContent).toBe('Not available');
+
+    const artifact = render('hasArtifact', deniedRow) as HTMLElement;
+    expect(artifact.textContent).toBe('Artifact state unavailable');
+    expect(artifact.dataset['hasArtifact']).toBe('unknown');
+    const actions = render('rowActions', deniedRow) as HTMLElement;
+    const edit = actions.querySelector<HTMLButtonElement>('[data-grid-action="edit"]');
+    expect(edit?.disabled).toBe(true);
+    expect(edit?.getAttribute('aria-disabled')).toBe('true');
+    expect(edit?.title).toBe('Permission denied');
+    expect(actions.querySelector<HTMLButtonElement>('[data-grid-action="openDetail"]')?.disabled).toBe(false);
+
+    for (const id of ['title', 'workflowStageName', 'isBlocked', 'updatedAt', 'hasArtifact', 'rowActions']) {
+      expect(render(id)).toBe('', 'No desktop cell may invent a row without authority: ' + id);
+    }
+  });
+
+  it('renders source-derived desktop timestamps, flags and missing optional state exactly', () => {
+    const instance = TestBed.createComponent(TaskTableComponent).componentInstance;
+    const render = (colId: string, data: TaskGridRow): HTMLElement => {
+      const col = instance.columns.find(candidate => (candidate.colId ?? candidate.field) === colId);
+      return (col!.cellRenderer as (params: { data?: TaskGridRow }) => HTMLElement)({ data });
+    };
+    const complete = row({
+      workflowStageName: 'Editorial review',
+      status: 'review',
+      stageCategory: 'review',
+      isBlocked: false,
+      hasArtifact: true,
+      updatedAt: '2026-08-24T10:30:00Z'
+    });
+    expect(render('workflowStageName', complete).textContent).toBe('Editorial review');
+    const blocked = render('isBlocked', complete);
+    expect(blocked.textContent).toBe('Not blocked');
+    expect(blocked.dataset['blocked']).toBe('false');
+    const updated = render('updatedAt', complete);
+    expect(updated.querySelector('time')?.getAttribute('datetime')).toBe('2026-08-24T10:30:00Z');
+    expect(updated.querySelector('time')?.textContent).not.toBe('');
+    expect(render('hasArtifact', complete).dataset['hasArtifact']).toBe('true');
+    expect(render('hasArtifact', complete).textContent).toBe('Artifact available');
+    expect(render('hasArtifact', row({ hasArtifact: false })).textContent).toBe('No artifact');
+    expect(render('hasArtifact', row({ hasArtifact: false })).dataset['hasArtifact']).toBe('false');
+
+    const invalidTime = render('updatedAt', row({ updatedAt: 'not-a-timestamp', createdAt: '' }));
+    expect(invalidTime.querySelector('time')?.textContent).toBe('not-a-timestamp');
+    expect(instance.formatTimestamp('not-a-timestamp')).toBe('not-a-timestamp');
+  });
+
+  it('exposes neutral desktop value formatters for absent or malformed row values', () => {
+    const instance = TestBed.createComponent(TaskTableComponent).componentInstance;
+    const get = (name: string) => {
+      const col = instance.columns.find(candidate => (candidate.colId ?? candidate.field) === name);
+      expect(col).toBeDefined();
+      return col!;
+    };
+    expect(get('workflowStageName').valueGetter?.({})).toBe('');
+    expect(get('workflowStageName').valueGetter?.({ data: row({ workflowStageName: '', statusLabel: 'Fallback' }) }))
+      .toBe('Fallback');
+    expect(get('stageCategory').valueGetter?.({})).toBe('');
+    expect(get('isBlocked').valueGetter?.({})).toBe(false);
+    expect(get('hasArtifact').valueGetter?.({})).toBeNull();
+    expect(get('updatedAt').valueGetter?.({})).toBe('');
+    expect(get('priorityLabel').valueGetter?.({})).toBe('');
+    expect(get('priorityLabel').valueGetter?.({ data: row({ priority: 'high' }) })).toBe(instance.priorityLabel('high'));
+    expect(get('startDate').valueFormatter?.({ value: 'invalid-date' })).toBe('invalid-date');
+    expect(get('dueDate').valueFormatter?.({ value: null })).toBe('');
+    expect(get('progressPercent').valueFormatter?.({ value: null })).toBe('Not shown');
+    expect(get('progressPercent').valueFormatter?.({ value: undefined })).toBe('Not shown');
+    expect(get('progressPercent').valueFormatter?.({ value: 0 })).toBe('0%');
+  });
+
+  it('refreshes the desktop category cell without confusing workflow state with blocked status', () => {
+    const cell = new TaskStageCategoryCellComponent();
+    expect(cell.workStatus).toBe(taskStageWorkStatus('todo'));
+    cell.agInit({ data: row({ status: 'review', stageCategory: 'review' }) });
+    expect(cell.workStatus).toBe(taskStageWorkStatus('review'));
+    expect(cell.refresh({ data: row({ status: 'done', stageCategory: undefined }) })).toBe(true);
+    expect(cell.workStatus).toBe(taskStageWorkStatus('done'));
+    expect(cell.refresh({ data: row({ status: 'blocked', stageCategory: undefined }) })).toBe(true);
+    expect(cell.workStatus).toBe(taskStageWorkStatus('todo'));
+    expect(cell.refresh({})).toBe(true);
+    expect(cell.row).toBeNull();
+    expect(cell.workStatus).toBe(taskStageWorkStatus('todo'));
+  });
+
+  it('never emits disabled mobile card actions, including a synthetic direct invocation', () => {
+    const fixture = TestBed.createComponent(TaskTableComponent);
+    const disabled = { id: 'edit' as const, label: 'Edit', disabled: true, disabledReason: 'Permission denied' };
+    const task = row({ rowActions: [disabled] });
+    fixture.componentRef.setInput('rows', [task]);
+    const emitted = vi.fn();
+    fixture.componentInstance.actionInvoked.subscribe(emitted);
+    fixture.detectChanges();
+    const button = (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('[data-testid="task-edit-task-1-mobile"]');
+    expect(button?.disabled).toBe(true);
+    expect(button?.title).toBe('Permission denied');
+    button?.click();
+    fixture.componentInstance.invokeCardAction(task, disabled, new Event('click'));
+    expect(emitted).not.toHaveBeenCalled();
+    fixture.componentInstance.invokeCardAction(task, { id: 'openDetail', label: 'Open', disabled: false }, new Event('click'));
+    expect(emitted).toHaveBeenCalledWith(expect.objectContaining({ actionId: 'openDetail', row: task }));
   });
 
   it('emits the same row action contract from the responsive card', () => {
