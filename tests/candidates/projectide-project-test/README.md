@@ -13,7 +13,7 @@ Core and CLI, already integrated through ProjectIDE Product PR #1946.
   `SecurityProjectTestCandidateTests.cs`, source Git blob
   `50e2718d6d88d1020a21640b1d2a46ac4275d07c`.
 - Runner `compose_and_verify.py`, Git blob
-  `b8138ca3fcd82353c4c11d189c7df1c2e31c9543`.
+  `cc1c690f213f51ad81781f0d43333ffc68bf0a51`.
 - The runner requires a clean committed Security Test checkout and distinct,
   fresh worktree/evidence paths. It checks regular, nonsymlink candidate bytes,
   the staged Git blob, exact Product HEAD and complete tracked Product delta
@@ -72,7 +72,7 @@ for a bare-method substring. This follow-up preserves the original twelve
 C# facts and immutable Product pin while requiring complete native identity
 binding and exact compiled discovery.
 
-`test_compose_and_verify.py` exercises 21 admission controls using original
+`test_compose_and_verify.py` exercises 31 admission controls using original
 native TRX/discovery inputs, including the authentic positive, malformed
 copies, unsupported or duplicate containers, class/method and native identity
 refusals, counters, discovery aliases and significant whitespace. Real temporary
@@ -139,3 +139,38 @@ SUSPENDED/NOT_EVALUATED and Release remains NO_GO.
 ```text
 python -B tests/candidates/projectide-project-test/compose_and_verify.py --product-head 3613c648f118cafcb1936fdf5a081aa251c6b4bf --worktree <new-product-worktree> --evidence <new-evidence-directory>
 ```
+
+## Shared evidence admission follow-up (#2095)
+
+The unchanged native candidate and immutable Product pin retain their original
+execution scope. Native admission now rejects every nested result record,
+including Passed or NotExecuted copies under otherwise complete passing outer
+metadata, and refuses ErrorInfo or non-informational RunInfo records. Copied
+report controls preserve the authentic outer names, counters and identities.
+
+Before relying on a Product diff, every composition check reads NUL-delimited
+Git path/index records as raw bytes and rejects assume-unchanged, skip-worktree
+and other nonordinary flags. Staged and unstaged changes remain separate;
+untracked and ignored source is refused. Only bin/obj directories beside
+committed Product csproj files may contain generated output after restore.
+Nested or unrelated output-looking names cannot hide new compiler input.
+
+Every restore, native test and compiled-discovery command disables ancestor
+Directory.Build.props and Directory.Build.targets imports. A disposable real
+SDK probe first demonstrates each poisoned parent import failing, then checks
+that the isolated command succeeds. Its custom VSTest target exercises import
+behavior only; it executes no Product C# fact and adds no native case credit.
+
+Both workflows compare committed and actual runner/control bytes immediately
+before each Python invocation, use git hash-object --no-filters, and invoke
+Python with -I -B. Actual PowerShell bootstrap controls reject a changed script
+before its canary runs and verify isolation against local/PYTHONPATH import
+shadows. These cohorts have no shared provenance helper; this does not create
+an executing-workflow provenance receipt that was absent previously.
+
+The committed suite contains 31 unittest methods, including the original
+controls. Source/input, copied-report, SDK and bootstrap checks remain separate
+from the unchanged native suite and fresh hosted Windows/Ubuntu execution.
+All six broader qualification flags remain false. Complete shared #2095
+acceptance, current authority, Native UI, production and Release qualification
+remain open; #1144 stays BLOCKED, #1128 SUSPENDED / NOT_EVALUATED and Release NO_GO.
