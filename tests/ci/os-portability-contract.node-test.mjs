@@ -253,7 +253,8 @@ test('OS workflow rejects missing gates, mutable actions and unapproved executio
 });
 
 test('original portable TRX admission rejects absent and invalid reports', async () => {
-  const directory = await mkdtemp(path.join(os.tmpdir(), 'coglatas-portable-trx-'));
+  // mkdtemp creates an owner-private fixture; avoid the publicly writable system temp root.
+  const directory = await mkdtemp(path.join(os.homedir(), 'coglatas-portable-trx-'));
   const report = path.join(directory, 'portable.trx');
   try {
     await assert.rejects(() => verifyTrxFile(report, 25), /Unable to read portable .NET TRX/u);
@@ -281,7 +282,8 @@ test('portable TRX CLI rejects unsupported and incomplete options', () => {
 test('portable TRX command executes the original minimum and rejects a failed attempt', async () => {
   const contract = await loadOsPortabilityContract();
   const minimum = contract.dotnet.minimumTests;
-  const directory = await mkdtemp(path.join(os.tmpdir(), 'coglatas-trx-command-'));
+  // mkdtemp creates an owner-private fixture; avoid the publicly writable system temp root.
+  const directory = await mkdtemp(path.join(os.homedir(), 'coglatas-trx-command-'));
   const report = path.join(directory, 'portable.trx');
   const run = () => spawnSync(process.execPath,
     ['scripts/ci/verify-os-portability-results.mjs', '--trx', report], { encoding: 'utf8' });
