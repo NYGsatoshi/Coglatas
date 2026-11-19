@@ -74,6 +74,11 @@ def native_inventory(path: Path) -> list[str]:
             or any(value != "0" for key, value in counters.attrib.items()
                    if key not in ("total", "executed", "passed"))):
         raise ValueError("Native TRX must contain exactly twenty-four complete passing candidate facts")
+    run_infos = trx.findall(".//{*}RunInfo")
+    if (trx.find(".//{*}ErrorInfo") is not None
+            or run_infos != summary.findall(f"{TRX_NAMESPACE}RunInfos/{TRX_NAMESPACE}RunInfo")
+            or any(info.get("outcome") != "Information" for info in run_infos)):
+        raise ValueError("Native TRX contains contradictory failure information")
     containers = []
     for container_name, child_name in (("Results", "UnitTestResult"),
                                        ("TestDefinitions", "UnitTest"), ("TestEntries", "TestEntry")):
@@ -82,8 +87,9 @@ def native_inventory(path: Path) -> list[str]:
             raise ValueError("Native TRX contains missing or unsupported inventory records")
         containers.append(children)
     cases, definitions, entries = containers
-    if any(item.find(".//{*}InnerResults") is not None
-           or item.find(".//{*}UnitTestResult") is not None for item in cases):
+    records = [node for node in trx.iter() if node.tag.rsplit("}", 1)[-1].endswith("TestResult")]
+    if (records != cases or trx.find(".//{*}InnerResults") is not None
+            or trx.find(".//{*}TestResultAggregation") is not None):
         raise ValueError("Native TRX contains nested result records")
     names = [item.get("testName", "") for item in cases]
     if (set(names) != EXPECTED_IDENTITIES or len(set(names)) != EXPECTED
