@@ -158,6 +158,21 @@ class NativeInventoryTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "run-level error"):
                     self.admit(root)
 
+    def test_duplicate_or_unsupported_native_run_info_containers_are_rejected(self) -> None:
+        for kind in ("duplicate", "unexpected-child"):
+            with self.subTest(kind=kind):
+                root = native_fixture()
+                summary = root.find(NAMESPACE + "ResultSummary")
+                infos = ET.SubElement(summary, NAMESPACE + "RunInfos")
+                ET.SubElement(infos, NAMESPACE + "RunInfo", outcome="Information")
+                if kind == "duplicate":
+                    other = ET.SubElement(summary, NAMESPACE + "RunInfos")
+                    ET.SubElement(other, NAMESPACE + "RunInfo", outcome="Information")
+                else:
+                    ET.SubElement(infos, "{urn:untrusted}Unexpected")
+                with self.assertRaisesRegex(ValueError, "run-level error"):
+                    self.admit(root)
+
     def test_missing_duplicate_and_substituted_results_are_rejected(self) -> None:
         for mode in ("missing", "duplicate", "substituted", "failed", "not-executed"):
             with self.subTest(mode=mode):

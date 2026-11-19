@@ -97,7 +97,12 @@ def native_inventory(path: Path) -> list[str]:
         raise ValueError("Native TRX contains nested result records")
     # Only informational host messages at the original native summary path
     # can accompany the exact 35 passed facts; warnings are not qualification.
-    allowed_containers = set(summary.findall(f"{TRX_NAMESPACE}RunInfos"))
+    run_info_containers = summary.findall(f"{TRX_NAMESPACE}RunInfos")
+    if (len(run_info_containers) > 1
+            or any(child.tag != TRX_NAMESPACE + "RunInfo"
+                   for container in run_info_containers for child in container)):
+        raise ValueError("Native TRX contains a run-level error or unsupported outcome")
+    allowed_containers = set(run_info_containers)
     allowed_infos = set(summary.findall(f"{TRX_NAMESPACE}RunInfos/{TRX_NAMESPACE}RunInfo"))
     if any(
         element.tag.rsplit("}", 1)[-1] == "ErrorInfo"

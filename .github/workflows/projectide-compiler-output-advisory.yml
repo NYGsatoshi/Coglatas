@@ -25,8 +25,8 @@ jobs:
       PRODUCT_HEAD: d570a6727b5e5af5c8902c1bf2d0575c66c29143
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
       SOURCE_BLOB: b13bc41f398ca0877d1d9505a2899fd7d835b657
-      RUNNER_BLOB: b80dd1a9b43d8d34b6c28cd44c8033374163105e
-      CONTROLS_BLOB: 82f99b489a72d6c999adac0f8d888c6b06730f7d
+      RUNNER_BLOB: de3afc76bac23a768cb65d8e1402783370715c08
+      CONTROLS_BLOB: 613dd53542bf25ca7cbf0c29a6f6424dfff56ab2
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
@@ -134,8 +134,8 @@ jobs:
       PRODUCT_HEAD: d570a6727b5e5af5c8902c1bf2d0575c66c29143
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
       SOURCE_BLOB: b13bc41f398ca0877d1d9505a2899fd7d835b657
-      RUNNER_BLOB: b80dd1a9b43d8d34b6c28cd44c8033374163105e
-      CONTROLS_BLOB: 82f99b489a72d6c999adac0f8d888c6b06730f7d
+      RUNNER_BLOB: de3afc76bac23a768cb65d8e1402783370715c08
+      CONTROLS_BLOB: 613dd53542bf25ca7cbf0c29a6f6424dfff56ab2
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
