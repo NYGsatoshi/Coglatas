@@ -61,6 +61,28 @@ class HistoricalNativeInventoryTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "nested result records"):
                     self.admit(root)
 
+    def test_empty_and_nested_result_aggregations_are_rejected(self) -> None:
+        for location in ("root", "result", "output", "definition", "summary"):
+            for outcome in ("Failed", "Passed", "NotExecuted"):
+                for namespace in (NAMESPACE, "{urn:foreign-result}"):
+                    for populated in (False, True):
+                        with self.subTest(location=location, outcome=outcome,
+                                          namespace=namespace, populated=populated):
+                            root = native_fixture()
+                            case = root.find(NAMESPACE + "Results")[0]
+                            output = case.find(NAMESPACE + "Output")
+                            if output is None:
+                                output = ET.SubElement(case, NAMESPACE + "Output")
+                            parent = {"root": root, "result": case, "output": output,
+                                      "definition": root.find(NAMESPACE + "TestDefinitions")[0],
+                                      "summary": root.find(NAMESPACE + "ResultSummary")}[location]
+                            aggregation = ET.SubElement(parent, namespace + "TestResultAggregation", outcome=outcome)
+                            if populated:
+                                ET.SubElement(aggregation, namespace + "Output").text = "Hidden result record"
+                            with self.assertRaisesRegex(ValueError, "nested result records"):
+                                self.admit(root)
+        self.assertEqual(sorted(RUNNER.EXPECTED_IDENTITIES), self.admit(native_fixture()))
+
     def test_duplicate_inventory_and_counters_are_rejected(self) -> None:
         for name in ("Results", "TestDefinitions", "TestEntries", "ResultSummary", "Counters"):
             with self.subTest(name=name):
@@ -176,13 +198,13 @@ class HistoricalMainTests(unittest.TestCase):
             git("config", "commit.gpgsign", "false")
             (repository / "product.txt").write_text("Original Product\n", encoding="utf-8")
             (repository / ".gitignore").write_text("ignored/\n", encoding="utf-8")
-            git("add", "--all")
+            git("add", "--force", "--", "product.txt", ".gitignore")
             git("commit", "--quiet", "-m", "Historical Product fixture")
             product = git("rev-parse", "HEAD")
             source = repository / RUNNER.SOURCE
             source.parent.mkdir(parents=True)
             source.write_bytes(SOURCE_BYTES)
-            git("add", "--", RUNNER.SOURCE)
+            git("add", "--force", "--", RUNNER.SOURCE)
             git("commit", "--quiet", "-m", "Independent historical Test fixture")
             original_command = RUNNER.command
             calls = []
@@ -205,6 +227,7 @@ class HistoricalMainTests(unittest.TestCase):
                     elif scenario == "ignored-after-restore":
                         (target / "ignored").mkdir()
                         (target / "ignored/Injected.cs").write_text("// Hidden input\n", encoding="utf-8")
+                        self.assertEqual("ignored/Injected.cs", RUNNER.git(target, "check-ignore", "--", "ignored/Injected.cs"))
                 if stage == "test":
                     (evidence / "historical-red.trx").write_bytes(NATIVE_TRX_BYTES)
                     if scenario == "source-after-test":
@@ -283,14 +306,15 @@ class CompositionBoundaryTests(unittest.TestCase):
         project = self.repository / "tests/Coglatas.Tests/Coglatas.Tests.csproj"
         project.parent.mkdir(parents=True)
         project.write_text("<Project />", encoding="utf-8")
-        self.git("add", "--all")
+        self.git("add", "--force", "--", ".gitignore", "product with spaces.cs",
+                 "tests/Coglatas.Tests/Coglatas.Tests.csproj")
         self.git("commit", "--quiet", "-m", "Frozen disposable Product")
         self.head = self.git("rev-parse", "HEAD")
         self.output = self.repository / RUNNER.DESTINATION
         self.output.parent.mkdir(parents=True, exist_ok=True)
         self.raw = b"// Composed independent candidate.\n"
         self.output.write_bytes(self.raw)
-        self.git("add", "--", RUNNER.DESTINATION)
+        self.git("add", "--force", "--", RUNNER.DESTINATION)
         self.blob = self.git("rev-parse", ":" + RUNNER.DESTINATION)
 
     def git(self, *arguments: str) -> str:
@@ -330,7 +354,7 @@ class CompositionBoundaryTests(unittest.TestCase):
                 path = os.fsencode(self.repository) + b"/" + relative
                 with open(path, "wb") as handle:
                     handle.write(b"// Tracked raw pathname.\n")
-                self.git("add", "--", relative)
+                self.git("add", "--force", "--", relative)
                 self.git("commit", "--quiet", "-m", "Additional disposable tracked raw path")
                 records = RUNNER.git_records(self.repository, "ls-files", "-z", "--")
                 self.assertIn(relative, records)
@@ -345,11 +369,31 @@ class CompositionBoundaryTests(unittest.TestCase):
         path = self.repository / relative
         original = path.read_bytes()
         path.write_bytes(original + b"// Unreviewed staged Product.\n")
-        self.git("add", "--", relative)
+        self.git("add", "--force", "--", relative)
         path.write_bytes(original)
         self.assertEqual("", self.git("diff", "HEAD", "--", relative))
         with self.assertRaisesRegex(ValueError, "Unrelated tracked Product"):
             self.verify()
+
+    def test_rename_pairing_cannot_hide_a_staged_product_deletion(self) -> None:
+        self.verify()
+        self.git("reset", "--mixed", self.head)
+        relative = "ProductCopy.cs"
+        (self.repository / relative).write_bytes(self.raw)
+        self.git("add", "--force", "--", relative)
+        self.git("commit", "--quiet", "-m", "Disposable Product source identical to candidate")
+        self.head = self.git("rev-parse", "HEAD")
+        self.git("config", "diff.renames", "true")
+        self.git("add", "--force", "--", RUNNER.DESTINATION)
+        self.git("rm", "--", relative)
+        self.assertEqual([RUNNER.DESTINATION.encode()], RUNNER.git_records(
+            self.repository, "diff", "--cached", "--find-renames=100%", "--name-only", "-z", "HEAD", "--"))
+        self.assertEqual(sorted([relative.encode(), RUNNER.DESTINATION.encode()]), RUNNER.git_records(
+            self.repository, "diff", "--cached", "--no-renames", "--name-only", "-z", "HEAD", "--"))
+        with self.assertRaisesRegex(ValueError, "Unrelated tracked Product"):
+            self.verify()
+        self.git("restore", "--source=HEAD", "--staged", "--worktree", "--", relative)
+        self.verify()
 
     def test_ignored_and_untracked_inputs_are_refused_at_each_output_phase(self) -> None:
         for relative in ("tests/Coglatas.Tests/Injected.cs", "tests/Coglatas.Tests/ignored/Injected.cs",
@@ -358,6 +402,8 @@ class CompositionBoundaryTests(unittest.TestCase):
                 injected = self.repository / relative
                 injected.parent.mkdir(parents=True, exist_ok=True)
                 injected.write_text("// Unreviewed source input.\n", encoding="utf-8")
+                if any(part in ("ignored", "bin", "obj") for part in Path(relative).parts):
+                    self.assertEqual(relative, self.git("check-ignore", "--", relative))
                 for allow_generated in (False, True):
                     with self.assertRaisesRegex(ValueError, "Unexpected untracked source"):
                         self.verify(allow_generated)
@@ -394,6 +440,15 @@ class SdkImportControls(unittest.TestCase):
             parent = Path(temporary)
             product = parent / "product"
             product.mkdir()
+            # A nearer exact policy must override any SDK selection in the temporary parent.
+            (parent / "global.json").write_text(json.dumps({"sdk": {
+                "version": "8.0.100", "rollForward": "disable", "allowPrerelease": False}}), encoding="utf-8")
+            (product / "global.json").write_text(json.dumps({"sdk": {
+                "version": "10.0.403", "rollForward": "disable", "allowPrerelease": False}}), encoding="utf-8")
+            version = subprocess.run(["dotnet", "--version"], cwd=product,
+                                     capture_output=True, text=True, timeout=30)
+            self.assertEqual(0, version.returncode, version.stdout + version.stderr)
+            self.assertEqual("10.0.403", version.stdout.strip())
             project = product / "Control.csproj"
             project.write_text(
                 '<Project><Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />'
@@ -429,7 +484,7 @@ class SdkImportControls(unittest.TestCase):
 
 
 class WorkflowBootstrapControls(unittest.TestCase):
-    """Execute unchanged workflow launch blocks against disposable pinned Python files."""
+    """Execute every workflow launch block against distinct pinned script canaries."""
 
     def setUp(self) -> None:
         self.pwsh = shutil.which("pwsh")
@@ -446,21 +501,53 @@ class WorkflowBootstrapControls(unittest.TestCase):
         self.git("config", "user.name", "Bootstrap fixture")
         self.git("config", "user.email", "bootstrap-fixture@example.invalid")
         self.git("config", "commit.gpgsign", "false")
-        workflow = Path(__file__).resolve().parents[3] / WORKFLOW_PATH
-        blocks = re.findall(r"        run: \|\n((?:          [^\n]*\n)+)", workflow.read_text(encoding="utf-8"))
-        self.scripts = sorted(set(block for block in blocks if "python -I -B " in block))
-        self.assertEqual(2, len(self.scripts), "Both runner and controls launch blocks must be checked")
-        self.paths = sorted(set(re.findall(r"git rev-parse 'HEAD:([^']+)'", "".join(self.scripts))))
-        self.assertEqual(2, len(self.paths))
-        self.raw = (b"import json, os, sys\nfrom pathlib import Path\n"
-                    b"Path(os.environ['BOOTSTRAP_RESULT']).write_text(json.dumps({'isolated': sys.flags.isolated}))\n")
-        for relative in self.paths:
+        source_root = Path(__file__).resolve().parents[3]
+        runner_path = Path(RUNNER.__file__).resolve().relative_to(source_root).as_posix()
+        controls_path = Path(__file__).resolve().relative_to(source_root).as_posix()
+        self.pins = {runner_path: "RED_RUNNER_BLOB", controls_path: "RED_CONTROLS_BLOB"}
+        required_bindings = {runner_path: {runner_path}, controls_path: {runner_path, controls_path}}
+        workflow = (source_root / WORKFLOW_PATH).read_text(encoding="utf-8")
+        blocks = re.findall(r"        run: \|\n((?:          [^\n]*\n)+)", workflow)
+        launches = [block for block in blocks if "python -I -B " in block]
+        self.assertEqual(2, len(launches), "Every original host/entrypoint block is required")
+        self.scripts = []
+        for block in launches:
+            matches = re.findall(r"python -I -B ([^\s]+)", block)
+            self.assertEqual(1, len(matches))
+            executed = matches[0]
+            self.assertIn(executed, required_bindings)
+            required = required_bindings[executed]
+            committed = re.findall(r"git rev-parse 'HEAD:([^']+)'", block)
+            working = re.findall(r"git hash-object --no-filters -- '([^']+)'", block)
+            self.assertEqual(sorted(required), sorted(committed), "Required committed script binding missing")
+            self.assertEqual(sorted(required), sorted(working), "Required working script binding missing")
+            for relative in required:
+                pin = self.pins[relative]
+                self.assertRegex(block, r"git rev-parse 'HEAD:" + re.escape(relative)
+                                 + r"'\n[^\n]*\$env:" + pin + r"\)")
+                self.assertRegex(block, r"git hash-object --no-filters -- '" + re.escape(relative)
+                                 + r"'\n[^\n]*\$env:" + pin + r"\)")
+            self.scripts.append((block, executed, required))
+        self.assertEqual(set(self.pins), {executed for _, executed, _ in self.scripts})
+        self.raw = {}
+        for relative, pin in self.pins.items():
+            source_bytes = (source_root / relative).read_bytes()
+            expected = hashlib.sha1(b"blob " + str(len(source_bytes)).encode() + b"\0" + source_bytes).hexdigest()
+            declared = re.findall(r"(?m)^\s+" + pin + r": ([0-9a-f]{40})$", workflow)
+            self.assertTrue(declared)
+            self.assertEqual({expected}, set(declared))
+            self.raw[relative] = (
+                "import json, os, sys\nfrom pathlib import Path\n"
+                "Path(os.environ['BOOTSTRAP_RESULT']).write_text(json.dumps("
+                "{'isolated': sys.flags.isolated, 'script': " + repr(relative) + "}))\n"
+            ).encode("utf-8")
             path = self.repository / relative
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(self.raw)
-        self.git("add", "--all")
-        self.git("commit", "--quiet", "-m", "Disposable original Python executables")
-        self.blob = self.git("rev-parse", "HEAD:" + self.paths[0])
+            path.write_bytes(self.raw[relative])
+        self.git("add", "--force", "--", *self.pins)
+        self.git("commit", "--quiet", "-m", "Distinct original Python script canaries")
+        self.blobs = {relative: self.git("rev-parse", "HEAD:" + relative) for relative in self.pins}
+        self.assertEqual(len(self.pins), len(set(self.blobs.values())))
         self.result = self.directory / "executed.json"
         self.shadow = self.directory / "shadow-executed.txt"
         for context in ("compiler-output-qualification-context", "historical-compiler-context"):
@@ -472,54 +559,57 @@ class WorkflowBootstrapControls(unittest.TestCase):
                               env=RUNNER.local_git_environment()).stdout.strip()
 
     def execute(self, block: str) -> subprocess.CompletedProcess:
+        self.result.unlink(missing_ok=True)
         script = self.directory / "bootstrap.ps1"
         script.write_text("\n".join(line[10:] for line in block.splitlines()) + "\n", encoding="utf-8")
         environment = RUNNER.local_git_environment()
-        environment.update(RUNNER_BLOB=self.blob, REGRESSION_BLOB=self.blob, CONTROLS_BLOB=self.blob,
-                           RED_RUNNER_BLOB=self.blob, RED_CONTROLS_BLOB=self.blob,
-                           RUNNER_TEMP=str(self.directory), BOOTSTRAP_RESULT=str(self.result),
+        environment.update({pin: self.blobs[relative] for relative, pin in self.pins.items()})
+        environment.update(RUNNER_TEMP=str(self.directory), BOOTSTRAP_RESULT=str(self.result),
                            BOOTSTRAP_SHADOW=str(self.shadow))
         return subprocess.run([self.pwsh, "-NoLogo", "-NoProfile", "-NonInteractive", "-File", str(script)],
                               cwd=self.repository, env=environment, capture_output=True, text=True, timeout=30)
 
+    def assert_executed(self, block: str, executed: str) -> None:
+        result = self.execute(block)
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual({"isolated": 1, "script": executed},
+                         json.loads(self.result.read_text(encoding="utf-8")))
+        self.assertFalse(self.shadow.exists())
+
     def test_changed_working_and_committed_bytes_never_execute(self) -> None:
-        for relative in self.paths:
-            path = self.repository / relative
-            for kind in ("working", "normalized-working", "committed"):
-                with self.subTest(path=relative, kind=kind):
-                    path.write_bytes(self.raw.replace(b"\n", b"\r\n") if kind == "normalized-working"
-                                     else self.raw + b"# Changed executable.\n")
-                    if kind == "normalized-working":
-                        self.assertEqual(self.blob, self.git("-c", "core.autocrlf=true", "hash-object", "--", relative))
-                    if kind == "committed":
-                        self.git("add", "--", relative)
-                        self.git("commit", "--quiet", "-m", "Different committed executable")
-                    for block in self.scripts:
-                        if "'HEAD:" + relative + "'" not in block:
-                            continue
+        for block, executed, required in self.scripts:
+            for relative in required:
+                path = self.repository / relative
+                original = self.raw[relative]
+                for kind in ("working", "normalized-working", "committed"):
+                    with self.subTest(executed=executed, path=relative, kind=kind):
+                        path.write_bytes(original.replace(b"\n", b"\r\n") if kind == "normalized-working"
+                                         else original + b"# Changed executable.\n")
+                        if kind == "normalized-working":
+                            self.assertEqual(self.blobs[relative], self.git(
+                                "-c", "core.autocrlf=true", "hash-object", "--", relative))
+                        if kind == "committed":
+                            self.git("add", "--force", "--", relative)
+                            self.git("commit", "--quiet", "-m", "Different committed executable")
                         result = self.execute(block)
                         self.assertNotEqual(0, result.returncode)
                         reason = "committed blob mismatch" if kind == "committed" else "working bytes mismatch"
                         self.assertIn(reason, result.stdout + result.stderr)
                         self.assertFalse(self.result.exists(), "Altered executable reached its first instruction")
-                    path.write_bytes(self.raw)
-                    if kind == "committed":
-                        self.git("add", "--", relative)
-                        self.git("commit", "--quiet", "-m", "Restore disposable original executable")
+                        path.write_bytes(original)
+                        if kind == "committed":
+                            self.git("add", "--force", "--", relative)
+                            self.git("commit", "--quiet", "-m", "Restore disposable original executable")
+                        self.assert_executed(block, executed)
 
     def test_original_executable_ignores_neighboring_import_shadow(self) -> None:
-        for parent in {Path(relative).parent for relative in self.paths}:
+        for parent in {Path(relative).parent for relative in self.pins}:
             shadow = self.repository / parent / "json.py"
             shadow.write_text("import os\nfrom pathlib import Path\n"
                               "Path(os.environ['BOOTSTRAP_SHADOW']).write_text('executed')\n"
                               "raise RuntimeError('Neighboring import shadow executed')\n", encoding="utf-8")
-        for block in self.scripts:
-            result = self.execute(block)
-            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-            self.assertEqual({"isolated": 1}, json.loads(self.result.read_text(encoding="utf-8")))
-            self.assertFalse(self.shadow.exists())
-            self.result.unlink()
-
+        for block, executed, _ in self.scripts:
+            self.assert_executed(block, executed)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
