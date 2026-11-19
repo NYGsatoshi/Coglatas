@@ -148,3 +148,7 @@ RLS/Native/Trust/Eligibility/Production/Release holds unchanged.
 ```text
 python -B tests/candidates/projectide-run-comparison/compose_and_verify.py --product-head ea339ed0bc094630654262ebb28568a95ba4198f --worktree <fresh-product-path> --evidence <fresh-evidence-path>
 ```
+
+## Exact Python executable bytes and import isolation (#2095)
+
+The independent Windows/Ubuntu Run Comparison advisory now checks both the committed Git blobs and actual unfiltered working bytes of its Python verifier and native runner immediately before each invocation. Python uses isolated mode `-I -B`, including unittest discovery; the synthetic negative control confirms `PYTHONPATH` import shadowing cannot override the interpreter environment. This is evidence-only hardening: original native C# test identities and Product code remain frozen, and all six qualification flags stay false.
