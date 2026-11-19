@@ -91,10 +91,22 @@ def native_inventory(path: Path) -> list[str]:
            or element.tag.rsplit("}", 1)[-1].endswith("TestResult")
            for element in trx.iter() if element not in cases):
         raise ValueError("Native TRX contains nested result records")
-    # Admission policy permits Information messages only. Warnings remain
-    # unqualified evidence even with passing facts; this is not a native failure claim.
-    if (trx.find(".//{*}ErrorInfo") is not None
-            or any(info.get("outcome") != "Information" for info in trx.findall(".//{*}RunInfo"))):
+    # The native result counters do not cover arbitrary host diagnostics.
+    # Admit informational RunInfo only inside one native summary container.
+    summary_containers = summary.findall(f"{TRX_NAMESPACE}RunInfos")
+    if (len(summary_containers) > 1
+            or any(child.tag != TRX_NAMESPACE + "RunInfo"
+                   for container in summary_containers for child in container)):
+        raise ValueError("Native TRX contains run-level errors or incomplete outcomes")
+    allowed_containers = set(summary_containers)
+    allowed_infos = set(summary.findall(f"{TRX_NAMESPACE}RunInfos/{TRX_NAMESPACE}RunInfo"))
+    if any(
+        node.tag.rsplit("}", 1)[-1] == "ErrorInfo"
+        or (node.tag.rsplit("}", 1)[-1] == "RunInfos" and node not in allowed_containers)
+        or (node.tag.rsplit("}", 1)[-1] == "RunInfo"
+            and (node not in allowed_infos or node.get("outcome") != "Information"))
+        for node in trx.iter()
+    ):
         raise ValueError("Native TRX contains run-level errors or incomplete outcomes")
     names = [item.get("testName", "") for item in cases]
     if (set(names) != EXPECTED_IDENTITIES or len(set(names)) != EXPECTED

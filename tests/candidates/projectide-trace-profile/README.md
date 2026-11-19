@@ -224,3 +224,7 @@ references Microsoft.NET.Test.Sdk 18.11.0. The retained original native logs
 do not emit a VSTest or TRX logger assembly version, so no runtime logger
 version or warning semantics from another release are inferred. The strict
 Information-only policy above is deliberate and does not change that dependency.
+
+## Native TRX run-information boundary (#2095)
+
+The Trace Profile evidence reader now admits only native Information RunInfo records nested directly under at most one native ResultSummary/RunInfos container. Extension-namespace, misplaced, duplicate and opaque run-info containers are refused, even with unchanged passing native counters. The 32 original C# facts, Product SHA, source guards and all six false qualification flags are unchanged; this is advisory-evidence hardening, not release qualification.
