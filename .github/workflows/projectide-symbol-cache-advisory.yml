@@ -14,7 +14,7 @@ env:
   PRODUCT_HEAD: 508f641c2391f55f788d6658f3da78939a94308c
   SOURCE_BLOB: af25db405319329c62479dfbd390b922e116d180
   RUNNER_BLOB: 05635aa1f582f8b9cf084d80dbb7127b5ee4e5ea
-  CONTROLS_BLOB: 245e4220ef39b006407980eb4715863209a9d1f8
+  CONTROLS_BLOB: eac1122a9f9617e3aca30d947bc8ac364e78e873
 
 concurrency:
   group: symbol-cache-qualification-${{ github.event.pull_request.number }}
@@ -103,7 +103,9 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working script identity mismatch' }
           }
-          python -I -B -m unittest discover -s tests/candidates/projectide-symbol-cache -p test_compose_and_verify.py -v *> $log
+          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-symbol-cache'
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate Python bytecode cache is not admitted' }
+          python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-symbol-cache/test_compose_and_verify.py' *> $log
           $controlsExitCode = $LASTEXITCODE
           Get-Content -LiteralPath $log
           if ($controlsExitCode -ne 0) { throw 'Symbol cache synthetic verifier controls failed' }
@@ -121,6 +123,8 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working script identity mismatch' }
           }
+          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-symbol-cache'
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate Python bytecode cache is not admitted' }
           python -I -B tests/candidates/projectide-symbol-cache/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/symbol-cache-qualification-product" --evidence "$env:RUNNER_TEMP/symbol-cache-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Symbol cache independent synthetic qualification did not complete' }
       - name: Retain original source, TRX and compiled discovery receipts
@@ -217,7 +221,9 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working script identity mismatch' }
           }
-          python -I -B -m unittest discover -s tests/candidates/projectide-symbol-cache -p test_compose_and_verify.py -v *> $log
+          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-symbol-cache'
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate Python bytecode cache is not admitted' }
+          python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-symbol-cache/test_compose_and_verify.py' *> $log
           $controlsExitCode = $LASTEXITCODE
           Get-Content -LiteralPath $log
           if ($controlsExitCode -ne 0) { throw 'Symbol cache synthetic verifier controls failed' }
@@ -235,6 +241,8 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working script identity mismatch' }
           }
+          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-symbol-cache'
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate Python bytecode cache is not admitted' }
           python -I -B tests/candidates/projectide-symbol-cache/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/symbol-cache-qualification-product" --evidence "$env:RUNNER_TEMP/symbol-cache-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Symbol cache independent synthetic qualification did not complete' }
       - name: Retain original source, TRX and compiled discovery receipts

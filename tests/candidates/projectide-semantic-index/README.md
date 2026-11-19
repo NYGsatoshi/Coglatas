@@ -151,3 +151,7 @@ does not change Main, protections, required checks or activation settings.
 ## Isolated Python execution and immutable script bytes (#2095)
 
 Both hosted advisory legs now execute the regression tests and candidate runner using `python -I -B`. Immediately before each invocation they verify the exact pinned **committed blob and actual unfiltered working file bytes** of both Python scripts; verification cannot be deferred until after the module is loaded. The regression suite also checks both workflow legs and demonstrates that an injected `PYTHONPATH` cannot affect the isolated interpreter. The original C# candidate, fixed Product SHA, other source checks and all six false qualification flags remain unchanged.
+
+## Explicit verifier source loading and bytecode cache refusal (#2095)
+
+Security review confirmed that Python isolated mode alone is insufficient when `unittest discover` inserts the candidate directory into the module search path, or when an unchecked-hash `.pyc` is present. The current Windows/Ubuntu workflows instead execute the already-pinned test file via isolated `runpy.run_path` without discovery and reject every candidate `__pycache__`/`.pyc`/`.pyo` before either Python module is loaded. Regression controls demonstrate observable sitecustomize exclusion, candidate-directory XML shadow refusal and rejection of substituted bytecode despite unchanged source bytes. All frozen Product/C# identities and six nonqualification flags are preserved.
