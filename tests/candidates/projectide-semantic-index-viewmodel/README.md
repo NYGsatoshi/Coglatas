@@ -110,3 +110,11 @@ original source and Product pins.
 The additional provenance controls grant no native execution or qualification
 credit. Earlier receipts remain unchanged with the precise limitation documented
 in that contract; they are never retroactively restamped.
+
+## Passing native reports
+
+The 24 expected unit results must be direct children of the TRX `Results` element.
+Nested result groups, additional test results and error details invalidate the
+receipt even when the counters and all 24 fact identities match. The native
+summary may retain informational messages under `RunInfos`. A warning or any other outcome
+makes this positive-only receipt incomplete. Ordinary adapter output is preserved.
