@@ -7,6 +7,7 @@ import os
 import re
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -21,6 +22,67 @@ RUNNER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(RUNNER)
 NAMESPACE = "{http://microsoft.com/schemas/VisualStudio/TeamTest/2010}"
 IDENTITIES = sorted(RUNNER.EXPECTED_IDENTITIES)
+
+
+class WorkflowPythonIsolationControls(unittest.TestCase):
+    """Verify original advisory script identities and Python import isolation."""
+
+    def test_both_hosts_pin_each_executable_before_loading(self):
+        workflow = (Path(__file__).resolve().parents[3] / ".github/workflows/projectide-private-lookup-advisory.yml").read_text(encoding="utf-8")
+        self.assertEqual(6, workflow.count('git rev-parse "$($env:TEST_HEAD):$($script.Path)"'))
+        self.assertEqual(6, workflow.count('git hash-object --no-filters -- $script.Path'))
+        self.assertEqual(6, workflow.count("throw 'Pre-execution committed Python identity mismatch'"))
+        self.assertEqual(6, workflow.count("throw 'Pre-execution working Python bytes mismatch'"))
+        self.assertEqual(6, workflow.count("Python bytecode cache is not admitted"))
+        self.assertEqual(10, workflow.count("@{ Path = 'tests/candidates/"))
+        self.assertEqual(2, workflow.count("runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py'"))
+        self.assertEqual(2, workflow.count("runpy.run_path(p,run_name='__main__')"))
+        self.assertEqual(2, workflow.count("$candidateArguments = @('-I', '-B',"))
+        self.assertNotIn("python -B ", workflow)
+
+    def test_real_casefolded_bytecode_cache_scanner(self):
+        workflow = (Path(__file__).resolve().parents[3] / ".github/workflows/projectide-private-lookup-advisory.yml").read_text(encoding="utf-8")
+        scanners = [line.split('python -I -B -c "', 1)[1].split('"', 1)[0]
+                    for line in workflow.splitlines()
+                    if 'python -I -B -c "from pathlib import Path; import sys; roots=' in line]
+        self.assertEqual(6, len(scanners))
+        self.assertEqual(1, len(set(scanners)))
+        with tempfile.TemporaryDirectory(prefix="private-lookup-casefold-") as tmp:
+            root = Path(tmp)
+            def run():
+                return subprocess.run([sys.executable, "-I", "-B", "-c", scanners[0], str(root)],
+                                      capture_output=True, text=True, timeout=15)
+            self.assertEqual(0, run().returncode)
+            cache = root / "__PYCACHE__"
+            cache.mkdir()
+            self.assertNotEqual(0, run().returncode)
+            cache.rmdir()
+            for ext in (".PYC", ".PYO"):
+                with self.subTest(ext=ext):
+                    other = root / ("injected" + ext)
+                    other.write_bytes(b"synthetic bytecode")
+                    self.assertNotEqual(0, run().returncode)
+                    other.unlink()
+                    self.assertEqual(0, run().returncode)
+
+    def test_isolated_python_excludes_real_pythonpath_shadow(self):
+        with tempfile.TemporaryDirectory(prefix="private-lookup-import-shadow-") as tmp:
+            marker = Path(tmp) / "shadow-loaded"
+            (Path(tmp) / "sitecustomize.py").write_text(
+                "from pathlib import Path\nPath(" + repr(str(marker)) + ").touch()\n",
+                encoding="utf-8")
+            environment = {**os.environ, "PYTHONPATH": tmp}
+            plain = subprocess.run([sys.executable, "-B", "-c", "print('plain')"],
+                                   env=environment, capture_output=True, text=True, timeout=15)
+            self.assertEqual(0, plain.returncode, plain.stderr)
+            self.assertTrue(marker.exists())
+            marker.unlink()
+            isolated = subprocess.run([sys.executable, "-I", "-B", "-c",
+                                       "import sys; assert sys.flags.isolated == 1"],
+                                      env=environment, capture_output=True, text=True, timeout=15)
+            self.assertEqual(0, isolated.returncode, isolated.stderr)
+            self.assertFalse(marker.exists())
+
 
 
 def native_fixture() -> ET.Element:
