@@ -147,3 +147,7 @@ All receipts retain `requiredCheckQualified`, `independentReviewComplete`,
 `releaseQualified` as **false**. Keep #1930 and its broader Product parents OPEN,
 #1144 BLOCKED, #1128 SUSPENDED/NOT_EVALUATED and Release NO_GO. This candidate
 does not change Main, protections, required checks or activation settings.
+
+## Isolated Python execution and immutable script bytes (#2095)
+
+Both hosted advisory legs now execute the regression tests and candidate runner using `python -I -B`. Immediately before each invocation they verify the exact pinned **committed blob and actual unfiltered working file bytes** of both Python scripts; verification cannot be deferred until after the module is loaded. The regression suite also checks both workflow legs and demonstrates that an injected `PYTHONPATH` cannot affect the isolated interpreter. The original C# candidate, fixed Product SHA, other source checks and all six false qualification flags remain unchanged.
