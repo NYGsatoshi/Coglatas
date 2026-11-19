@@ -78,8 +78,9 @@ def native_inventory(path: Path) -> list[str]:
             raise ValueError("Native TRX contains missing or unsupported inventory records")
         containers.append(children)
     cases, definitions, entries = containers
-    if (trx.find(".//{*}InnerResults") is not None
-            or trx.findall(".//{*}UnitTestResult") != cases):
+    if any(element.tag.rsplit("}", 1)[-1] == "InnerResults"
+           or element.tag.rsplit("}", 1)[-1].endswith("TestResult")
+           for element in trx.iter() if element not in cases):
         raise ValueError("Native TRX contains nested result records")
     if (trx.find(".//{*}ErrorInfo") is not None
             or any(info.get("outcome") != "Information" for info in trx.findall(".//{*}RunInfo"))):
