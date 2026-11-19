@@ -74,6 +74,15 @@ def native_inventory(path: Path) -> list[str]:
             or any(value != "0" for key, value in counters.attrib.items()
                    if key not in ("total", "executed", "passed"))):
         raise ValueError("Native TRX must contain exactly twenty-four complete passing candidate facts")
+    # Validate RunInfos containers, including empty/foreign ones that have no
+    # RunInfo child to be detected by the existing individual message check.
+    native_info_containers = summary.findall(f"{TRX_NAMESPACE}RunInfos")
+    if (len(native_info_containers) > 1
+            or any(child.tag != TRX_NAMESPACE + "RunInfo"
+                   for container in native_info_containers for child in container)
+            or any(element.tag.rsplit("}", 1)[-1] == "RunInfos"
+                   and element not in native_info_containers for element in trx.iter())):
+        raise ValueError("Native TRX contains contradictory failure information")
     run_infos = trx.findall(".//{*}RunInfo")
     if (trx.find(".//{*}ErrorInfo") is not None
             or run_infos != summary.findall(f"{TRX_NAMESPACE}RunInfos/{TRX_NAMESPACE}RunInfo")
