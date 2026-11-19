@@ -620,6 +620,40 @@ class NestedEvidenceControls(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, "^Native TRX contains run-level errors or incomplete outcomes$"):
                         self.read(root)
 
+    def test_run_info_location_and_native_namespace_are_bound_to_summary(self) -> None:
+        for location in ("root", "result", "definition", "direct-summary", "foreign-summary", "empty-result"):
+            with self.subTest(location=location):
+                root = self.original()
+                summary = root.find(NAMESPACE + "ResultSummary")
+                if location == "direct-summary":
+                    ET.SubElement(summary, NAMESPACE + "RunInfo", outcome="Information")
+                else:
+                    target = {"root": root, "result": root.find(NAMESPACE + "Results")[0],
+                              "definition": root.find(NAMESPACE + "TestDefinitions")[0],
+                              "foreign-summary": summary,
+                              "empty-result": root.find(NAMESPACE + "Results")[0]}[location]
+                    namespace = "{urn:extension}" if location == "foreign-summary" else NAMESPACE
+                    infos = ET.SubElement(target, namespace + "RunInfos")
+                    if location != "empty-result":
+                        ET.SubElement(infos, namespace + "RunInfo", outcome="Information")
+                with self.assertRaisesRegex(ValueError, "^Native TRX contains run-level errors or incomplete outcomes$"):
+                    self.read(root)
+
+    def test_duplicate_summary_run_infos_and_unsupported_children_are_rejected(self) -> None:
+        for scenario in ("duplicate", "unexpected-child"):
+            with self.subTest(scenario=scenario):
+                root = self.original()
+                summary = root.find(NAMESPACE + "ResultSummary")
+                infos = ET.SubElement(summary, NAMESPACE + "RunInfos")
+                ET.SubElement(infos, NAMESPACE + "RunInfo", outcome="Information")
+                if scenario == "duplicate":
+                    more = ET.SubElement(summary, NAMESPACE + "RunInfos")
+                    ET.SubElement(more, NAMESPACE + "RunInfo", outcome="Information")
+                else:
+                    ET.SubElement(infos, "{urn:extension}Unbound")
+                with self.assertRaisesRegex(ValueError, "^Native TRX contains run-level errors or incomplete outcomes$"):
+                    self.read(root)
+
 
 class InputAdmissionControls(unittest.TestCase):
     """Real disposable Git records; no fixture is native Product execution."""

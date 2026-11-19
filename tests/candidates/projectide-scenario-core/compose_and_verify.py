@@ -70,9 +70,23 @@ def native_inventory(path: Path) -> list[str]:
             or any(value != "0" for key, value in counters.attrib.items()
                    if key not in ("total", "executed", "passed"))):
         raise ValueError("Native TRX must contain exactly twenty complete passing candidate facts")
-    if trx.findall(".//{*}ErrorInfo") or any(
-            node.get("outcome") != "Information"
-            for node in trx.findall(".//{*}RunInfo")):
+    # Only native informational host messages directly under one native
+    # ResultSummary/RunInfos are admissible. Counter totals do not cover
+    # foreign namespace diagnostics elsewhere in the native document.
+    summary_infos = summary.findall(f"{TRX_NAMESPACE}RunInfos")
+    if (len(summary_infos) > 1
+            or any(item.tag != TRX_NAMESPACE + "RunInfo"
+                   for container in summary_infos for item in container)):
+        raise ValueError("Native TRX contains contradictory failure information")
+    allowed_containers = set(summary_infos)
+    allowed_infos = set(summary.findall(f"{TRX_NAMESPACE}RunInfos/{TRX_NAMESPACE}RunInfo"))
+    if any(
+        item.tag.rsplit("}", 1)[-1] == "ErrorInfo"
+        or (item.tag.rsplit("}", 1)[-1] == "RunInfos" and item not in allowed_containers)
+        or (item.tag.rsplit("}", 1)[-1] == "RunInfo"
+            and (item not in allowed_infos or item.get("outcome") != "Information"))
+        for item in trx.iter()
+    ):
         raise ValueError("Native TRX contains contradictory failure information")
     containers = []
     for container_name, child_name in (("Results", "UnitTestResult"),

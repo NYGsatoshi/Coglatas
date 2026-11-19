@@ -341,6 +341,42 @@ class NativeInventoryControls(ExactRejection):
                             lambda: RUNNER.compiled_inventory(discovery_fixture(identities)))
 
 
+    def test_information_run_messages_require_native_summary_placement(self) -> None:
+        root = native_fixture()
+        infos = ET.SubElement(root.find(NAMESPACE + "ResultSummary"), NAMESPACE + "RunInfos")
+        ET.SubElement(infos, NAMESPACE + "RunInfo", outcome="Information")
+        self.assertEqual(IDENTITIES, self.read(root))
+        for location in ("root", "case", "definition", "direct-summary", "foreign-summary", "empty-case"):
+            with self.subTest(location=location):
+                root = native_fixture()
+                summary = root.find(NAMESPACE + "ResultSummary")
+                if location == "direct-summary":
+                    ET.SubElement(summary, NAMESPACE + "RunInfo", outcome="Information")
+                else:
+                    parent = {"root": root, "case": root.find(NAMESPACE + "Results")[0],
+                              "definition": root.find(NAMESPACE + "TestDefinitions")[0],
+                              "foreign-summary": summary,
+                              "empty-case": root.find(NAMESPACE + "Results")[0]}[location]
+                    namespace = "{urn:extension}" if location == "foreign-summary" else NAMESPACE
+                    container = ET.SubElement(parent, namespace + "RunInfos")
+                    if location != "empty-case":
+                        ET.SubElement(container, namespace + "RunInfo", outcome="Information")
+                self.reject("Native TRX contains contradictory failure information", lambda: self.read(root))
+
+    def test_duplicate_summary_run_info_containers_and_unsupported_children_refuse(self) -> None:
+        for case in ("duplicate", "unexpected-child"):
+            with self.subTest(case=case):
+                root = native_fixture()
+                summary = root.find(NAMESPACE + "ResultSummary")
+                infos = ET.SubElement(summary, NAMESPACE + "RunInfos")
+                ET.SubElement(infos, NAMESPACE + "RunInfo", outcome="Information")
+                if case == "duplicate":
+                    extra = ET.SubElement(summary, NAMESPACE + "RunInfos")
+                    ET.SubElement(extra, NAMESPACE + "RunInfo", outcome="Information")
+                else:
+                    ET.SubElement(infos, "{urn:extension}Opaque")
+                self.reject("Native TRX contains contradictory failure information", lambda: self.read(root))
+
     def test_run_level_failures_cannot_hide_behind_passing_counters(self) -> None:
         root = native_fixture()
         ET.SubElement(root.find(NAMESPACE + "ResultSummary"), NAMESPACE + "ErrorInfo")
