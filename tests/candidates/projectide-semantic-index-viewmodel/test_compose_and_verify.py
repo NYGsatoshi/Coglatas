@@ -136,6 +136,27 @@ class NativeInventoryControls(ExactRejection):
                 self.reject("Native TRX contains contradictory failure information", lambda: self.read(root))
                 parent.remove(info)
 
+    def test_empty_duplicate_or_unsupported_run_infos_containers_refuse(self) -> None:
+        for location in ("root", "result", "definition", "foreign-summary", "duplicate", "unknown-child"):
+            with self.subTest(location=location):
+                root = native_fixture()
+                summary = root.find(NAMESPACE + "ResultSummary")
+                if location == "duplicate":
+                    for _ in range(2):
+                        infos = ET.SubElement(summary, NAMESPACE + "RunInfos")
+                        ET.SubElement(infos, NAMESPACE + "RunInfo", outcome="Information")
+                elif location == "unknown-child":
+                    infos = ET.SubElement(summary, NAMESPACE + "RunInfos")
+                    ET.SubElement(infos, NAMESPACE + "RunInfo", outcome="Information")
+                    ET.SubElement(infos, "{urn:foreign-trx}OpaqueDiagnostic")
+                else:
+                    parent = {"root": root, "result": root.find(NAMESPACE + "Results")[0],
+                              "definition": root.find(NAMESPACE + "TestDefinitions")[0],
+                              "foreign-summary": summary}[location]
+                    namespace = "{urn:foreign-trx}" if location == "foreign-summary" else NAMESPACE
+                    ET.SubElement(parent, namespace + "RunInfos")
+                self.reject("Native TRX contains contradictory failure information", lambda: self.read(root))
+
     def test_missing_execution_is_rejected(self) -> None:
         root = native_fixture()
         definition = root.find(NAMESPACE + "TestDefinitions")[0]
