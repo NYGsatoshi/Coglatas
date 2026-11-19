@@ -114,3 +114,14 @@ original source and Product pins.
 The additional provenance controls grant no native execution or qualification
 credit. Earlier receipts remain unchanged with the precise limitation documented
 in that contract; they are never retroactively restamped.
+
+## Isolated Python source admission (#2095)
+
+The native Ubuntu/Windows retained Angular case identities, original Product
+commit, source-bound Vitest input, existing immutable report and six false
+qualification flags are preserved. Provenance controls, candidate composition
+and retained-report verifier are checked for their committed Git blob and
+actual unfiltered working bytes immediately before isolated `python -I -B`
+execution. A real cache-free/uppercase-cache refusal probe and Python import-
+shadow canary independently enforce the executable boundary without running
+Product Angular tests inside the synthetic verifier.
