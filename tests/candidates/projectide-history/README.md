@@ -216,3 +216,7 @@ from the unchanged native suite and fresh hosted Windows/Ubuntu execution.
 All six broader qualification flags remain false. Complete shared #2095
 acceptance, current authority, Native UI, production and Release qualification
 remain open; #1144 stays BLOCKED, #1128 SUSPENDED / NOT_EVALUATED and Release NO_GO.
+
+## Whole-document RunInfo location control (#2095)
+
+The native History report reader admits informational RunInfo only directly under the native ResultSummary/RunInfos path. Misplaced or extension-namespace RunInfo and RunInfos containers are refused, including empty containers outside the summary; warnings and ErrorInfo remain disallowed. The original twenty C# facts and six false qualification flags are unchanged.
