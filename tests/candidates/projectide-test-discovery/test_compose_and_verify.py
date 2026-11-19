@@ -152,6 +152,46 @@ class NativeInventoryControls(ExactRejection):
         ET.SubElement(output, NAMESPACE + "ErrorInfo")
         self.reject("Native TRX passing result contains error information", lambda: self.read(root))
 
+    def test_all_non_direct_result_types_are_rejected(self) -> None:
+        for name in ("GenericTestResult", "CustomTestResult", "TestResultAggregation"):
+            for namespace in (NAMESPACE, "{urn:extension}", ""):
+                for location in ("summary", "case", "definitions"):
+                    with self.subTest(name=name, namespace=namespace, location=location):
+                        root = native_fixture()
+                        parent = (root.find(NAMESPACE + "ResultSummary") if location == "summary" else
+                                  root.find(NAMESPACE + "Results")[0] if location == "case" else
+                                  root.find(NAMESPACE + "TestDefinitions")[0])
+                        ET.SubElement(parent, namespace + name)
+                        self.reject("Native TRX contains nested result records", lambda: self.read(root))
+
+    def test_only_native_summary_run_info_is_admitted(self) -> None:
+        root = native_fixture()
+        infos = ET.SubElement(root.find(NAMESPACE + "ResultSummary"), NAMESPACE + "RunInfos")
+        info = ET.SubElement(infos, NAMESPACE + "RunInfo", outcome="Information")
+        self.assertEqual(IDENTITIES, self.read(root))
+        for outcome in ("Passed", "Completed", "Warning", "Error"):
+            with self.subTest(outcome=outcome):
+                info.set("outcome", outcome)
+                self.reject("Native TRX contains failed or unsupported run-level result information",
+                            lambda: self.read(root))
+        for location in ("case", "definitions", "root"):
+            with self.subTest(location=location):
+                root = native_fixture()
+                parent = (root.find(NAMESPACE + "Results")[0] if location == "case" else
+                          root.find(NAMESPACE + "TestDefinitions")[0] if location == "definitions" else root)
+                nested = ET.SubElement(parent, NAMESPACE + "RunInfos")
+                ET.SubElement(nested, NAMESPACE + "RunInfo", outcome="Information")
+                self.reject("Native TRX contains errors or unsupported run information", lambda: self.read(root))
+
+    def test_error_info_outside_a_counted_result_is_rejected(self) -> None:
+        for namespace in (NAMESPACE, "{urn:extension}", ""):
+            for location in ("root", "definitions"):
+                with self.subTest(namespace=namespace, location=location):
+                    root = native_fixture()
+                    parent = root if location == "root" else root.find(NAMESPACE + "TestDefinitions")[0]
+                    ET.SubElement(parent, namespace + "ErrorInfo")
+                    self.reject("Native TRX contains errors or unsupported run information", lambda: self.read(root))
+
     def test_foreign_alias_and_whitespace_discovery_are_rejected(self) -> None:
         variants = {
             "foreign": [*IDENTITIES, "Foreign.Namespace.OtherFact"],

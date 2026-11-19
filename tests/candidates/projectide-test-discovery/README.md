@@ -161,3 +161,7 @@ python -B tests/candidates/projectide-test-discovery/compose_and_verify.py --pro
 The example assumes `/tmp` is outside the Security checkout. Otherwise choose
 another external temporary parent. On Windows, choose equivalent fresh absolute
 paths beneath an external temporary parent.
+
+## Whole-document native TRX admission (#2095)
+
+The independent reader rejects all result records outside the counted direct native test rows, including extension-namespace and aggregated records anywhere in the TRX. It refuses unbound error information and only admits informational RunInfo records directly under the native ResultSummary/RunInfos path. Counter totals alone are not evidence that every result in the document passed. The synthetic controls exercise these refusal cases; original C# identities and qualification flags remain unchanged.

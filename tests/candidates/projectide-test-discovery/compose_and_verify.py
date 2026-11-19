@@ -76,8 +76,7 @@ def native_inventory(path: Path) -> list[str]:
     if len(run_infos) > 1 or any(item.tag != TRX_NAMESPACE + "RunInfos" for item in run_infos):
         raise ValueError("Native TRX contains unsupported run-level information")
     for container in run_infos:
-        if any(item.tag != TRX_NAMESPACE + "RunInfo" or item.get("outcome") not in
-               ("Passed", "Completed", "Warning", "Information") for item in container):
+        if any(item.tag != TRX_NAMESPACE + "RunInfo" or item.get("outcome") != "Information" for item in container):
             raise ValueError("Native TRX contains failed or unsupported run-level result information")
     if (summary.get("outcome") != "Completed"
             or len(EXPECTED_IDENTITIES) != EXPECTED
@@ -98,6 +97,21 @@ def native_inventory(path: Path) -> list[str]:
         raise ValueError("Native TRX must contain only flat candidate results")
     if any(item.find(".//{*}ErrorInfo") is not None for item in cases):
         raise ValueError("Native TRX passing result contains error information")
+
+    # Scan the entire document, not just the original flat Results children.
+    # Unexpected result shapes and diagnostics must not hide outside the
+    # counted roster or under extension namespaces.
+    direct_cases = set(cases)
+    allowed_run_infos = set(summary.findall(f"{TRX_NAMESPACE}RunInfos/{TRX_NAMESPACE}RunInfo"))
+    for element in trx.iter():
+        name = element.tag.rsplit("}", 1)[-1]
+        if element not in direct_cases and (name.endswith("TestResult")
+                                            or name in ("InnerResults", "TestResultAggregation")):
+            raise ValueError("Native TRX contains nested result records")
+        if name == "ErrorInfo" or (name == "RunInfo" and element not in allowed_run_infos):
+            raise ValueError("Native TRX contains errors or unsupported run information")
+        if name == "RunInfos" and element not in run_infos:
+            raise ValueError("Native TRX contains errors or unsupported run information")
     names = [item.get("testName", "") for item in cases]
     if (set(names) != EXPECTED_IDENTITIES or len(set(names)) != EXPECTED
             or any(item.get("outcome") != "Passed" for item in cases)):
