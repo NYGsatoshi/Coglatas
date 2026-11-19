@@ -87,10 +87,12 @@ def native_inventory(path: Path) -> list[str]:
             raise ValueError("Native TRX contains missing or unsupported inventory records")
         containers.append(children)
     cases, definitions, entries = containers
-    if any(element.tag.rsplit("}", 1)[-1] == "InnerResults"
+    if any(element.tag.rsplit("}", 1)[-1] in ("InnerResults", "TestResultAggregation")
            or element.tag.rsplit("}", 1)[-1].endswith("TestResult")
            for element in trx.iter() if element not in cases):
         raise ValueError("Native TRX contains nested result records")
+    # Admission policy permits Information messages only. Warnings remain
+    # unqualified evidence even with passing facts; this is not a native failure claim.
     if (trx.find(".//{*}ErrorInfo") is not None
             or any(info.get("outcome") != "Information" for info in trx.findall(".//{*}RunInfo"))):
         raise ValueError("Native TRX contains run-level errors or incomplete outcomes")
@@ -243,8 +245,8 @@ def main() -> None:
             if git(worktree, "rev-parse", ":" + DESTINATION) != source_blob:
                 raise ValueError("Composed candidate index changed from its committed Git blob")
             verify_product_inputs(worktree, arguments.product_head, allow_generated=allow_generated)
-            changed = git_records(worktree, "diff", "--cached", "--name-only", "-z", "HEAD", "--")
-            if changed != [DESTINATION.encode("utf-8")] or git_records(worktree, "diff", "--name-only", "-z", "--"):
+            changed = git_records(worktree, "diff", "--cached", "--no-renames", "--name-only", "-z", "HEAD", "--")
+            if changed != [DESTINATION.encode("utf-8")] or git_records(worktree, "diff", "--no-renames", "--name-only", "-z", "--"):
                 raise ValueError("Tracked Product source changed during independent composition")
 
         verify_working_tree()
