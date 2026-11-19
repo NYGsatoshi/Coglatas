@@ -29,14 +29,14 @@ class WorkflowPythonIsolationControls(unittest.TestCase):
         document = (Path(__file__).resolve().parents[3]
                     / ".github/workflows/projectide-regional-host-advisory.yml").read_text(encoding="utf-8")
         self.assertEqual(2, document.count("python -I -B tests/candidates/projectide-regional-host/compose_and_verify.py"))
-        self.assertEqual(2, document.count("runpy.run_path('tests/candidates/projectide-regional-host/test_compose_and_verify.py'"))
+        self.assertEqual(2, document.count("runpy.run_path(p,run_name='__main__')\" 'tests/candidates/projectide-regional-host/test_compose_and_verify.py'"))
         self.assertEqual(2, document.count("runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py'"))
         self.assertEqual(6, document.count('git rev-parse "$($env:TEST_HEAD):$($script.Path)"'))
         self.assertEqual(6, document.count("git hash-object --no-filters -- $script.Path"))
         self.assertEqual(6, document.count("Python bytecode cache is not admitted"))
         self.assertNotIn("python -B ", document)
         for command in (
-            "runpy.run_path('tests/candidates/projectide-regional-host/test_compose_and_verify.py'",
+            "runpy.run_path(p,run_name='__main__')\" 'tests/candidates/projectide-regional-host/test_compose_and_verify.py'",
             "runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py'",
             "python -I -B tests/candidates/projectide-regional-host/compose_and_verify.py",
         ):
