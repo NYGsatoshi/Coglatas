@@ -292,14 +292,14 @@ class MainAdmissionTests(unittest.TestCase):
         cls.git("config", "user.email", "qualification-fixture@example.invalid")
         cls.git("config", "commit.gpgsign", "false")
         (cls.repository / "product.txt").write_text("Immutable Product fixture\n", encoding="utf-8")
-        cls.git("add", "--", "product.txt")
+        cls.git("add", "-f", "--", "product.txt")
         cls.git("commit", "--quiet", "-m", "Product fixture")
         cls.product_head = cls.git("rev-parse", "HEAD")
         cls.product_tree = cls.git("rev-parse", "HEAD^{tree}")
         source = cls.repository / RUNNER.SOURCE
         source.parent.mkdir(parents=True)
         source.write_bytes(SOURCE_BYTES)
-        cls.git("add", "--", RUNNER.SOURCE)
+        cls.git("add", "-f", "--", RUNNER.SOURCE)
         cls.git("commit", "--quiet", "-m", "Independent Test fixture")
 
     @classmethod
@@ -489,7 +489,7 @@ class FixtureBoundaryTests(unittest.TestCase):
                          ("config", "commit.gpgsign", "false")):
                 RUNNER.git(caller, *args)
             (caller / "caller.txt").write_text("Untouched disposable caller\n", encoding="utf-8")
-            RUNNER.git(caller, "add", "--", "caller.txt")
+            RUNNER.git(caller, "add", "-f", "--", "caller.txt")
             RUNNER.git(caller, "commit", "--quiet", "-m", "Disposable caller")
 
             def snapshot() -> dict[str, bytes]:
@@ -572,6 +572,25 @@ class NestedEvidenceControls(unittest.TestCase):
                             with self.assertRaisesRegex(ValueError, "^Native TRX contains nested result records$"):
                                 self.read(root)
 
+    def test_empty_aggregation_records_cannot_hide_behind_the_direct_roster(self) -> None:
+        for outcome in (None, "Failed", "Passed", "NotExecuted"):
+            for location in ("output", "summary", "definition"):
+                for namespace in (NAMESPACE, "{urn:foreign-trx}"):
+                    with self.subTest(outcome=outcome, location=location, namespace=namespace):
+                        root = self.original()
+                        if location == "output":
+                            parent = ET.SubElement(root.find(NAMESPACE + "Results")[0], NAMESPACE + "Output")
+                        elif location == "summary":
+                            parent = root.find(NAMESPACE + "ResultSummary")
+                        else:
+                            parent = root.find(NAMESPACE + "TestDefinitions")[0]
+                        aggregation = ET.SubElement(parent, namespace + "TestResultAggregation")
+                        if outcome is not None:
+                            aggregation.set("outcome", outcome)
+                        self.assertEqual([], list(aggregation))
+                        with self.assertRaisesRegex(ValueError, "^Native TRX contains nested result records$"):
+                            self.read(root)
+
     def test_run_level_errors_cannot_hide_behind_complete_passing_counters(self) -> None:
         for kind in ("ErrorInfo", "RunInfo"):
             with self.subTest(kind=kind):
@@ -587,6 +606,20 @@ class NestedEvidenceControls(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "^Native TRX contains run-level errors or incomplete outcomes$"):
                     self.read(root)
 
+    def test_only_information_run_messages_satisfy_the_admission_policy(self) -> None:
+        for outcome in ("Information", "Warning", "Passed", "Completed", "Error", "Failed", None):
+            with self.subTest(outcome=outcome):
+                root = self.original()
+                infos = ET.SubElement(root.find(NAMESPACE + "ResultSummary"), NAMESPACE + "RunInfos")
+                info = ET.SubElement(infos, NAMESPACE + "RunInfo")
+                if outcome is not None:
+                    info.set("outcome", outcome)
+                if outcome == "Information":
+                    self.assertEqual(sorted(RUNNER.EXPECTED_IDENTITIES), self.read(root))
+                else:
+                    with self.assertRaisesRegex(ValueError, "^Native TRX contains run-level errors or incomplete outcomes$"):
+                        self.read(root)
+
 
 class InputAdmissionControls(unittest.TestCase):
     """Real disposable Git records; no fixture is native Product execution."""
@@ -601,7 +634,7 @@ class InputAdmissionControls(unittest.TestCase):
         project = self.repository / "src/Control/Control.csproj"
         project.parent.mkdir(parents=True)
         project.write_text('<Project Sdk="Microsoft.NET.Sdk" />\n', encoding="utf-8")
-        self.git("add", "--", ".")
+        self.git("add", "-f", "--", "product input ü.txt", "src/Control/Control.csproj")
         self.git("commit", "--quiet", "-m", "Disposable source admission fixture")
         self.product = self.git("rev-parse", "HEAD").decode().strip()
         self.verify()
@@ -624,6 +657,20 @@ class InputAdmissionControls(unittest.TestCase):
         with self.assertRaises(ValueError) as caught:
             self.verify(generated=generated)
         self.assertEqual(reason, str(caught.exception))
+
+    def test_staged_rename_cannot_hide_deleted_product_input(self) -> None:
+        relative = self.path.relative_to(self.repository).as_posix()
+        raw = self.path.read_bytes()
+        blob = self.git("rev-parse", "HEAD:" + relative).decode().strip()
+        (self.repository / RUNNER.DESTINATION).parent.mkdir(parents=True, exist_ok=True)
+        self.git("config", "diff.renames", "true")
+        self.git("mv", "--", relative, RUNNER.DESTINATION)
+        self.assertEqual([RUNNER.DESTINATION.encode("utf-8")], RUNNER.git_records(
+            self.repository, "diff", "--cached", "--name-only", "-z", "HEAD", "--"))
+        self.assertEqual({os.fsencode(relative), RUNNER.DESTINATION.encode("utf-8")}, set(RUNNER.git_records(
+            self.repository, "diff", "--cached", "--no-renames", "--name-only", "-z", "HEAD", "--")))
+        with self.assertRaisesRegex(ValueError, "^Unrelated tracked Product source changed during composition$"):
+            RUNNER.verify_composition(self.repository, raw, blob, self.product)
 
     def test_both_index_masks_refuse_changed_bytes_with_unchanged_index(self) -> None:
         relative = self.path.relative_to(self.repository).as_posix()
@@ -654,7 +701,7 @@ class InputAdmissionControls(unittest.TestCase):
         if os.name != "nt":
             names.append("line\nbreak.txt")
             (self.repository / names[-1]).write_bytes(b"Raw path fixture.\n")
-            self.git("add", "--", names[-1])
+            self.git("add", "-f", "--", names[-1])
         for name in names:
             with self.subTest(name=repr(name)):
                 self.assertIn(b"H " + os.fsencode(name),
@@ -673,6 +720,8 @@ class InputAdmissionControls(unittest.TestCase):
                     (self.repository / ".git/info/exclude").write_text("*.cs\n", encoding="utf-8")
                 injected.write_text("// Unreviewed compiler input.\n", encoding="utf-8")
                 if ignored:
+                    self.assertEqual(b"src/Control/Unreviewed.cs\n",
+                                     self.git("check-ignore", "--", "src/Control/Unreviewed.cs"))
                     self.assertEqual(b"", self.git("ls-files", "--others", "--exclude-standard"))
                 for generated in (False, True):
                     self.reject("Unexpected untracked source appeared during independent composition",
@@ -709,6 +758,13 @@ class SdkImportControls(unittest.TestCase):
             parent = Path(temporary)
             product = parent / "product"
             product.mkdir()
+            (product / "global.json").write_text(
+                json.dumps({"sdk": {"version": "10.0.403", "rollForward": "disable", "allowPrerelease": False}}) + "\n",
+                encoding="utf-8")
+            selected_sdk = subprocess.run(["dotnet", "--version"], cwd=product,
+                                          capture_output=True, text=True, timeout=30)
+            self.assertEqual(0, selected_sdk.returncode, selected_sdk.stdout + selected_sdk.stderr)
+            self.assertEqual("10.0.403", selected_sdk.stdout.strip())
             project = product / "Control.csproj"
             project.write_text(
                 '<Project><Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />'
@@ -742,12 +798,11 @@ class SdkImportControls(unittest.TestCase):
 
 
 class WorkflowExecutionControls(unittest.TestCase):
-    """Run each real workflow admission block against disposable script canaries."""
+    """Run each real workflow admission block against distinct script canaries."""
 
     SCRIPTS = ("tests/candidates/projectide-project-test/compose_and_verify.py",
                "tests/candidates/projectide-project-test/test_compose_and_verify.py")
-    CANARY = (b"import json, os, sys\nfrom pathlib import Path\n"
-              b"Path(os.environ['CONTROL_OUTPUT']).write_text(json.dumps({'isolated': sys.flags.isolated}))\n")
+    SCRIPT_PINS = {SCRIPTS[0]: "RUNNER_BLOB", SCRIPTS[1]: "CONTROLS_BLOB"}
 
     def setUp(self) -> None:
         if shutil.which("pwsh") is None:
@@ -760,26 +815,41 @@ class WorkflowExecutionControls(unittest.TestCase):
         self.repository = self.directory / "repository"
         self.repository.mkdir()
         self.git("init", "--quiet", "--template=")
+        self.canaries = {}
         for relative in self.SCRIPTS:
+            raw = ("import json, os, sys\nfrom pathlib import Path\n"
+                   "Path(os.environ['CONTROL_OUTPUT']).write_text(json.dumps("
+                   "{'isolated': sys.flags.isolated, 'script': " + repr(relative) + "}))\n").encode("utf-8")
+            self.canaries[relative] = raw
             target = self.repository / relative
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(self.CANARY)
-        self.git("add", "--", ".")
-        self.git("commit", "--quiet", "-m", "Disposable Python execution canaries")
+            target.write_bytes(raw)
+        self.git("add", "-f", "--", *self.SCRIPTS)
+        self.git("commit", "--quiet", "-m", "Disposable distinct Python execution canaries")
         self.head = self.git("rev-parse", "HEAD").strip()
-        self.blob = self.git("rev-parse", "HEAD:" + self.SCRIPTS[0]).strip()
+        self.blobs = {relative: self.git("rev-parse", "HEAD:" + relative).strip() for relative in self.SCRIPTS}
+        self.assertEqual(3, len({self.head, *self.blobs.values()}))
         workflow = RUNNER.ROOT / ".github/workflows/projectide-project-test-advisory.yml"
         lines = workflow.read_text(encoding="utf-8").splitlines()
+        launches = [(index, line) for index, line in enumerate(lines)
+                    if line.strip().startswith("python -I -B tests/candidates/projectide-project-test/")]
         self.blocks = []
-        for index, line in enumerate(lines):
-            if not line.strip().startswith("python -I -B tests/candidates/projectide-project-test/"):
-                continue
+        for index, line in launches:
+            executable = line.strip().split()[3]
+            self.assertIn(executable, self.SCRIPTS)
+            required = self.SCRIPTS if executable == self.SCRIPTS[1] else (self.SCRIPTS[0],)
             first = index
             while first and lines[first - 1].strip().startswith(("$committed =", "$working =", "if ($LASTEXITCODE")):
                 first -= 1
-            self.blocks.append("\n".join(item[10:] for item in lines[first:index + 1]))
+            block = "\n".join(item[10:] for item in lines[first:index + 1])
+            committed = tuple(sorted(re.findall(r'git rev-parse "\$\(\$env:TEST_HEAD\):([^"]+)"', block)))
+            working = tuple(sorted(re.findall(r"git hash-object --no-filters '([^']+)'", block)))
+            self.assertEqual(tuple(sorted(required)), committed, "Launch block omitted a required committed script binding")
+            self.assertEqual(tuple(sorted(required)), working, "Launch block omitted a required working script binding")
+            self.blocks.append((block, executable, required))
         self.assertEqual(4, len(self.blocks), "Both controls and runners on both hosts must be exercised")
-        self.assertTrue(all("git hash-object --no-filters" in block for block in self.blocks))
+        for relative in self.SCRIPTS:
+            self.assertEqual(2, sum(executable == relative for _, executable, _ in self.blocks))
 
     def git(self, *args: str) -> str:
         environment = {key: value for key, value in os.environ.items()
@@ -802,9 +872,9 @@ class WorkflowExecutionControls(unittest.TestCase):
                           encoding="utf-8")
         environment = {key: value for key, value in os.environ.items()
                        if not key.upper().startswith("GIT_")}
-        environment.update(TEST_HEAD=self.head, RUNNER_BLOB=self.blob, CONTROLS_BLOB=self.blob,
-                           RUNNER_TEMP=str(self.directory), CONTROL_OUTPUT=str(marker),
+        environment.update(TEST_HEAD=self.head, RUNNER_TEMP=str(self.directory), CONTROL_OUTPUT=str(marker),
                            PYTHONPATH=str(self.repository / Path(self.SCRIPTS[0]).parent))
+        environment.update({self.SCRIPT_PINS[relative]: blob for relative, blob in self.blobs.items()})
         result = subprocess.run(["pwsh", "-NoProfile", "-NonInteractive", "-File", str(script)],
                                 cwd=self.repository, env=environment, capture_output=True,
                                 text=True, timeout=60)
@@ -813,28 +883,26 @@ class WorkflowExecutionControls(unittest.TestCase):
     def test_actual_blocks_use_isolated_python_despite_import_shadow(self) -> None:
         shadow = self.repository / Path(self.SCRIPTS[0]).parent / "json.py"
         shadow.write_text("raise RuntimeError('UNREVIEWED_IMPORT_SHADOW')\n", encoding="utf-8")
-        for number, block in enumerate(self.blocks):
-            with self.subTest(block=number):
+        for number, (block, executable, _) in enumerate(self.blocks):
+            with self.subTest(block=number, executable=executable):
                 result, marker = self.execute(block)
                 self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-                self.assertEqual({"isolated": 1}, json.loads(marker.read_text(encoding="utf-8")))
+                self.assertEqual({"isolated": 1, "script": executable}, json.loads(marker.read_text(encoding="utf-8")))
 
     def test_changed_execution_bytes_are_rejected_before_canary_runs(self) -> None:
-        for number, block in enumerate(self.blocks):
-            for relative in self.SCRIPTS:
-                if relative not in block:
-                    continue
+        for number, (block, executable, required) in enumerate(self.blocks):
+            for relative in required:
                 with self.subTest(block=number, script=relative):
                     target = self.repository / relative
-                    target.write_bytes(self.CANARY + b"# Unreviewed execution bytes.\n")
+                    target.write_bytes(self.canaries[relative] + b"# Unreviewed execution bytes.\n")
                     result, marker = self.execute(block)
                     self.assertNotEqual(0, result.returncode)
                     self.assertIn("Working execution script identity mismatch", result.stdout + result.stderr)
                     self.assertFalse(marker.exists())
-                    target.write_bytes(self.CANARY)
+                    target.write_bytes(self.canaries[relative])
                     result, marker = self.execute(block)
                     self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-                    self.assertTrue(marker.exists())
+                    self.assertEqual({"isolated": 1, "script": executable}, json.loads(marker.read_text(encoding="utf-8")))
 
 
 if __name__ == "__main__":
