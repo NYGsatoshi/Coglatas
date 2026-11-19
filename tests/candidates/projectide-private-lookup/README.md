@@ -146,3 +146,15 @@ RLS/Registry activation, Main adoption, Production or Release approval follows.
 ## Whole-document native TRX admission (#2095)
 
 The corrected and historical-red readers reject non-direct or aggregated result records throughout the original document and refuse unbound ErrorInfo or RunInfo records, including extension namespaces. Only Information run messages under ResultSummary/RunInfos are generally admissible. Historical red also admits the exact two failed assertion Output/ErrorInfo records and their two verified xUnit Error announcements, without admitting infrastructure failures or warnings. The C# roster, Product pair and all six false qualification flags are unchanged.
+
+## Isolated Python executable admission (#2095)
+
+The previously frozen Product branches, native C# identities, real corrected and
+historical-red outcomes, original receipt schema and six false qualification flags
+are preserved. Both Ubuntu and Windows jobs now compare each executing provenance
+helper, control module and candidate runner's committed Git object and unfiltered
+working bytes against pinned source before import. Explicit isolated Python
+`-I -B` loaders replace directory-mutating discovery, and all execution steps
+reject bytecode caches including uppercase Windows aliases. The additional
+portable test canaries demonstrate real import-shadow refusal without altering
+native Product execution or claiming operational authorization or Release GO.
