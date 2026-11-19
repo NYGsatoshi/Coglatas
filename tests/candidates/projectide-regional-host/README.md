@@ -68,7 +68,7 @@ receipt or fabricated Compiler PASS is used.
 
 ## Verifier controls and limits
 
-Sixteen portable Python unittest methods cover synthetic TRX/discovery positives
+The portable Python verifier controls cover synthetic TRX/discovery positives
 and exact-error mutations, including foreign/aliased class or method identities,
 nonbijective/duplicate execution IDs, incomplete counters and extra result
 containers. Real disposable Git controls cover hostile environment redirection,

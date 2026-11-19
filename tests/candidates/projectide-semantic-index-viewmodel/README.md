@@ -69,7 +69,7 @@ nested or unregistered output-directory names cannot hide compiler inputs.
 All Git subprocesses remove inherited `GIT_*`
 overrides while preserving ordinary host/SDK settings.
 
-Twenty-four verifier controls exercise synthetic report substitution,
+The verifier controls exercise synthetic report substitution,
 counter/namespace/method/discovery mismatches and actual disposable Git source,
 index, HEAD, staged-only Product, ignored and ordinary untracked-input,
 generated-output admission and environment-redirection failures. Nested native
