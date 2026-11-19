@@ -19,7 +19,7 @@ snapshot queries on that accepted compilation through public APIs.
   facts**. The original eleven method identities, bodies and helpers remain
   byte-for-byte intact from Test blob
   `a7832c98fcded823532b974eee11b74168ddfbf2`.
-- Independent composition runner `bdbbe91e7f646a147faabe721830536572b8a077`
+- Independent composition runner `ff7702d6f9103810d1bd26cf736d819c44229ba1`
   (current Security Test-owner runner model). The runner stages **only** the
   original exact Test blob into a detached, clean Product worktree, verifies
   the actual source bytes, Git index identity, Product HEAD and unrelated
@@ -111,7 +111,7 @@ repairs two malformed-input admissions in the original #2055 runner:
   even when the first container retains all 35 valid passing facts.
 
 `test_compose_and_verify.py` requires retained native TRX and compiled discovery
-inputs. Its current 34 controls include the unchanged authentic positive and both
+inputs. Its current 36 controls include the unchanged authentic positive and both
 counterexamples, namespace and complete-inventory refusals, native identity
 bijection, counter and discovery failures, and real temporary Git/worktree
 composition boundaries. Only the `dotnet` outputs in the temporary main-path
@@ -202,3 +202,30 @@ an executing-workflow provenance receipt; independent original API/job/archive
 and source review remains necessary. Generated output admission is not continuous
 build attestation, package provenance, Product authorization, or permission to
 close the broader #2095 inventory. All six qualification fields remain false.
+
+## Review correction controls
+
+The global native record check also refuses `TestResultAggregation`, including
+empty records and records with ordinary child output. Regression mutations cover
+Failed, Passed and NotExecuted outcomes in native and foreign namespaces across
+the root, result, output, definition and summary. The authentic positive remains
+admitted; mutations receive no native execution credit.
+
+Both staged and unstaged path inventories explicitly disable rename pairing. A
+real Git control demonstrates that rename-aware output can hide a staged Product
+deletion behind the candidate destination, then verifies separate paths are
+refused and restoring the deleted Product input restores admission. Ignored-input
+controls first assert a positive `git check-ignore` match. Fixture setup force
+stages its known files so an ambient ignore cannot remove a committed project.
+Ignored inputs outside the registered output roots are refused; files inside
+allowed roots after restore are admitted by path and phase, without a claim about
+how their content was produced.
+
+The disposable SDK probe writes the exact 10.0.403 policy with roll-forward
+disabled and validates the selected version before either ancestor import is
+created, overriding a conflicting parent SDK policy. Bootstrap fixtures now use
+distinct script bytes and pins, require every runner/control role binding in each
+original host launch block, and assert which isolated canary actually executed.
+Restored original bytes must pass after every rejected mutation. These remain
+verifier controls; immutable Product and C# inputs, historical outcomes, native
+case counts and all six qualification holds are unchanged.

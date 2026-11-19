@@ -13,7 +13,7 @@ contains no imported Product test fixture or authored Compiler result.
 - Initial Security base: `f0e188d090f7542b4c824b5a4ed7aaa2c64fe6d9`.
 - Independent class: `Coglatas.Tests.ProjectIde.SecurityDraftRenameCandidateTests`.
 - Independent C# blob: `2518da1e6358a5fb3512cf49f0ceb469530cb4b7`.
-- Independent runner blob: `58a2241bb7d8a0f7eea74b28dff42ca6614ed8cc`.
+- Independent runner blob: `68311568357026b0367c2fa45a4abe9499977ee8`.
 - Execution scope: `SYNTHETIC_DRAFT_RENAME_CORE_AND_VIEWMODEL_ONLY`.
 
 The initial four-file candidate patch consisted of the test source, composition runner, scoped
@@ -170,7 +170,7 @@ Every restore, test and compiled-discovery invocation disables ancestor
 `Directory.Build.props` and `Directory.Build.targets`. The frozen Product
 contains neither file, so no committed Product import is suppressed.
 
-`test_compose_and_verify.py` supplies 27 portable regression methods. They
+`test_compose_and_verify.py` supplies 28 portable regression methods. They
 verify the original C# blob/roster, mutate synthetic TRX and discovery, exercise
 real disposable Git index masks and index-only drift, and test ignored inputs
 and allowed output roots. A real SDK probe shows both poisoned parent imports
@@ -196,3 +196,15 @@ working changes, changed commits, Git-normalized CRLF bytes, and local or
 PYTHONPATH import shadows. Original pinned canaries must run only after the
 specific refused input has been restored; these are bootstrap controls, not
 Product execution.
+
+## Review follow-up: admission policy and control completeness
+
+The native reader rejects `TestResultAggregation` explicitly, including empty records, alongside all nested result families. Both staged and unstaged Git path comparisons disable rename detection, so a Product deletion cannot disappear when paired with the candidate addition.
+
+Run-level admission intentionally permits only `Information` RunInfo outcomes. `Warning`, `Passed`, `Completed`, error outcomes and unknown values make the receipt incomplete even when every candidate case passes. This is a strict local admission policy, not a claim that every warning is a native test failure.
+
+Ignored and ordinary untracked source paths are refused **outside** the registered output roots. Within an allowed root, acceptance depends on the path and execution phase; it does not establish how a file was produced. In particular, an ignored C# file under a registered `obj/` root is admitted after restore. These checks do not make the build hermetic.
+
+Disposable SDK probes pin `10.0.403` with roll-forward disabled and check the selected version before creating either parent import. Their known Git fixture files are explicitly force-staged. Execution controls give each script distinct committed canary bytes and its own pin, require every role's bindings, and verify exactly which isolated canaries ran. These controls add no Product/native execution credit.
+
+The complete committed suite contains 28 unittest methods.

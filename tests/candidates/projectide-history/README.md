@@ -24,8 +24,8 @@ distinct from durable transaction atomicity.
 | Product shared `ProjectDraftRename.cs` transition | `fb998c7ee934ef39c577f0f677eabcc3f7d81156` |
 | Product `ProjectSourceCodec.cs` | `b0c3323032d708f18fc65acc9a9bb15419b4a99f` |
 | Independent C# candidate | `8ddbb5b95651fb6a3ba68f1d6db67f6421dac9df` |
-| Independent composition runner | `51cbe89f2a20c659848981cc3efd5d97d12cfeff` |
-| Committed verifier controls | `f442480744b64a409ae17c0935a3f08093caadac` |
+| Independent composition runner | `746d05e10c5808219b2e280cd626106e4918ab8c` |
+| Committed verifier controls | `010f9791df5edee780a8982e4a8cde09f44da6be` |
 
 The runner stages only the exact independent Test blob at
 `tests/Coglatas.Tests/ProjectIde/SecurityProjectHistoryCandidateTests.cs` in a
@@ -104,7 +104,7 @@ checks alongside syntax, roster, workflow and structural-header review. Their
 commands were not retained as a committed regression suite; those historical
 checks do not supply a reproducible repository test count.
 
-The committed `test_compose_and_verify.py` now supplies **24 portable unittest
+The committed `test_compose_and_verify.py` now supplies **27 portable unittest
 methods**. Synthetic native-shaped TRX/discovery positives precede targeted
 counter, Execution, binding, class/method, container and raw-name refusals.
 Disposable Git repositories exercise actual source, index, same-tree HEAD and
@@ -175,23 +175,29 @@ python -B tests/candidates/projectide-history/compose_and_verify.py --product-he
 ## Shared evidence admission follow-up (#2095)
 
 The unchanged native candidate and immutable Product pin retain their original
-execution scope. Native admission rejects every InnerResults container and
-every XML record whose local name ends in TestResult outside the exact direct
+execution scope. Native admission rejects every InnerResults container, every
+TestResultAggregation record (including empty records), and every XML record whose local name ends in TestResult outside the exact direct
 inventory. This includes Passed or NotExecuted GenericTestResult copies beneath
 cases, summaries or definitions with otherwise complete passing outer metadata.
 It also refuses ErrorInfo or non-informational RunInfo records. Copied-report
 controls preserve the authentic outer names, counters and identities.
+Only Information RunInfo messages satisfy this cohort's admission policy.
+A Warning or another outcome is refused as incomplete evidence even when
+all native facts pass; this does not reclassify warnings as native failures.
 
 Before relying on a Product diff, every composition check reads NUL-delimited
 Git path/index records as raw bytes and rejects assume-unchanged, skip-worktree
-and other nonordinary flags. Staged and unstaged changes remain separate;
-untracked and ignored source is refused. Only bin/obj directories beside
-committed Product csproj files may contain generated output after restore.
+and other nonordinary flags. Staged and unstaged changes remain separate,
+with rename detection disabled so a paired addition cannot hide a deletion.
+Untracked and ignored source outside allowed roots is refused. After restore,
+bin/obj roots beside committed Product csproj files are admitted by path;
+the check does not establish how their contents were produced.
 Nested or unrelated output-looking names cannot hide new compiler input.
 
 Every restore, native test and compiled-discovery command disables ancestor
 Directory.Build.props and Directory.Build.targets imports. A disposable real
-SDK probe first demonstrates each poisoned parent import failing, then checks
+SDK probe pins 10.0.403 with roll-forward disabled and checks the selected
+version before poisoning imports. It demonstrates each parent import failing, then checks
 that the isolated command succeeds. Its custom VSTest target exercises import
 behavior only; it executes no Product C# fact and adds no native case credit.
 
@@ -199,10 +205,12 @@ Both workflows compare committed and actual runner/control bytes immediately
 before each Python invocation, use git hash-object --no-filters, and invoke
 Python with -I -B. Actual PowerShell bootstrap controls reject a changed script
 before its canary runs and verify isolation against local/PYTHONPATH import
-shadows. These cohorts have no shared provenance helper; this does not create
+shadows. Each script has distinct canary bytes and its own blob pin. Every
+launch block must bind its declared runner/control roles, and the marker
+identifies the exact executed script. These cohorts have no shared provenance helper; this does not create
 an executing-workflow provenance receipt that was absent previously.
 
-The committed suite contains 24 unittest methods, including the original
+The committed suite contains 27 unittest methods, including the original
 controls. Source/input, copied-report, SDK and bootstrap checks remain separate
 from the unchanged native suite and fresh hosted Windows/Ubuntu execution.
 All six broader qualification flags remain false. Complete shared #2095

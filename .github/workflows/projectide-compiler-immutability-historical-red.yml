@@ -25,8 +25,8 @@ jobs:
       VULNERABLE_PRODUCT_HEAD: 2b2c86a447779c2d9d19e4b88f1274a70737d54e
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
       SOURCE_BLOB: 067043361a2e7a83613886234e1afc0b499d70e9
-      RED_RUNNER_BLOB: 88fd9e290c054e8644a905ea1325894dc515de81
-      RED_CONTROLS_BLOB: 48a546c9f417c0aa567c35a7e62a07d372478e7e
+      RED_RUNNER_BLOB: 87ad90e659408eec11ef188a86fd52dfc0b86874
+      RED_CONTROLS_BLOB: e6d76f125b65148ebf5e9beaaa244449b1b6343d
     steps:
       - name: Preserve committed source bytes
         shell: pwsh

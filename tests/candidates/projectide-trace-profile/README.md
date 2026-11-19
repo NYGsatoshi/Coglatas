@@ -24,7 +24,7 @@ Native/Avalonia UI.
   method names, bodies and helpers remain byte-identical to source blob
   `680b7da997b4d9abee16536b7915df749d293972`.
 - Composition script `compose_and_verify.py` Git blob
-  `4b95a2b6cd62ca1b46456a56ce1493e186d6cced`.
+  `e1a984b65fea03533f32d6faee18111f5bccd2a9`.
   It checks the exact original Test Git blob/index, regular nonsymlink candidate
   bytes and unchanged immutable Product HEAD before composition execution, after
   restore, immediately after native tests and after compiled discovery. It rejects
@@ -177,23 +177,29 @@ python -B tests/candidates/projectide-trace-profile/test_compose_and_verify.py -
 ## Shared evidence admission follow-up (#2095)
 
 The unchanged native candidate and immutable Product pin retain their original
-execution scope. Native admission rejects every InnerResults container and
-every XML record whose local name ends in TestResult outside the exact direct
+execution scope. Native admission rejects every InnerResults container, every
+TestResultAggregation record (including empty records), and every XML record whose local name ends in TestResult outside the exact direct
 inventory. This includes Passed or NotExecuted GenericTestResult copies beneath
 cases, summaries or definitions with otherwise complete passing outer metadata.
 It also refuses ErrorInfo or non-informational RunInfo records. Copied-report
 controls preserve the authentic outer names, counters and identities.
+Only Information RunInfo messages satisfy this cohort's admission policy.
+A Warning or another outcome is refused as incomplete evidence even when
+all native facts pass; this does not reclassify warnings as native failures.
 
 Before relying on a Product diff, every composition check reads NUL-delimited
 Git path/index records as raw bytes and rejects assume-unchanged, skip-worktree
-and other nonordinary flags. Staged and unstaged changes remain separate;
-untracked and ignored source is refused. Only bin/obj directories beside
-committed Product csproj files may contain generated output after restore.
+and other nonordinary flags. Staged and unstaged changes remain separate,
+with rename detection disabled so a paired addition cannot hide a deletion.
+Untracked and ignored source outside allowed roots is refused. After restore,
+bin/obj roots beside committed Product csproj files are admitted by path;
+the check does not establish how their contents were produced.
 Nested or unrelated output-looking names cannot hide new compiler input.
 
 Every restore, native test and compiled-discovery command disables ancestor
 Directory.Build.props and Directory.Build.targets imports. A disposable real
-SDK probe first demonstrates each poisoned parent import failing, then checks
+SDK probe pins 10.0.403 with roll-forward disabled and checks the selected
+version before poisoning imports. It demonstrates each parent import failing, then checks
 that the isolated command succeeds. Its custom VSTest target exercises import
 behavior only; it executes no Product C# fact and adds no native case credit.
 
@@ -201,12 +207,20 @@ Both workflows compare committed and actual runner/control bytes immediately
 before each Python invocation, use git hash-object --no-filters, and invoke
 Python with -I -B. Actual PowerShell bootstrap controls reject a changed script
 before its canary runs and verify isolation against local/PYTHONPATH import
-shadows. These cohorts have no shared provenance helper; this does not create
+shadows. Each script has distinct canary bytes and its own blob pin. Every
+launch block must bind its declared runner/control roles, and the marker
+identifies the exact executed script. These cohorts have no shared provenance helper; this does not create
 an executing-workflow provenance receipt that was absent previously.
 
-The committed suite contains 18 unittest methods, including the original
+The committed suite contains 21 unittest methods, including the original
 controls. Source/input, copied-report, SDK and bootstrap checks remain separate
 from the unchanged native suite and fresh hosted Windows/Ubuntu execution.
 All six broader qualification flags remain false. Complete shared #2095
 acceptance, current authority, Native UI, production and Release qualification
 remain open; #1144 stays BLOCKED, #1128 SUSPENDED / NOT_EVALUATED and Release NO_GO.
+
+The pinned Product test project at `ea339ed0bc094630654262ebb28568a95ba4198f`
+references Microsoft.NET.Test.Sdk 18.11.0. The retained original native logs
+do not emit a VSTest or TRX logger assembly version, so no runtime logger
+version or warning semantics from another release are inferred. The strict
+Information-only policy above is deliberate and does not change that dependency.
