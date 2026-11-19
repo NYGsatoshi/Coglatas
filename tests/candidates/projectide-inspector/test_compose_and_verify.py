@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Admission controls over retained native Inspector reports; never fresh native execution."""
+"""Retained Inspector admission, bootstrap and disposable SDK controls; no new Product cases."""
 from __future__ import annotations
 
 import argparse
@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -217,6 +218,35 @@ class RetainedReportControls(ExactRejection):
         ET.SubElement(root.find(NS + "Results")[0], NS + "ErrorInfo").text = "Contradictory native failure"
         self.reject("Native TRX contains contradictory failure information", lambda: self.native(root))
 
+    def test_nested_native_results_are_rejected_with_unchanged_passing_roster(self) -> None:
+        for outcome in ("Passed", "NotExecuted", "Failed"):
+            for location in ("Results", "TestDefinitions", "TestEntries", "ResultSummary", "TestRun"):
+                for kind in ("UnitTestResult", "GenericTestResult"):
+                    for namespace in (NS, "{urn:foreign-trx}"):
+                        for wrapped in (False, True):
+                            with self.subTest(outcome=outcome, location=location, kind=kind,
+                                              namespace=namespace, wrapped=wrapped):
+                                root = ET.fromstring(NATIVE_TRX)
+                                record = root if location == "TestRun" else root.find(NS + location)
+                                if location in ("Results", "TestDefinitions", "TestEntries"):
+                                    record = record[0]
+                                parent = ET.SubElement(record, namespace + "InnerResults") if wrapped else record
+                                ET.SubElement(parent, namespace + kind, outcome=outcome,
+                                              testName="Foreign.HiddenResult", testId="hidden", executionId="hidden")
+                                self.reject("Native TRX contains nested result records", lambda: self.native(root))
+
+    def test_run_level_failures_cannot_hide_behind_passing_counters(self) -> None:
+        positive = ET.fromstring(NATIVE_TRX)
+        infos = ET.SubElement(positive.find(NS + "ResultSummary"), NS + "RunInfos")
+        ET.SubElement(infos, NS + "RunInfo", outcome="Information")
+        self.assertEqual(sorted(RUNNER.EXPECTED_IDENTITIES), self.native(positive))
+        for outcome in ("Failed", "Error", "Aborted", "Timeout", "NotExecuted", "Warning", "Passed", "Completed", "unknown"):
+            with self.subTest(outcome=outcome):
+                root = ET.fromstring(NATIVE_TRX)
+                infos = ET.SubElement(root.find(NS + "ResultSummary"), NS + "RunInfos")
+                ET.SubElement(infos, NS + "RunInfo", outcome=outcome)
+                self.reject("Native TRX contains contradictory failure information", lambda: self.native(root))
+
     def test_discovery_rejects_longer_substrings_foreign_extra_and_missing_cases(self) -> None:
         names = sorted(RUNNER.EXPECTED_IDENTITIES)
         variants = {
@@ -321,7 +351,12 @@ class MainAdmissionControls(ExactRejection):
         repository.mkdir()
         fixture_git(repository, "init", "--quiet", "--template=")
         (repository / "product.txt").write_text(name + " immutable Product fixture\n", encoding="utf-8")
-        fixture_git(repository, "add", "--", "product.txt")
+        (repository / " spaced\u2028product.txt").write_text("Raw NUL path control\n", encoding="utf-8")
+        (repository / ".gitignore").write_text("bin/\nobj/\nnode_modules/\n.angular/\ndata/\n.local/\n", encoding="utf-8")
+        project = repository / "tests/Coglatas.Tests/Coglatas.Tests.csproj"
+        project.parent.mkdir(parents=True)
+        project.write_text('<Project Sdk="Microsoft.NET.Sdk" />\n', encoding="utf-8")
+        fixture_git(repository, "add", "--", "product.txt", " spaced\u2028product.txt", ".gitignore", "tests/Coglatas.Tests/Coglatas.Tests.csproj")
         fixture_git(repository, "commit", "--quiet", "-m", "Disposable Product fixture")
         product, product_tree = fixture_git(repository, "rev-parse", "HEAD"), fixture_git(repository, "rev-parse", "HEAD^{tree}")
         for source, raw in SOURCE_BYTES.items():
@@ -476,6 +511,57 @@ class MainAdmissionControls(ExactRejection):
         self.run_main(stage="restore", mutate=change,
                       reason="Unexpected untracked source appeared during independent composition")
 
+    def test_index_masks_cannot_hide_changed_product_bytes(self) -> None:
+        for flag in ("assume-unchanged", "skip-worktree"):
+            for stage in ("restore", "xunit", "discovery", "npm-ci", "vitest"):
+                with self.subTest(flag=flag, stage=stage):
+                    def change(target, evidence):
+                        path = target / " spaced\u2028product.txt"
+                        original_blob = fixture_git(target, "rev-parse", ": spaced\u2028product.txt")
+                        fixture_git(target, "update-index", "--" + flag, "--", " spaced\u2028product.txt")
+                        path.write_bytes(path.read_bytes() + b"Hidden changed Product input\n")
+                        self.assertEqual(original_blob, fixture_git(target, "rev-parse", ": spaced\u2028product.txt"))
+                        self.assertEqual("", fixture_git(target, "diff", "--name-only", "--"))
+                    self.run_main(stage=stage, mutate=change, reason="Git index flags hide tracked Product source")
+
+    def test_ignored_native_and_angular_compile_inputs_are_rejected(self) -> None:
+        for relative in ("tests/Coglatas.Tests/data/Injected.cs",
+                         "frontend/src/app/.local/Injected.ts",
+                         "tests/Coglatas.Tests/ProjectIde/bin/Injected.cs",
+                         "frontend/src/app/node_modules/Injected.ts"):
+            for stage in ("restore", "npm-ci", "vitest"):
+                with self.subTest(relative=relative, stage=stage):
+                    def change(target, evidence):
+                        output = target / relative
+                        output.parent.mkdir(parents=True, exist_ok=True)
+                        output.write_text("// Ignored source is still a compiler input.\n", encoding="utf-8")
+                        self.assertEqual(relative, fixture_git(target, "check-ignore", "--", relative))
+                        self.assertEqual("", fixture_git(target, "ls-files", "--others", "--exclude-standard"))
+                    self.run_main(stage=stage, mutate=change,
+                                  reason="Unexpected untracked source appeared during independent composition")
+
+    def test_known_outputs_are_admitted_only_after_their_own_phase(self) -> None:
+        for stage, relative in (("restore", "tests/Coglatas.Tests/obj/GeneratedAssemblyInfo.cs"),
+                                ("xunit", "tests/Coglatas.Tests/bin/Release/result.dll"),
+                                ("npm-ci", "frontend/node_modules/package/index.js"),
+                                ("vitest", "frontend/.angular/cache/result.bin")):
+            with self.subTest(stage=stage, relative=relative):
+                def create(target, evidence):
+                    output = target / relative
+                    output.parent.mkdir(parents=True, exist_ok=True)
+                    output.write_text("Disposable output control\n", encoding="utf-8")
+                self.run_main(stage=stage, mutate=create)
+        for stage, relative in (("sdk", "tests/Coglatas.Tests/obj/Injected.cs"),
+                                ("restore", "frontend/node_modules/package/index.js"),
+                                ("npm-ci", "frontend/.angular/cache/result.bin")):
+            with self.subTest(stage=stage, relative=relative):
+                def create(target, evidence):
+                    output = target / relative
+                    output.parent.mkdir(parents=True, exist_ok=True)
+                    output.write_text("Unexpected premature output\n", encoding="utf-8")
+                self.run_main(stage=stage, mutate=create,
+                              reason="Unexpected untracked source appeared during independent composition")
+
     def test_main_rejects_malformed_native_discovery_and_angular_outputs(self) -> None:
         def malformed_native(target, evidence):
             path = evidence / "inspector.trx"
@@ -525,6 +611,274 @@ class MainAdmissionControls(ExactRejection):
             self.assertEqual(before, dict(os.environ))
 
 
+SDK_IMPORT_CONTROLS_EXECUTED = False
+
+
+class SdkImportControls(unittest.TestCase):
+    """Exercise real SDK import behavior with a disposable project, never Product tests."""
+
+    def test_restore_test_and_discovery_exclude_external_props_and_targets(self) -> None:
+        global SDK_IMPORT_CONTROLS_EXECUTED
+        if shutil.which("dotnet") is None:
+            if os.environ.get("GITHUB_ACTIONS") == "true":
+                self.fail("Hosted SDK import controls require dotnet")
+            self.skipTest("dotnet is unavailable; hosted SDK import execution remains required")
+        with tempfile.TemporaryDirectory(prefix="source-only-sdk-controls-") as temporary:
+            parent = Path(temporary)
+            product = parent / "product"
+            product.mkdir()
+            project = product / "Control.csproj"
+            project.write_text(
+                '<Project><Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />'
+                '<PropertyGroup><TargetFramework>net10.0</TargetFramework>'
+                '<EnableDefaultItems>false</EnableDefaultItems></PropertyGroup>'
+                '<Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />'
+                '<Target Name="VSTest"><Message Text="SOURCE_ONLY_SDK_CONTROL" Importance="high" />'
+                '</Target></Project>', encoding="utf-8")
+            (product / "NuGet.Config").write_text(
+                '<configuration><packageSources><clear /></packageSources></configuration>', encoding="utf-8")
+            for filename in ("Directory.Build.props", "Directory.Build.targets"):
+                external = parent / filename
+                external.write_text(
+                    '<Project><Target Name="UnreviewedAncestorInput" BeforeTargets="Restore;VSTest">'
+                    '<Error Text="UNREVIEWED_ANCESTOR_IMPORT" /></Target></Project>', encoding="utf-8")
+                for action, arguments in (
+                    ("restore", (str(project), "--nologo")),
+                    ("test", (str(project), "--no-restore", "--nologo")),
+                    ("test", (str(project), "--no-build", "--list-tests", "--nologo")),
+                ):
+                    with self.subTest(filename=filename, action=action, arguments=arguments):
+                        unprotected = subprocess.run(["dotnet", action, *arguments], cwd=product,
+                                                     capture_output=True, text=True, timeout=90)
+                        self.assertNotEqual(0, unprotected.returncode)
+                        self.assertIn("UNREVIEWED_ANCESTOR_IMPORT", unprotected.stdout + unprotected.stderr)
+                        protected = subprocess.run(RUNNER.source_only_dotnet(action, *arguments), cwd=product,
+                                                   capture_output=True, text=True, timeout=90)
+                        self.assertEqual(0, protected.returncode, protected.stdout + protected.stderr)
+                        self.assertNotIn("UNREVIEWED_ANCESTOR_IMPORT", protected.stdout + protected.stderr)
+                external.unlink()
+        SDK_IMPORT_CONTROLS_EXECUTED = True
+
+
+class WorkflowBootstrapControls(unittest.TestCase):
+    """Execute the actual advisory bootstrap over disposable helper bytes, not Product code."""
+
+    HELPER = "tests/candidates/workflow-provenance/verify_workflow_provenance.py"
+    HELPER_BYTES = (b"import json, os, sys\nfrom pathlib import Path\n"
+                    b"Path(os.environ['BOOTSTRAP_RESULT']).write_text(json.dumps({'isolated': sys.flags.isolated}))\n")
+
+    def setUp(self) -> None:
+        self.pwsh = shutil.which("pwsh")
+        if self.pwsh is None:
+            if os.environ.get("GITHUB_ACTIONS") == "true":
+                self.fail("Hosted workflow bootstrap controls require PowerShell")
+            self.skipTest("PowerShell is unavailable; hosted bootstrap execution remains required")
+        temporary = tempfile.TemporaryDirectory(prefix="workflow-bootstrap-controls-")
+        self.addCleanup(temporary.cleanup)
+        self.directory = Path(temporary.name)
+        self.repository = self.directory / "source"
+        self.repository.mkdir()
+        fixture_git(self.repository, "init", "--quiet", "--template=")
+        self.helper = self.repository / self.HELPER
+        self.helper.parent.mkdir(parents=True)
+        self.helper.write_bytes(self.HELPER_BYTES)
+        fixture_git(self.repository, "add", "--", self.HELPER)
+        fixture_git(self.repository, "commit", "--quiet", "-m", "Disposable pinned helper")
+        self.pinned = fixture_git(self.repository, "rev-parse", "HEAD:" + self.HELPER)
+        self.result = self.directory / "executed.json"
+        self.shadow = self.directory / "shadow-loaded.txt"
+        workflow = Path(__file__).resolve().parents[3] / ".github/workflows/projectide-inspector-composition-advisory.yml"
+        self.scripts = re.findall(
+            r"      - name: Bind the immutable executing workflow to the reviewed Test source\n"
+            r"        shell: pwsh\n        run: \|\n((?:          [^\n]*\n)+)",
+            workflow.read_text(encoding="utf-8"))
+        self.assertEqual(2, len(self.scripts), "Both hosted bootstrap blocks must be exercised")
+
+    def execute(self, script: str) -> subprocess.CompletedProcess:
+        path = self.directory / "bootstrap.ps1"
+        path.write_text("\n".join(line[10:] for line in script.splitlines()) + "\n", encoding="utf-8")
+        environment = {key: value for key, value in os.environ.items()
+                       if not key.upper().startswith("GIT_")}
+        environment.update(PROVENANCE_BLOB=self.pinned, RUNNER_TEMP=str(self.directory),
+                           BOOTSTRAP_RESULT=str(self.result), BOOTSTRAP_SHADOW=str(self.shadow))
+        return subprocess.run([self.pwsh, "-NoLogo", "-NoProfile", "-NonInteractive", "-File", str(path)],
+                              cwd=self.repository, env=environment, capture_output=True, text=True, timeout=30)
+
+    def test_changed_helper_is_refused_before_any_helper_instruction(self) -> None:
+        changed = self.HELPER_BYTES + b"# Different executable bytes.\n"
+        for kind in ("working", "normalized-working", "committed"):
+            with self.subTest(kind=kind):
+                fixture_git(self.repository, "config", "core.autocrlf", "false")
+                self.helper.write_bytes(changed)
+                if kind == "normalized-working":
+                    fixture_git(self.repository, "config", "core.autocrlf", "true")
+                    self.helper.write_bytes(self.HELPER_BYTES.replace(b"\n", b"\r\n"))
+                    self.assertEqual(self.pinned, fixture_git(
+                        self.repository, "-c", "core.autocrlf=true", "hash-object", "--", self.HELPER))
+                if kind == "committed":
+                    fixture_git(self.repository, "add", "--", self.HELPER)
+                    fixture_git(self.repository, "commit", "--quiet", "-m", "Different committed helper")
+                for script in self.scripts:
+                    result = self.execute(script)
+                    self.assertNotEqual(0, result.returncode)
+                    reason = "Provenance helper blob mismatch" if kind == "committed" else "Provenance helper working bytes mismatch"
+                    self.assertIn(reason, result.stdout + result.stderr)
+                    self.assertFalse(self.result.exists(), "Changed executable must not reach its first instruction")
+
+    def test_original_helper_load_ignores_neighboring_import_shadow(self) -> None:
+        shadow = self.helper.with_name("json.py")
+        shadow.write_text("import os\nfrom pathlib import Path\n"
+                          "Path(os.environ['BOOTSTRAP_SHADOW']).write_text('shadow executed')\n"
+                          "raise RuntimeError('Neighboring import shadow executed')\n", encoding="utf-8")
+        for script in self.scripts:
+            result = self.execute(script)
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            self.assertEqual({"isolated": 1}, json.loads(self.result.read_text(encoding="utf-8")))
+            self.assertFalse(self.shadow.exists())
+            self.result.unlink()
+
+
+
+class WorkflowExecutionControls(unittest.TestCase):
+    """Run each real workflow admission block against disposable script canaries."""
+
+    SCRIPTS = ("tests/candidates/projectide-inspector/compose_and_verify.py",
+               "tests/candidates/projectide-inspector/test_compose_and_verify.py",
+               "tests/candidates/workflow-provenance/verify_workflow_provenance.py",
+               "tests/candidates/workflow-provenance/test_workflow_provenance.py")
+    CANARY = (b"import json, os, sys\nfrom pathlib import Path\n"
+              b"Path(os.environ['CONTROL_OUTPUT']).write_text(json.dumps({'isolated': sys.flags.isolated}))\n")
+
+    def setUp(self) -> None:
+        if shutil.which("pwsh") is None:
+            if os.environ.get("GITHUB_ACTIONS") == "true":
+                self.fail("Hosted workflow execution controls require PowerShell")
+            self.skipTest("PowerShell is unavailable; hosted execution controls remain required")
+        temporary = tempfile.TemporaryDirectory(prefix="workflow-execution-controls-")
+        self.addCleanup(temporary.cleanup)
+        self.directory = Path(temporary.name)
+        self.repository = self.directory / "repository"
+        self.repository.mkdir()
+        self.git("init", "--quiet", "--template=")
+        for relative in self.SCRIPTS:
+            target = self.repository / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(self.CANARY)
+        self.git("add", "--", ".")
+        self.git("commit", "--quiet", "-m", "Disposable Python execution canaries")
+        self.head = self.git("rev-parse", "HEAD").strip()
+        self.blob = self.git("rev-parse", "HEAD:" + self.SCRIPTS[0]).strip()
+        workflow = RUNNER.ROOT / ".github/workflows/projectide-inspector-composition-advisory.yml"
+        workflow_text = workflow.read_text(encoding="utf-8")
+        for key, relative in zip(("RUNNER_BLOB", "CONTROLS_BLOB", "PROVENANCE_BLOB", "PROVENANCE_CONTROLS_BLOB"), self.SCRIPTS):
+            expected = fixture_git(RUNNER.ROOT, "hash-object", "--no-filters", "--", relative)
+            self.assertRegex(workflow_text, rf"(?m)^  {key}: {expected}$")
+        lines = workflow_text.splitlines()
+        self.blocks = []
+        for index, line in enumerate(lines):
+            if not (line.strip().startswith("python -I -B tests/candidates/projectide-inspector/")
+                    or (line.strip().startswith("python -I -B -c ")
+                        and "workflow-provenance/test_workflow_provenance.py" in line)):
+                continue
+            first = index
+            while first and lines[first - 1].strip().startswith(("$committed =", "$working =", "if ($LASTEXITCODE")):
+                first -= 1
+            while first < index and not lines[first].strip().startswith("$committed ="):
+                first += 1
+            self.blocks.append("\n".join(item[10:] for item in lines[first:index + 1]))
+        self.assertEqual(6, len(self.blocks), "Both cohort and provenance controls on both hosts must be exercised")
+        self.assertTrue(all("git hash-object --no-filters" in block for block in self.blocks))
+
+    def git(self, *args: str) -> str:
+        environment = {key: value for key, value in os.environ.items()
+                       if not key.upper().startswith("GIT_")}
+        result = subprocess.run(
+            ["git", "-c", "core.autocrlf=false", "-c", "commit.gpgsign=false",
+             "-c", "core.hooksPath=" + str(self.repository / "empty-hooks"),
+             "-c", "user.name=Workflow execution controls",
+             "-c", "user.email=execution-controls@example.invalid", *args],
+            cwd=self.repository, env=environment, capture_output=True, text=True, check=True)
+        return result.stdout
+
+    def execute(self, block: str) -> tuple[subprocess.CompletedProcess, Path]:
+        marker = self.directory / "executed.json"
+        marker.unlink(missing_ok=True)
+        script = self.directory / "execute.ps1"
+        script.write_text("$ErrorActionPreference = 'Stop'\n"
+                          + "$log = Join-Path $env:RUNNER_TEMP 'controlled-output.log'\n"
+                          + block + "\nif ($LASTEXITCODE -ne 0) { throw 'Canary execution failed' }\n",
+                          encoding="utf-8")
+        environment = {key: value for key, value in os.environ.items()
+                       if not key.upper().startswith("GIT_")}
+        environment.update(TEST_HEAD=self.head, RUNNER_BLOB=self.blob, CONTROLS_BLOB=self.blob,
+                           PROVENANCE_BLOB=self.blob, PROVENANCE_CONTROLS_BLOB=self.blob,
+                           RUNNER_TEMP=str(self.directory), CONTROL_OUTPUT=str(marker),
+                           PYTHONPATH=str(self.repository / Path(self.SCRIPTS[0]).parent))
+        result = subprocess.run(["pwsh", "-NoProfile", "-NonInteractive", "-File", str(script)],
+                                cwd=self.repository, env=environment, capture_output=True,
+                                text=True, timeout=60)
+        return result, marker
+
+    def test_actual_blocks_use_isolated_python_despite_import_shadow(self) -> None:
+        shadow = self.repository / Path(self.SCRIPTS[0]).parent / "json.py"
+        shadow.write_text("raise RuntimeError('UNREVIEWED_IMPORT_SHADOW')\n", encoding="utf-8")
+        for number, block in enumerate(self.blocks):
+            with self.subTest(block=number):
+                result, marker = self.execute(block)
+                self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+                self.assertEqual({"isolated": 1}, json.loads(marker.read_text(encoding="utf-8")))
+
+    def test_changed_execution_bytes_are_rejected_before_canary_runs(self) -> None:
+        for number, block in enumerate(self.blocks):
+            for relative in self.SCRIPTS:
+                if relative not in block:
+                    continue
+                with self.subTest(block=number, script=relative):
+                    target = self.repository / relative
+                    target.write_bytes(self.CANARY + b"# Unreviewed execution bytes.\n")
+                    result, marker = self.execute(block)
+                    self.assertNotEqual(0, result.returncode)
+                    self.assertIn("Working execution script identity mismatch", result.stdout + result.stderr)
+                    self.assertFalse(marker.exists())
+                    target.write_bytes(self.CANARY)
+                    result, marker = self.execute(block)
+                    self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+                    self.assertTrue(marker.exists())
+
+    def test_committed_and_normalized_working_bytes_are_refused(self) -> None:
+        for number, block in enumerate(self.blocks):
+            for relative in self.SCRIPTS:
+                if relative not in block:
+                    continue
+                for kind in ("normalized", "committed"):
+                    with self.subTest(block=number, script=relative, kind=kind):
+                        target = self.repository / relative
+                        if kind == "normalized":
+                            self.git("config", "core.autocrlf", "true")
+                            target.write_bytes(self.CANARY.replace(b"\n", b"\r\n"))
+                            self.assertEqual(self.blob, self.git("-c", "core.autocrlf=true", "hash-object", "--", relative).strip())
+                        else:
+                            target.write_bytes(self.CANARY + b"# Changed committed instruction file.\n")
+                            self.git("add", "--", relative)
+                            self.git("commit", "--quiet", "-m", "Different committed canary")
+                            self.head = self.git("rev-parse", "HEAD").strip()
+                        result, marker = self.execute(block)
+                        self.assertNotEqual(0, result.returncode)
+                        expected = ("Working execution script identity mismatch" if kind == "normalized"
+                                    else "Committed execution script identity mismatch")
+                        self.assertIn(expected, result.stdout + result.stderr)
+                        self.assertFalse(marker.exists())
+                        self.git("config", "core.autocrlf", "false")
+                        target.write_bytes(self.CANARY)
+                        if kind == "committed":
+                            self.git("add", "--", relative)
+                            self.git("commit", "--quiet", "-m", "Restore original pinned canary")
+                            self.head = self.git("rev-parse", "HEAD").strip()
+                        result, marker = self.execute(block)
+                        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+                        self.assertTrue(marker.exists())
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--evidence", required=True, type=Path)
@@ -541,13 +895,14 @@ if __name__ == "__main__":
     INPUT_RECEIPT = json.loads((INPUT_DIRECTORY / "receipt.json").read_text(encoding="utf-8"))
     ANGULAR_SOURCE = json.loads(ANGULAR_REPORT)["testResults"][0]["name"]
     validate_original_inputs()
-    print("Controls use retained native TRX/Vitest reports; no dotnet or npm execution.", flush=True)
+    print("Controls reuse retained native reports; only a disposable SDK probe runs dotnet, never Product cases or npm.", flush=True)
     program = unittest.main(argv=[sys.argv[0], *unittest_arguments], exit=False)
     unchanged = before == file_snapshot(INPUT_DIRECTORY)
     result = program.result
     report = {
-        "scope": "RETAINED_REPORT_AND_DISPOSABLE_GIT_ADMISSION_CONTROLS_ONLY",
-        "nativeCommandsExecuted": False, "nativeEvidenceUnchanged": unchanged,
+        "scope": "RETAINED_REPORT_GIT_BOOTSTRAP_AND_DISPOSABLE_SDK_CONTROLS_ONLY",
+        "nativeProductCommandsExecuted": False, "disposableSdkControlsExecuted": SDK_IMPORT_CONTROLS_EXECUTED,
+        "nativeEvidenceUnchanged": unchanged,
         "testsRun": result.testsRun, "failures": len(result.failures), "errors": len(result.errors),
         "skipped": len(result.skipped), "status": "PASS" if result.wasSuccessful() and unchanged else "FAIL",
         "productHead": INPUT_RECEIPT["productHead"], "nativeTestHead": INPUT_RECEIPT["testHead"],
