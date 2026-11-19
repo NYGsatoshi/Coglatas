@@ -25,7 +25,8 @@ jobs:
       PRODUCT_HEAD: ea339ed0bc094630654262ebb28568a95ba4198f
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
       SOURCE_BLOB: 2518da1e6358a5fb3512cf49f0ceb469530cb4b7
-      RUNNER_BLOB: 5a7f587b38d45d8875a33f485fe39668c8f71635
+      RUNNER_BLOB: 68311568357026b0367c2fa45a4abe9499977ee8
+      CONTROLS_BLOB: da0ad5bf27e53bd6b795ecea3585fd8d1191f7c4
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
@@ -50,6 +51,8 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $case -ne $env:SOURCE_BLOB) { throw 'Candidate source blob mismatch' }
           $runner = git rev-parse 'HEAD:tests/candidates/projectide-draft-rename/compose_and_verify.py'
           if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Independent runner blob mismatch' }
+          $controls = git rev-parse 'HEAD:tests/candidates/projectide-draft-rename/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission controls blob mismatch' }
           git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
           if ($LASTEXITCODE -ne 0) { throw 'Exact Product commit not present' }
           $policy = git show "$($env:PRODUCT_HEAD):global.json"
@@ -62,6 +65,7 @@ jobs:
             productHead = $env:PRODUCT_HEAD
             sourceBlob = $case
             runnerBlob = $runner
+            controlsBlob = $controls
             runnerOs = $env:RUNNER_OS
             runId = '${{ github.run_id }}'
             runAttempt = '${{ github.run_attempt }}'
@@ -81,11 +85,32 @@ jobs:
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
         with:
           python-version: '3.12'
+      - name: Run isolated admission and disposable SDK controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $log = "$env:RUNNER_TEMP/draft-rename-qualification-context/admission-controls.log"
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-draft-rename/test_compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:CONTROLS_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-draft-rename/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:CONTROLS_BLOB) { throw 'Working execution script identity mismatch' }
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-draft-rename/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-draft-rename/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-draft-rename/test_compose_and_verify.py -v *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content -LiteralPath $log
+          if ($controlsExitCode -ne 0) { throw 'Draft Rename admission controls failed' }
       - name: Run exact independent source and real compiled xUnit controls
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python -B tests/candidates/projectide-draft-rename/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/draft-rename-qualification-product" --evidence "$env:RUNNER_TEMP/draft-rename-qualification-evidence"
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-draft-rename/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-draft-rename/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-draft-rename/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/draft-rename-qualification-product" --evidence "$env:RUNNER_TEMP/draft-rename-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Draft Rename independent synthetic qualification did not complete' }
       - name: Retain original source, TRX and compiled discovery receipts
         if: always()
@@ -109,7 +134,8 @@ jobs:
       PRODUCT_HEAD: ea339ed0bc094630654262ebb28568a95ba4198f
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
       SOURCE_BLOB: 2518da1e6358a5fb3512cf49f0ceb469530cb4b7
-      RUNNER_BLOB: 5a7f587b38d45d8875a33f485fe39668c8f71635
+      RUNNER_BLOB: 68311568357026b0367c2fa45a4abe9499977ee8
+      CONTROLS_BLOB: da0ad5bf27e53bd6b795ecea3585fd8d1191f7c4
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
@@ -134,6 +160,8 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $case -ne $env:SOURCE_BLOB) { throw 'Candidate source blob mismatch' }
           $runner = git rev-parse 'HEAD:tests/candidates/projectide-draft-rename/compose_and_verify.py'
           if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Independent runner blob mismatch' }
+          $controls = git rev-parse 'HEAD:tests/candidates/projectide-draft-rename/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission controls blob mismatch' }
           git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
           if ($LASTEXITCODE -ne 0) { throw 'Exact Product commit not present' }
           $policy = git show "$($env:PRODUCT_HEAD):global.json"
@@ -146,6 +174,7 @@ jobs:
             productHead = $env:PRODUCT_HEAD
             sourceBlob = $case
             runnerBlob = $runner
+            controlsBlob = $controls
             runnerOs = $env:RUNNER_OS
             runId = '${{ github.run_id }}'
             runAttempt = '${{ github.run_attempt }}'
@@ -165,11 +194,32 @@ jobs:
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
         with:
           python-version: '3.12'
+      - name: Run isolated admission and disposable SDK controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $log = "$env:RUNNER_TEMP/draft-rename-qualification-context/admission-controls.log"
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-draft-rename/test_compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:CONTROLS_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-draft-rename/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:CONTROLS_BLOB) { throw 'Working execution script identity mismatch' }
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-draft-rename/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-draft-rename/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-draft-rename/test_compose_and_verify.py -v *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content -LiteralPath $log
+          if ($controlsExitCode -ne 0) { throw 'Draft Rename admission controls failed' }
       - name: Run exact independent source and real compiled xUnit controls
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python -B tests/candidates/projectide-draft-rename/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/draft-rename-qualification-product" --evidence "$env:RUNNER_TEMP/draft-rename-qualification-evidence"
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-draft-rename/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-draft-rename/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-draft-rename/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/draft-rename-qualification-product" --evidence "$env:RUNNER_TEMP/draft-rename-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Draft Rename independent synthetic qualification did not complete' }
       - name: Retain original source, TRX and compiled discovery receipts
         if: always()

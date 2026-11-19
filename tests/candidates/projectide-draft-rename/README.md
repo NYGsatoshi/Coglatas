@@ -13,10 +13,10 @@ contains no imported Product test fixture or authored Compiler result.
 - Initial Security base: `f0e188d090f7542b4c824b5a4ed7aaa2c64fe6d9`.
 - Independent class: `Coglatas.Tests.ProjectIde.SecurityDraftRenameCandidateTests`.
 - Independent C# blob: `2518da1e6358a5fb3512cf49f0ceb469530cb4b7`.
-- Independent runner blob: `5a7f587b38d45d8875a33f485fe39668c8f71635`.
+- Independent runner blob: `68311568357026b0367c2fa45a4abe9499977ee8`.
 - Execution scope: `SYNTHETIC_DRAFT_RENAME_CORE_AND_VIEWMODEL_ONLY`.
 
-The four-file patch consists of the test source, composition runner, scoped
+The initial four-file candidate patch consisted of the test source, composition runner, scoped
 advisory workflow and this README. The runner inserts only the committed test
 source into an otherwise unchanged detached Product worktree. No Product
 implementation, original test, shared CI owner or required-check policy changes.
@@ -149,5 +149,62 @@ This candidate does not close #1030 or #906. Main, Registry, RLS, Trust,
 Eligibility, Native, Production and Release holds remain unchanged;
 #1144 remains BLOCKED and #1128 remains SUSPENDED/NOT_EVALUATED.
 
-Rollback is a reviewed revert of these four additive paths on
+Rollback is a reviewed revert of the applicable candidate changes on
 `SecurityTestImplimation`, retaining original failed and incomplete evidence.
+
+## Bounded #2095 admission follow-up
+
+The current runner preserves the original 24 C# facts, their source blob and
+immutable Product. It refuses nested TRX results even when the outer records
+remain complete and Passed, plus contradictory `ErrorInfo` or non-informational
+run-level `RunInfo` outcomes. Existing exact identities, counters, definition
+bindings and compiled discovery remain required.
+
+Source checks now inspect raw NUL-delimited Git records, reject
+`assume-unchanged` and `skip-worktree`, and compare staged and unstaged deltas
+separately. They enumerate ignored as well as ordinary untracked files.
+Before restore no extra input is admitted; afterward only `bin/` and `obj/`
+roots of projects committed in the immutable Product are allowed. Arbitrary
+nested directories with those names and ignored `data/` source files fail.
+Every restore, test and compiled-discovery invocation disables ancestor
+`Directory.Build.props` and `Directory.Build.targets`. The frozen Product
+contains neither file, so no committed Product import is suppressed.
+
+`test_compose_and_verify.py` supplies 28 portable regression methods. They
+verify the original C# blob/roster, mutate synthetic TRX and discovery, exercise
+real disposable Git index masks and index-only drift, and test ignored inputs
+and allowed output roots. A real SDK probe shows both poisoned parent imports
+failing unprotected restore/test/discovery and being excluded by the guarded
+commands on a separate package-free project. It does not compile or execute
+any Product candidate. Both advisory jobs pin and execute these controls
+separately from the 24 actual hosted C# cases; synthetic and copied reports
+receive zero native execution credit. Python runs with isolated imports.
+
+This workflow still records its reviewed Test workflow blob, rather than
+claiming complete executing-workflow provenance. Fresh final-head Ubuntu and
+Windows native outputs, original ZIP/run/job metadata, independent review and
+ordinary CI remain required. These checks do not establish a hermetic build,
+runtime authority, Native UI or all of #2095. #1930 and all six false
+qualification fields, #1144 BLOCKED, #1128 SUSPENDED/NOT_EVALUATED and Release
+NO_GO remain unchanged.
+
+Direct runner and control execution also checks each script's committed blob
+and actual unfiltered bytes immediately before isolated Python starts. The
+control invocation additionally binds the runner it imports. Three actual
+PowerShell regression methods exercise all four host/entrypoint blocks with
+working changes, changed commits, Git-normalized CRLF bytes, and local or
+PYTHONPATH import shadows. Original pinned canaries must run only after the
+specific refused input has been restored; these are bootstrap controls, not
+Product execution.
+
+## Review follow-up: admission policy and control completeness
+
+The native reader rejects `TestResultAggregation` explicitly, including empty records, alongside all nested result families. Both staged and unstaged Git path comparisons disable rename detection, so a Product deletion cannot disappear when paired with the candidate addition.
+
+Run-level admission intentionally permits only `Information` RunInfo outcomes. `Warning`, `Passed`, `Completed`, error outcomes and unknown values make the receipt incomplete even when every candidate case passes. This is a strict local admission policy, not a claim that every warning is a native test failure.
+
+Ignored and ordinary untracked source paths are refused **outside** the registered output roots. Within an allowed root, acceptance depends on the path and execution phase; it does not establish how a file was produced. In particular, an ignored C# file under a registered `obj/` root is admitted after restore. These checks do not make the build hermetic.
+
+Disposable SDK probes pin `10.0.403` with roll-forward disabled and check the selected version before creating either parent import. Their known Git fixture files are explicitly force-staged. Execution controls give each script distinct committed canary bytes and its own pin, require every role's bindings, and verify exactly which isolated canaries ran. These controls add no Product/native execution credit.
+
+The complete committed suite contains 28 unittest methods.

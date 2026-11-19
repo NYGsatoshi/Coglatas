@@ -74,6 +74,10 @@ def native_inventory(path: Path) -> list[str]:
             or any(value != "0" for key, value in counters.attrib.items()
                    if key not in ("total", "executed", "passed"))):
         raise ValueError("Native TRX must contain exactly twenty-four complete passing candidate facts")
+    if trx.findall(".//{*}ErrorInfo") or any(
+            node.get("outcome") != "Information"
+            for node in trx.findall(".//{*}RunInfo")):
+        raise ValueError("Native TRX contains contradictory failure information")
     containers = []
     for container_name, child_name in (("Results", "UnitTestResult"),
                                        ("TestDefinitions", "UnitTest"), ("TestEntries", "TestEntry")):
@@ -82,6 +86,11 @@ def native_inventory(path: Path) -> list[str]:
             raise ValueError("Native TRX contains missing or unsupported inventory records")
         containers.append(children)
     cases, definitions, entries = containers
+    if (trx.find(".//{*}InnerResults") is not None
+            or trx.find(".//{*}TestResultAggregation") is not None
+            or [node for node in trx.iter()
+                if node.tag.rsplit("}", 1)[-1].endswith("TestResult")] != cases):
+        raise ValueError("Native TRX contains nested result records")
     names = [item.get("testName", "") for item in cases]
     if (set(names) != EXPECTED_IDENTITIES or len(set(names)) != EXPECTED
             or any(item.get("outcome") != "Passed" for item in cases)):
@@ -135,6 +144,24 @@ def command(args: list[str], cwd: Path, log: Path | None = None, *, preserve_out
     return completed.stdout if preserve_output else completed.stdout.strip()
 
 
+def source_only_dotnet(subcommand: str, *args: str) -> list[str]:
+    """Exclude ancestor Directory.Build inputs outside the frozen Product tree."""
+    if subcommand not in ("restore", "test"):
+        raise ValueError("Unsupported native SDK action")
+    return ["dotnet", subcommand, "-p:ImportDirectoryBuildProps=false",
+            "-p:ImportDirectoryBuildTargets=false", *args]
+
+
+def git_bytes(cwd: Path, *args: str) -> bytes:
+    # NUL-delimited records remain bytes: whitespace and undecodable path bytes
+    # must not turn one tracked path into several records.
+    completed = subprocess.run(["git", "-c", "core.autocrlf=false", *args], cwd=cwd,
+                               capture_output=True, check=False, env=local_git_environment())
+    if completed.returncode:
+        raise RuntimeError("Candidate Git inventory failed")
+    return completed.stdout
+
+
 def git(cwd: Path, *args: str) -> str:
     return command(["git", "-c", "core.autocrlf=false", *args], cwd)
 
@@ -143,7 +170,7 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def verify_working_tree(worktree: Path, raw: bytes, source_blob: str) -> None:
+def verify_working_tree(worktree: Path, raw: bytes, source_blob: str, *, allow_generated: bool = False) -> None:
     # The index identity is insufficient: inspect actual compiler input bytes.
     output = worktree / DESTINATION
     if output.is_symlink() or not output.is_file() or output.read_bytes() != raw:
@@ -152,9 +179,22 @@ def verify_working_tree(worktree: Path, raw: bytes, source_blob: str) -> None:
         raise ValueError("Composed Product HEAD changed")
     if git(worktree, "rev-parse", ":" + DESTINATION) != source_blob:
         raise ValueError("Composed candidate index identity changed")
-    changed = git(worktree, "diff", "--name-only", "HEAD", "--").splitlines()
-    if changed != [DESTINATION]:
+    flags = git_bytes(worktree, "ls-files", "-v", "-z", "--")
+    if any(len(record) < 3 or record[1:2] != b" " or record[:1] != b"H"
+           for record in flags.split(b"\0") if record):
+        raise ValueError("Git index flags hide tracked Product source")
+    changed = git_bytes(worktree, "diff", "--cached", "--no-renames", "--name-only", "-z", "HEAD", "--").split(b"\0")[:-1]
+    if changed != [DESTINATION.encode()] or git_bytes(worktree, "diff", "--no-renames", "--name-only", "-z", "--"):
         raise ValueError("Tracked Product source changed during independent composition")
+    generated = ()
+    if allow_generated:
+        tracked = git_bytes(worktree, "ls-tree", "-r", "--name-only", "-z", PRODUCT_HEAD).split(b"\0")
+        directories = {path.rpartition(b"/")[0] for path in tracked if path.endswith(b".csproj")}
+        generated = tuple((directory + b"/" if directory else b"") + name + b"/"
+                          for directory in directories for name in (b"bin", b"obj"))
+    untracked = git_bytes(worktree, "ls-files", "--others", "-z").split(b"\0")
+    if any(path and not path.startswith(generated) for path in untracked):
+        raise ValueError("Unexpected untracked source appeared during independent composition")
 
 
 def main() -> None:
@@ -220,21 +260,21 @@ def main() -> None:
         if sdk != "10.0.403":
             raise ValueError("Actual SDK does not match Product global.json pin")
         project = "tests/Coglatas.Tests/Coglatas.Tests.csproj"
-        command(["dotnet", "restore", project, "--nologo"], worktree, evidence / "restore.log")
+        command(source_only_dotnet("restore", project, "--nologo"), worktree, evidence / "restore.log")
         # Restore must not change the actual compiler input or any tracked Product source.
-        verify_working_tree(worktree, raw, source_blob)
-        command(["dotnet", "test", project, "-c", "Release", "--no-restore", "-warnaserror",
+        verify_working_tree(worktree, raw, source_blob, allow_generated=True)
+        command(source_only_dotnet("test", project, "-c", "Release", "--no-restore", "-warnaserror",
                  "--filter", "FullyQualifiedName~" + TEST_CLASS,
                  "--logger", "trx;LogFileName=candidate.trx",
-                 "--results-directory", str(evidence)], worktree, evidence / "xunit.log")
-        verify_working_tree(worktree, raw, source_blob)
+                 "--results-directory", str(evidence)), worktree, evidence / "xunit.log")
+        verify_working_tree(worktree, raw, source_blob, allow_generated=True)
         names = native_inventory(evidence / "candidate.trx")
-        discovery = command(["dotnet", "test", project, "-c", "Release", "--no-build",
-                             "--list-tests", "--filter", "FullyQualifiedName~" + TEST_CLASS],
+        discovery = command(source_only_dotnet("test", project, "-c", "Release", "--no-build",
+                             "--list-tests", "--filter", "FullyQualifiedName~" + TEST_CLASS),
                             worktree, evidence / "compiled-discovery.log", preserve_output=True)
         if compiled_inventory(discovery) != names:
             raise ValueError("Original native TRX and compiled discovery identities differ")
-        verify_working_tree(worktree, raw, source_blob)
+        verify_working_tree(worktree, raw, source_blob, allow_generated=True)
         receipt["nativeXunit"] = {"total": EXPECTED, "passed": EXPECTED,
                                    "failed": 0, "skipped": 0,
                                    "draftRenameFacts": len(RENAME_METHODS), "identities": names}
