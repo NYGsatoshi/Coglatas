@@ -31,6 +31,66 @@ INPUT_DIRECTORY = None
 SOURCE_BYTES = {source: (HERE / Path(source).name).read_bytes() for source in RUNNER.SOURCES}
 
 
+class WorkflowPythonIsolationControls(unittest.TestCase):
+    """Verify original Security advisory execution-admission boundaries."""
+
+    def test_host_jobs_refuse_changed_script_bytes_before_import(self):
+        workflow = (HERE.parents[2] / ".github/workflows/projectide-semantic-index-web-advisory.yml").read_text(encoding="utf-8")
+        self.assertEqual(6, workflow.count('git rev-parse "$($env:TEST_HEAD):$($script.Path)"'))
+        self.assertEqual(6, workflow.count('git hash-object --no-filters -- $script.Path'))
+        self.assertEqual(6, workflow.count("throw 'Pre-execution committed Python identity mismatch'"))
+        self.assertEqual(6, workflow.count("throw 'Pre-execution working Python bytes mismatch'"))
+        self.assertEqual(6, workflow.count("Python bytecode cache is not admitted"))
+        self.assertEqual(10, workflow.count("@{ Path = 'tests/candidates/"))
+        self.assertEqual(2, workflow.count("runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py'"))
+        self.assertEqual(2, workflow.count("python -I -B tests/candidates/projectide-semantic-index-web/compose_and_verify.py"))
+        self.assertEqual(2, workflow.count("python -I -B tests/candidates/projectide-semantic-index-web/test_compose_and_verify.py"))
+        self.assertNotIn("python -B ", workflow)
+
+    def test_original_casefolded_scanner_rejects_uppercase_bytecode_aliases(self):
+        workflow = (HERE.parents[2] / ".github/workflows/projectide-semantic-index-web-advisory.yml").read_text(encoding="utf-8")
+        programs = [line.split('python -I -B -c "',1)[1].split('"',1)[0]
+                    for line in workflow.splitlines()
+                    if 'python -I -B -c "from pathlib import Path; import sys; roots=' in line]
+        self.assertEqual(6, len(programs))
+        self.assertEqual(1, len(set(programs)))
+        with tempfile.TemporaryDirectory(prefix="semantic-index-web-casefold-") as tmp:
+            root=Path(tmp)
+            def scan():
+                return subprocess.run([sys.executable,"-I","-B","-c",programs[0],str(root)],
+                                      capture_output=True,text=True,timeout=15)
+            self.assertEqual(0,scan().returncode)
+            directory=root/"__PYCACHE__"
+            directory.mkdir()
+            self.assertNotEqual(0,scan().returncode)
+            directory.rmdir()
+            for ext in (".PYC",".PYO"):
+                with self.subTest(ext=ext):
+                    obj=root/("untrusted"+ext)
+                    obj.write_bytes(b"synthetic cache")
+                    self.assertNotEqual(0,scan().returncode)
+                    obj.unlink()
+                    self.assertEqual(0,scan().returncode)
+
+    def test_real_pythonpath_import_shadow_is_excluded(self):
+        with tempfile.TemporaryDirectory(prefix="semantic-index-web-shadow-") as tmp:
+            marker=Path(tmp)/"loaded"
+            (Path(tmp)/"sitecustomize.py").write_text(
+                "from pathlib import Path\nPath("+repr(str(marker))+").touch()\n",encoding="utf-8")
+            env={**os.environ,"PYTHONPATH":tmp}
+            plain=subprocess.run([sys.executable,"-B","-c","print('plain')"],env=env,
+                                 capture_output=True,text=True,timeout=15)
+            self.assertEqual(0,plain.returncode,plain.stderr)
+            self.assertTrue(marker.exists())
+            marker.unlink()
+            isolated=subprocess.run([sys.executable,"-I","-B","-c",
+                                     "import sys; assert sys.flags.isolated == 1"],env=env,
+                                    capture_output=True,text=True,timeout=15)
+            self.assertEqual(0,isolated.returncode,isolated.stderr)
+            self.assertFalse(marker.exists())
+
+
+
 def fixture_environment() -> dict[str, str]:
     # Independent of the subject under test, before any disposable Git write.
     return {key: value for key, value in os.environ.items() if not key.upper().startswith("GIT_")}
