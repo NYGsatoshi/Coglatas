@@ -122,6 +122,42 @@ class NativeInventoryControls(ExactRejection):
         ET.SubElement(root, NAMESPACE + "Results")
         self.reject("Native TRX requires one Results element", lambda: self.read(root))
 
+    def test_information_run_message_location_must_be_the_native_summary(self) -> None:
+        root = native_fixture()
+        infos = ET.SubElement(root.find(NAMESPACE + "ResultSummary"), NAMESPACE + "RunInfos")
+        ET.SubElement(infos, NAMESPACE + "RunInfo", outcome="Information")
+        self.assertEqual(IDENTITIES, self.read(root))
+        for location in ("root", "case", "definition", "direct-summary", "foreign-summary", "empty-case"):
+            with self.subTest(location=location):
+                root = native_fixture()
+                summary = root.find(NAMESPACE + "ResultSummary")
+                if location == "direct-summary":
+                    ET.SubElement(summary, NAMESPACE + "RunInfo", outcome="Information")
+                else:
+                    parent = {"root": root, "case": root.find(NAMESPACE + "Results")[0],
+                              "definition": root.find(NAMESPACE + "TestDefinitions")[0],
+                              "foreign-summary": summary,
+                              "empty-case": root.find(NAMESPACE + "Results")[0]}[location]
+                    namespace = "{urn:untrusted}" if location == "foreign-summary" else NAMESPACE
+                    container = ET.SubElement(parent, namespace + "RunInfos")
+                    if location != "empty-case":
+                        ET.SubElement(container, namespace + "RunInfo", outcome="Information")
+                self.reject("Native TRX contains run-level errors or incomplete outcomes", lambda: self.read(root))
+
+    def test_duplicate_or_unknown_native_run_infos_are_rejected(self) -> None:
+        for kind in ("duplicate", "unexpected-child"):
+            with self.subTest(kind=kind):
+                root = native_fixture()
+                summary = root.find(NAMESPACE + "ResultSummary")
+                infos = ET.SubElement(summary, NAMESPACE + "RunInfos")
+                ET.SubElement(infos, NAMESPACE + "RunInfo", outcome="Information")
+                if kind == "duplicate":
+                    other = ET.SubElement(summary, NAMESPACE + "RunInfos")
+                    ET.SubElement(other, NAMESPACE + "RunInfo", outcome="Information")
+                else:
+                    ET.SubElement(infos, "{urn:untrusted}Unexpected")
+                self.reject("Native TRX contains run-level errors or incomplete outcomes", lambda: self.read(root))
+
     def test_foreign_alias_and_whitespace_discovery_are_rejected(self) -> None:
         variants = {
             "foreign": [*IDENTITIES, "Foreign.Namespace.OtherFact"],
