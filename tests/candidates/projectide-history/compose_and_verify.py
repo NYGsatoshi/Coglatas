@@ -85,7 +85,12 @@ def native_inventory(path: Path) -> list[str]:
     # Admission policy permits Information messages only. Warnings remain
     # unqualified evidence even with passing facts; this is not a native failure claim.
     # Admit only informational host messages at the native ResultSummary path.
-    allowed_containers = set(summary.findall(f"{TRX_NAMESPACE}RunInfos"))
+    run_info_containers = summary.findall(f"{TRX_NAMESPACE}RunInfos")
+    if (len(run_info_containers) > 1
+            or any(child.tag != TRX_NAMESPACE + "RunInfo"
+                   for container in run_info_containers for child in container)):
+        raise ValueError("Native TRX contains run-level errors or incomplete outcomes")
+    allowed_containers = set(run_info_containers)
     allowed_infos = set(summary.findall(f"{TRX_NAMESPACE}RunInfos/{TRX_NAMESPACE}RunInfo"))
     if any(
         element.tag.rsplit("}", 1)[-1] == "ErrorInfo"

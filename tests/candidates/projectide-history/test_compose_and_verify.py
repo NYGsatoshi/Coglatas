@@ -144,6 +144,20 @@ class NativeInventoryControls(ExactRejection):
                         ET.SubElement(container, namespace + "RunInfo", outcome="Information")
                 self.reject("Native TRX contains run-level errors or incomplete outcomes", lambda: self.read(root))
 
+    def test_duplicate_or_unknown_native_run_infos_are_rejected(self) -> None:
+        for kind in ("duplicate", "unexpected-child"):
+            with self.subTest(kind=kind):
+                root = native_fixture()
+                summary = root.find(NAMESPACE + "ResultSummary")
+                infos = ET.SubElement(summary, NAMESPACE + "RunInfos")
+                ET.SubElement(infos, NAMESPACE + "RunInfo", outcome="Information")
+                if kind == "duplicate":
+                    other = ET.SubElement(summary, NAMESPACE + "RunInfos")
+                    ET.SubElement(other, NAMESPACE + "RunInfo", outcome="Information")
+                else:
+                    ET.SubElement(infos, "{urn:untrusted}Unexpected")
+                self.reject("Native TRX contains run-level errors or incomplete outcomes", lambda: self.read(root))
+
     def test_foreign_alias_and_whitespace_discovery_are_rejected(self) -> None:
         variants = {
             "foreign": [*IDENTITIES, "Foreign.Namespace.OtherFact"],
