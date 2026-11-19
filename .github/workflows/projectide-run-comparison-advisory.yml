@@ -14,7 +14,7 @@ env:
   PRODUCT_HEAD: ea339ed0bc094630654262ebb28568a95ba4198f
   SOURCE_BLOB: 73969c88ae939bc805e8e853b0022ef609a58f03
   RUNNER_BLOB: e103f47cfe3931f81a24110e0aaab54b7c2b17f5
-  CONTROLS_BLOB: d578bf71bbc4e69495c15b22704e0829567239e1
+  CONTROLS_BLOB: b538bf59425451ddec26f238ada8d0a6f7ea4d20
 
 concurrency:
   group: run-comparison-qualification-${{ github.event.pull_request.number }}
@@ -93,7 +93,19 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $context = Join-Path $env:RUNNER_TEMP 'run-comparison-qualification-context'
           $log = Join-Path $context 'admission-controls.log'
-          python -B -m unittest discover -s tests/candidates/projectide-run-comparison -p test_compose_and_verify.py -v *> $log
+          # Verify both Python executables against immutable committed and worktree bytes.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-run-comparison/compose_and_verify.py'; Sha = $env:RUNNER_BLOB },
+            @{ Path = 'tests/candidates/projectide-run-comparison/test_compose_and_verify.py'; Sha = $env:CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed script identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working script identity mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-run-comparison'
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate Python bytecode cache is not admitted' }
+          python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-run-comparison/test_compose_and_verify.py' *> $log
           $controlsExitCode = $LASTEXITCODE
           Get-Content -LiteralPath $log
           if ($controlsExitCode -ne 0) { throw 'Run comparison synthetic verifier controls failed' }
@@ -101,7 +113,19 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python -B tests/candidates/projectide-run-comparison/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/run-comparison-qualification-product" --evidence "$env:RUNNER_TEMP/run-comparison-qualification-evidence"
+          # Verify both Python executables against immutable committed and worktree bytes.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-run-comparison/compose_and_verify.py'; Sha = $env:RUNNER_BLOB },
+            @{ Path = 'tests/candidates/projectide-run-comparison/test_compose_and_verify.py'; Sha = $env:CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed script identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working script identity mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-run-comparison'
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate Python bytecode cache is not admitted' }
+          python -I -B tests/candidates/projectide-run-comparison/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/run-comparison-qualification-product" --evidence "$env:RUNNER_TEMP/run-comparison-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Run comparison independent synthetic qualification did not complete' }
       - name: Retain original source, TRX and compiled discovery receipts
         if: always()
@@ -187,7 +211,19 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $context = Join-Path $env:RUNNER_TEMP 'run-comparison-qualification-context'
           $log = Join-Path $context 'admission-controls.log'
-          python -B -m unittest discover -s tests/candidates/projectide-run-comparison -p test_compose_and_verify.py -v *> $log
+          # Verify both Python executables against immutable committed and worktree bytes.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-run-comparison/compose_and_verify.py'; Sha = $env:RUNNER_BLOB },
+            @{ Path = 'tests/candidates/projectide-run-comparison/test_compose_and_verify.py'; Sha = $env:CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed script identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working script identity mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-run-comparison'
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate Python bytecode cache is not admitted' }
+          python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-run-comparison/test_compose_and_verify.py' *> $log
           $controlsExitCode = $LASTEXITCODE
           Get-Content -LiteralPath $log
           if ($controlsExitCode -ne 0) { throw 'Run comparison synthetic verifier controls failed' }
@@ -195,7 +231,19 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python -B tests/candidates/projectide-run-comparison/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/run-comparison-qualification-product" --evidence "$env:RUNNER_TEMP/run-comparison-qualification-evidence"
+          # Verify both Python executables against immutable committed and worktree bytes.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-run-comparison/compose_and_verify.py'; Sha = $env:RUNNER_BLOB },
+            @{ Path = 'tests/candidates/projectide-run-comparison/test_compose_and_verify.py'; Sha = $env:CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed script identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working script identity mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-run-comparison'
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate Python bytecode cache is not admitted' }
+          python -I -B tests/candidates/projectide-run-comparison/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/run-comparison-qualification-product" --evidence "$env:RUNNER_TEMP/run-comparison-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Run comparison independent synthetic qualification did not complete' }
       - name: Retain original source, TRX and compiled discovery receipts
         if: always()

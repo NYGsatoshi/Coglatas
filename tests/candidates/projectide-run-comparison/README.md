@@ -148,3 +148,11 @@ RLS/Native/Trust/Eligibility/Production/Release holds unchanged.
 ```text
 python -B tests/candidates/projectide-run-comparison/compose_and_verify.py --product-head ea339ed0bc094630654262ebb28568a95ba4198f --worktree <fresh-product-path> --evidence <fresh-evidence-path>
 ```
+
+## Exact Python executable bytes and import isolation (#2095)
+
+The independent Windows/Ubuntu Run Comparison advisory now checks both the committed Git blobs and actual unfiltered working bytes of its Python verifier and native runner immediately before each invocation. Python uses isolated mode `-I -B`, including unittest discovery; the synthetic negative control confirms `PYTHONPATH` import shadowing cannot override the interpreter environment. This is evidence-only hardening: original native C# test identities and Product code remain frozen, and all six qualification flags stay false.
+
+## Reviewed bytecode and candidate-directory import isolation (#2095)
+
+The isolated Run Comparison test runner no longer uses `unittest discover`, which re-adds the candidate folder to Python's import path despite `-I`. The exact verifier is executed via `runpy.run_path(..., run_name='__main__')` in an isolated interpreter after committed+working Git blob checks. Before each execution a separate isolated scanner refuses any `__pycache__`, `.pyc` or `.pyo` in the candidate directory, even if the .py source remains unchanged. Synthetic negative controls demonstrate actual sitecustomize execution under plain Python but not `-I`, candidate-dir `xml` import shadow exclusion, and rejection of substituted unchecked-hash bytecode. The original immutable Product and C# roster and six false qualification flags are preserved.
