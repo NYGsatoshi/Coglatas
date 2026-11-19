@@ -24,7 +24,7 @@ Native/Avalonia UI.
   method names, bodies and helpers remain byte-identical to source blob
   `680b7da997b4d9abee16536b7915df749d293972`.
 - Composition script `compose_and_verify.py` Git blob
-  `013408cef3c8d285d3b9f667929711e49415a5cb`.
+  `b61940ede0a3649da82f0af46d394f17efa7d418`.
   It checks the exact original Test Git blob/index, regular nonsymlink candidate
   bytes and unchanged immutable Product HEAD before composition execution, after
   restore, immediately after native tests and after compiled discovery. It rejects
@@ -173,3 +173,38 @@ the controls blob and retains their log separately in the workflow context.
 ```text
 python -B tests/candidates/projectide-trace-profile/test_compose_and_verify.py --native-trx <original-candidate.trx> --compiled-discovery <original-compiled-discovery.log> -v
 ```
+
+## Shared evidence admission follow-up (#2095)
+
+The unchanged native candidate and immutable Product pin retain their original
+execution scope. Native admission now rejects every nested result record,
+including Passed or NotExecuted copies under otherwise complete passing outer
+metadata, and refuses ErrorInfo or non-informational RunInfo records. Copied
+report controls preserve the authentic outer names, counters and identities.
+
+Before relying on a Product diff, every composition check reads NUL-delimited
+Git path/index records as raw bytes and rejects assume-unchanged, skip-worktree
+and other nonordinary flags. Staged and unstaged changes remain separate;
+untracked and ignored source is refused. Only bin/obj directories beside
+committed Product csproj files may contain generated output after restore.
+Nested or unrelated output-looking names cannot hide new compiler input.
+
+Every restore, native test and compiled-discovery command disables ancestor
+Directory.Build.props and Directory.Build.targets imports. A disposable real
+SDK probe first demonstrates each poisoned parent import failing, then checks
+that the isolated command succeeds. Its custom VSTest target exercises import
+behavior only; it executes no Product C# fact and adds no native case credit.
+
+Both workflows compare committed and actual runner/control bytes immediately
+before each Python invocation, use git hash-object --no-filters, and invoke
+Python with -I -B. Actual PowerShell bootstrap controls reject a changed script
+before its canary runs and verify isolation against local/PYTHONPATH import
+shadows. These cohorts have no shared provenance helper; this does not create
+an executing-workflow provenance receipt that was absent previously.
+
+The committed suite contains 18 unittest methods, including the original
+controls. Source/input, copied-report, SDK and bootstrap checks remain separate
+from the unchanged native suite and fresh hosted Windows/Ubuntu execution.
+All six broader qualification flags remain false. Complete shared #2095
+acceptance, current authority, Native UI, production and Release qualification
+remain open; #1144 stays BLOCKED, #1128 SUSPENDED / NOT_EVALUATED and Release NO_GO.

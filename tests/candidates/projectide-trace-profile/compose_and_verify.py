@@ -87,6 +87,12 @@ def native_inventory(path: Path) -> list[str]:
             raise ValueError("Native TRX contains missing or unsupported inventory records")
         containers.append(children)
     cases, definitions, entries = containers
+    if (trx.find(".//{*}InnerResults") is not None
+            or trx.findall(".//{*}UnitTestResult") != cases):
+        raise ValueError("Native TRX contains nested result records")
+    if (trx.find(".//{*}ErrorInfo") is not None
+            or any(info.get("outcome") != "Information" for info in trx.findall(".//{*}RunInfo"))):
+        raise ValueError("Native TRX contains run-level errors or incomplete outcomes")
     names = [item.get("testName", "") for item in cases]
     if (set(names) != EXPECTED_IDENTITIES or len(set(names)) != EXPECTED
             or any(item.get("outcome") != "Passed" for item in cases)):
@@ -136,6 +142,39 @@ def command(args: list[str], cwd: Path, log: Path | None = None, *, preserve_out
     if completed.returncode:
         raise RuntimeError("Candidate command failed: " + args[0] + "; inspect retained log")
     return completed.stdout if preserve_output else completed.stdout.strip()
+
+
+def source_only_dotnet(subcommand: str, *args: str) -> list[str]:
+    """Exclude ancestor Directory.Build inputs outside the frozen Product tree."""
+    if subcommand not in ("restore", "test"):
+        raise ValueError("Unsupported native SDK action")
+    return ["dotnet", subcommand, "-p:ImportDirectoryBuildProps=false",
+            "-p:ImportDirectoryBuildTargets=false", *args]
+
+
+def git_records(cwd: Path, *args: str) -> list[bytes]:
+    """Read NUL-delimited Git records without quoting or decoding their path bytes."""
+    result = subprocess.run(["git", "-c", "core.autocrlf=false", *args], cwd=cwd,
+                            capture_output=True, check=True, env=local_git_environment())
+    records = result.stdout.split(b"\0")
+    if records[-1] != b"":
+        raise ValueError("Git path records are not NUL terminated")
+    return records[:-1]
+
+
+def verify_product_inputs(worktree: Path, product_head: str, *, allow_generated: bool) -> None:
+    flags = git_records(worktree, "ls-files", "-v", "-z", "--")
+    if any(not record.startswith(b"H ") or len(record) < 3 for record in flags):
+        raise ValueError("Git index flags hide tracked Product source")
+    generated = ()
+    if allow_generated:
+        tracked = git_records(worktree, "ls-tree", "-r", "--name-only", "-z", product_head)
+        directories = {path.rpartition(b"/")[0] for path in tracked if path.endswith(b".csproj")}
+        generated = tuple((directory + b"/" if directory else b"") + name + b"/"
+                          for directory in directories for name in (b"bin", b"obj"))
+    untracked = git_records(worktree, "ls-files", "--others", "-z")
+    if any(not path.startswith(generated) for path in untracked):
+        raise ValueError("Unexpected untracked source appeared during independent composition")
 
 
 def git(cwd: Path, *args: str) -> str:
@@ -194,7 +233,7 @@ def main() -> None:
         git(worktree, "add", "--", DESTINATION)
         if git(worktree, "rev-parse", ":" + DESTINATION) != source_blob:
             raise ValueError("Composed candidate differs from original committed Git blob")
-        def verify_working_tree() -> None:
+        def verify_working_tree(*, allow_generated: bool = False) -> None:
             # The index identity is insufficient: inspect actual compiler input bytes.
             if output.is_symlink() or not output.is_file() or output.read_bytes() != raw:
                 raise ValueError("Composed working-tree Test source changed from the committed blob")
@@ -202,8 +241,9 @@ def main() -> None:
                 raise ValueError("Composed Product HEAD changed from its immutable pin")
             if git(worktree, "rev-parse", ":" + DESTINATION) != source_blob:
                 raise ValueError("Composed candidate index changed from its committed Git blob")
-            changed = git(worktree, "diff", "--name-only", "HEAD", "--").splitlines()
-            if changed != [DESTINATION]:
+            verify_product_inputs(worktree, arguments.product_head, allow_generated=allow_generated)
+            changed = git_records(worktree, "diff", "--cached", "--name-only", "-z", "HEAD", "--")
+            if changed != [DESTINATION.encode("utf-8")] or git_records(worktree, "diff", "--name-only", "-z", "--"):
                 raise ValueError("Tracked Product source changed during independent composition")
 
         verify_working_tree()
@@ -217,22 +257,22 @@ def main() -> None:
         if sdk != "10.0.403":
             raise ValueError("Actual SDK does not match Product global.json pin")
         project = "tests/Coglatas.Tests/Coglatas.Tests.csproj"
-        command(["dotnet", "restore", project, "--nologo"], worktree, evidence / "restore.log")
-        verify_working_tree()
-        command(["dotnet", "test", project, "-c", "Release", "--no-restore", "-warnaserror",
+        command(source_only_dotnet("restore", project, "--nologo"), worktree, evidence / "restore.log")
+        verify_working_tree(allow_generated=True)
+        command(source_only_dotnet("test", project, "-c", "Release", "--no-restore", "-warnaserror",
                  "--filter", "FullyQualifiedName~" + TEST_CLASS,
                  "--logger", "trx;LogFileName=candidate.trx",
-                 "--results-directory", str(evidence)], worktree, evidence / "xunit.log")
-        verify_working_tree()
+                 "--results-directory", str(evidence)), worktree, evidence / "xunit.log")
+        verify_working_tree(allow_generated=True)
         names = native_inventory(evidence / "candidate.trx")
-        discovery = command(["dotnet", "test", project, "-c", "Release", "--no-build",
-                             "--list-tests", "--filter", "FullyQualifiedName~" + TEST_CLASS],
+        discovery = command(source_only_dotnet("test", project, "-c", "Release", "--no-build",
+                             "--list-tests", "--filter", "FullyQualifiedName~" + TEST_CLASS),
                             worktree, evidence / "compiled-discovery.log", preserve_output=True)
         if compiled_inventory(discovery) != names:
             raise ValueError("Original native TRX and compiled discovery identities differ")
         if git(worktree, "rev-parse", ":" + DESTINATION) != source_blob:
             raise ValueError("Composed source identity drifted after real compilation")
-        verify_working_tree()
+        verify_working_tree(allow_generated=True)
         receipt["nativeXunit"] = {"total": EXPECTED, "passed": EXPECTED,
                                    "failed": 0, "skipped": 0,
                                    "originalFacts": len(ORIGINAL_METHODS),
