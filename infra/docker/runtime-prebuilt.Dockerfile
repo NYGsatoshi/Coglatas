@@ -9,12 +9,20 @@ RUN set -eu; \
     . /etc/os-release; \
     test "$ID" = ubuntu; \
     test "$VERSION_CODENAME" = resolute; \
-    apt-get -o Acquire::Retries=0 update \
-    && apt-get -o Acquire::Retries=0 install -y --no-install-recommends --only-upgrade \
+    # The signed Ubuntu suites must be fully reachable before dependency resolution.
+    test -f /etc/apt/sources.list.d/ubuntu.sources; \
+    sed -i \
+      -e "s|http://archive.ubuntu.com/ubuntu/|https://archive.ubuntu.com/ubuntu/|g" \
+      -e "s|http://security.ubuntu.com/ubuntu/|https://security.ubuntu.com/ubuntu/|g" \
+      /etc/apt/sources.list.d/ubuntu.sources; \
+    grep -Fq "https://archive.ubuntu.com/ubuntu/" /etc/apt/sources.list.d/ubuntu.sources; \
+    grep -Fq "https://security.ubuntu.com/ubuntu/" /etc/apt/sources.list.d/ubuntu.sources; \
+    apt-get -o Acquire::Retries=3 --error-on=any update \
+    && apt-get -o Acquire::Retries=3 install -y --no-install-recommends --only-upgrade \
         apt libapt-pkg7.0 \
     && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' apt)" ge 3.2.1ubuntu0.1 \
     && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libapt-pkg7.0)" ge 3.2.1ubuntu0.1 \
-    && apt-get install -y --no-install-recommends \
+    && apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
         curl \
         openssl \
         libssl3t64 \
