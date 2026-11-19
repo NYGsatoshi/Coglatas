@@ -13,7 +13,7 @@ Core and CLI, already integrated through ProjectIDE Product PR #1946.
   `SecurityProjectTestCandidateTests.cs`, source Git blob
   `50e2718d6d88d1020a21640b1d2a46ac4275d07c`.
 - Runner `compose_and_verify.py`, Git blob
-  `cc1c690f213f51ad81781f0d43333ffc68bf0a51`.
+  `03d0060f02afd03c821cda9df2a812ad94bb479a`.
 - The runner requires a clean committed Security Test checkout and distinct,
   fresh worktree/evidence paths. It checks regular, nonsymlink candidate bytes,
   the staged Git blob, exact Product HEAD and complete tracked Product delta
@@ -143,10 +143,12 @@ python -B tests/candidates/projectide-project-test/compose_and_verify.py --produ
 ## Shared evidence admission follow-up (#2095)
 
 The unchanged native candidate and immutable Product pin retain their original
-execution scope. Native admission now rejects every nested result record,
-including Passed or NotExecuted copies under otherwise complete passing outer
-metadata, and refuses ErrorInfo or non-informational RunInfo records. Copied
-report controls preserve the authentic outer names, counters and identities.
+execution scope. Native admission rejects every InnerResults container and
+every XML record whose local name ends in TestResult outside the exact direct
+inventory. This includes Passed or NotExecuted GenericTestResult copies beneath
+cases, summaries or definitions with otherwise complete passing outer metadata.
+It also refuses ErrorInfo or non-informational RunInfo records. Copied-report
+controls preserve the authentic outer names, counters and identities.
 
 Before relying on a Product diff, every composition check reads NUL-delimited
 Git path/index records as raw bytes and rejects assume-unchanged, skip-worktree

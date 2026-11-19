@@ -229,16 +229,25 @@ class NestedEvidenceControls(unittest.TestCase):
         return RUNNER.native_inventory(self.path)
 
     def test_nested_results_refuse_passed_and_unexecuted_copies(self) -> None:
-        for outcome in ("Passed", "NotExecuted"):
-            for container in ("InnerResults", "Output"):
-                for namespace in (NAMESPACE, "{urn:foreign-trx}"):
-                    with self.subTest(outcome=outcome, container=container, namespace=namespace):
-                        root = self.original()
-                        parent = ET.SubElement(root.find(NAMESPACE + "Results")[0], namespace + container)
-                        ET.SubElement(parent, namespace + "UnitTestResult", outcome=outcome,
-                                      testName="Unreviewed.InnerFact", testId="inner", executionId="inner")
-                        with self.assertRaisesRegex(ValueError, "^Native TRX contains nested result records$"):
-                            self.read(root)
+        for kind in ("UnitTestResult", "GenericTestResult"):
+            for outcome in ("Passed", "NotExecuted"):
+                for location in ("InnerResults", "Output", "case", "summary", "definition"):
+                    for namespace in (NAMESPACE, "{urn:foreign-trx}"):
+                        with self.subTest(kind=kind, outcome=outcome, location=location, namespace=namespace):
+                            root = self.original()
+                            case = root.find(NAMESPACE + "Results")[0]
+                            if location in ("InnerResults", "Output"):
+                                parent = ET.SubElement(case, namespace + location)
+                            elif location == "case":
+                                parent = case
+                            elif location == "summary":
+                                parent = root.find(NAMESPACE + "ResultSummary")
+                            else:
+                                parent = root.find(NAMESPACE + "TestDefinitions")[0]
+                            ET.SubElement(parent, namespace + kind, outcome=outcome,
+                                          testName="Unreviewed.InnerFact", testId="inner", executionId="inner")
+                            with self.assertRaisesRegex(ValueError, "^Native TRX contains nested result records$"):
+                                self.read(root)
 
     def test_run_level_errors_cannot_hide_behind_complete_passing_counters(self) -> None:
         for kind in ("ErrorInfo", "RunInfo"):

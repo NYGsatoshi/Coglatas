@@ -24,7 +24,7 @@ Native/Avalonia UI.
   method names, bodies and helpers remain byte-identical to source blob
   `680b7da997b4d9abee16536b7915df749d293972`.
 - Composition script `compose_and_verify.py` Git blob
-  `b61940ede0a3649da82f0af46d394f17efa7d418`.
+  `4b95a2b6cd62ca1b46456a56ce1493e186d6cced`.
   It checks the exact original Test Git blob/index, regular nonsymlink candidate
   bytes and unchanged immutable Product HEAD before composition execution, after
   restore, immediately after native tests and after compiled discovery. It rejects
@@ -177,10 +177,12 @@ python -B tests/candidates/projectide-trace-profile/test_compose_and_verify.py -
 ## Shared evidence admission follow-up (#2095)
 
 The unchanged native candidate and immutable Product pin retain their original
-execution scope. Native admission now rejects every nested result record,
-including Passed or NotExecuted copies under otherwise complete passing outer
-metadata, and refuses ErrorInfo or non-informational RunInfo records. Copied
-report controls preserve the authentic outer names, counters and identities.
+execution scope. Native admission rejects every InnerResults container and
+every XML record whose local name ends in TestResult outside the exact direct
+inventory. This includes Passed or NotExecuted GenericTestResult copies beneath
+cases, summaries or definitions with otherwise complete passing outer metadata.
+It also refuses ErrorInfo or non-informational RunInfo records. Copied-report
+controls preserve the authentic outer names, counters and identities.
 
 Before relying on a Product diff, every composition check reads NUL-delimited
 Git path/index records as raw bytes and rejects assume-unchanged, skip-worktree
