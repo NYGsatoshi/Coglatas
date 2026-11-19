@@ -17,7 +17,7 @@ env:
   PRODUCT_HEAD: 070ceb7f49e1e990a8395ea2e3a558a7185e1865
   SOURCE_BLOB: 8ef4f3f287ab4acfb855eda4f9c7a7e31a2d4756
   RUNNER_BLOB: 037c5d1a84632e3c81314b213b2aea1656a5410d
-  CONTROLS_BLOB: 9dd0ce6c48fc3234de2e0c89375c14df8b9efcba
+  CONTROLS_BLOB: 635a6c1cd333a07d5786173bffd39a92d06f4015
 
 concurrency:
   group: test-discovery-qualification-${{ github.event.pull_request.number }}

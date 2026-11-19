@@ -163,7 +163,7 @@ class HistoricalAdmissionControls(unittest.TestCase):
         output = negative.find(NAMESPACE + "Output")
         negative.remove(output)
         positive.append(output)
-        with self.assertRaisesRegex(ValueError, "^Native TRX does not match the exact reference-cache fact roster$"):
+        with self.assertRaisesRegex(ValueError, "^Native TRX contains unbound error information$"):
             self.read(root)
 
     def test_historical_error_exceptions_are_bound_to_exact_failed_results(self) -> None:
@@ -327,7 +327,7 @@ class NativeInventoryControls(ExactRejection):
             with self.subTest(location=location):
                 root = native_fixture()
                 parent = (root.find(NAMESPACE + "Results")[0] if location == "case" else
-                          root.find(NAMESPACE + "TestDefinitions") if location == "definitions" else root)
+                          root.find(NAMESPACE + "TestDefinitions")[0] if location == "definitions" else root)
                 infos = ET.SubElement(parent, NAMESPACE + "RunInfos")
                 ET.SubElement(infos, NAMESPACE + "RunInfo", outcome="Information")
                 self.reject("Native TRX contains failed or unsupported run-level result information",
@@ -337,7 +337,7 @@ class NativeInventoryControls(ExactRejection):
         for namespace in (NAMESPACE, "{urn:extension}", ""):
             with self.subTest(namespace=namespace):
                 root = native_fixture()
-                ET.SubElement(root.find(NAMESPACE + "TestDefinitions"), namespace + "ErrorInfo")
+                ET.SubElement(root.find(NAMESPACE + "TestDefinitions")[0], namespace + "ErrorInfo")
                 self.reject("Native TRX contains unbound error information", lambda: self.read(root))
 
     def test_complete_native_shape_and_discovery_match(self) -> None:
