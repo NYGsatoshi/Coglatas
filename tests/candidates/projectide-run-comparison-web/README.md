@@ -145,3 +145,14 @@ checks do not establish server authority. #1959 keeps its separate permanent
 producer/fixture workflow responsibility. #1144 remains BLOCKED, #1128
 SUSPENDED/NOT_EVALUATED and Release NO_GO. No Product branch, Main, required
 check, threshold, protection or activation setting is modified.
+
+## Isolated retained Angular-advisory Python execution (#2095)
+
+Both original Windows/Ubuntu jobs retain their existing frozen Product SHA,
+Angular source, immutable tested-input receipt, real Vitest results and six false
+qualification flags. Unlike the other five follow-up cohorts, this workflow
+does not invoke a shared workflow-provenance helper. Its Python composition
+runner and retained-report verifier now require committed and unfiltered working
+Git blob checks immediately before `python -I -B` execution. Portable
+regressions enforce real uppercase-cache and hostile PYTHONPATH refusals without
+modifying source Product/Angular behavior, artifact trust or release policy.
