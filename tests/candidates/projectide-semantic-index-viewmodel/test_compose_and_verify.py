@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -22,6 +23,88 @@ RUNNER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(RUNNER)
 NAMESPACE = "{http://microsoft.com/schemas/VisualStudio/TeamTest/2010}"
 IDENTITIES = sorted(RUNNER.EXPECTED_IDENTITIES)
+
+
+class WorkflowCasefoldCacheControls(unittest.TestCase):
+    """Execute the actual isolated scan against case-variant Python caches."""
+
+    def test_uppercase_cache_and_bytecode_names_fail_closed(self) -> None:
+        workflow = (Path(__file__).resolve().parents[3]
+                    / ".github/workflows/projectide-semantic-index-viewmodel-advisory.yml").read_text(encoding="utf-8")
+        predicate = "p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')"
+        self.assertEqual(6, workflow.count(predicate))
+        self.assertEqual(6, workflow.count("if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }"))
+        self.assertEqual(6, workflow.count("if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }"))
+        lines = [line.strip() for line in workflow.splitlines()
+                 if 'python -I -B -c "from pathlib import Path; import sys;' in line
+                 and predicate in line]
+        self.assertEqual(6, len(lines))
+        programs = [line.split('python -I -B -c "', 1)[1].split('"', 1)[0] for line in lines]
+        self.assertEqual(1, len(set(programs)), "Both hosts must run identical cache scanners")
+        with tempfile.TemporaryDirectory(prefix="security-python-casefold-cache-") as temp:
+            root = Path(temp)
+
+            def scan() -> subprocess.CompletedProcess:
+                return subprocess.run([sys.executable, "-I", "-B", "-c", programs[0], str(root)],
+                                      capture_output=True, text=True, timeout=15)
+
+            self.assertEqual(0, scan().returncode, "Cache-free paths must remain admitted")
+            cache = root / "__PYCACHE__"
+            cache.mkdir()
+            self.assertNotEqual(0, scan().returncode, "Case-variant cache directory must be refused")
+            cache.rmdir()
+            for suffix in (".PYC", ".PYO"):
+                with self.subTest(suffix=suffix):
+                    artifact = root / ("injected" + suffix)
+                    artifact.write_bytes(b"untrusted cache")
+                    self.assertNotEqual(0, scan().returncode, "Case-variant bytecode file must be refused")
+                    artifact.unlink()
+                    self.assertEqual(0, scan().returncode, "Removal must restore cache-free admission")
+
+
+
+class WorkflowPythonIsolationControls(unittest.TestCase):
+    """Workflow source/byte admission and a real isolated-import negative."""
+
+    def test_both_host_verifiers_and_runner_require_pinned_isolated_python(self) -> None:
+        document = (Path(__file__).resolve().parents[3]
+                    / ".github/workflows/projectide-semantic-index-viewmodel-advisory.yml").read_text(encoding="utf-8")
+        self.assertEqual(2, document.count("python -I -B tests/candidates/projectide-semantic-index-viewmodel/compose_and_verify.py"))
+        self.assertEqual(2, document.count("python -I -B -c \"import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')\" 'tests/candidates/projectide-semantic-index-viewmodel/test_compose_and_verify.py'"))
+        self.assertEqual(2, document.count("runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py'"))
+        self.assertEqual(6, document.count('git rev-parse "$($env:TEST_HEAD):$($script.Path)"'))
+        self.assertEqual(6, document.count("git hash-object --no-filters -- $script.Path"))
+        self.assertEqual(6, document.count("Python bytecode cache is not admitted"))
+        self.assertNotIn("python -B ", document)
+        for command in (
+            "python -I -B -c \"import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')\" 'tests/candidates/projectide-semantic-index-viewmodel/test_compose_and_verify.py'",
+            "runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py'",
+            "python -I -B tests/candidates/projectide-semantic-index-viewmodel/compose_and_verify.py",
+        ):
+            for index, line in enumerate(document.splitlines()):
+                if command in line:
+                    prior = "\n".join(document.splitlines()[max(0, index - 23):index])
+                    self.assertIn('git rev-parse "$($env:TEST_HEAD):$($script.Path)"', prior)
+                    self.assertIn("git hash-object --no-filters -- $script.Path", prior)
+                    self.assertIn("Python bytecode cache is not admitted", prior)
+
+    def test_pythonpath_shadow_loaded_plain_but_refused_by_isolation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="semantic-index-viewmodel-python-shadow-") as temporary:
+            marker = Path(temporary) / "shadow-import-executed"
+            (Path(temporary) / "sitecustomize.py").write_text(
+                "from pathlib import Path\nPath(" + repr(str(marker)) + ").touch()\n", encoding="utf-8")
+            environment = {**os.environ, "PYTHONPATH": temporary}
+            plain = subprocess.run([sys.executable, "-B", "-c", "print('PLAIN')"],
+                                   env=environment, capture_output=True, text=True)
+            self.assertEqual(0, plain.returncode, plain.stderr)
+            self.assertTrue(marker.exists(), "Negative control must execute the import shadow")
+            marker.unlink()
+            isolated = subprocess.run([sys.executable, "-I", "-B", "-c",
+                                       "import sys; assert sys.flags.isolated == 1"],
+                                      env=environment, capture_output=True, text=True)
+            self.assertEqual(0, isolated.returncode, isolated.stderr)
+            self.assertFalse(marker.exists(), "Isolated Python must ignore PYTHONPATH")
+
 
 
 def native_fixture() -> ET.Element:

@@ -122,3 +122,15 @@ makes this positive-only receipt incomplete. Ordinary adapter output is preserve
 ## Strict native RunInfos container admission (#2095)
 
 The Semantic Index ViewModel native TRX reader already binds actual Information RunInfo elements to the native ResultSummary/RunInfos location. The remaining gap is unbound empty containers, duplicate native containers and unsupported children, none of which must qualify solely because counters and test identities pass. The existing twenty-four C# tests, immutable Product SHA, helper provenance checks and all six false qualification flags remain unchanged. Synthetic advisory evidence only; no release promotion.
+
+## Isolated advisory Python executable admission (#2095)
+
+Both hosted advisory jobs now bind each directly executed Python script to
+its immutable committed object and actual unfiltered working bytes immediately
+before loading it. The provenance verifier controls and ViewModel candidate
+controls run from exact paths under Python `-I -B`; the original candidate
+composition runner is likewise isolated. Foreign Python bytecode caches are
+refused, with separate static guard-order and genuine PYTHONPATH import-shadow
+negative controls. The original Product/C# source, twenty-four fact identities,
+previous source-specific evidence and six false qualification flags are not
+changed. This is advisory evidence protection, not operational authorization.
