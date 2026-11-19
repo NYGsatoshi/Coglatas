@@ -114,6 +114,7 @@ def native_inventory(path: Path) -> list[str]:
         containers.append(children)
     cases, definitions, entries = containers
     if (trx.find(".//{*}InnerResults") is not None
+            or trx.find(".//{*}TestResultAggregation") is not None
             or [node for node in trx.iter()
                 if node.tag.rsplit("}", 1)[-1].endswith("TestResult")] != cases):
         raise ValueError("Native TRX contains nested result records")
@@ -294,8 +295,8 @@ def verify_working_tree(worktree: Path, raw_sources: dict[str, bytes], source_bl
            for record in flags.split(b"\0") if record):
         raise ValueError("Git index flags hide tracked Product source")
     expected = sorted(destination.encode() for destination in raw_sources)
-    changed = git_bytes(worktree, "diff", "--cached", "--name-only", "-z", "HEAD", "--").split(b"\0")[:-1]
-    if changed != expected or git_bytes(worktree, "diff", "--name-only", "-z", "--"):
+    changed = git_bytes(worktree, "diff", "--cached", "--no-renames", "--name-only", "-z", "HEAD", "--").split(b"\0")[:-1]
+    if changed != expected or git_bytes(worktree, "diff", "--no-renames", "--name-only", "-z", "--"):
         raise ValueError("Tracked Product source changed during independent composition")
     frontend_outputs = {
         "source": (), "native": (),

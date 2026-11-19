@@ -23,7 +23,7 @@ They do not execute a compiler, test manifest, simulator or comparison engine.
 | Product `CompilerInputManifest.cs` | `862bdf70c22ee3daee9ab821f7191061ed0f7a50` |
 | Product `SourceContext.cs` | `e191cc347f72c0a5e915a4b12f7239d7ca0f9081` |
 | Independent C# candidate | `abdd8eb8d2975567602d22d19f969458587b3a04` |
-| Independent composition runner | `ba9903a5a2990c861b780161508f787927ec3b42` |
+| Independent composition runner | `1ed0af6a743c3c98a31111861431644b1b277eb4` |
 
 The runner admits only the pinned Product commit and tree. It stages only the
 exact independent Test blob at
@@ -205,7 +205,7 @@ command disables external ancestor Directory.Build props and targets; the
 frozen Product has neither committed import file.
 
 The preserved eight Git-environment methods are joined by report, disposable
-Git and SDK regression methods, for 34 controls. Synthetic reports are labeled
+Git and SDK regression methods, for 35 controls. Synthetic reports are labeled
 as such; retained-native controls still read the host's unchanged original
 TRX/discovery. The SDK probe actually invokes restore/test/discovery against a
 separate package-free project: poisoned parent props and targets fail each
@@ -229,3 +229,15 @@ working changes, changed commits, Git-normalized CRLF bytes, and local or
 PYTHONPATH import shadows. Original pinned canaries must run only after the
 specific refused input has been restored; these are bootstrap controls, not
 Product execution.
+
+## Review follow-up: admission policy and control completeness
+
+The native reader rejects `TestResultAggregation` explicitly, including empty records, alongside all nested result families. Both staged and unstaged Git path comparisons disable rename detection, so a Product deletion cannot disappear when paired with the candidate addition.
+
+Run-level admission intentionally permits only `Information` RunInfo outcomes. `Warning`, `Passed`, `Completed`, error outcomes and unknown values make the receipt incomplete even when every candidate case passes. This is a strict local admission policy, not a claim that every warning is a native test failure.
+
+Ignored and ordinary untracked source paths are refused **outside** the registered output roots. Within an allowed root, acceptance depends on the path and execution phase; it does not establish how a file was produced. In particular, an ignored C# file under a registered `obj/` root is admitted after restore. These checks do not make the build hermetic.
+
+Disposable SDK probes pin `10.0.403` with roll-forward disabled and check the selected version before creating either parent import. Their known Git fixture files are explicitly force-staged. Execution controls give each script distinct committed canary bytes and its own pin, require every role's bindings, and verify exactly which isolated canaries ran. These controls add no Product/native execution credit.
+
+The complete committed suite contains 35 unittest methods.

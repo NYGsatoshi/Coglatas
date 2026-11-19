@@ -13,8 +13,8 @@ permissions:
 env:
   PRODUCT_HEAD: ea339ed0bc094630654262ebb28568a95ba4198f
   SOURCE_BLOB: abdd8eb8d2975567602d22d19f969458587b3a04
-  RUNNER_BLOB: ba9903a5a2990c861b780161508f787927ec3b42
-  CONTROLS_BLOB: d5843f3a91a81d6e582280eb10f9724a718ab1d1
+  RUNNER_BLOB: 1ed0af6a743c3c98a31111861431644b1b277eb4
+  CONTROLS_BLOB: 144873e6d73be759ad6e9969b27a2b8f75b2b181
 
 concurrency:
   group: scenario-core-qualification-${{ github.event.pull_request.number }}

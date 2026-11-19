@@ -91,7 +91,7 @@ def native_inventory(path: Path) -> list[str]:
             raise ValueError("Native TRX contains missing or unsupported inventory records")
         containers.append(children)
     cases, definitions, entries = containers
-    if any(element.tag.rsplit("}", 1)[-1] == "InnerResults"
+    if any(element.tag.rsplit("}", 1)[-1] in ("InnerResults", "TestResultAggregation")
            or element.tag.rsplit("}", 1)[-1].endswith("TestResult")
            for element in trx.iter() if element not in cases):
         raise ValueError("Native TRX contains nested result records")
@@ -196,8 +196,8 @@ def verify_composition(worktree: Path, raw: bytes, source_blob: str, product_hea
     if git(worktree, "rev-parse", ":" + DESTINATION) != source_blob:
         raise ValueError("Composed candidate index differs from its committed Git blob")
     verify_index_flags(worktree)
-    changed = git_records(worktree, "diff", "--cached", "--name-only", "-z", "HEAD", "--")
-    unstaged = git_records(worktree, "diff", "--name-only", "-z", "--")
+    changed = git_records(worktree, "diff", "--cached", "--no-renames", "--name-only", "-z", "HEAD", "--")
+    unstaged = git_records(worktree, "diff", "--no-renames", "--name-only", "-z", "--")
     if changed != [DESTINATION.encode("utf-8")] or unstaged:
         raise ValueError("Unrelated tracked Product source changed during composition")
     generated = ()

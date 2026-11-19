@@ -221,7 +221,7 @@ class RetainedReportControls(ExactRejection):
     def test_nested_native_results_are_rejected_with_unchanged_passing_roster(self) -> None:
         for outcome in ("Passed", "NotExecuted", "Failed"):
             for location in ("Results", "TestDefinitions", "TestEntries", "ResultSummary", "TestRun"):
-                for kind in ("UnitTestResult", "GenericTestResult"):
+                for kind in ("UnitTestResult", "GenericTestResult", "TestResultAggregation"):
                     for namespace in (NS, "{urn:foreign-trx}"):
                         for wrapped in (False, True):
                             with self.subTest(outcome=outcome, location=location, kind=kind,
@@ -356,14 +356,14 @@ class MainAdmissionControls(ExactRejection):
         project = repository / "tests/Coglatas.Tests/Coglatas.Tests.csproj"
         project.parent.mkdir(parents=True)
         project.write_text('<Project Sdk="Microsoft.NET.Sdk" />\n', encoding="utf-8")
-        fixture_git(repository, "add", "--", "product.txt", " spaced\u2028product.txt", ".gitignore", "tests/Coglatas.Tests/Coglatas.Tests.csproj")
+        fixture_git(repository, "add", "--force", "--", "product.txt", " spaced\u2028product.txt", ".gitignore", "tests/Coglatas.Tests/Coglatas.Tests.csproj")
         fixture_git(repository, "commit", "--quiet", "-m", "Disposable Product fixture")
         product, product_tree = fixture_git(repository, "rev-parse", "HEAD"), fixture_git(repository, "rev-parse", "HEAD^{tree}")
         for source, raw in SOURCE_BYTES.items():
             output = repository / source
             output.parent.mkdir(parents=True, exist_ok=True)
             output.write_bytes(raw)
-            fixture_git(repository, "add", "--", source)
+            fixture_git(repository, "add", "--force", "--", source)
         fixture_git(repository, "commit", "--quiet", "-m", "Disposable independent Test fixture")
         return repository, product, product_tree, fixture_git(repository, "rev-parse", "HEAD")
 
@@ -499,7 +499,7 @@ class MainAdmissionControls(ExactRejection):
                 original = product.read_bytes()
                 product.write_bytes(original + b"Unapproved Product change\n")
                 if index_only:
-                    fixture_git(target, "add", "--", "product.txt")
+                    fixture_git(target, "add", "--force", "--", "product.txt")
                     product.write_bytes(original)
             self.run_main(stage="npm-ci", mutate=change,
                           reason="Tracked Product source changed during independent composition")
@@ -610,8 +610,38 @@ class MainAdmissionControls(ExactRejection):
                              RUNNER.local_git_environment())
             self.assertEqual(before, dict(os.environ))
 
+    def test_staged_product_deletion_cannot_hide_as_candidate_rename(self) -> None:
+        original = "tests/Coglatas.Tests/OriginalInspector.cs"
+        fixture_git(self.repository, "checkout", "--quiet", "--detach", self.product)
+        source = next(path for path in SOURCE_BYTES if path.endswith(".cs"))
+        (self.repository / original).write_bytes(SOURCE_BYTES[source])
+        fixture_git(self.repository, "add", "--force", "--", original)
+        fixture_git(self.repository, "commit", "--quiet", "-m", "Product source with candidate-identical bytes")
+        self.product = fixture_git(self.repository, "rev-parse", "HEAD")
+        self.product_tree = fixture_git(self.repository, "rev-parse", "HEAD^{tree}")
+        for path, raw in SOURCE_BYTES.items():
+            output = self.repository / path
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(raw)
+            fixture_git(self.repository, "add", "--force", "--", path)
+        fixture_git(self.repository, "commit", "--quiet", "-m", "Independent Test sources")
+        self.test_head = fixture_git(self.repository, "rev-parse", "HEAD")
+        fixture_git(self.repository, "config", "diff.renames", "true")
+        self.run_main()
+        def remove_product_source(target, evidence):
+            fixture_git(target, "rm", "--", original)
+            expected = sorted(RUNNER.SOURCES.values())
+            self.assertEqual(expected, fixture_git(target, "diff", "--cached", "--name-only", "HEAD", "--").splitlines())
+            self.assertEqual(sorted([*expected, original]), fixture_git(
+                target, "diff", "--cached", "--no-renames", "--name-only", "HEAD", "--").splitlines())
+        self.run_main(stage="restore", mutate=remove_product_source,
+                      reason="Tracked Product source changed during independent composition")
+        self.run_main()
+
+
 
 SDK_IMPORT_CONTROLS_EXECUTED = False
+POWERSHELL_CONTROL_METHODS: set[str] = set()
 
 
 class SdkImportControls(unittest.TestCase):
@@ -627,6 +657,13 @@ class SdkImportControls(unittest.TestCase):
             parent = Path(temporary)
             product = parent / "product"
             product.mkdir()
+            (product / "global.json").write_text(json.dumps({
+                "sdk": {"version": "10.0.403", "rollForward": "disable", "allowPrerelease": False}
+            }), encoding="utf-8")
+            version = subprocess.run(["dotnet", "--version"], cwd=product,
+                                     capture_output=True, text=True, timeout=30)
+            self.assertEqual(0, version.returncode, version.stdout + version.stderr)
+            self.assertEqual("10.0.403", version.stdout.strip())
             project = product / "Control.csproj"
             project.write_text(
                 '<Project><Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />'
@@ -682,7 +719,7 @@ class WorkflowBootstrapControls(unittest.TestCase):
         self.helper = self.repository / self.HELPER
         self.helper.parent.mkdir(parents=True)
         self.helper.write_bytes(self.HELPER_BYTES)
-        fixture_git(self.repository, "add", "--", self.HELPER)
+        fixture_git(self.repository, "add", "--force", "--", self.HELPER)
         fixture_git(self.repository, "commit", "--quiet", "-m", "Disposable pinned helper")
         self.pinned = fixture_git(self.repository, "rev-parse", "HEAD:" + self.HELPER)
         self.result = self.directory / "executed.json"
@@ -716,7 +753,7 @@ class WorkflowBootstrapControls(unittest.TestCase):
                     self.assertEqual(self.pinned, fixture_git(
                         self.repository, "-c", "core.autocrlf=true", "hash-object", "--", self.HELPER))
                 if kind == "committed":
-                    fixture_git(self.repository, "add", "--", self.HELPER)
+                    fixture_git(self.repository, "add", "--force", "--", self.HELPER)
                     fixture_git(self.repository, "commit", "--quiet", "-m", "Different committed helper")
                 for script in self.scripts:
                     result = self.execute(script)
@@ -738,16 +775,16 @@ class WorkflowBootstrapControls(unittest.TestCase):
             self.result.unlink()
 
 
+    def tearDown(self) -> None:
+        POWERSHELL_CONTROL_METHODS.add(type(self).__name__ + "." + self._testMethodName)
+
+
 
 class WorkflowExecutionControls(unittest.TestCase):
-    """Run each real workflow admission block against disposable script canaries."""
+    """Execute real guarded blocks with a distinct identity for every pinned script."""
 
-    SCRIPTS = ("tests/candidates/projectide-inspector/compose_and_verify.py",
-               "tests/candidates/projectide-inspector/test_compose_and_verify.py",
-               "tests/candidates/workflow-provenance/verify_workflow_provenance.py",
-               "tests/candidates/workflow-provenance/test_workflow_provenance.py")
-    CANARY = (b"import json, os, sys\nfrom pathlib import Path\n"
-              b"Path(os.environ['CONTROL_OUTPUT']).write_text(json.dumps({'isolated': sys.flags.isolated}))\n")
+    SCRIPTS = ('tests/candidates/projectide-inspector/compose_and_verify.py', 'tests/candidates/projectide-inspector/test_compose_and_verify.py', 'tests/candidates/workflow-provenance/verify_workflow_provenance.py', 'tests/candidates/workflow-provenance/test_workflow_provenance.py')
+    PIN_KEYS = ('RUNNER_BLOB', 'CONTROLS_BLOB', 'PROVENANCE_BLOB', 'PROVENANCE_CONTROLS_BLOB')
 
     def setUp(self) -> None:
         if shutil.which("pwsh") is None:
@@ -760,34 +797,62 @@ class WorkflowExecutionControls(unittest.TestCase):
         self.repository = self.directory / "repository"
         self.repository.mkdir()
         self.git("init", "--quiet", "--template=")
+        self.canaries = {}
         for relative in self.SCRIPTS:
+            raw = ("import json, os, sys\nfrom pathlib import Path\n"
+                   "output = Path(os.environ['CONTROL_OUTPUT'])\n"
+                   "observed = json.loads(output.read_text()) if output.exists() else []\n"
+                   + "observed.append({'script': " + repr(relative) + ", 'isolated': sys.flags.isolated})\n"
+                   + "output.write_text(json.dumps(observed))\n").encode("utf-8")
+            self.canaries[relative] = raw
             target = self.repository / relative
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(self.CANARY)
-        self.git("add", "--", ".")
-        self.git("commit", "--quiet", "-m", "Disposable Python execution canaries")
+            target.write_bytes(raw)
+        self.git("add", "--force", "--", *self.SCRIPTS)
+        self.git("commit", "--quiet", "-m", "Distinct disposable Python execution canaries")
         self.head = self.git("rev-parse", "HEAD").strip()
-        self.blob = self.git("rev-parse", "HEAD:" + self.SCRIPTS[0]).strip()
+        self.blobs = {relative: self.git("rev-parse", "HEAD:" + relative).strip()
+                      for relative in self.SCRIPTS}
+        self.assertEqual(len(self.SCRIPTS), len(set(self.blobs.values())))
+        self.assertNotIn(self.head, self.blobs.values())
         workflow = RUNNER.ROOT / ".github/workflows/projectide-inspector-composition-advisory.yml"
         workflow_text = workflow.read_text(encoding="utf-8")
-        for key, relative in zip(("RUNNER_BLOB", "CONTROLS_BLOB", "PROVENANCE_BLOB", "PROVENANCE_CONTROLS_BLOB"), self.SCRIPTS):
+        for key, relative in zip(self.PIN_KEYS, self.SCRIPTS):
             expected = fixture_git(RUNNER.ROOT, "hash-object", "--no-filters", "--", relative)
-            self.assertRegex(workflow_text, rf"(?m)^  {key}: {expected}$")
+            pins = re.findall(rf"(?m)^[ \t]+{key}: ([0-9a-f]+)$", workflow_text)
+            self.assertTrue(pins)
+            self.assertEqual({expected}, set(pins))
         lines = workflow_text.splitlines()
         self.blocks = []
+        roles = []
         for index, line in enumerate(lines):
-            if not (line.strip().startswith("python -I -B tests/candidates/projectide-inspector/")
-                    or (line.strip().startswith("python -I -B -c ")
-                        and "workflow-provenance/test_workflow_provenance.py" in line)):
+            command = line.strip()
+            if command.startswith("python -I -B " + self.SCRIPTS[0] + " "):
+                required, executed, role = (self.SCRIPTS[0],), (self.SCRIPTS[0],), "runner"
+            elif command.startswith("python -I -B " + self.SCRIPTS[1] + " "):
+                required, executed, role = self.SCRIPTS[:2], (self.SCRIPTS[1],), "controls"
+            elif command.startswith("python -I -B -c ") and self.SCRIPTS[3] in command:
+                required, executed, role = self.SCRIPTS[2:], self.SCRIPTS[2:], "shared"
+            else:
                 continue
             first = index
             while first and lines[first - 1].strip().startswith(("$committed =", "$working =", "if ($LASTEXITCODE")):
                 first -= 1
             while first < index and not lines[first].strip().startswith("$committed ="):
                 first += 1
-            self.blocks.append("\n".join(item[10:] for item in lines[first:index + 1]))
-        self.assertEqual(6, len(self.blocks), "Both cohort and provenance controls on both hosts must be exercised")
-        self.assertTrue(all("git hash-object --no-filters" in block for block in self.blocks))
+            block = "\n".join(item[10:] for item in lines[first:index + 1])
+            for relative in required:
+                key = self.PIN_KEYS[self.SCRIPTS.index(relative)]
+                self.assertIn(f'$committed = git rev-parse "$($env:TEST_HEAD):{relative}"', block)
+                self.assertIn(f"$committed -ne $env:{key})", block)
+                self.assertIn(f"$working = git hash-object --no-filters -- '{relative}'", block)
+                self.assertIn(f"$working -ne $env:{key})", block)
+            self.blocks.append((block, required, executed))
+            roles.append(role)
+        self.assertEqual(['controls', 'controls', 'runner', 'runner', 'shared', 'shared'], sorted(roles), "Both hosts must bind every required script")
+
+    def tearDown(self) -> None:
+        POWERSHELL_CONTROL_METHODS.add(type(self).__name__ + "." + self._testMethodName)
 
     def git(self, *args: str) -> str:
         environment = {key: value for key, value in os.environ.items()
@@ -810,56 +875,55 @@ class WorkflowExecutionControls(unittest.TestCase):
                           encoding="utf-8")
         environment = {key: value for key, value in os.environ.items()
                        if not key.upper().startswith("GIT_")}
-        environment.update(TEST_HEAD=self.head, RUNNER_BLOB=self.blob, CONTROLS_BLOB=self.blob,
-                           PROVENANCE_BLOB=self.blob, PROVENANCE_CONTROLS_BLOB=self.blob,
-                           RUNNER_TEMP=str(self.directory), CONTROL_OUTPUT=str(marker),
+        environment.update({key: self.blobs[relative] for key, relative in zip(self.PIN_KEYS, self.SCRIPTS)})
+        environment.update(TEST_HEAD=self.head, RUNNER_TEMP=str(self.directory), CONTROL_OUTPUT=str(marker),
                            PYTHONPATH=str(self.repository / Path(self.SCRIPTS[0]).parent))
         result = subprocess.run(["pwsh", "-NoProfile", "-NonInteractive", "-File", str(script)],
                                 cwd=self.repository, env=environment, capture_output=True,
                                 text=True, timeout=60)
         return result, marker
 
+    def assert_execution(self, result, marker, executed) -> None:
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual([{"script": relative, "isolated": 1} for relative in executed],
+                         json.loads(marker.read_text(encoding="utf-8")))
+
     def test_actual_blocks_use_isolated_python_despite_import_shadow(self) -> None:
-        shadow = self.repository / Path(self.SCRIPTS[0]).parent / "json.py"
-        shadow.write_text("raise RuntimeError('UNREVIEWED_IMPORT_SHADOW')\n", encoding="utf-8")
-        for number, block in enumerate(self.blocks):
+        for parent in {Path(relative).parent for relative in self.SCRIPTS}:
+            (self.repository / parent / "json.py").write_text(
+                "raise RuntimeError('UNREVIEWED_IMPORT_SHADOW')\n", encoding="utf-8")
+        for number, (block, required, executed) in enumerate(self.blocks):
             with self.subTest(block=number):
-                result, marker = self.execute(block)
-                self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-                self.assertEqual({"isolated": 1}, json.loads(marker.read_text(encoding="utf-8")))
+                self.assert_execution(*self.execute(block), executed)
 
     def test_changed_execution_bytes_are_rejected_before_canary_runs(self) -> None:
-        for number, block in enumerate(self.blocks):
-            for relative in self.SCRIPTS:
-                if relative not in block:
-                    continue
+        for number, (block, required, executed) in enumerate(self.blocks):
+            for relative in required:
                 with self.subTest(block=number, script=relative):
+                    self.assertIn(relative, block, "Required script mutation must never be skipped")
                     target = self.repository / relative
-                    target.write_bytes(self.CANARY + b"# Unreviewed execution bytes.\n")
+                    target.write_bytes(self.canaries[relative] + b"# Unreviewed execution bytes.\n")
                     result, marker = self.execute(block)
                     self.assertNotEqual(0, result.returncode)
                     self.assertIn("Working execution script identity mismatch", result.stdout + result.stderr)
                     self.assertFalse(marker.exists())
-                    target.write_bytes(self.CANARY)
-                    result, marker = self.execute(block)
-                    self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-                    self.assertTrue(marker.exists())
+                    target.write_bytes(self.canaries[relative])
+                    self.assert_execution(*self.execute(block), executed)
 
     def test_committed_and_normalized_working_bytes_are_refused(self) -> None:
-        for number, block in enumerate(self.blocks):
-            for relative in self.SCRIPTS:
-                if relative not in block:
-                    continue
+        for number, (block, required, executed) in enumerate(self.blocks):
+            for relative in required:
+                self.assertIn(relative, block, "Required script mutation must never be skipped")
                 for kind in ("normalized", "committed"):
                     with self.subTest(block=number, script=relative, kind=kind):
                         target = self.repository / relative
                         if kind == "normalized":
                             self.git("config", "core.autocrlf", "true")
-                            target.write_bytes(self.CANARY.replace(b"\n", b"\r\n"))
-                            self.assertEqual(self.blob, self.git("-c", "core.autocrlf=true", "hash-object", "--", relative).strip())
+                            target.write_bytes(self.canaries[relative].replace(b"\n", b"\r\n"))
+                            self.assertEqual(self.blobs[relative], self.git("-c", "core.autocrlf=true", "hash-object", "--", relative).strip())
                         else:
-                            target.write_bytes(self.CANARY + b"# Changed committed instruction file.\n")
-                            self.git("add", "--", relative)
+                            target.write_bytes(self.canaries[relative] + b"# Changed committed instruction file.\n")
+                            self.git("add", "--force", "--", relative)
                             self.git("commit", "--quiet", "-m", "Different committed canary")
                             self.head = self.git("rev-parse", "HEAD").strip()
                         result, marker = self.execute(block)
@@ -869,14 +933,123 @@ class WorkflowExecutionControls(unittest.TestCase):
                         self.assertIn(expected, result.stdout + result.stderr)
                         self.assertFalse(marker.exists())
                         self.git("config", "core.autocrlf", "false")
-                        target.write_bytes(self.CANARY)
+                        target.write_bytes(self.canaries[relative])
                         if kind == "committed":
-                            self.git("add", "--", relative)
+                            self.git("add", "--force", "--", relative)
                             self.git("commit", "--quiet", "-m", "Restore original pinned canary")
                             self.head = self.git("rev-parse", "HEAD").strip()
-                        result, marker = self.execute(block)
-                        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-                        self.assertTrue(marker.exists())
+                        self.assert_execution(*self.execute(block), executed)
+
+
+EXPECTED_CONTROL_COUNT = 43
+REPORT_REGRESSION_CLI_CASES: list[dict] = []
+
+
+def expected_control_methods() -> set[str]:
+    # A fresh loader is unaffected by unittest CLI -k selection on the default loader.
+    loader = unittest.TestLoader()
+    return {value.__name__ + "." + name
+            for value in globals().values()
+            if isinstance(value, type) and issubclass(value, unittest.TestCase)
+            and value.__module__ == __name__
+            for name in loader.getTestCaseNames(value)}
+
+
+class RecordingResult(unittest.TextTestResult):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.executed_methods: list[str] = []
+
+    def startTest(self, test):
+        self.executed_methods.append(type(test).__name__ + "." + test._testMethodName)
+        super().startTest(test)
+
+
+class RecordingRunner(unittest.TextTestRunner):
+    resultclass = RecordingResult
+
+
+def control_report_status(result, *, unchanged: bool, sdk_executed: bool,
+                          powershell_methods: set[str]) -> str:
+    """PASS requires every committed control, no skips, and both native-tool control scopes."""
+    if not result.wasSuccessful() or not unchanged:
+        return "FAIL"
+    required = expected_control_methods()
+    required_powershell = {name for name in required
+                           if name.startswith(("WorkflowExecutionControls.", "WorkflowBootstrapControls."))}
+    executed = result.executed_methods
+    if (result.testsRun != EXPECTED_CONTROL_COUNT or not executed
+            or len(required) != EXPECTED_CONTROL_COUNT or len(executed) != EXPECTED_CONTROL_COUNT
+            or set(executed) != required or result.skipped
+            or not sdk_executed or powershell_methods != required_powershell):
+        return "INCOMPLETE"
+    return "PASS"
+
+
+class ReportCompletionControls(unittest.TestCase):
+    def test_complete_report_refuses_missing_repeated_skipped_or_unexecuted_controls(self) -> None:
+        expected = sorted(expected_control_methods())
+        powershell = {name for name in expected
+                      if name.startswith(("WorkflowExecutionControls.", "WorkflowBootstrapControls."))}
+        result = unittest.TestResult()
+        result.testsRun = len(expected)
+        result.executed_methods = expected.copy()
+        def status(*, sdk=True, ps=None, unchanged=True):
+            return control_report_status(result, unchanged=unchanged, sdk_executed=sdk,
+                                         powershell_methods=powershell if ps is None else ps)
+        self.assertEqual("PASS", status())
+        for methods in ([], expected[:-1], [expected[0], *expected[:-1]]):
+            with self.subTest(methods=len(methods)):
+                result.executed_methods = methods
+                result.testsRun = len(methods)
+                self.assertEqual("INCOMPLETE", status())
+        result.testsRun = len(expected)
+        result.executed_methods = expected.copy()
+        result.skipped = [(self, "Missing SDK or PowerShell")]
+        self.assertEqual("INCOMPLETE", status())
+        result.skipped = []
+        self.assertEqual("INCOMPLETE", status(sdk=False))
+        self.assertEqual("INCOMPLETE", status(ps=set()))
+        self.assertEqual("INCOMPLETE", status(ps=set(sorted(powershell)[1:])))
+        self.assertEqual("FAIL", status(unchanged=False))
+        result.failures.append((self, "A failed required control"))
+        self.assertEqual("FAIL", status())
+
+    def test_actual_cli_refuses_zero_filtered_and_missing_tool_runs(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="inspector-report-controls-") as temporary:
+            directory = Path(temporary)
+            empty_path = directory / "empty-path"
+            empty_path.mkdir()
+            cases = (
+                ("zero", ["-k", "NoSuchAdmissionControl"], 0, 0, False),
+                ("filtered", ["RetainedReportControls.test_original_native_reports_and_frozen_source_blobs_match"], 1, 0, False),
+                ("missing-sdk", ["SdkImportControls"], 1, 1, True),
+                ("missing-pwsh", ["WorkflowExecutionControls"], 3, 3, True),
+            )
+            for name, selected, count, skipped, no_tools in cases:
+                with self.subTest(case=name):
+                    report = directory / (name + ".json")
+                    environment = dict(os.environ)
+                    if no_tools:
+                        environment.update(PATH=str(empty_path), GITHUB_ACTIONS="false")
+                    completed = subprocess.run(
+                        [sys.executable, "-I", "-B", str(Path(__file__).resolve()),
+                         "--evidence", str(INPUT_DIRECTORY), "--report", str(report), *selected, "-v"],
+                        cwd=RUNNER.ROOT, env=environment, capture_output=True, text=True, timeout=60)
+                    self.assertNotEqual(0, completed.returncode, completed.stdout + completed.stderr)
+                    observed = json.loads(report.read_text(encoding="utf-8"))
+                    self.assertEqual("INCOMPLETE", observed["status"])
+                    self.assertEqual(count, observed["testsRun"])
+                    self.assertEqual(skipped, observed["skipped"])
+                    self.assertEqual(0, observed["failures"])
+                    self.assertEqual(0, observed["errors"])
+                    self.assertIs(False, observed["nativeProductCommandsExecuted"])
+                    self.assertIs(False, observed["disposableSdkControlsExecuted"])
+                    self.assertIs(False, observed["powershellControlsExecuted"])
+                    self.assertIs(True, observed["nativeEvidenceUnchanged"])
+                    REPORT_REGRESSION_CLI_CASES.append({"case": name, "exitCode": completed.returncode,
+                        "status": observed["status"], "testsRun": count, "skipped": skipped,
+                        "nativeProductCommandsExecuted": observed["nativeProductCommandsExecuted"]})
 
 
 if __name__ == "__main__":
@@ -896,15 +1069,23 @@ if __name__ == "__main__":
     ANGULAR_SOURCE = json.loads(ANGULAR_REPORT)["testResults"][0]["name"]
     validate_original_inputs()
     print("Controls reuse retained native reports; only a disposable SDK probe runs dotnet, never Product cases or npm.", flush=True)
-    program = unittest.main(argv=[sys.argv[0], *unittest_arguments], exit=False)
+    program = unittest.main(argv=[sys.argv[0], *unittest_arguments], testRunner=RecordingRunner, exit=False)
     unchanged = before == file_snapshot(INPUT_DIRECTORY)
     result = program.result
+    status = control_report_status(result, unchanged=unchanged, sdk_executed=SDK_IMPORT_CONTROLS_EXECUTED,
+                                   powershell_methods=POWERSHELL_CONTROL_METHODS)
+    required_powershell = {name for name in expected_control_methods()
+                           if name.startswith(("WorkflowExecutionControls.", "WorkflowBootstrapControls."))}
     report = {
         "scope": "RETAINED_REPORT_GIT_BOOTSTRAP_AND_DISPOSABLE_SDK_CONTROLS_ONLY",
         "nativeProductCommandsExecuted": False, "disposableSdkControlsExecuted": SDK_IMPORT_CONTROLS_EXECUTED,
         "nativeEvidenceUnchanged": unchanged,
         "testsRun": result.testsRun, "failures": len(result.failures), "errors": len(result.errors),
-        "skipped": len(result.skipped), "status": "PASS" if result.wasSuccessful() and unchanged else "FAIL",
+        "skipped": len(result.skipped), "status": status,
+        "expectedTests": EXPECTED_CONTROL_COUNT, "executedControlMethods": result.executed_methods,
+        "powershellControlsExecuted": POWERSHELL_CONTROL_METHODS == required_powershell,
+        "powershellControlMethods": sorted(POWERSHELL_CONTROL_METHODS),
+        "reportRegressionCliCases": REPORT_REGRESSION_CLI_CASES,
         "productHead": INPUT_RECEIPT["productHead"], "nativeTestHead": INPUT_RECEIPT["testHead"],
         "originalNativeCases": 12, "originalAngularCases": 11,
         "originalTrxSha256": hashlib.sha256(NATIVE_TRX).hexdigest(),
@@ -914,4 +1095,4 @@ if __name__ == "__main__":
     }
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    sys.exit(0 if result.wasSuccessful() and unchanged else 1)
+    sys.exit(0 if status == "PASS" else 2 if status == "INCOMPLETE" else 1)

@@ -14,9 +14,9 @@ tests as an independent reviewer. The nine xUnit facts are separately authored.
   in this Security PR. The workflow binds the exact source Git blob
   `067043361a2e7a83613886234e1afc0b499d70e9`.
 - Composition runner: `compose_and_verify.py`, bound by its exact Git blob
-  `970fae25d145f7be02bb3d6e263ccd05e1c2c6a4`.
+  `1030071a6024e9162d50db213a2604112a6313d1`.
 - Committed admission regression controls: `test_compose_and_verify.py`,
-  Git blob `6cca98010ae14e615a6191be8a88358444d5cc4b`, verified and executed on both hosts before the native suite.
+  Git blob `8a03469d5b832d91522aee86f64d5abbe0fc1bd1`, verified and executed on both hosts before the native suite.
 - Only the original Test candidate is copied into a clean, detached Product
   worktree. Its actual compiler-input bytes, staged blob, Product HEAD and
   unrelated tracked Product changes are checked initially, again after restore
@@ -97,7 +97,7 @@ replayed** at the exact vulnerable Product commit
 candidate Test blob. The separate fixed-SHA historical workflow
 `.github/workflows/projectide-compiler-immutability-historical-red.yml`
 uses `replay_vulnerable.py` (Git blob
-`88fd9e290c054e8644a905ea1325894dc515de81`) to require precisely three
+`87ad90e659408eec11ef188a86fd52dfc0b86874`) to require precisely three
 compiled TRX failures, zero PASS/skip, and the *specific* original legacy
 synchronization-root invariant. Successful compilation without those exact
 failures, missing TRX, unrelated exceptions, or source drift fail closed.
@@ -158,7 +158,7 @@ Each workflow checks committed and actual Python bytes immediately before
 Real disposable PowerShell controls reject changed/CRLF-normalized executable
 bytes and ignore neighboring import shadows. A disposable real SDK project
 checks poisoned ancestor props and targets; it adds zero Product xUnit cases.
-The current Python suite has 29 controls and the historical suite has 21.
+The current Python suite has 31 controls and the historical suite has 23.
 One newline-filename control deliberately skips Windows because that fixture is
 not representable there; the same POSIX control also verifies an invalid UTF-8 pathname. The original native matrix remains nine PASS on both
 Windows and Ubuntu, plus precisely three expected failures on the existing
@@ -171,3 +171,30 @@ abort or composition drift. This cohort has no shared provenance helper and no
 executing-workflow provenance receipt; independent API/job/archive and source
 review remains required. These bounded repairs do not close #2095 or #1938,
 qualify generated output content, grant runtime authority, or change Release NO_GO.
+
+## Review correction controls
+
+The global native record check also refuses `TestResultAggregation`, including
+empty records and records with ordinary child output. Regression mutations cover
+Failed, Passed and NotExecuted outcomes in native and foreign namespaces across
+the root, result, output, definition and summary. The authentic positive remains
+admitted; mutations receive no native execution credit.
+
+Both staged and unstaged path inventories explicitly disable rename pairing. A
+real Git control demonstrates that rename-aware output can hide a staged Product
+deletion behind the candidate destination, then verifies separate paths are
+refused and restoring the deleted Product input restores admission. Ignored-input
+controls first assert a positive `git check-ignore` match. Fixture setup force
+stages its known files so an ambient ignore cannot remove a committed project.
+Ignored inputs outside the registered output roots are refused; files inside
+allowed roots after restore are admitted by path and phase, without a claim about
+how their content was produced.
+
+The disposable SDK probe writes the exact 10.0.403 policy with roll-forward
+disabled and validates the selected version before either ancestor import is
+created, overriding a conflicting parent SDK policy. Bootstrap fixtures now use
+distinct script bytes and pins, require every runner/control role binding in each
+original host launch block, and assert which isolated canary actually executed.
+Restored original bytes must pass after every rejected mutation. These remain
+verifier controls; immutable Product and C# inputs, historical outcomes, native
+case counts and all six qualification holds are unchanged.

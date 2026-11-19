@@ -64,8 +64,8 @@ The repaired runner now checks:
   files, immutable Product HEAD, complete staged and unstaged tracked changes,
   and absence of unexpected untracked files. These guards run before execution
   and after SDK lookup, restore, xUnit execution, compiled discovery, npm install
-  and Angular execution. The phase-specific output allowances below distinguish
-  generated roots from ignored compiler input.
+  and Angular execution. The phase-specific output allowances below admit registered roots by path;
+  they do not identify which process produced a file.
 
 Every subprocess removes inherited `GIT_*` variables case-insensitively while
 preserving other host/SDK settings. Raw committed-source reads and detached
@@ -189,12 +189,13 @@ Ignored files are inspected alongside ordinary untracked input. No generated
 files are accepted at initial composition/SDK lookup. After restore, only the
 `bin/` and `obj/` roots of actual committed Product projects are allowed;
 `frontend/node_modules/` is admitted after dependency installation, and
-`frontend/.angular/cache/` only after Angular execution. Nested namesakes or
-ignored native/Angular source files remain refused. All native restore, test
+`frontend/.angular/cache/` only after Angular execution. Nested namesakes and ignored native/Angular source files outside those
+allowed roots remain refused; ignored files within an allowed root are admitted
+according to the phase. All native restore, test
 and compiled-discovery commands disable ancestor Directory.Build props and
 targets; the pinned Product contains neither committed import file.
 
-The control suite has 40 methods, preserving the original 29 and adding nested
+The control suite has 43 methods, preserving the original 29 and adding nested
 results, run-level failures, index masks, ignored-input/phase checks, a real
 disposable SDK import probe and actual PowerShell helper-bootstrap controls.
 The SDK probe runs only a separate package-free project and adds no Product
@@ -210,7 +211,7 @@ isolated Python execution, PowerShell verifies both the helper's committed blob
 and its unfiltered working bytes. Bootstrap controls execute these exact two
 OS blocks with changed committed bytes, changed or CRLF-normalized working
 bytes, and a neighboring import shadow. The helper's unchanged 25 independent
-provenance controls run separately from this cohort's 40 controls.
+provenance controls run separately from this cohort's 43 controls.
 
 Historical contexts that called the Test head `workflowHead` retain their
 original limitation; they are not restamped. The executing PR merge, reviewed
@@ -231,3 +232,15 @@ specific refused input has been restored; these are bootstrap controls, not
 Product execution.
 
 The separate shared provenance-control invocation also uses isolated Python, loads the pinned helper explicitly, and checks both committed and actual helper/control bytes immediately before execution. The cohort bootstrap controls cover these shared invocations and all four exact workflow script pins.
+
+## Review follow-up: admission policy and control completeness
+
+The native reader rejects `TestResultAggregation` explicitly, including empty records, alongside all nested result families. Both staged and unstaged Git path comparisons disable rename detection, so a Product deletion cannot disappear when paired with the candidate addition.
+
+Run-level admission intentionally permits only `Information` RunInfo outcomes. `Warning`, `Passed`, `Completed`, error outcomes and unknown values make the receipt incomplete even when every candidate case passes. This is a strict local admission policy, not a claim that every warning is a native test failure.
+
+Ignored and ordinary untracked source paths are refused **outside** the registered output roots. Within an allowed root, acceptance depends on the path and execution phase; it does not establish how a file was produced. In particular, an ignored C# file under a registered `obj/` root is admitted after restore. These checks do not make the build hermetic.
+
+Disposable SDK probes pin `10.0.403` with roll-forward disabled and check the selected version before creating either parent import. Their known Git fixture files are explicitly force-staged. Execution controls give each script distinct committed canary bytes and its own pin, require every role's bindings, and verify exactly which isolated canaries ran. These controls add no Product/native execution credit.
+
+The control report reserves `PASS` for all 43 distinct committed methods, zero skips, unchanged native evidence, and completed SDK and PowerShell control scopes. Zero-test, filtered, duplicate-method, skipped or missing-tool-scope runs are `INCOMPLETE` and return a nonzero exit code. Actual CLI regressions retain their exit code, status, count and skip totals separately in the report; `nativeProductCommandsExecuted` remains false.
