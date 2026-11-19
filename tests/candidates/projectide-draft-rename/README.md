@@ -208,3 +208,7 @@ Ignored and ordinary untracked source paths are refused **outside** the register
 Disposable SDK probes pin `10.0.403` with roll-forward disabled and check the selected version before creating either parent import. Their known Git fixture files are explicitly force-staged. Execution controls give each script distinct committed canary bytes and its own pin, require every role's bindings, and verify exactly which isolated canaries ran. These controls add no Product/native execution credit.
 
 The complete committed suite contains 28 unittest methods.
+
+## Strict native RunInfos placement (#2095)
+
+Only `Information`-outcome `RunInfo` directly inside one native `ResultSummary/RunInfos` container is accepted. Out-of-position, foreign-namespace, duplicate, and unsupported diagnostic records are refused even if the original twenty-four passing candidate C# facts and counters are unchanged. This is an advisory evidence admission change only; the original candidate and Product commit identities, Windows/Ubuntu execution policy, and six false qualification flags are preserved.

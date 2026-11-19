@@ -74,9 +74,24 @@ def native_inventory(path: Path) -> list[str]:
             or any(value != "0" for key, value in counters.attrib.items()
                    if key not in ("total", "executed", "passed"))):
         raise ValueError("Native TRX must contain exactly twenty-four complete passing candidate facts")
-    if trx.findall(".//{*}ErrorInfo") or any(
-            node.get("outcome") != "Information"
-            for node in trx.findall(".//{*}RunInfo")):
+    # Only native ResultSummary/RunInfos/RunInfo with Information is admissible.
+    # Validate container placement as well as record outcome: the direct C#
+    # roster alone does not cover unrelated diagnostic nodes in the document.
+    native_run_infos = summary.findall(f"{TRX_NAMESPACE}RunInfos")
+    if (len(native_run_infos) > 1
+            or any(child.tag != TRX_NAMESPACE + "RunInfo"
+                   for container in native_run_infos for child in container)):
+        raise ValueError("Native TRX contains contradictory failure information")
+    permitted_containers = set(native_run_infos)
+    permitted_entries = set(summary.findall(f"{TRX_NAMESPACE}RunInfos/{TRX_NAMESPACE}RunInfo"))
+    if any(
+        element.tag.rsplit("}", 1)[-1] == "ErrorInfo"
+        or (element.tag.rsplit("}", 1)[-1] == "RunInfos"
+            and element not in permitted_containers)
+        or (element.tag.rsplit("}", 1)[-1] == "RunInfo"
+            and (element not in permitted_entries or element.get("outcome") != "Information"))
+        for element in trx.iter()
+    ):
         raise ValueError("Native TRX contains contradictory failure information")
     containers = []
     for container_name, child_name in (("Results", "UnitTestResult"),
