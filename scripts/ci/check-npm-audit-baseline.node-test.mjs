@@ -154,7 +154,7 @@ void test('invalid baseline finding fields and tampered audit evidence reject ev
   for (const [index, finding] of invalidBaselines.entries()) {
     const result = run({ frontend: cleanReport() }, [finding]);
     assert.notEqual(result.status, 0, 'baseline mutation ' + index);
-    assert.match(result.stderr, /npm audit baseline|Invalid npm audit baseline finding/u);
+    assert.match(result.stderr, /npm audit baseline|Invalid npm audit baseline finding|Baseline severity must be high or critical/u);
   }
 
   const mutations = [
