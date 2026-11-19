@@ -5,6 +5,7 @@ import importlib.util
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -50,6 +51,36 @@ class ExactRejection(unittest.TestCase):
         with self.assertRaises(ValueError) as caught:
             action()
         self.assertEqual(reason, str(caught.exception))
+
+
+class WorkflowPythonIsolationControls(unittest.TestCase):
+    def test_both_host_advisories_bind_python_bytes_and_use_isolated_mode(self) -> None:
+        workflow = (Path(__file__).resolve().parents[3]
+                    / ".github/workflows/projectide-regional-observation-advisory.yml").read_text(encoding="utf-8")
+        self.assertEqual(2, workflow.count(
+            "python -I -B -m unittest discover -s tests/candidates/projectide-regional-observation"))
+        self.assertEqual(2, workflow.count(
+            "python -I -B tests/candidates/projectide-regional-observation/compose_and_verify.py"))
+        self.assertNotIn("python -B ", workflow)
+        lines = workflow.splitlines()
+        self.assertEqual(4, sum("git hash-object --no-filters -- $script.Path" in line for line in lines))
+        for index, line in enumerate(lines):
+            if "python -I -B " in line:
+                prefix = "\n".join(lines[max(0, index - 13):index])
+                self.assertIn('git rev-parse "$($env:TEST_HEAD):$($script.Path)"', prefix)
+                self.assertIn("git hash-object --no-filters -- $script.Path", prefix)
+
+    def test_isolated_python_rejects_injected_pythonpath_bootstrap(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="regional-python-shadow-") as temporary:
+            (Path(temporary) / "sitecustomize.py").write_text(
+                "raise RuntimeError('untrusted Python import')\n", encoding="utf-8")
+            output = subprocess.run(
+                [sys.executable, "-I", "-B", "-c",
+                 "import sys; assert sys.flags.isolated == 1; print('ISOLATED')"],
+                env={**os.environ, "PYTHONPATH": temporary},
+                capture_output=True, text=True, check=False)
+            self.assertEqual(0, output.returncode, output.stderr)
+            self.assertEqual("ISOLATED", output.stdout.strip())
 
 
 class NativeInventoryControls(ExactRejection):

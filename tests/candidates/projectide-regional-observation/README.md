@@ -130,3 +130,7 @@ Every receipt retains `requiredCheckQualified`,
 parents OPEN, #1144 BLOCKED, #1128 SUSPENDED/NOT_EVALUATED and Release NO_GO.
 This candidate changes only its new folder and dedicated read-only advisory;
 Main, Product, protections, required checks and activation settings are untouched.
+
+## Exact Python executable admission and isolated mode (#2095)
+
+The native Regional Observation advisory now validates both the committed and actual unfiltered working Git blobs of its Python verifier/runner immediately before execution in each hosted OS job. Both invoke `python -I -B` rather than relying on unisolated `python -B`. A regression enforces this ordering in both workflow legs and checks the Python interpreter refuses injected `PYTHONPATH` bootstrap files. Frozen C# source/Product SHA, existing source checks and all six false release/trust flags are preserved.
