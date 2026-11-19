@@ -17,7 +17,7 @@ env:
   PRODUCT_HEAD: 09347c1113f5f9c007bbbc5052278d5b5151feb5
   SOURCE_BLOB: e8902f6eeea3d11be974500ec095e17a6ac371e8
   RUNNER_BLOB: f0d66a01c5504917604ff2b23cf2104ecf400559
-  CONTROLS_BLOB: 0bd25cd09ef54babc121188e2c6b8fc0d4711c12
+  CONTROLS_BLOB: 888be5f20ebb9d5033cf4f8a715516b51f94f0fd
 
 concurrency:
   group: regional-host-qualification-${{ github.event.pull_request.number }}
