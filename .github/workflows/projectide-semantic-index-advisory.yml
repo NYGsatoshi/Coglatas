@@ -14,7 +14,7 @@ env:
   PRODUCT_HEAD: df213dd93ccfbba03ac0aa303abd53f4a2bf3c1d
   SOURCE_BLOB: 997a30d5e0f4018982765fcd258eb3db60ea29b0
   RUNNER_BLOB: dad8f0986ab3f34b45371336893dfa5e9cbaa1b9
-  CONTROLS_BLOB: 7c6e8bcde35a171c3bdfd2d5324a4647b1363ff1
+  CONTROLS_BLOB: eb9ff408c23ddbf3071bcf0e117dd1fc40972691
 
 concurrency:
   group: semantic-index-qualification-${{ github.event.pull_request.number }}
@@ -93,7 +93,19 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $context = Join-Path $env:RUNNER_TEMP 'semantic-index-qualification-context'
           $log = Join-Path $context 'admission-controls.log'
-          python -B -m unittest discover -s tests/candidates/projectide-semantic-index -p test_compose_and_verify.py -v *> $log
+          # Revalidate the immutable source and actual worktree before Python imports.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-semantic-index/compose_and_verify.py'; Sha = $env:RUNNER_BLOB },
+            @{ Path = 'tests/candidates/projectide-semantic-index/test_compose_and_verify.py'; Sha = $env:CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed script identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working script identity mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index'
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate Python bytecode cache is not admitted' }
+          python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-semantic-index/test_compose_and_verify.py' *> $log
           $controlsExitCode = $LASTEXITCODE
           Get-Content -LiteralPath $log
           if ($controlsExitCode -ne 0) { throw 'Semantic index synthetic verifier controls failed' }
@@ -101,7 +113,19 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python -B tests/candidates/projectide-semantic-index/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/semantic-index-qualification-product" --evidence "$env:RUNNER_TEMP/semantic-index-qualification-evidence"
+          # Revalidate the immutable source and actual worktree before Python imports.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-semantic-index/compose_and_verify.py'; Sha = $env:RUNNER_BLOB },
+            @{ Path = 'tests/candidates/projectide-semantic-index/test_compose_and_verify.py'; Sha = $env:CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed script identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working script identity mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index'
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate Python bytecode cache is not admitted' }
+          python -I -B tests/candidates/projectide-semantic-index/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/semantic-index-qualification-product" --evidence "$env:RUNNER_TEMP/semantic-index-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Semantic index independent synthetic qualification did not complete' }
       - name: Retain original source, TRX and compiled discovery receipts
         if: always()
@@ -187,7 +211,19 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $context = Join-Path $env:RUNNER_TEMP 'semantic-index-qualification-context'
           $log = Join-Path $context 'admission-controls.log'
-          python -B -m unittest discover -s tests/candidates/projectide-semantic-index -p test_compose_and_verify.py -v *> $log
+          # Revalidate the immutable source and actual worktree before Python imports.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-semantic-index/compose_and_verify.py'; Sha = $env:RUNNER_BLOB },
+            @{ Path = 'tests/candidates/projectide-semantic-index/test_compose_and_verify.py'; Sha = $env:CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed script identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working script identity mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index'
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate Python bytecode cache is not admitted' }
+          python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-semantic-index/test_compose_and_verify.py' *> $log
           $controlsExitCode = $LASTEXITCODE
           Get-Content -LiteralPath $log
           if ($controlsExitCode -ne 0) { throw 'Semantic index synthetic verifier controls failed' }
@@ -195,7 +231,19 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python -B tests/candidates/projectide-semantic-index/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/semantic-index-qualification-product" --evidence "$env:RUNNER_TEMP/semantic-index-qualification-evidence"
+          # Revalidate the immutable source and actual worktree before Python imports.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-semantic-index/compose_and_verify.py'; Sha = $env:RUNNER_BLOB },
+            @{ Path = 'tests/candidates/projectide-semantic-index/test_compose_and_verify.py'; Sha = $env:CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed script identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working script identity mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index'
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate Python bytecode cache is not admitted' }
+          python -I -B tests/candidates/projectide-semantic-index/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/semantic-index-qualification-product" --evidence "$env:RUNNER_TEMP/semantic-index-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Semantic index independent synthetic qualification did not complete' }
       - name: Retain original source, TRX and compiled discovery receipts
         if: always()
