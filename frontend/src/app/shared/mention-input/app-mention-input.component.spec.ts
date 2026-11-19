@@ -134,6 +134,45 @@ describe('AppMentionInputComponent canonical mention boundaries', () => {
     expect(component.candidates()).toEqual([]);
   });
 
+  it.each([
+    { code: 403, key: 'mention.denied' },
+    { code: 429, key: 'mention.rateLimited' },
+    { code: 500, key: 'mention.error' }
+  ] as const)('shows authorization, rate-limit and server failures without stale suggestions: $code', async ({ code, key }) => {
+    edit('Hi @Al');
+    const request = await vi.waitFor(
+      () => http.expectOne('/api/tasks/' + taskId + '/mention-candidates?query=Al&limit=10'),
+      { timeout: 5000 }
+    );
+    expect(request.request.withCredentials).toBe(true);
+    request.flush({ message: 'Controlled test error' }, { status: code, statusText: 'Denied' });
+    fixture.detectChanges();
+    expect(component.candidates()).toEqual([]);
+    expect(component.activeOptionId()).toBeNull();
+    expect(component.status()).toBe(component.i18n.translate(key));
+    expect((fixture.nativeElement as HTMLElement).querySelector('[role="listbox"]')).toBeNull();
+  });
+
+  it('clears a completed suggestion list after a real caret movement', async () => {
+    edit('Hi @Al');
+    const request = await vi.waitFor(
+      () => http.expectOne('/api/tasks/' + taskId + '/mention-candidates?query=Al&limit=10'),
+      { timeout: 5000 }
+    );
+    request.flush([{ userId, displayName: 'Alex' }]);
+    fixture.detectChanges();
+    expect(component.candidates()).toHaveLength(1);
+
+    const textarea = editor();
+    textarea.setSelectionRange(0, 0);
+    textarea.dispatchEvent(new Event('click', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(component.candidates()).toEqual([]);
+    expect(component.activeOptionId()).toBeNull();
+    expect(component.status()).toBe(component.i18n.translate('mention.caretMoved'));
+  });
+
   it('ignores a late suggestion after the authoritative task scope changes', async () => {
     edit('Hi @Al');
     const request = await vi.waitFor(
