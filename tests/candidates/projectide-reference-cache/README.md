@@ -205,3 +205,14 @@ in that contract; they are never retroactively restamped.
 ## Whole-document native TRX admission (#2095)
 
 The verifier refuses uncounted native, generic or aggregated result records anywhere in the TRX and any unbound ErrorInfo or RunInfo. The corrected lane admits only informational RunInfo under ResultSummary/RunInfos. The historical-red lane additionally permits the exact existing six failed assertions' Output/ErrorInfo nodes and their six verified xUnit Error announcements, not unrelated infrastructure errors or warnings. The original C# facts, frozen Product commit pair, and six false qualification flags remain unchanged.
+
+## Isolated native-advisory Python execution (#2095)
+
+The original corrected/historical-red C# fact identities, frozen Product pairs,
+original source/receipt requirements and native/Trust/Production/Release holds are
+preserved. Both OS legs now check immutable committed and unfiltered working
+script bytes before import, use `-I -B` and explicit file-based runner/control
+execution rather than import-path-mutating unittest discovery. Real synthetic
+regressions reject uppercase cache/bytecode names and Python path shadowing.
+No Product authorization or release qualification is granted by this Test-only
+change.

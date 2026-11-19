@@ -16,7 +16,7 @@ env:
   PROVENANCE_CONTROLS_BLOB: c9f7ec729870758b86b21f806423ce1bb726933c
   SOURCE_BLOB: a61a5f0fe947c251830cfd097ed6ccf128b07b11
   RUNNER_BLOB: 56ce0926cb6d87babd0d37356eab14cd88dec657
-  CONTROLS_BLOB: 4427f0ae9bef5230c94d9bf3cf9024d628c89a2b
+  CONTROLS_BLOB: b42d16f99c1195c20393daf95bf2d9ab3989eac5
 
 concurrency:
   group: reference-cache-qualification-${{ github.event.pull_request.number }}
@@ -133,7 +133,19 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $context = Join-Path $env:RUNNER_TEMP 'reference-cache-qualification-context'
           $log = Join-Path $context 'provenance-controls.log'
-          python -B -m unittest discover -s tests/candidates/workflow-provenance -p test_workflow_provenance.py -v *> $log
+          # Refuse changed working or committed Python script bytes before execution.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'; Sha = $env:PROVENANCE_BLOB },
+            @{ Path = 'tests/candidates/workflow-provenance/test_workflow_provenance.py'; Sha = $env:PROVENANCE_CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-reference-cache' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B -c "import importlib.util, runpy, sys; s=importlib.util.spec_from_file_location('verify_workflow_provenance', 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'); m=importlib.util.module_from_spec(s); sys.modules[s.name]=m; s.loader.exec_module(m); runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py', run_name='__main__')" *> $log
           $controlsExitCode = $LASTEXITCODE
           Get-Content -LiteralPath $log
           if ($controlsExitCode -ne 0) { throw 'Executing workflow provenance controls failed' }
@@ -142,7 +154,19 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $log = Join-Path $env:RUNNER_TEMP 'reference-cache-qualification-context/admission-controls.log'
-          python -B -m unittest discover -s tests/candidates/projectide-reference-cache -p test_compose_and_verify.py -v *> $log
+          # Refuse changed working or committed Python script bytes before execution.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-reference-cache/compose_and_verify.py'; Sha = $env:RUNNER_BLOB },
+            @{ Path = 'tests/candidates/projectide-reference-cache/test_compose_and_verify.py'; Sha = $env:CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-reference-cache' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-reference-cache/test_compose_and_verify.py' *> $log
           $result = $LASTEXITCODE
           Get-Content -LiteralPath $log
           if ($result -ne 0) { throw 'Reference cache admission controls failed' }
@@ -150,7 +174,18 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $candidateArguments = @('-B', 'tests/candidates/projectide-reference-cache/compose_and_verify.py',
+          # Refuse changed working or committed Python script bytes before execution.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-reference-cache/compose_and_verify.py'; Sha = $env:RUNNER_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-reference-cache' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          $candidateArguments = @('-I', '-B', 'tests/candidates/projectide-reference-cache/compose_and_verify.py',
             '--product-head', $env:PRODUCT_HEAD,
             '--worktree', "$env:RUNNER_TEMP/reference-cache-qualification-product",
             '--evidence', "$env:RUNNER_TEMP/reference-cache-qualification-evidence")
@@ -278,7 +313,19 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $context = Join-Path $env:RUNNER_TEMP 'reference-cache-qualification-context'
           $log = Join-Path $context 'provenance-controls.log'
-          python -B -m unittest discover -s tests/candidates/workflow-provenance -p test_workflow_provenance.py -v *> $log
+          # Refuse changed working or committed Python script bytes before execution.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'; Sha = $env:PROVENANCE_BLOB },
+            @{ Path = 'tests/candidates/workflow-provenance/test_workflow_provenance.py'; Sha = $env:PROVENANCE_CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-reference-cache' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B -c "import importlib.util, runpy, sys; s=importlib.util.spec_from_file_location('verify_workflow_provenance', 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'); m=importlib.util.module_from_spec(s); sys.modules[s.name]=m; s.loader.exec_module(m); runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py', run_name='__main__')" *> $log
           $controlsExitCode = $LASTEXITCODE
           Get-Content -LiteralPath $log
           if ($controlsExitCode -ne 0) { throw 'Executing workflow provenance controls failed' }
@@ -287,7 +334,19 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $log = Join-Path $env:RUNNER_TEMP 'reference-cache-qualification-context/admission-controls.log'
-          python -B -m unittest discover -s tests/candidates/projectide-reference-cache -p test_compose_and_verify.py -v *> $log
+          # Refuse changed working or committed Python script bytes before execution.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-reference-cache/compose_and_verify.py'; Sha = $env:RUNNER_BLOB },
+            @{ Path = 'tests/candidates/projectide-reference-cache/test_compose_and_verify.py'; Sha = $env:CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-reference-cache' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-reference-cache/test_compose_and_verify.py' *> $log
           $result = $LASTEXITCODE
           Get-Content -LiteralPath $log
           if ($result -ne 0) { throw 'Reference cache admission controls failed' }
@@ -295,7 +354,18 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $candidateArguments = @('-B', 'tests/candidates/projectide-reference-cache/compose_and_verify.py',
+          # Refuse changed working or committed Python script bytes before execution.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-reference-cache/compose_and_verify.py'; Sha = $env:RUNNER_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-reference-cache' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          $candidateArguments = @('-I', '-B', 'tests/candidates/projectide-reference-cache/compose_and_verify.py',
             '--product-head', $env:PRODUCT_HEAD,
             '--worktree', "$env:RUNNER_TEMP/reference-cache-qualification-product",
             '--evidence', "$env:RUNNER_TEMP/reference-cache-qualification-evidence")
