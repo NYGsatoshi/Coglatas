@@ -94,6 +94,48 @@ class NativeInventoryControls(ExactRejection):
                                   executionId=str(UUID(int=9001)))
                     self.reject("Native TRX contains nested result records", lambda: self.read(root))
 
+    def test_result_records_belong_only_to_the_flat_results_inventory(self) -> None:
+        for location in ("TestRun", "UnitTestResult", "UnitTest", "TestEntry", "ResultSummary"):
+            for kind in ("InnerResults", "TestResultAggregation", "GenericTestResult", "UnitTestResult"):
+                for namespace in (NAMESPACE, "{urn:foreign-trx}"):
+                    with self.subTest(location=location, kind=kind, namespace=namespace):
+                        root = native_fixture()
+                        parent = next(root.iter(NAMESPACE + location))
+                        ET.SubElement(parent, namespace + kind)
+                        self.reject("Native TRX contains nested result records", lambda: self.read(root))
+
+    def test_error_information_invalidates_an_otherwise_passing_report(self) -> None:
+        for location in ("UnitTestResult", "ResultSummary"):
+            for namespace in (NAMESPACE, "{urn:foreign-trx}"):
+                with self.subTest(location=location, namespace=namespace):
+                    root = native_fixture()
+                    output = ET.SubElement(next(root.iter(NAMESPACE + location)), NAMESPACE + "Output")
+                    ET.SubElement(output, namespace + "ErrorInfo")
+                    self.reject("Native TRX contains contradictory failure information", lambda: self.read(root))
+
+    def test_only_native_informational_run_messages_are_admitted(self) -> None:
+        root = native_fixture()
+        summary = root.find(NAMESPACE + "ResultSummary")
+        output = ET.SubElement(summary, NAMESPACE + "Output")
+        ET.SubElement(output, NAMESPACE + "StdOut").text = "Native test adapter output"
+        infos = ET.SubElement(summary, NAMESPACE + "RunInfos")
+        info = ET.SubElement(infos, NAMESPACE + "RunInfo", outcome="Information")
+        ET.SubElement(info, NAMESPACE + "Text").text = "Adapter information"
+        self.assertEqual(IDENTITIES, self.read(root))
+        for outcome in ("Failed", "Warning", "Passed", "Aborted", "NotExecuted", "", None):
+            with self.subTest(outcome=outcome):
+                info.attrib = {} if outcome is None else {"outcome": outcome}
+                self.reject("Native TRX contains contradictory failure information", lambda: self.read(root))
+
+        infos.remove(info)
+        info.set("outcome", "Information")
+        for parent, tag in ((output, NAMESPACE + "RunInfo"), (infos, "{urn:foreign-trx}RunInfo")):
+            with self.subTest(parent=parent.tag, tag=tag):
+                info.tag = tag
+                parent.append(info)
+                self.reject("Native TRX contains contradictory failure information", lambda: self.read(root))
+                parent.remove(info)
+
     def test_missing_execution_is_rejected(self) -> None:
         root = native_fixture()
         definition = root.find(NAMESPACE + "TestDefinitions")[0]

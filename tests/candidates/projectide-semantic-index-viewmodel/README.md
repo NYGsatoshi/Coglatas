@@ -69,7 +69,7 @@ nested or unregistered output-directory names cannot hide compiler inputs.
 All Git subprocesses remove inherited `GIT_*`
 overrides while preserving ordinary host/SDK settings.
 
-Twenty-four verifier controls exercise synthetic report substitution,
+The verifier controls exercise synthetic report substitution,
 counter/namespace/method/discovery mismatches and actual disposable Git source,
 index, HEAD, staged-only Product, ignored and ordinary untracked-input,
 generated-output admission and environment-redirection failures. Nested native
@@ -110,3 +110,11 @@ original source and Product pins.
 The additional provenance controls grant no native execution or qualification
 credit. Earlier receipts remain unchanged with the precise limitation documented
 in that contract; they are never retroactively restamped.
+
+## Passing native reports
+
+The 24 expected unit results must be direct children of the TRX `Results` element.
+Nested result groups, additional test results and error details invalidate the
+receipt even when the counters and all 24 fact identities match. The native
+summary may retain informational messages under `RunInfos`. A warning or any other outcome
+makes this positive-only receipt incomplete. Ordinary adapter output is preserved.

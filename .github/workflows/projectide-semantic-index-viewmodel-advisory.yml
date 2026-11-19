@@ -16,8 +16,8 @@ env:
   PROVENANCE_CONTROLS_BLOB: c9f7ec729870758b86b21f806423ce1bb726933c
   PRODUCT_HEAD: 09347c1113f5f9c007bbbc5052278d5b5151feb5
   SOURCE_BLOB: a1774c1fcbd7e2f1b0cf29c641cfad1468cb90e3
-  RUNNER_BLOB: 20ec55e459b0a540754ec3bb3f222131e7691fe2
-  CONTROLS_BLOB: 50ff0078119f16b875c8e5091f38dae43699879a
+  RUNNER_BLOB: 7833c3799102b4eea3db25cccc99d3426f1acac3
+  CONTROLS_BLOB: 8a4a2ee41cddb7db6ed5e8eb9cd2aa78669c2579
 
 concurrency:
   group: semantic-index-viewmodel-qualification-${{ github.event.pull_request.number }}
