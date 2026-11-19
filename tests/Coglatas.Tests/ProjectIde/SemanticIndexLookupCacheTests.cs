@@ -220,6 +220,58 @@ public sealed class SemanticIndexLookupCacheTests
         commit.Invoke(cache, [current, CancellationToken.None]); Assert.Equal(1, cache.RetainedCount);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ClearCompletesWhileAnOlderBuilderPreparesLookups(bool pauseDuringDependencies)
+    {
+        var cache = new ProjectSemanticIndexLookupCache();
+        var scope = cache.BeginBinding(Input().Source.Context.Branch, CancellationToken.None);
+        var paused = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var resume = new ManualResetEventSlim();
+        var timeout = TimeSpan.FromSeconds(10);
+
+        void Pause()
+        {
+            paused.SetResult();
+            if (!resume.Wait(TimeSpan.FromSeconds(30)))
+                throw new TimeoutException("Lookup preparation did not resume.");
+        }
+
+        IEnumerable<string> Dependencies()
+        {
+            if (pauseDuringDependencies) Pause();
+            yield return "original-roster";
+        }
+
+        SemanticIndexLookupTables Create()
+        {
+            if (!pauseDuringDependencies) Pause();
+            return new([], []);
+        }
+
+        var preparation = Task.Run(() => cache.Prepare(scope, Dependencies(), Create, CancellationToken.None));
+        Task? clear = null;
+        try
+        {
+            await paused.Task.WaitAsync(timeout);
+            clear = Task.Run(cache.Clear);
+            await clear.WaitAsync(timeout);
+        }
+        finally
+        {
+            resume.Set();
+            await preparation;
+            if (clear is not null) await clear;
+        }
+
+        cache.Commit(await preparation, CancellationToken.None);
+        Assert.Equal(0, cache.RetainedCount);
+        Assert.Equal(0, cache.RetainedCanonicalBytes);
+        Assert.Equal(0, cache.LookupReuseCount);
+    }
+
+
     [Fact]
     public async Task OverlappingBuildersAndExplicitClearKeepTheirOwnInputDataAndNeverPublishAPartialTable()
     {

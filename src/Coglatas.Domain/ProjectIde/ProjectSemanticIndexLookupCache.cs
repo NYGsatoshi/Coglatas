@@ -53,26 +53,32 @@ public sealed class ProjectSemanticIndexLookupCache
         Func<SemanticIndexLookupTables> create, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
+        var text = new StringBuilder();
+        var bytes = 0;
+        foreach (var part in dependencies)
+        {
+            token.ThrowIfCancellationRequested();
+            var length = part.Length.ToString(CultureInfo.InvariantCulture);
+            var partBytes = Encoding.UTF8.GetByteCount(part);
+            if (partBytes > _maximumCanonicalBytes - bytes - length.Length - 1)
+                return new(scope.Owner, scope.Generation, null, 0, create(), false);
+
+            text.Append(length).Append(':').Append(part);
+            bytes += partBytes + length.Length + 1;
+        }
+
+        string? key = text.ToString();
         lock (_gate)
         {
             token.ThrowIfCancellationRequested();
             if (_ownerScope != scope.Owner || !ReferenceEquals(_generation, scope.Generation))
-                return new(scope.Owner, scope.Generation, null, 0, create(), false);
-            var text = new StringBuilder(); var bytes = 0;
-            foreach (var part in dependencies)
-            {
-                token.ThrowIfCancellationRequested();
-                var length = part.Length.ToString(CultureInfo.InvariantCulture);
-                var partBytes = Encoding.UTF8.GetByteCount(part);
-                if (partBytes > _maximumCanonicalBytes - bytes - length.Length - 1)
-                    return new(scope.Owner, scope.Generation, null, 0, create(), false);
-                text.Append(length).Append(':').Append(part); bytes += partBytes + length.Length + 1;
-            }
-            var key = text.ToString();
-            return _entries.TryGetValue(key, out var retained)
-                ? new(scope.Owner, scope.Generation, key, bytes, retained.Value.Tables, true)
-                : new(scope.Owner, scope.Generation, key, bytes, create(), false);
+                key = null;
+            else if (_entries.TryGetValue(key, out var retained))
+                return new(scope.Owner, scope.Generation, key, bytes, retained.Value.Tables, true);
         }
+
+        token.ThrowIfCancellationRequested();
+        return new(scope.Owner, scope.Generation, key, key is null ? 0 : bytes, create(), false);
     }
 
     // A refused/cancelled build never commits its prepared table. Explicit Clear or
