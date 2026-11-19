@@ -14,7 +14,7 @@ env:
   PRODUCT_HEAD: 09347c1113f5f9c007bbbc5052278d5b5151feb5
   ANGULAR_BLOB: f4271b707d98b1d49d0d63e5e9a3cb9a7ec1bfe3
   RUNNER_BLOB: cfa27e1aaf1a1116dbc6cd332313da6080d9196e
-  CONTROLS_BLOB: fa4c36ad76113f2bea1db2c587a724c6ad70c5de
+  CONTROLS_BLOB: 66e11552aa5fcd30222a6ad85162c86a941f337a
 
 concurrency:
   group: run-comparison-web-${{ github.event.pull_request.number }}
@@ -126,14 +126,37 @@ jobs:
           if ($status) { throw 'Independent Test checkout is not clean' }
           python --version | Set-Content (Join-Path $context 'python-version.txt')
           if ($LASTEXITCODE -ne 0) { throw 'Python runtime unavailable' }
-          python -B tests/candidates/projectide-run-comparison-web/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/run-comparison-web-composed" --evidence "$env:RUNNER_TEMP/run-comparison-web-evidence"
+          # Check the executable committed Git and unfiltered working blobs before import.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-run-comparison-web/compose_and_verify.py'; Sha = $env:RUNNER_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-run-comparison-web'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B tests/candidates/projectide-run-comparison-web/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/run-comparison-web-composed" --evidence "$env:RUNNER_TEMP/run-comparison-web-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Angular composition failed; retain original evidence' }
       - name: Exercise strict admission with the original retained Angular report
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $log = "$env:RUNNER_TEMP/run-comparison-web-context/admission-controls.log"
-          python -B tests/candidates/projectide-run-comparison-web/test_compose_and_verify.py --evidence "$env:RUNNER_TEMP/run-comparison-web-evidence" --report "$env:RUNNER_TEMP/run-comparison-web-context/admission-controls.json" -v *> $log
+          # Check the executable committed Git and unfiltered working blobs before import.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-run-comparison-web/compose_and_verify.py'; Sha = $env:RUNNER_BLOB },
+            @{ Path = 'tests/candidates/projectide-run-comparison-web/test_compose_and_verify.py'; Sha = $env:CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-run-comparison-web'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B tests/candidates/projectide-run-comparison-web/test_compose_and_verify.py --evidence "$env:RUNNER_TEMP/run-comparison-web-evidence" --report "$env:RUNNER_TEMP/run-comparison-web-context/admission-controls.json" -v *> $log
           $controlsExitCode = $LASTEXITCODE
           Get-Content $log
           if ($controlsExitCode -ne 0) { throw 'Retained Angular evidence admission controls failed' }
@@ -252,14 +275,37 @@ jobs:
           if ($status) { throw 'Independent Test checkout is not clean' }
           python --version | Set-Content (Join-Path $context 'python-version.txt')
           if ($LASTEXITCODE -ne 0) { throw 'Python runtime unavailable' }
-          python -B tests/candidates/projectide-run-comparison-web/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/run-comparison-web-composed" --evidence "$env:RUNNER_TEMP/run-comparison-web-evidence"
+          # Check the executable committed Git and unfiltered working blobs before import.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-run-comparison-web/compose_and_verify.py'; Sha = $env:RUNNER_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-run-comparison-web'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B tests/candidates/projectide-run-comparison-web/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/run-comparison-web-composed" --evidence "$env:RUNNER_TEMP/run-comparison-web-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Angular composition failed; retain original evidence' }
       - name: Exercise strict admission with the original retained Angular report
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $log = "$env:RUNNER_TEMP/run-comparison-web-context/admission-controls.log"
-          python -B tests/candidates/projectide-run-comparison-web/test_compose_and_verify.py --evidence "$env:RUNNER_TEMP/run-comparison-web-evidence" --report "$env:RUNNER_TEMP/run-comparison-web-context/admission-controls.json" -v *> $log
+          # Check the executable committed Git and unfiltered working blobs before import.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-run-comparison-web/compose_and_verify.py'; Sha = $env:RUNNER_BLOB },
+            @{ Path = 'tests/candidates/projectide-run-comparison-web/test_compose_and_verify.py'; Sha = $env:CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-run-comparison-web'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B tests/candidates/projectide-run-comparison-web/test_compose_and_verify.py --evidence "$env:RUNNER_TEMP/run-comparison-web-evidence" --report "$env:RUNNER_TEMP/run-comparison-web-context/admission-controls.json" -v *> $log
           $controlsExitCode = $LASTEXITCODE
           Get-Content $log
           if ($controlsExitCode -ne 0) { throw 'Retained Angular evidence admission controls failed' }

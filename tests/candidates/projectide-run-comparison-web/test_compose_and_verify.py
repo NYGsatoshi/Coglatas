@@ -30,6 +30,65 @@ INPUT_DIRECTORY = None
 SOURCE_BYTES = {source: (HERE / Path(source).name).read_bytes() for source in RUNNER.SOURCES}
 
 
+class WorkflowPythonIsolationControls(unittest.TestCase):
+    """Guard the original two-host candidate/retained-report Python execution."""
+
+    def test_both_hosts_bind_and_refuse_changed_python_executable_bytes(self):
+        workflow = (HERE.parents[2] / ".github/workflows/projectide-run-comparison-web-advisory.yml").read_text(encoding="utf-8")
+        self.assertEqual(4, workflow.count('git rev-parse "$($env:TEST_HEAD):$($script.Path)"'))
+        self.assertEqual(4, workflow.count('git hash-object --no-filters -- $script.Path'))
+        self.assertEqual(4, workflow.count("throw 'Pre-execution committed Python identity mismatch'"))
+        self.assertEqual(4, workflow.count("throw 'Pre-execution working Python bytes mismatch'"))
+        self.assertEqual(4, workflow.count("Python bytecode cache is not admitted"))
+        self.assertEqual(6, workflow.count("@{ Path = 'tests/candidates/"))
+        self.assertEqual(2, workflow.count("python -I -B tests/candidates/projectide-run-comparison-web/compose_and_verify.py"))
+        self.assertEqual(2, workflow.count("python -I -B tests/candidates/projectide-run-comparison-web/test_compose_and_verify.py"))
+        self.assertNotIn("python -B ", workflow)
+
+    def test_actual_workflow_scanner_rejects_uppercase_bytecode(self):
+        workflow = (HERE.parents[2] / ".github/workflows/projectide-run-comparison-web-advisory.yml").read_text(encoding="utf-8")
+        commands = [line.split('python -I -B -c "',1)[1].split('"',1)[0]
+                    for line in workflow.splitlines()
+                    if 'python -I -B -c "from pathlib import Path; import sys; roots=' in line]
+        self.assertEqual(4, len(commands))
+        self.assertEqual(1, len(set(commands)))
+        with tempfile.TemporaryDirectory(prefix="run-comparison-web-casefold-") as tmp:
+            root=Path(tmp)
+            def check():
+                return subprocess.run([sys.executable,"-I","-B","-c",commands[0],str(root)],
+                                      capture_output=True,text=True,timeout=15)
+            self.assertEqual(0,check().returncode)
+            cache=root/"__PYCACHE__"
+            cache.mkdir()
+            self.assertNotEqual(0,check().returncode)
+            cache.rmdir()
+            for ext in (".PYC",".PYO"):
+                with self.subTest(ext=ext):
+                    file=root/("untrusted"+ext)
+                    file.write_bytes(b"synthetic")
+                    self.assertNotEqual(0,check().returncode)
+                    file.unlink()
+                    self.assertEqual(0,check().returncode)
+
+    def test_isolated_python_does_not_execute_hostile_pythonpath_startup(self):
+        with tempfile.TemporaryDirectory(prefix="run-comparison-web-shadow-") as tmp:
+            marker=Path(tmp)/"executed"
+            (Path(tmp)/"sitecustomize.py").write_text(
+                "from pathlib import Path\nPath("+repr(str(marker))+").touch()\n",encoding="utf-8")
+            environment={**os.environ,"PYTHONPATH":tmp}
+            plain=subprocess.run([sys.executable,"-B","-c","print('plain')"],env=environment,
+                                 capture_output=True,text=True,timeout=15)
+            self.assertEqual(0,plain.returncode,plain.stderr)
+            self.assertTrue(marker.exists())
+            marker.unlink()
+            isolated=subprocess.run([sys.executable,"-I","-B","-c",
+                                     "import sys; assert sys.flags.isolated == 1"],
+                                    env=environment,capture_output=True,text=True,timeout=15)
+            self.assertEqual(0,isolated.returncode,isolated.stderr)
+            self.assertFalse(marker.exists())
+
+
+
 def fixture_environment() -> dict[str, str]:
     # Independent of the subject under test, before any disposable Git write.
     return {key: value for key, value in os.environ.items() if not key.upper().startswith("GIT_")}
