@@ -13,8 +13,8 @@ permissions:
 env:
   PRODUCT_HEAD: ea339ed0bc094630654262ebb28568a95ba4198f
   SOURCE_BLOB: aa5420d0237cbba892983ad627997e1676c45286
-  RUNNER_BLOB: 013408cef3c8d285d3b9f667929711e49415a5cb
-  CONTROLS_BLOB: fcb0e96bef1a109116883adb7f4f711ec205792c
+  RUNNER_BLOB: e1a984b65fea03533f32d6faee18111f5bccd2a9
+  CONTROLS_BLOB: e08d563ed9477e87f1374af09d1dae94ddfd8be7
 
 concurrency:
   group: trace-profile-qualification-${{ github.event.pull_request.number }}
@@ -91,14 +91,26 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python -B tests/candidates/projectide-trace-profile/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/trace-profile-qualification-product" --evidence "$env:RUNNER_TEMP/trace-profile-qualification-evidence"
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-trace-profile/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters 'tests/candidates/projectide-trace-profile/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-trace-profile/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/trace-profile-qualification-product" --evidence "$env:RUNNER_TEMP/trace-profile-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Model trace profile independent synthetic qualification did not complete' }
       - name: Exercise Git isolation over original native outputs
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $log = "$env:RUNNER_TEMP/trace-profile-qualification-context/admission-controls.log"
-          python -B tests/candidates/projectide-trace-profile/test_compose_and_verify.py --native-trx "$env:RUNNER_TEMP/trace-profile-qualification-evidence/candidate.trx" --compiled-discovery "$env:RUNNER_TEMP/trace-profile-qualification-evidence/compiled-discovery.log" -v *> $log
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-trace-profile/test_compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:CONTROLS_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters 'tests/candidates/projectide-trace-profile/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:CONTROLS_BLOB) { throw 'Working execution script identity mismatch' }
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-trace-profile/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters 'tests/candidates/projectide-trace-profile/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-trace-profile/test_compose_and_verify.py --native-trx "$env:RUNNER_TEMP/trace-profile-qualification-evidence/candidate.trx" --compiled-discovery "$env:RUNNER_TEMP/trace-profile-qualification-evidence/compiled-discovery.log" -v *> $log
           $result = $LASTEXITCODE
           Get-Content $log
           if ($result -ne 0) { throw 'Trace profile Git isolation controls failed' }
@@ -184,14 +196,26 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python -B tests/candidates/projectide-trace-profile/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/trace-profile-qualification-product" --evidence "$env:RUNNER_TEMP/trace-profile-qualification-evidence"
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-trace-profile/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters 'tests/candidates/projectide-trace-profile/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-trace-profile/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/trace-profile-qualification-product" --evidence "$env:RUNNER_TEMP/trace-profile-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Model trace profile independent synthetic qualification did not complete' }
       - name: Exercise Git isolation over original native outputs
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $log = "$env:RUNNER_TEMP/trace-profile-qualification-context/admission-controls.log"
-          python -B tests/candidates/projectide-trace-profile/test_compose_and_verify.py --native-trx "$env:RUNNER_TEMP/trace-profile-qualification-evidence/candidate.trx" --compiled-discovery "$env:RUNNER_TEMP/trace-profile-qualification-evidence/compiled-discovery.log" -v *> $log
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-trace-profile/test_compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:CONTROLS_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters 'tests/candidates/projectide-trace-profile/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:CONTROLS_BLOB) { throw 'Working execution script identity mismatch' }
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-trace-profile/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters 'tests/candidates/projectide-trace-profile/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-trace-profile/test_compose_and_verify.py --native-trx "$env:RUNNER_TEMP/trace-profile-qualification-evidence/candidate.trx" --compiled-discovery "$env:RUNNER_TEMP/trace-profile-qualification-evidence/compiled-discovery.log" -v *> $log
           $result = $LASTEXITCODE
           Get-Content $log
           if ($result -ne 0) { throw 'Trace profile Git isolation controls failed' }
