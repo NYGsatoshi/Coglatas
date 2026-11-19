@@ -978,7 +978,7 @@ class WorkflowExecutionControls(unittest.TestCase):
                         self.assert_execution(*self.execute(block), executed)
 
 
-EXPECTED_CONTROL_COUNT = 43
+EXPECTED_CONTROL_COUNT = 45
 REPORT_REGRESSION_CLI_CASES: list[dict] = []
 
 
