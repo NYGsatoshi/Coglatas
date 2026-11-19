@@ -134,3 +134,14 @@ makes this positive-only receipt incomplete. Ordinary adapter output is preserve
 ## Strict native RunInfos containers (#2095)
 
 The native Regional Host admission reader already required Information RunInfo to occur under ResultSummary, but did not reject empty foreign/misplaced RunInfos containers, duplicate native containers or unsupported children. This follow-up checks the containers themselves, without modifying the twenty-four original C# test identities, the frozen Product SHA or the six false qualification flags. All changes are limited to synthetic advisory security evidence admission.
+
+## Isolated advisory Python executable admission (#2095)
+
+Both hosted jobs now check the exact committed and unfiltered working bytes of every
+Python executable immediately before loading it. The provenance controls and candidate
+verifier load through explicitly pinned absolute source paths under isolated Python
+(`-I -B`); the native composition runner also runs isolated. Untracked Python caches
+are refused, and a synthetic PYTHONPATH import-shadow negative proves isolation is
+active. The existing immutable Product/C# sources, native fact roster, original
+receipts and six false evidence-qualification flags are unchanged. This is an
+advisory-only repair, not a runtime authorization or release approval.
