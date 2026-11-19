@@ -13,8 +13,8 @@ permissions:
 env:
   PRODUCT_HEAD: 508f641c2391f55f788d6658f3da78939a94308c
   SOURCE_BLOB: af25db405319329c62479dfbd390b922e116d180
-  RUNNER_BLOB: 8af6a90197b032adfde4fb0ea629ce4304e7552c
-  CONTROLS_BLOB: 08202429807d93efbe00a21d9f6395b0b3b270e6
+  RUNNER_BLOB: 05635aa1f582f8b9cf084d80dbb7127b5ee4e5ea
+  CONTROLS_BLOB: 3b41da9aa0125b733529217bc97c716d2da08b3a
 
 concurrency:
   group: symbol-cache-qualification-${{ github.event.pull_request.number }}

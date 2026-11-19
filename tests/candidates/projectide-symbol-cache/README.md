@@ -19,8 +19,7 @@ or assume that previously retained values become inaccessible after `Clear`.
 - Product commit: `508f641c2391f55f788d6658f3da78939a94308c`.
 - Product tree: `6472827fd981a375e49d8a78992d67bc3d332ebf`.
 - Independent C# blob: `af25db405319329c62479dfbd390b922e116d180`.
-- Composition runner blob: `5ea6160af5e0f862ec65f4c900493128a225c4d3`.
-- Verifier controls blob: `b86dc428ff9461174f4ff5911bf7916dd0baf59f`.
+- The advisory workflow pins the exact composition runner and verifier control blobs in `RUNNER_BLOB` and `CONTROLS_BLOB`.
 - Product SDK: .NET `10.0.403`, `rollForward: disable`, no prerelease SDK.
 - Execution scope: `SYNTHETIC_SYMBOL_CACHE_CORE_ONLY`.
 
@@ -85,6 +84,11 @@ bare method fields, and complete result/definition/entry identity bijections.
 Compiled discovery must contain the same exact roster. Unexpected, duplicated,
 unsupported, missing, aliased or whitespace-substituted records fail admission.
 
+The full report is checked for extra native result records, inner result
+collections and result aggregations. An ErrorInfo anywhere is contradictory.
+Only informational RunInfo entries in the native summary's RunInfos collection
+are admitted. A warning leaves this passing-only cohort unqualified.
+
 The Ubuntu 24.04 and Windows latest jobs use pinned Action commits and the exact
 Product SDK. They share workflow-level Product, candidate, runner and controls
 identities, retain each host's original artifacts independently, and keep raw
@@ -98,7 +102,7 @@ python -B tests/candidates/projectide-symbol-cache/compose_and_verify.py --produ
 
 ## Committed verifier controls
 
-The adapted strict runner and its 16 portable unittest methods preserve the
+The adapted strict runner and its portable unittest methods preserve the
 existing independently reviewed run-comparison evidence pattern. Synthetic
 22-case reports/discovery establish positives before counter, Execution,
 identity-bijection, class/method, container and raw-name rejection controls.
