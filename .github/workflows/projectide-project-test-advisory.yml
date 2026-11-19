@@ -13,8 +13,8 @@ permissions:
 env:
   PRODUCT_HEAD: 3613c648f118cafcb1936fdf5a081aa251c6b4bf
   SOURCE_BLOB: 50e2718d6d88d1020a21640b1d2a46ac4275d07c
-  RUNNER_BLOB: 95f7376b6c66f2d08e4cc7e2a19f4e77eac73116
-  CONTROLS_BLOB: 82a9c2c906a0cef476effc0429e5769062dec57b
+  RUNNER_BLOB: b39e09db073c39d6df41c106da11c2d3e3e3b766
+  CONTROLS_BLOB: ce54d872c1fe81c84ed9d653868c9c5fe12c5f6b
 
 concurrency:
   group: project-test-qualification-${{ github.event.pull_request.number }}
