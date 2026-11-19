@@ -143,7 +143,7 @@ describe('TaskTableComponent', () => {
     expect(actions.querySelector<HTMLButtonElement>('[data-grid-action="openDetail"]')?.disabled).toBe(false);
 
     for (const id of ['title', 'workflowStageName', 'isBlocked', 'updatedAt', 'hasArtifact', 'rowActions']) {
-      expect(render(id)).toBe('', 'No desktop cell may invent a row without authority: ' + id);
+      expect(render(id)).toBe('');
     }
   });
 
