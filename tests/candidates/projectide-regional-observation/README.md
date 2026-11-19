@@ -134,3 +134,7 @@ Main, Product, protections, required checks and activation settings are untouche
 ## Exact Python executable admission and isolated mode (#2095)
 
 The native Regional Observation advisory now validates both the committed and actual unfiltered working Git blobs of its Python verifier/runner immediately before execution in each hosted OS job. Both invoke `python -I -B` rather than relying on unisolated `python -B`. A regression enforces this ordering in both workflow legs and checks the Python interpreter refuses injected `PYTHONPATH` bootstrap files. Frozen C# source/Product SHA, existing source checks and all six false release/trust flags are preserved.
+
+## Security-reviewed Python import-path and bytecode admission (#2095)
+
+The Regional Observation regression controls no longer use `unittest discover` (which inserts the candidate directory into `sys.path` even with isolated Python). The pinned test script runs through `python -I -B -c ...runpy.run_path`; an independent isolated scan rejects candidate `__pycache__`, `.pyc` and `.pyo` before **either** verified source module can load. Synthetic controls check both OS workflow legs, a real Python import-shadow marker, an `xml` package in the candidate directory and substituted unchecked-hash bytecode with unchanged `.py` bytes. Frozen Product/C# sources and all six false qualification flags remain unchanged.

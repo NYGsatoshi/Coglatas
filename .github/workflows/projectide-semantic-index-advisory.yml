@@ -14,7 +14,7 @@ env:
   PRODUCT_HEAD: df213dd93ccfbba03ac0aa303abd53f4a2bf3c1d
   SOURCE_BLOB: 997a30d5e0f4018982765fcd258eb3db60ea29b0
   RUNNER_BLOB: dad8f0986ab3f34b45371336893dfa5e9cbaa1b9
-  CONTROLS_BLOB: e5a6cfcf8af1e02a1c3c18ebea5e594ea3765c82
+  CONTROLS_BLOB: 2c12aa63fc50c3f8d6984dbb36613486ade97e24
 
 concurrency:
   group: semantic-index-qualification-${{ github.event.pull_request.number }}
@@ -103,7 +103,9 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working script identity mismatch' }
           }
-          python -I -B -m unittest discover -s tests/candidates/projectide-semantic-index -p test_compose_and_verify.py -v *> $log
+          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index'
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate Python bytecode cache is not admitted' }
+          python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-semantic-index/test_compose_and_verify.py' *> $log
           $controlsExitCode = $LASTEXITCODE
           Get-Content -LiteralPath $log
           if ($controlsExitCode -ne 0) { throw 'Semantic index synthetic verifier controls failed' }
@@ -121,6 +123,8 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working script identity mismatch' }
           }
+          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index'
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate Python bytecode cache is not admitted' }
           python -I -B tests/candidates/projectide-semantic-index/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/semantic-index-qualification-product" --evidence "$env:RUNNER_TEMP/semantic-index-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Semantic index independent synthetic qualification did not complete' }
       - name: Retain original source, TRX and compiled discovery receipts
@@ -217,7 +221,9 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working script identity mismatch' }
           }
-          python -I -B -m unittest discover -s tests/candidates/projectide-semantic-index -p test_compose_and_verify.py -v *> $log
+          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index'
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate Python bytecode cache is not admitted' }
+          python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-semantic-index/test_compose_and_verify.py' *> $log
           $controlsExitCode = $LASTEXITCODE
           Get-Content -LiteralPath $log
           if ($controlsExitCode -ne 0) { throw 'Semantic index synthetic verifier controls failed' }
@@ -235,6 +241,8 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working script identity mismatch' }
           }
+          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index'
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate Python bytecode cache is not admitted' }
           python -I -B tests/candidates/projectide-semantic-index/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/semantic-index-qualification-product" --evidence "$env:RUNNER_TEMP/semantic-index-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Semantic index independent synthetic qualification did not complete' }
       - name: Retain original source, TRX and compiled discovery receipts

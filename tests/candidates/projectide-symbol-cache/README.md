@@ -168,3 +168,7 @@ before claiming qualification of this exact source cohort.
 ## Isolated Python workflow execution (#2095)
 
 Both hosted OS legs now use Python `-I -B` for the verifier and candidate runner, after independently comparing each executing script's committed Git blob **and unfiltered working bytes** to the pinned source identity. Recheck immediately before each execution, rather than trusting a previous Git-tree check to prove subsequent working bytes. A synthetic import-shadow control tests Python's isolation from an injected `PYTHONPATH`; static controls require both OS scripts to retain the pre-execution checks. No frozen C# candidate, Product source, security check, or six false qualification flags are changed.
+
+## Reviewed cache and import-shadow hardening (#2095)
+
+The verifier does **not** use unittest discovery, which would add the candidate source directory to Python's import search path. It now runs the pinned test file through `python -I -B -c ... runpy.run_path(..., run_name='__main__')`, preserving the exact test suite without directory insertion. Before both runner and verifier execution, a separate isolated bootstrap refuses any candidate `__pycache__`, `.pyc` or `.pyo`, including tracked or substituted caches; checks still pin both original committed and actual worktree bytes. Regression tests demonstrate an observable sitecustomize marker under non-isolated Python, isolation under `-I`, blocked source-directory XML shadowing and rejection of substituted unchecked-hash bytecode with unchanged source files.
