@@ -127,6 +127,37 @@ class NativeInventoryTests(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, "run-level error"):
                         self.admit(root)
 
+    def test_only_native_summary_information_run_infos_are_admitted(self) -> None:
+        root = native_fixture()
+        summary = root.find(NAMESPACE + "ResultSummary")
+        infos = ET.SubElement(summary, NAMESPACE + "RunInfos")
+        ET.SubElement(infos, NAMESPACE + "RunInfo", outcome="Information")
+        self.assertEqual(sorted(RUNNER.EXPECTED_IDENTITIES), self.admit(root))
+        for outcome in ("Passed", "Completed", "Warning", "Error"):
+            with self.subTest(outcome=outcome):
+                root = native_fixture()
+                infos = ET.SubElement(root.find(NAMESPACE + "ResultSummary"), NAMESPACE + "RunInfos")
+                ET.SubElement(infos, NAMESPACE + "RunInfo", outcome=outcome)
+                with self.assertRaisesRegex(ValueError, "run-level error"):
+                    self.admit(root)
+
+    def test_run_infos_outside_native_summary_are_rejected_even_when_informational(self) -> None:
+        for location in ("root", "result", "definition", "direct-summary", "foreign-summary"):
+            with self.subTest(location=location):
+                root = native_fixture()
+                summary = root.find(NAMESPACE + "ResultSummary")
+                if location == "direct-summary":
+                    ET.SubElement(summary, NAMESPACE + "RunInfo", outcome="Information")
+                else:
+                    parent = {"root": root, "result": root.find(NAMESPACE + "Results")[0],
+                              "definition": root.find(NAMESPACE + "TestDefinitions")[0],
+                              "foreign-summary": summary}.get(location)
+                    namespace = "{urn:untrusted}" if location == "foreign-summary" else NAMESPACE
+                    infos = ET.SubElement(parent, namespace + "RunInfos")
+                    ET.SubElement(infos, namespace + "RunInfo", outcome="Information")
+                with self.assertRaisesRegex(ValueError, "run-level error"):
+                    self.admit(root)
+
     def test_missing_duplicate_and_substituted_results_are_rejected(self) -> None:
         for mode in ("missing", "duplicate", "substituted", "failed", "not-executed"):
             with self.subTest(mode=mode):

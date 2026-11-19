@@ -198,3 +198,7 @@ original host launch block, and assert which isolated canary actually executed.
 Restored original bytes must pass after every rejected mutation. These remain
 verifier controls; immutable Product and C# inputs, historical outcomes, native
 case counts and all six qualification holds are unchanged.
+
+## Whole-document native TRX run-information admission (#2095)
+
+The reader accepts informational RunInfo records only under native ResultSummary/RunInfos. It refuses warnings, completed or passed run-message outcomes, misplaced/extension-namespace RunInfo containers and error records, even when the original nine passing C# fact identities and counters remain unchanged. This is synthetic advisory evidence hardening only; it does not change the Product source, execution credit or any of the six false qualification flags.
