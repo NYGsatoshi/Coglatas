@@ -164,3 +164,7 @@ Every receipt retains `requiredCheckQualified`, `independentReviewComplete`,
 RLS/Native/Trust/Eligibility/Production/Release holds unchanged. Fresh hosted
 Windows/Ubuntu execution and an audit of the original artifacts remain necessary
 before claiming qualification of this exact source cohort.
+
+## Isolated Python workflow execution (#2095)
+
+Both hosted OS legs now use Python `-I -B` for the verifier and candidate runner, after independently comparing each executing script's committed Git blob **and unfiltered working bytes** to the pinned source identity. Recheck immediately before each execution, rather than trusting a previous Git-tree check to prove subsequent working bytes. A synthetic import-shadow control tests Python's isolation from an injected `PYTHONPATH`; static controls require both OS scripts to retain the pre-execution checks. No frozen C# candidate, Product source, security check, or six false qualification flags are changed.

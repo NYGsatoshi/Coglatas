@@ -5,6 +5,7 @@ import importlib.util
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -50,6 +51,37 @@ class ExactRejection(unittest.TestCase):
         with self.assertRaises(ValueError) as caught:
             action()
         self.assertEqual(reason, str(caught.exception))
+
+
+class WorkflowPythonIsolationControls(unittest.TestCase):
+    def test_both_hosts_check_committed_and_working_script_bytes_before_isolated_python(self) -> None:
+        document = (Path(__file__).resolve().parents[3]
+                    / ".github/workflows/projectide-symbol-cache-advisory.yml").read_text(encoding="utf-8")
+        self.assertEqual(2, document.count(
+            "python -I -B -m unittest discover -s tests/candidates/projectide-symbol-cache"))
+        self.assertEqual(2, document.count(
+            "python -I -B tests/candidates/projectide-symbol-cache/compose_and_verify.py"))
+        self.assertNotIn("python -B ", document)
+        lines = document.splitlines()
+        self.assertEqual(4, sum("git hash-object --no-filters -- $script.Path" in line for line in lines))
+        for index, line in enumerate(lines):
+            if "python -I -B " not in line:
+                continue
+            preceding = "\n".join(lines[max(0, index - 13):index])
+            self.assertIn('git rev-parse "$($env:TEST_HEAD):$($script.Path)"', preceding)
+            self.assertIn("git hash-object --no-filters -- $script.Path", preceding)
+
+    def test_isolated_interpreter_ignores_untrusted_pythonpath(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="python-import-shadow-") as temporary:
+            (Path(temporary) / "sitecustomize.py").write_text(
+                "raise RuntimeError('untrusted path executed')\n", encoding="utf-8")
+            environment = {**os.environ, "PYTHONPATH": temporary}
+            process = subprocess.run(
+                [sys.executable, "-I", "-B", "-c",
+                 "import sys; assert sys.flags.isolated == 1; print('ISOLATED')"],
+                env=environment, capture_output=True, text=True, check=False)
+            self.assertEqual(0, process.returncode, process.stderr)
+            self.assertEqual("ISOLATED", process.stdout.strip())
 
 
 class NativeInventoryControls(ExactRejection):
