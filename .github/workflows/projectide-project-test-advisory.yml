@@ -13,8 +13,8 @@ permissions:
 env:
   PRODUCT_HEAD: 3613c648f118cafcb1936fdf5a081aa251c6b4bf
   SOURCE_BLOB: 50e2718d6d88d1020a21640b1d2a46ac4275d07c
-  RUNNER_BLOB: b8138ca3fcd82353c4c11d189c7df1c2e31c9543
-  CONTROLS_BLOB: 52b5a283fe96a0d119bab16ec15bba83b0e17a5e
+  RUNNER_BLOB: 95f7376b6c66f2d08e4cc7e2a19f4e77eac73116
+  CONTROLS_BLOB: 82a9c2c906a0cef476effc0429e5769062dec57b
 
 concurrency:
   group: project-test-qualification-${{ github.event.pull_request.number }}
@@ -91,14 +91,26 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python -B tests/candidates/projectide-project-test/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/project-test-qualification-product" --evidence "$env:RUNNER_TEMP/project-test-qualification-evidence"
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-project-test/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters 'tests/candidates/projectide-project-test/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-project-test/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/project-test-qualification-product" --evidence "$env:RUNNER_TEMP/project-test-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Project Test independent synthetic qualification did not complete' }
       - name: Exercise admission regressions over original native outputs
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $log = "$env:RUNNER_TEMP/project-test-qualification-context/admission-controls.log"
-          python -B tests/candidates/projectide-project-test/test_compose_and_verify.py --native-trx "$env:RUNNER_TEMP/project-test-qualification-evidence/candidate.trx" --compiled-discovery "$env:RUNNER_TEMP/project-test-qualification-evidence/compiled-discovery.log" -v *> $log
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-project-test/test_compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:CONTROLS_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters 'tests/candidates/projectide-project-test/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:CONTROLS_BLOB) { throw 'Working execution script identity mismatch' }
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-project-test/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters 'tests/candidates/projectide-project-test/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-project-test/test_compose_and_verify.py --native-trx "$env:RUNNER_TEMP/project-test-qualification-evidence/candidate.trx" --compiled-discovery "$env:RUNNER_TEMP/project-test-qualification-evidence/compiled-discovery.log" -v *> $log
           $result = $LASTEXITCODE
           Get-Content $log
           if ($result -ne 0) { throw 'Project Test native evidence admission controls failed' }
@@ -184,14 +196,26 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python -B tests/candidates/projectide-project-test/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/project-test-qualification-product" --evidence "$env:RUNNER_TEMP/project-test-qualification-evidence"
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-project-test/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters 'tests/candidates/projectide-project-test/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-project-test/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/project-test-qualification-product" --evidence "$env:RUNNER_TEMP/project-test-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Project Test independent synthetic qualification did not complete' }
       - name: Exercise admission regressions over original native outputs
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $log = "$env:RUNNER_TEMP/project-test-qualification-context/admission-controls.log"
-          python -B tests/candidates/projectide-project-test/test_compose_and_verify.py --native-trx "$env:RUNNER_TEMP/project-test-qualification-evidence/candidate.trx" --compiled-discovery "$env:RUNNER_TEMP/project-test-qualification-evidence/compiled-discovery.log" -v *> $log
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-project-test/test_compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:CONTROLS_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters 'tests/candidates/projectide-project-test/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:CONTROLS_BLOB) { throw 'Working execution script identity mismatch' }
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-project-test/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters 'tests/candidates/projectide-project-test/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-project-test/test_compose_and_verify.py --native-trx "$env:RUNNER_TEMP/project-test-qualification-evidence/candidate.trx" --compiled-discovery "$env:RUNNER_TEMP/project-test-qualification-evidence/compiled-discovery.log" -v *> $log
           $result = $LASTEXITCODE
           Get-Content $log
           if ($result -ne 0) { throw 'Project Test native evidence admission controls failed' }
