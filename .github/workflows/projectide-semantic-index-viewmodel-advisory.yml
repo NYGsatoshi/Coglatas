@@ -17,7 +17,7 @@ env:
   PRODUCT_HEAD: 09347c1113f5f9c007bbbc5052278d5b5151feb5
   SOURCE_BLOB: a1774c1fcbd7e2f1b0cf29c641cfad1468cb90e3
   RUNNER_BLOB: 41b62f7c0346575888d7f266d89a655acbd101e1
-  CONTROLS_BLOB: d08f9629f259730ae0d59ef8273fd69304da12fc
+  CONTROLS_BLOB: 0e1123f559d2d820f7b546600c357f4e687da1e0
 
 concurrency:
   group: semantic-index-viewmodel-qualification-${{ github.event.pull_request.number }}
@@ -111,7 +111,19 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $context = Join-Path $env:RUNNER_TEMP 'semantic-index-viewmodel-qualification-context'
           $log = Join-Path $context 'provenance-controls.log'
-          python -B -m unittest discover -s tests/candidates/workflow-provenance -p test_workflow_provenance.py -v *> $log
+          # Pin all executing committed objects and actual unfiltered working bytes before Python imports.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'; Sha = $env:PROVENANCE_BLOB },
+            @{ Path = 'tests/candidates/workflow-provenance/test_workflow_provenance.py'; Sha = $env:PROVENANCE_CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-viewmodel' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B -c "import importlib.util, runpy, sys; s=importlib.util.spec_from_file_location('verify_workflow_provenance', 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'); m=importlib.util.module_from_spec(s); sys.modules[s.name]=m; s.loader.exec_module(m); runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py', run_name='__main__')" *> $log
           $controlsExitCode = $LASTEXITCODE
           Get-Content -LiteralPath $log
           if ($controlsExitCode -ne 0) { throw 'Executing workflow provenance controls failed' }
@@ -121,7 +133,19 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $context = Join-Path $env:RUNNER_TEMP 'semantic-index-viewmodel-qualification-context'
           $log = Join-Path $context 'admission-controls.log'
-          python -B -m unittest discover -s tests/candidates/projectide-semantic-index-viewmodel -p test_compose_and_verify.py -v *> $log
+          # Pin all executing committed objects and actual unfiltered working bytes before Python imports.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-semantic-index-viewmodel/compose_and_verify.py'; Sha = $env:RUNNER_BLOB },
+            @{ Path = 'tests/candidates/projectide-semantic-index-viewmodel/test_compose_and_verify.py'; Sha = $env:CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-viewmodel' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-semantic-index-viewmodel/test_compose_and_verify.py' *> $log
           $controlsExitCode = $LASTEXITCODE
           Get-Content -LiteralPath $log
           if ($controlsExitCode -ne 0) { throw 'Semantic index ViewModel synthetic verifier controls failed' }
@@ -129,7 +153,18 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python -B tests/candidates/projectide-semantic-index-viewmodel/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/semantic-index-viewmodel-qualification-product" --evidence "$env:RUNNER_TEMP/semantic-index-viewmodel-qualification-evidence"
+          # Pin all executing committed objects and actual unfiltered working bytes before Python imports.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-semantic-index-viewmodel/compose_and_verify.py'; Sha = $env:RUNNER_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-viewmodel' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B tests/candidates/projectide-semantic-index-viewmodel/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/semantic-index-viewmodel-qualification-product" --evidence "$env:RUNNER_TEMP/semantic-index-viewmodel-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Semantic index ViewModel independent synthetic qualification did not complete' }
       - name: Retain original source, TRX and compiled discovery receipts
         if: always()
@@ -230,7 +265,19 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $context = Join-Path $env:RUNNER_TEMP 'semantic-index-viewmodel-qualification-context'
           $log = Join-Path $context 'provenance-controls.log'
-          python -B -m unittest discover -s tests/candidates/workflow-provenance -p test_workflow_provenance.py -v *> $log
+          # Pin all executing committed objects and actual unfiltered working bytes before Python imports.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'; Sha = $env:PROVENANCE_BLOB },
+            @{ Path = 'tests/candidates/workflow-provenance/test_workflow_provenance.py'; Sha = $env:PROVENANCE_CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-viewmodel' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B -c "import importlib.util, runpy, sys; s=importlib.util.spec_from_file_location('verify_workflow_provenance', 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'); m=importlib.util.module_from_spec(s); sys.modules[s.name]=m; s.loader.exec_module(m); runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py', run_name='__main__')" *> $log
           $controlsExitCode = $LASTEXITCODE
           Get-Content -LiteralPath $log
           if ($controlsExitCode -ne 0) { throw 'Executing workflow provenance controls failed' }
@@ -240,7 +287,19 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $context = Join-Path $env:RUNNER_TEMP 'semantic-index-viewmodel-qualification-context'
           $log = Join-Path $context 'admission-controls.log'
-          python -B -m unittest discover -s tests/candidates/projectide-semantic-index-viewmodel -p test_compose_and_verify.py -v *> $log
+          # Pin all executing committed objects and actual unfiltered working bytes before Python imports.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-semantic-index-viewmodel/compose_and_verify.py'; Sha = $env:RUNNER_BLOB },
+            @{ Path = 'tests/candidates/projectide-semantic-index-viewmodel/test_compose_and_verify.py'; Sha = $env:CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-viewmodel' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-semantic-index-viewmodel/test_compose_and_verify.py' *> $log
           $controlsExitCode = $LASTEXITCODE
           Get-Content -LiteralPath $log
           if ($controlsExitCode -ne 0) { throw 'Semantic index ViewModel synthetic verifier controls failed' }
@@ -248,7 +307,18 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python -B tests/candidates/projectide-semantic-index-viewmodel/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/semantic-index-viewmodel-qualification-product" --evidence "$env:RUNNER_TEMP/semantic-index-viewmodel-qualification-evidence"
+          # Pin all executing committed objects and actual unfiltered working bytes before Python imports.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-semantic-index-viewmodel/compose_and_verify.py'; Sha = $env:RUNNER_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-viewmodel' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B tests/candidates/projectide-semantic-index-viewmodel/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/semantic-index-viewmodel-qualification-product" --evidence "$env:RUNNER_TEMP/semantic-index-viewmodel-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Semantic index ViewModel independent synthetic qualification did not complete' }
       - name: Retain original source, TRX and compiled discovery receipts
         if: always()
