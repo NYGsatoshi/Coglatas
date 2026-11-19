@@ -17,7 +17,7 @@ env:
   PRODUCT_HEAD: 09347c1113f5f9c007bbbc5052278d5b5151feb5
   SOURCE_BLOB: e8902f6eeea3d11be974500ec095e17a6ac371e8
   RUNNER_BLOB: f0d66a01c5504917604ff2b23cf2104ecf400559
-  CONTROLS_BLOB: 888be5f20ebb9d5033cf4f8a715516b51f94f0fd
+  CONTROLS_BLOB: e2bd470670ccaa99e319257660097a3cd213e505
 
 concurrency:
   group: regional-host-qualification-${{ github.event.pull_request.number }}
@@ -121,7 +121,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-regional-host' 'tests/candidates/workflow-provenance'
+          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-regional-host' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B -c "import importlib.util, runpy, sys; s=importlib.util.spec_from_file_location('verify_workflow_provenance', 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'); m=importlib.util.module_from_spec(s); sys.modules[s.name]=m; s.loader.exec_module(m); runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py', run_name='__main__')" *> $log
           $controlsExitCode = $LASTEXITCODE
@@ -143,7 +143,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-regional-host' 'tests/candidates/workflow-provenance'
+          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-regional-host' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-regional-host/test_compose_and_verify.py' *> $log
           $controlsExitCode = $LASTEXITCODE
@@ -162,7 +162,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-regional-host' 'tests/candidates/workflow-provenance'
+          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-regional-host' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B tests/candidates/projectide-regional-host/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/regional-host-qualification-product" --evidence "$env:RUNNER_TEMP/regional-host-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Regional host independent synthetic qualification did not complete' }
@@ -275,7 +275,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-regional-host' 'tests/candidates/workflow-provenance'
+          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-regional-host' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B -c "import importlib.util, runpy, sys; s=importlib.util.spec_from_file_location('verify_workflow_provenance', 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'); m=importlib.util.module_from_spec(s); sys.modules[s.name]=m; s.loader.exec_module(m); runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py', run_name='__main__')" *> $log
           $controlsExitCode = $LASTEXITCODE
@@ -297,7 +297,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-regional-host' 'tests/candidates/workflow-provenance'
+          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-regional-host' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-regional-host/test_compose_and_verify.py' *> $log
           $controlsExitCode = $LASTEXITCODE
@@ -316,7 +316,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-regional-host' 'tests/candidates/workflow-provenance'
+          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-regional-host' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B tests/candidates/projectide-regional-host/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/regional-host-qualification-product" --evidence "$env:RUNNER_TEMP/regional-host-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Regional host independent synthetic qualification did not complete' }

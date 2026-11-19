@@ -14,7 +14,7 @@ env:
   PRODUCT_HEAD: 09347c1113f5f9c007bbbc5052278d5b5151feb5
   SOURCE_BLOB: abe2d1a76447c1d931ce513fe3de4ef9b340282e
   RUNNER_BLOB: a3afd9dc3070180165634459d969e4ab35bed51f
-  CONTROLS_BLOB: cc50429bdc5c862bdc23c0089082fc9b825eb799
+  CONTROLS_BLOB: 2747a7f79926b52ef09fc5c22ac2574f58c4f411
 
 concurrency:
   group: regional-observation-qualification-${{ github.event.pull_request.number }}
@@ -103,7 +103,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working script identity mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-regional-observation'
+          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-regional-observation'
           if ($LASTEXITCODE -ne 0) { throw 'Candidate Python bytecode cache is not admitted' }
           python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-regional-observation/test_compose_and_verify.py' *> $log
           $controlsExitCode = $LASTEXITCODE
@@ -123,7 +123,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working script identity mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-regional-observation'
+          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-regional-observation'
           if ($LASTEXITCODE -ne 0) { throw 'Candidate Python bytecode cache is not admitted' }
           python -I -B tests/candidates/projectide-regional-observation/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/regional-observation-qualification-product" --evidence "$env:RUNNER_TEMP/regional-observation-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Regional observation independent synthetic qualification did not complete' }
@@ -221,7 +221,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working script identity mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-regional-observation'
+          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-regional-observation'
           if ($LASTEXITCODE -ne 0) { throw 'Candidate Python bytecode cache is not admitted' }
           python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-regional-observation/test_compose_and_verify.py' *> $log
           $controlsExitCode = $LASTEXITCODE
@@ -241,7 +241,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working script identity mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-regional-observation'
+          python -I -B -c "from pathlib import Path; import sys; root=Path(sys.argv[1]); bad=[p for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-regional-observation'
           if ($LASTEXITCODE -ne 0) { throw 'Candidate Python bytecode cache is not admitted' }
           python -I -B tests/candidates/projectide-regional-observation/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/regional-observation-qualification-product" --evidence "$env:RUNNER_TEMP/regional-observation-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Regional observation independent synthetic qualification did not complete' }

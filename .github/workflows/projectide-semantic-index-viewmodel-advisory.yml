@@ -17,7 +17,7 @@ env:
   PRODUCT_HEAD: 09347c1113f5f9c007bbbc5052278d5b5151feb5
   SOURCE_BLOB: a1774c1fcbd7e2f1b0cf29c641cfad1468cb90e3
   RUNNER_BLOB: 41b62f7c0346575888d7f266d89a655acbd101e1
-  CONTROLS_BLOB: 0e1123f559d2d820f7b546600c357f4e687da1e0
+  CONTROLS_BLOB: 0eaf5b752b22a0a68ed4efe47ea143d48ec163b2
 
 concurrency:
   group: semantic-index-viewmodel-qualification-${{ github.event.pull_request.number }}
@@ -121,7 +121,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-viewmodel' 'tests/candidates/workflow-provenance'
+          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-viewmodel' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B -c "import importlib.util, runpy, sys; s=importlib.util.spec_from_file_location('verify_workflow_provenance', 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'); m=importlib.util.module_from_spec(s); sys.modules[s.name]=m; s.loader.exec_module(m); runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py', run_name='__main__')" *> $log
           $controlsExitCode = $LASTEXITCODE
@@ -143,7 +143,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-viewmodel' 'tests/candidates/workflow-provenance'
+          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-viewmodel' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-semantic-index-viewmodel/test_compose_and_verify.py' *> $log
           $controlsExitCode = $LASTEXITCODE
@@ -162,7 +162,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-viewmodel' 'tests/candidates/workflow-provenance'
+          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-viewmodel' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B tests/candidates/projectide-semantic-index-viewmodel/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/semantic-index-viewmodel-qualification-product" --evidence "$env:RUNNER_TEMP/semantic-index-viewmodel-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Semantic index ViewModel independent synthetic qualification did not complete' }
@@ -275,7 +275,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-viewmodel' 'tests/candidates/workflow-provenance'
+          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-viewmodel' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B -c "import importlib.util, runpy, sys; s=importlib.util.spec_from_file_location('verify_workflow_provenance', 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'); m=importlib.util.module_from_spec(s); sys.modules[s.name]=m; s.loader.exec_module(m); runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py', run_name='__main__')" *> $log
           $controlsExitCode = $LASTEXITCODE
@@ -297,7 +297,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-viewmodel' 'tests/candidates/workflow-provenance'
+          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-viewmodel' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-semantic-index-viewmodel/test_compose_and_verify.py' *> $log
           $controlsExitCode = $LASTEXITCODE
@@ -316,7 +316,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name=='__pycache__' or p.suffix in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-viewmodel' 'tests/candidates/workflow-provenance'
+          python -I -B -c "from pathlib import Path; import sys; bad=[p for name in sys.argv[1:] for p in Path(name).rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-viewmodel' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B tests/candidates/projectide-semantic-index-viewmodel/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/semantic-index-viewmodel-qualification-product" --evidence "$env:RUNNER_TEMP/semantic-index-viewmodel-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Semantic index ViewModel independent synthetic qualification did not complete' }

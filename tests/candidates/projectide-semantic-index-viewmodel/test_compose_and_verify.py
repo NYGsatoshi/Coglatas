@@ -25,6 +25,44 @@ NAMESPACE = "{http://microsoft.com/schemas/VisualStudio/TeamTest/2010}"
 IDENTITIES = sorted(RUNNER.EXPECTED_IDENTITIES)
 
 
+class WorkflowCasefoldCacheControls(unittest.TestCase):
+    """Execute the actual isolated scan against case-variant Python caches."""
+
+    def test_uppercase_cache_and_bytecode_names_fail_closed(self) -> None:
+        workflow = (Path(__file__).resolve().parents[3]
+                    / ".github/workflows/projectide-semantic-index-viewmodel-advisory.yml").read_text(encoding="utf-8")
+        predicate = "p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')"
+        self.assertEqual(6, workflow.count(predicate))
+        self.assertEqual(6, workflow.count("if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }"))
+        self.assertEqual(6, workflow.count("if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }"))
+        lines = [line.strip() for line in workflow.splitlines()
+                 if 'python -I -B -c "from pathlib import Path; import sys;' in line
+                 and predicate in line]
+        self.assertEqual(6, len(lines))
+        programs = [line.split('python -I -B -c "', 1)[1].split('"', 1)[0] for line in lines]
+        self.assertEqual(1, len(set(programs)), "Both hosts must run identical cache scanners")
+        with tempfile.TemporaryDirectory(prefix="security-python-casefold-cache-") as temp:
+            root = Path(temp)
+
+            def scan() -> subprocess.CompletedProcess:
+                return subprocess.run([sys.executable, "-I", "-B", "-c", programs[0], str(root)],
+                                      capture_output=True, text=True, timeout=15)
+
+            self.assertEqual(0, scan().returncode, "Cache-free paths must remain admitted")
+            cache = root / "__PYCACHE__"
+            cache.mkdir()
+            self.assertNotEqual(0, scan().returncode, "Case-variant cache directory must be refused")
+            cache.rmdir()
+            for suffix in (".PYC", ".PYO"):
+                with self.subTest(suffix=suffix):
+                    artifact = root / ("injected" + suffix)
+                    artifact.write_bytes(b"untrusted cache")
+                    self.assertNotEqual(0, scan().returncode, "Case-variant bytecode file must be refused")
+                    artifact.unlink()
+                    self.assertEqual(0, scan().returncode, "Removal must restore cache-free admission")
+
+
+
 class WorkflowPythonIsolationControls(unittest.TestCase):
     """Workflow source/byte admission and a real isolated-import negative."""
 
