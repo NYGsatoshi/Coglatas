@@ -1040,7 +1040,7 @@ public sealed partial class ProjectServiceTests
         Assert.Equal(successorDates, (successor.PlannedStartDate, successor.PlannedEndDate));
         Assert.Contains(fixture.Audit.Entries, entry => entry.Action == "TaskDependencyAdded");
         Assert.Equal(successor.VersionNo, result.Value!.Version);
-        Assert.Contains(result.Value.Warnings, warning => warning.Code == "DEPENDENCY_VIOLATION" && !warning.Blocking);
+        Assert.Contains(result.Value.Warnings, warning => warning is { Code: "DEPENDENCY_VIOLATION", Blocking: false });
     }
 
     [Fact]

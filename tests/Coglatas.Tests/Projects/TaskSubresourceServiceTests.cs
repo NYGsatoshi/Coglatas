@@ -10,6 +10,80 @@ namespace Coglatas.Tests.Projects;
 
 public sealed class TaskSubresourceServiceTests
 {
+    [Theory]
+    [InlineData(TaskCommandSaveResult.UniqueConflict, true, "TASK_CONFLICT")]
+    [InlineData(TaskCommandSaveResult.UniqueConflict, false, "TASK_CONFLICT")]
+    [InlineData(TaskCommandSaveResult.ConcurrencyConflict, true, "TASK_STALE_VERSION")]
+    [InlineData(TaskCommandSaveResult.ConcurrencyConflict, false, "TASK_STALE_VERSION")]
+    public async Task LabelArchiveSaveFailureClearsCommandTrackingAndReturnsTheOwnedConflictCode(
+        TaskCommandSaveResult saveResult, bool archived, string expectedCode)
+    {
+        var fixture = new Fixture();
+        var label = fixture.AddLabel(archived: !archived);
+        fixture.UnitOfWork.SaveResult = saveResult;
+        using var cancellation = new CancellationTokenSource();
+
+        var result = await fixture.Service.SetLabelArchiveAsync(
+            label.ProjectId, label.Id, label.VersionNo, archived, cancellation.Token);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(expectedCode + "|Label has changed. Refetch and retry.", result.Error);
+        Assert.Equal(1, fixture.UnitOfWork.SaveCount);
+        Assert.Equal(1, fixture.UnitOfWork.ClearCount);
+        Assert.Equal(cancellation.Token, fixture.UnitOfWork.LastToken);
+        Assert.Single(fixture.Audit.Entries);
+        Assert.Equal((label.ProjectId, fixture.ActorUserId, "taskLabelsChanged"),
+            Assert.Single(fixture.Invalidations.ProjectChanges));
+        Assert.Empty(fixture.Notifications.Requests);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task LabelArchiveSuccessfulSaveReturnsTheUpdatedDefinitionWithoutClearingTracking(bool archived)
+    {
+        var fixture = new Fixture();
+        var label = fixture.AddLabel(archived: !archived);
+
+        var result = await fixture.Service.SetLabelArchiveAsync(
+            label.ProjectId, label.Id, label.VersionNo, archived);
+
+        Assert.True(result.IsSuccess, result.Error);
+        Assert.Equal(label.Id, result.Value!.Id);
+        Assert.Equal(archived, result.Value.IsArchived);
+        Assert.Equal(8, result.Value.Version);
+        Assert.Equal(1, fixture.UnitOfWork.SaveCount);
+        Assert.Equal(0, fixture.UnitOfWork.ClearCount);
+        Assert.Single(fixture.Audit.Entries);
+        Assert.Equal((label.ProjectId, fixture.ActorUserId, "taskLabelsChanged"),
+            Assert.Single(fixture.Invalidations.ProjectChanges));
+        Assert.Empty(fixture.Notifications.Requests);
+    }
+
+    [Theory]
+    [InlineData(0, "TASK_INVALID_EXPECTED_VERSION")]
+    [InlineData(-1, "TASK_INVALID_EXPECTED_VERSION")]
+    [InlineData(6, "TASK_STALE_VERSION")]
+    [InlineData(8, "TASK_STALE_VERSION")]
+    public async Task LabelArchiveRejectsInvalidOrStaleVersionsBeforeStaging(long expectedVersion, string expectedCode)
+    {
+        var fixture = new Fixture();
+        var label = fixture.AddLabel(archived: false);
+
+        var result = await fixture.Service.SetLabelArchiveAsync(
+            label.ProjectId, label.Id, expectedVersion, archived: true);
+
+        Assert.False(result.IsSuccess);
+        Assert.StartsWith(expectedCode + "|", result.Error);
+        Assert.Equal(7, label.VersionNo);
+        Assert.False(label.IsArchived);
+        Assert.Equal(0, fixture.UnitOfWork.SaveCount);
+        Assert.Equal(0, fixture.UnitOfWork.ClearCount);
+        Assert.Empty(fixture.Audit.Entries);
+        Assert.Empty(fixture.Invalidations.ProjectChanges);
+        Assert.Empty(fixture.Notifications.Requests);
+    }
+
     [Fact]
     [Trait("Scope", "Issue369")]
     public async Task ActivityReadUsesTheAuthorizedTaskProjectAndBoundedPaging()
@@ -695,6 +769,23 @@ public sealed class TaskSubresourceServiceTests
         private ControllableCommentAuthorization CommentAuthorization { get; } = new();
         public TaskSubresourceService Service { get; }
 
+        public ProjectTaskLabel AddLabel(bool archived)
+        {
+            Projects.ProjectDefinitions[Task.ProjectId] = new Project
+            {
+                Id = Task.ProjectId, TenantId = Task.TenantId, WorkspaceId = Task.WorkspaceId,
+                Name = "Project", Slug = "project", Status = ProjectStatus.Active,
+                CreatedByUserId = ActorUserId, OwnerUserId = ActorUserId
+            };
+            var label = new ProjectTaskLabel
+            {
+                TenantId = Task.TenantId, WorkspaceId = Task.WorkspaceId, ProjectId = Task.ProjectId,
+                Name = "Planning", SortKey = 1024, VersionNo = 7, IsArchived = archived
+            };
+            Projects.LabelDefinitions[label.Id] = label;
+            return label;
+        }
+
         public Guid AddEligibleMentionUser()
         {
             var emailKey = Guid.NewGuid().ToString("N");
@@ -775,6 +866,8 @@ public sealed class TaskSubresourceServiceTests
 
     private sealed class FakeProjectRepository : IProjectRepository
     {
+        public Dictionary<Guid, Project> ProjectDefinitions { get; } = [];
+        public Dictionary<Guid, ProjectTaskLabel> LabelDefinitions { get; } = [];
         public Dictionary<Guid, TaskItem> Tasks { get; } = [];
         public Dictionary<Guid, TaskComment> Comments { get; } = [];
         public Dictionary<Guid, User> EligibleMentionUsers { get; } = [];
@@ -809,7 +902,8 @@ public sealed class TaskSubresourceServiceTests
         }
 
         public Task<IReadOnlyList<Project>> ListVisibleAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Project>>([]);
-        public Task<Project?> GetProjectAsync(Guid projectId, CancellationToken cancellationToken = default) => Task.FromResult<Project?>(null);
+        public Task<Project?> GetProjectAsync(Guid projectId, CancellationToken cancellationToken = default) => Task.FromResult(ProjectDefinitions.GetValueOrDefault(projectId));
+        public Task<ProjectTaskLabel?> GetTaskLabelAsync(Guid labelId, CancellationToken cancellationToken = default) => Task.FromResult(LabelDefinitions.GetValueOrDefault(labelId));
         public Task<ProjectMember?> GetMemberAsync(Guid projectId, Guid userId, CancellationToken cancellationToken = default) => Task.FromResult<ProjectMember?>(null);
         public Task<IReadOnlyList<ProjectMember>> ListMembersAsync(Guid projectId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ProjectMember>>([]);
         public Task<IReadOnlyList<Milestone>> ListMilestonesAsync(Guid projectId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Milestone>>([]);
@@ -906,6 +1000,7 @@ public sealed class TaskSubresourceServiceTests
 
     private sealed class FakeInvalidationPublisher : IBusinessInvalidationPublisher
     {
+        public List<(Guid ProjectId, Guid ActorUserId, string Change)> ProjectChanges { get; } = [];
         public List<(Guid TaskId, string Change)> TaskChanges { get; } = [];
         public List<(Guid TaskId, Guid CommentId, long CommentVersion, string Change)> CommentChanges { get; } = [];
 
@@ -921,7 +1016,11 @@ public sealed class TaskSubresourceServiceTests
             return Task.CompletedTask;
         }
 
-        public Task ProjectChangedAsync(Project project, Guid actorUserId, string change, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task ProjectChangedAsync(Project project, Guid actorUserId, string change, CancellationToken cancellationToken = default)
+        {
+            ProjectChanges.Add((project.Id, actorUserId, change));
+            return Task.CompletedTask;
+        }
         public Task AnnouncementChangedAsync(Announcement announcement, Guid actorUserId, string change, IEnumerable<Guid> audienceUserIds, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task FileChangedAsync(FileObject fileObject, Attachment attachment, Guid actorUserId, string change, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
@@ -938,12 +1037,18 @@ public sealed class TaskSubresourceServiceTests
 
     private sealed class FakeTaskUnitOfWork : ITaskCommandUnitOfWork
     {
+        public TaskCommandSaveResult SaveResult { get; set; } = TaskCommandSaveResult.Saved;
         public int SaveCount { get; private set; }
+        public int ClearCount { get; private set; }
+        public CancellationToken LastToken { get; private set; }
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(1);
         public Task<TaskCommandSaveOutcome> SaveTaskCommandAsync(CancellationToken cancellationToken = default)
         {
             SaveCount++;
-            return Task.FromResult(new TaskCommandSaveOutcome(TaskCommandSaveResult.Saved));
+            LastToken = cancellationToken;
+            return Task.FromResult(new TaskCommandSaveOutcome(SaveResult));
         }
+
+        public void ClearTaskCommandTracking() => ClearCount++;
     }
 }

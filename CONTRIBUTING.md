@@ -1,7 +1,7 @@
 # Contribution policy
 
 > [!IMPORTANT]
-> **Maintained Web client:** `frontend/` is the supported Angular browser
+> **Maintained Web client:** `frontend/` is the only supported Angular browser
 > application. Angular, TypeScript, HTML, CSS, and SCSS are **not deprecated**
 > by the separate Avalonia Desktop initiative. Authorized Web improvements,
 > maintenance, security fixes, accessibility, and localization remain in scope.

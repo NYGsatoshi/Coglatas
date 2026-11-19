@@ -4,8 +4,9 @@ using System.Text.RegularExpressions;
 namespace Coglatas.SecurityArchitecture;
 
 /// <summary>Reads immutable Git blobs without interpolating input into a shell command.</summary>
-public sealed partial class RepositoryArtifactReader(string repositoryRoot)
+public sealed partial class RepositoryArtifactReader(string repositoryRoot, IReadOnlyCollection<string>? inspectedRepositories = null)
 {
+    private readonly string[] _inspectedRepositories = inspectedRepositories?.ToArray() ?? [];
     public const int MaximumBlobBytes = 16 * 1024 * 1024;
     [GeneratedRegex("^[a-f0-9]{40}\\z")]
     internal static partial Regex RevisionPattern();
@@ -19,7 +20,9 @@ public sealed partial class RepositoryArtifactReader(string repositoryRoot)
     public async Task<byte[]?> ReadAsync(SpecSource source)
     {
         if (!RevisionPattern().IsMatch(source.Revision) || !IsSafePath(source.Path)) return null;
-        var info = new ProcessStartInfo("git")
+        var executable = RepositoryGitExecutable.Resolve(repositoryRoot, Environment.GetEnvironmentVariable("PATH"),
+            Environment.GetEnvironmentVariable(RepositoryGitExecutable.TrustedExecutableEnvironmentVariable), _inspectedRepositories);
+        var info = new ProcessStartInfo(executable)
         {
             WorkingDirectory = repositoryRoot, UseShellExecute = false,
             RedirectStandardOutput = true, RedirectStandardError = true,

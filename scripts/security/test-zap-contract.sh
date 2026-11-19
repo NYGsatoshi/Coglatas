@@ -119,6 +119,15 @@ unless requests.any? { |request|
   fail!("Automation plan authenticated request/response probe is missing or lacks explicit auth headers")
 end
 
+unless requests.any? { |request|
+  request["url"] == "${COGLATAS_SECURITY_ZAP_TARGET}/api/tasks/${COGLATAS_SECURITY_ZAP_TASK_ID}/subtasks?page=1&pageSize=50" &&
+    request["method"] == "GET" && request["responseCode"] == 200 &&
+    request["headers"].is_a?(Array) &&
+    (required_probe_headers - request["headers"]).empty?
+}
+  fail!("SEC-06 real GUID-constrained Task read with authenticated 200 response is required")
+end
+
 unless jobs.any? { |job| job["type"] == "passiveScan-wait" }
   fail!("Automation plan passiveScan-wait invariant is missing")
 end
@@ -183,6 +192,14 @@ unless plan_rule_ids.length == required_active_rule_ids.length &&
     "Automation plan rules must exactly match the independent SEC-06 required-rule set: " \
     "expected=#{required_active_rule_ids} actual=#{plan_rule_ids}"
   )
+end
+
+active_config = only_job(jobs, "activeScan-config")
+expected_active_exclusions = required_auth_exclusions + [
+  "^${COGLATAS_SECURITY_ZAP_TARGET_REGEX}/api/tasks/taskItemId/subtasks(?:[?].*)?$",
+]
+unless active_config["excludePaths"] == expected_active_exclusions
+  fail!("SEC-06 only the exact non-GUID Task placeholder may be excluded from active scanning")
 end
 
 active_scan = only_job(jobs, "activeScan")
@@ -288,6 +305,7 @@ trap 'rm -rf "$tmp"' EXIT
 export COGLATAS_SECURITY_ZAP_TARGET='http://app:8080'
 export COGLATAS_SECURITY_ZAP_TARGET_REGEX='http://app:8080'
 export COGLATAS_SECURITY_ZAP_TENANT='security-alpha'
+export COGLATAS_SECURITY_ZAP_TASK_ID='11111111-1111-4111-8111-111111111111'
 export COGLATAS_SECURITY_ZAP_COOKIE='session=contract-"quoted"'
 export COGLATAS_SECURITY_ZAP_CSRF_TOKEN='contract-token'
 export COGLATAS_SECURITY_ZAP_REPORT_DIR='/state'
@@ -314,7 +332,7 @@ abort "SEC-06 requestor cookie header changed" unless probe_headers.include?("Co
 abort "SEC-06 requestor tenant header changed" unless probe_headers.include?("X-Tenant-Slug:#{ENV.fetch("COGLATAS_SECURITY_ZAP_TENANT")}")
 abort "SEC-06 requestor CSRF header changed" unless probe_headers.include?("X-CSRF-Token:#{ENV.fetch("COGLATAS_SECURITY_ZAP_CSRF_TOKEN")}")
 RUBY
-unset COGLATAS_SECURITY_ZAP_TARGET COGLATAS_SECURITY_ZAP_TARGET_REGEX COGLATAS_SECURITY_ZAP_TENANT
+unset COGLATAS_SECURITY_ZAP_TARGET COGLATAS_SECURITY_ZAP_TARGET_REGEX COGLATAS_SECURITY_ZAP_TENANT COGLATAS_SECURITY_ZAP_TASK_ID
 unset COGLATAS_SECURITY_ZAP_COOKIE COGLATAS_SECURITY_ZAP_CSRF_TOKEN
 unset COGLATAS_SECURITY_ZAP_REPORT_DIR COGLATAS_SECURITY_ZAP_REPORT_FILE
 
@@ -446,6 +464,8 @@ for invariant in \
   'operator: ">"' \
   '- type: requestor' \
   'url: "${COGLATAS_SECURITY_ZAP_TARGET}/api/announcements/audiences"' \
+  'url: "${COGLATAS_SECURITY_ZAP_TARGET}/api/tasks/${COGLATAS_SECURITY_ZAP_TASK_ID}/subtasks?page=1&pageSize=50"' \
+  '- "^${COGLATAS_SECURITY_ZAP_TARGET_REGEX}/api/tasks/taskItemId/subtasks(?:[?].*)?$"' \
   '- "X-Tenant-Slug:${COGLATAS_SECURITY_ZAP_TENANT}"' \
   '- "Cookie:${COGLATAS_SECURITY_ZAP_COOKIE}"' \
   '- "X-CSRF-Token:${COGLATAS_SECURITY_ZAP_CSRF_TOKEN}"' \

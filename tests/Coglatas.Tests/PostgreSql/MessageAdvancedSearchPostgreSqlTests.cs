@@ -491,7 +491,7 @@ public sealed class MessageAdvancedSearchPostgreSqlTests
             PageSize: 50));
         Assert.True(tiedOrder.IsSuccess, tiedOrder.Error);
         Assert.Equal(
-            new[] { tiedFirstMessage.Id, tiedSecondMessage.Id },
+            [tiedFirstMessage.Id, tiedSecondMessage.Id],
             tiedOrder.Value!.Items.Select(item => item.Id));
 
         var tiedReadAfterFirst = await service.SearchAsync(new SearchRequest(
@@ -526,7 +526,7 @@ public sealed class MessageAdvancedSearchPostgreSqlTests
             PageSize: 50));
         Assert.True(tiedReadAfterSecond.IsSuccess, tiedReadAfterSecond.Error);
         Assert.Equal(
-            new[] { tiedFirstMessage.Id, tiedSecondMessage.Id },
+            [tiedFirstMessage.Id, tiedSecondMessage.Id],
             tiedReadAfterSecond.Value!.Items.Select(item => item.Id));
         var tiedUnreadAfterSecond = await service.SearchAsync(new SearchRequest(
             Q: "tied-cursor-marker",
@@ -558,7 +558,7 @@ public sealed class MessageAdvancedSearchPostgreSqlTests
         Assert.True(tiedReadWithLegacyTimestamp.IsSuccess, tiedReadWithLegacyTimestamp.Error);
         Assert.True(tiedUnreadWithLegacyTimestamp.IsSuccess, tiedUnreadWithLegacyTimestamp.Error);
         Assert.Equal(
-            new[] { tiedFirstMessage.Id, tiedSecondMessage.Id },
+            [tiedFirstMessage.Id, tiedSecondMessage.Id],
             tiedReadWithLegacyTimestamp.Value!.Items.Select(item => item.Id));
         Assert.Empty(tiedUnreadWithLegacyTimestamp.Value!.Items);
 
@@ -586,7 +586,7 @@ public sealed class MessageAdvancedSearchPostgreSqlTests
         Assert.True(tiedUnreadWithMismatchedCursor.IsSuccess, tiedUnreadWithMismatchedCursor.Error);
         Assert.Empty(tiedReadWithMismatchedCursor.Value!.Items);
         Assert.Equal(
-            new[] { tiedFirstMessage.Id, tiedSecondMessage.Id },
+            [tiedFirstMessage.Id, tiedSecondMessage.Id],
             tiedUnreadWithMismatchedCursor.Value!.Items.Select(item => item.Id));
 
         var dateBoundary = await service.SearchAsync(new SearchRequest(

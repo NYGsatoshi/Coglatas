@@ -89,6 +89,29 @@ def update_errors(config)
   errors << 'Renovate must generate lockfiles with the repository npm version' unless
     config.fetch('constraints', {}).fetch('npm', nil) == repo_npm
 
+  # Use the same pinned SDK for Renovate's NuGet artifact generator and CI.
+  errors << 'Renovate NuGet artifact generation must use global.json SDK' unless
+    config.fetch('constraints', {}).fetch('dotnet', nil) == expected_sdk
+  errors << 'Renovate artifact failures must be visible as a green/red status' unless
+    config.fetch('statusCheckWhen', {}).fetch('artifactError', nil) == 'always'
+
+  # npm install-policy must not silently use the newer npm bundled with Node.
+  audit_workflow = (ROOT / '.github/workflows/npm-security-audit.yml').read
+  npm_setup = "npm install --global npm@#{repo_npm} --ignore-scripts --no-audit --no-fund"
+  errors << 'Both npm audit jobs must install the reviewed exact npm version' unless
+    audit_workflow.scan(npm_setup).length == 2
+
+  # EF Core 11, Npgsql 10 and the old NuGet locks cannot form a valid update.
+  # Keep security patches in the approved 10.x line enabled until joint migration.
+  ef_provider = find_rule.call('Hold EF Core and Npgsql provider major 10 until coordinated migration')
+  errors << 'EF Core, dotnet-ef and Npgsql must remain on the jointly reviewed major' unless
+    ef_provider.is_a?(Hash) && ef_provider['matchManagers'] == ['nuget'] &&
+    ef_provider['matchPackageNames'] == [
+      '/^Microsoft\\.EntityFrameworkCore(\\.|$)/', 'Npgsql.EntityFrameworkCore.PostgreSQL', 'dotnet-ef'
+    ] && ef_provider['allowedVersions'] == '/^10\\./' &&
+    !ef_provider.key?('matchUpdateTypes') && !ef_provider.key?('enabled') &&
+    rules.index(ef_provider) > rules.index(find_rule.call('Group compatible NuGet updates per review'))
+
   # npm's lockfile-only updater can omit still-required transitive dependencies.
   # Ensure the repair covers standalone overrides/majors and grouped patch updates.
   npm_rebuild = find_rule.call('Regenerate npm lockfiles with full installation on every update')
@@ -111,17 +134,73 @@ def update_errors(config)
     npm_updates['matchUpdateTypes'] == ['minor', 'patch'] &&
     npm_updates['postUpdateOptions'] == ['npmInstallTwice']
 
-  angular_build = find_rule.call('Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees')
+
+  playwright_npm = find_rule.call('Keep Playwright npm updates tied to the reviewed browser image')
+  errors << 'Playwright npm updates must remain aligned with the qualified browser image' unless
+    playwright_npm.is_a?(Hash) && playwright_npm['matchManagers'] == ['npm'] &&
+    playwright_npm['matchPackageNames'] == ['@playwright/test'] &&
+    playwright_npm['matchFileNames'] == ['package.json'] &&
+    playwright_npm['allowedVersions'] == '1.64.1' && playwright_npm['enabled'] != false
+
+  minimatch_lock = find_rule.call('Hold malformed npm minimatch override updates for lockfile repair')
+  errors << 'Known malformed minimatch override lockfile updates must stay quarantined' unless
+    minimatch_lock.is_a?(Hash) && minimatch_lock['matchManagers'] == ['npm'] &&
+    minimatch_lock['matchPackageNames'] == ['minimatch'] &&
+    minimatch_lock['matchFileNames'] == ['coglatas-frontend/package.json', 'scripts/ci/sonar-operational-coverage-tools/package.json'] &&
+    minimatch_lock['allowedVersions'] == '11.0.4' && minimatch_lock['enabled'] != false
+
+  sonar_glob = find_rule.call('Hold Sonar glob updates that cannot produce installable locks')
+  errors << 'Known malformed Sonar glob lockfiles must stay quarantined' unless
+    sonar_glob.is_a?(Hash) && sonar_glob['matchManagers'] == ['npm'] &&
+    sonar_glob['matchPackageNames'] == ['glob'] &&
+    sonar_glob['matchFileNames'] == ['scripts/ci/sonar-operational-coverage-tools/package.json'] &&
+    sonar_glob['allowedVersions'] == '14.0.3' && sonar_glob['enabled'] != false
+
+  ang22_candidates = find_rule.call('Separate ANG22 reviewed packages from routine npm updates')
+  reviewed_names = %w[
+    @angular/animations @angular/build @angular/cdk @angular/cli @angular/common @angular/compiler
+    @angular/compiler-cli @angular/core @angular/forms @angular/platform-browser
+    @angular/platform-browser-dynamic @angular/router @angular-devkit/architect
+    @angular-devkit/build-angular @angular-devkit/core @lucide/angular
+    @storybook/angular storybook @vitest/coverage-istanbul vitest
+  ].sort
+  errors << 'Contract-pinned Angular 22 dependencies need separate owner-reviewed qualification' unless
+    ang22_candidates.is_a?(Hash) && ang22_candidates['matchManagers'] == ['npm'] &&
+    ang22_candidates.fetch('matchPackageNames', []).sort == reviewed_names &&
+    ang22_candidates['matchUpdateTypes'] == ['minor', 'patch'] &&
+    ang22_candidates['dependencyDashboardApproval'] == true &&
+    ang22_candidates['groupName'] == 'ANG22 reviewed dependency candidates' &&
+    ang22_candidates['enabled'] != false
+
+  storybook = find_rule.call('Coordinate Storybook core Angular integration and addons behind owner approval')
+  errors << 'Storybook core, Angular builder and addons must share one reviewed npm group with full lockfile regeneration' unless
+    storybook.is_a?(Hash) && storybook['matchManagers'] == ['npm'] &&
+    storybook['matchPackageNames'] == ['storybook', '@storybook/*'] &&
+    storybook['matchUpdateTypes'] == ['minor', 'patch'] &&
+    storybook['dependencyDashboardApproval'] == true &&
+    storybook['groupName'] == 'Storybook coordinated updates' &&
+    storybook['groupSlug'] == 'storybook-coordinated' &&
+    storybook['skipInstalls'] == false &&
+    storybook['postUpdateOptions'] == ['npmInstallTwice'] &&
+    # Unknown match restrictions could silently exclude the supplied devDependencies.
+    storybook.keys.sort == %w[
+      description matchManagers matchPackageNames matchUpdateTypes dependencyDashboardApproval
+      groupName groupSlug skipInstalls postUpdateOptions
+    ].sort &&
+    rules.index(storybook) > rules.index(npm_updates) &&
+    rules.index(storybook) > rules.index(ang22_candidates)
+
+  angular_build = find_rule.call('Exclude Angular 22.2.5-22.2.7 tooling with invalid optional peer trees')
   errors << 'Only proven broken Angular tooling patches may be excluded; future fixes remain eligible' unless
     angular_build.is_a?(Hash) && angular_build['matchManagers'] == ['npm'] &&
     angular_build['matchPackageNames'] == ['@angular/build', '@angular-devkit/build-angular', '@angular/cli'] &&
-    angular_build['allowedVersions'] == '!/^22\\.2\\.[56]$/' &&
+    angular_build['allowedVersions'] == '!/^22\\.2\\.[5-7]$/' &&
     !angular_build.key?('enabled') && !angular_build.key?('matchUpdateTypes')
 
-  stylelint = find_rule.call('Hold Stylelint 18 until SCSS config supports its peer dependency')
+  stylelint = find_rule.call('Hold Stylelint 18 and SCSS preset 18 until coordinated migration')
   errors << 'Stylelint 18 cannot be proposed until the SCSS preset supports its peer dependency' unless
     stylelint.is_a?(Hash) && stylelint['matchManagers'] == ['npm'] &&
-    stylelint['matchPackageNames'] == ['stylelint'] && stylelint['allowedVersions'] == '/^17\./' &&
+    stylelint['matchPackageNames'] == ['stylelint', 'stylelint-config-standard-scss'] && stylelint['allowedVersions'] == '/^17\./' &&
     !stylelint.key?('enabled')
 
   gantt = find_rule.call('Hold Gantt major migrations until install-script review')
@@ -135,6 +214,49 @@ def update_errors(config)
     alerts.is_a?(Hash) && alerts.fetch('labels', []).include?('security') &&
     alerts['prConcurrentLimit'].is_a?(Integer) && alerts['prConcurrentLimit'].positive?
 
+  errors
+end
+
+# A Renovate group does not guarantee that each publisher releases every
+# component together. Reject partial Storybook peer upgrades in either workspace.
+def storybook_alignment_errors(sources = {})
+  errors = []
+  observed_versions = []
+  required = %w[storybook @storybook/angular]
+  addons = %w[@storybook/addon-a11y @storybook/addon-docs @storybook/addon-onboarding]
+  %w[frontend coglatas-frontend].each do |workspace|
+    manifest_path = "#{workspace}/package.json"
+    lock_path = "#{workspace}/package-lock.json"
+    manifest = JSON.parse(sources.fetch(manifest_path, nil) || (ROOT / manifest_path).read)
+    lock = JSON.parse(sources.fetch(lock_path, nil) || (ROOT / lock_path).read)
+    declared = []
+    %w[dependencies devDependencies].each do |section|
+      direct = manifest.fetch(section, {})
+      unless direct.is_a?(Hash)
+        errors << "#{workspace}: #{section} must be a dependency map"
+        next
+      end
+      names = direct.keys.select { |name| name == 'storybook' || name.start_with?('@storybook/') }
+      declared.concat(names)
+      names.each do |name|
+        version = direct[name]
+        observed_versions << version
+        locked_package = lock.dig('packages', "node_modules/#{name}")
+        valid = version.is_a?(String) && version.match?(/\A\d+\.\d+\.\d+\z/) &&
+          lock.dig('packages', '', section, name) == version &&
+          locked_package.is_a?(Hash) && locked_package['version'] == version &&
+          locked_package['integrity'].is_a?(String) &&
+          locked_package['integrity'].start_with?('sha512-')
+        errors << "#{workspace}: #{section}/#{name} requires matching exact manifest, lock root and installed peer version" unless valid
+      end
+    end
+    missing = (required + (workspace == 'coglatas-frontend' ? addons : [])) - declared
+    errors << "#{workspace}: required Storybook declarations missing: #{missing.join(', ')}" unless missing.empty?
+    errors << "#{workspace}: duplicate Storybook declarations across dependency sections" unless declared.length == declared.uniq.length
+  end
+  errors << 'Storybook core, Angular integration and addons must have one exact version across both workspaces' unless
+    observed_versions.length >= 7 && observed_versions.uniq.length == 1 &&
+    observed_versions.first.is_a?(String)
   errors
 end
 
@@ -225,11 +347,23 @@ abort('Future Syncfusion base install scripts must remain denied unless separate
 global_json = JSON.parse((ROOT / 'global.json').read)
 sdk = global_json.fetch('sdk', {})
 sdk_version = sdk['version']
-abort('SDK must be pinned to stable .NET 10') unless sdk_version.is_a?(String) &&
-  sdk_version.match?(/\A10\.0\.\d{3}\z/) &&
-  sdk['rollForward'] == 'disable' && sdk['allowPrerelease'] == false
+stable_sdk = sdk_version.is_a?(String) && sdk_version.match?(/\A10\.0\.\d{3}\z/)
+ga11_sdk = sdk_version == '11.0.100'
+abort('SDK must pin stable .NET 10 or exact .NET 11 GA') unless
+  (stable_sdk || ga11_sdk) && sdk['rollForward'] == 'disable' && sdk['allowPrerelease'] == false
 
-errors = update_errors(config) + image_errors({}, sdk_version) + node_lts_image_errors({}) + vite_override_errors({})
+root_npm = JSON.parse((ROOT / 'package.json').read)
+root_lock = JSON.parse((ROOT / 'package-lock.json').read)
+browser_image = (ROOT / 'infra/docker/playwright.Dockerfile').read
+abort('Root Playwright test dependency must remain pinned to the reviewed browser runtime') unless
+  root_npm.fetch('devDependencies', {})['@playwright/test'] == '1.64.1' &&
+  %w[@playwright/test playwright playwright-core].all? do |name|
+    root_lock.fetch('packages', {}).fetch("node_modules/#{name}", {})['version'] == '1.64.1'
+  end &&
+  browser_image.include?('FROM mcr.microsoft.com/playwright:v1.64.0-noble')
+
+errors = update_errors(config) + storybook_alignment_errors + image_errors({}, sdk_version) +
+  node_lts_image_errors({}) + vite_override_errors({})
 abort(errors.join("\n")) unless errors.empty?
 
 mutations = {
@@ -246,8 +380,8 @@ mutations = {
   're-enable reviewed Actions via later group rule' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Update GitHub Actions pins together' }['enabled'] = true },
   'unsanctioned npm CLI proposal' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep coordinated npm CLI updates out of routine dependency PRs' }['enabled'] = true },
   'renovate config manager can update npm constraint' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep coordinated npm CLI updates out of routine dependency PRs' }['matchManagers'] = ['npm'] },
-  'allow incompatible Stylelint 18' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Stylelint 18 until SCSS config supports its peer dependency' }['allowedVersions'] = '>=17' },
-  'disable Stylelint patch updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Stylelint 18 until SCSS config supports its peer dependency' }['enabled'] = false },
+  'allow incompatible Stylelint 18' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Stylelint 18 and SCSS preset 18 until coordinated migration' }['allowedVersions'] = '>=17' },
+  'disable Stylelint patch updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Stylelint 18 and SCSS preset 18 until coordinated migration' }['enabled'] = false },
   'unreviewed Gantt major proposal' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Gantt major migrations until install-script review' }['allowedVersions'] = '/^35\\./' },
   'allow bot-only protected Action bump' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep protected GitHub Actions on reviewed SHA allowlist' }['enabled'] = true },
   'omit one protected Action from manual-review inventory' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep protected GitHub Actions on reviewed SHA allowlist' }['matchPackageNames'].pop },
@@ -255,26 +389,147 @@ mutations = {
   'unqualified Python bootstrap version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions Python bootstrap on reviewed 3.12' }['allowedVersions'] = '3.15' },
   'match Python label instead of extracted package name' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions Python bootstrap on reviewed 3.12' }['matchPackageNames'] = ['python'] },
   'Actions SDK drifts from global.json' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions dotnet-sdk bootstrap aligned with global.json' }['allowedVersions'] = '10.0.999' },
-  'reallow known invalid Angular build artifact' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['allowedVersions'] = '>=22' },
-  'freeze future Angular build fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['allowedVersions'] = '<22.2.5' },
-  'broaden broken-version exclusion to unrelated packages' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['matchPackageNames'] << '@angular/core' },
-  'disable all Angular build updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['enabled'] = false },
+  'reallow known invalid Angular build artifact' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.7 tooling with invalid optional peer trees' }['allowedVersions'] = '>=22' },
+  'freeze future Angular build fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.7 tooling with invalid optional peer trees' }['allowedVersions'] = '<22.2.5' },
+  'broaden broken-version exclusion to unrelated packages' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.7 tooling with invalid optional peer trees' }['matchPackageNames'] << '@angular/core' },
+  'disable all Angular build updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.7 tooling with invalid optional peer trees' }['enabled'] = false },
   'disable npm double-install workaround' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Group compatible npm updates per review' }.delete('postUpdateOptions') },
+  'unreviewed Playwright npm version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Playwright npm updates tied to the reviewed browser image' }['allowedVersions'] = '1.65.0' },
+  'drop Playwright root package scope' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Playwright npm updates tied to the reviewed browser image' }.delete('matchFileNames') },
+  'unqualified minimatch override version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold malformed npm minimatch override updates for lockfile repair' }['allowedVersions'] = '11.0.5' },
+  'unqualified sonar glob version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Sonar glob updates that cannot produce installable locks' }['allowedVersions'] = '14.0.4' },
+  'unreviewed ANG22 package in routine group' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Separate ANG22 reviewed packages from routine npm updates' }['dependencyDashboardApproval'] = false },
+  'unreviewed ANG22 package group crossover' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Separate ANG22 reviewed packages from routine npm updates' }['groupName'] = 'npm compatible (minor and patch)' },
+  'drop Storybook addon grouping' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Coordinate Storybook core Angular integration and addons behind owner approval' }['matchPackageNames'] = ['storybook', '@storybook/angular'] },
+  'bypass Storybook owner approval' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Coordinate Storybook core Angular integration and addons behind owner approval' }['dependencyDashboardApproval'] = false },
+  'mix Storybook majors into patch updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Coordinate Storybook core Angular integration and addons behind owner approval' }['matchUpdateTypes'] << 'major' },
+  'skip Storybook lockfile installations' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Coordinate Storybook core Angular integration and addons behind owner approval' }['skipInstalls'] = true },
+  'remove Storybook second npm install' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Coordinate Storybook core Angular integration and addons behind owner approval' }.delete('postUpdateOptions') },
+  'limit Storybook updates to one workspace' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Coordinate Storybook core Angular integration and addons behind owner approval' }['matchFileNames'] = ['coglatas-frontend/package.json'] },
+  'exclude Storybook devDependencies with matchDepTypes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Coordinate Storybook core Angular integration and addons behind owner approval' }['matchDepTypes'] = ['dependencies'] },
+  'allow routine npm grouping to override Storybook' => ->(x) {
+    rules = x['packageRules']
+    index = rules.index { |p| p['description'] == 'Coordinate Storybook core Angular integration and addons behind owner approval' }
+    storybook = rules.delete_at(index)
+    routine = rules.index { |p| p['description'] == 'Group compatible npm updates per review' }
+    rules.insert(routine, storybook)
+  },
   'change Renovate npm toolchain constraint' => ->(x) { x['constraints']['npm'] = '12.2.1' },
+  'drift Renovate NuGet SDK from global.json' => ->(x) { x['constraints']['dotnet'] = '10.0.999' },
+  'hide Renovate artifact generation failures' => ->(x) { x['statusCheckWhen']['artifactError'] = 'failed' },
+  'allow premature EF Core 11 upgrade' => ->(x) {
+    x['packageRules'].find { |p| p['description'] == 'Hold EF Core and Npgsql provider major 10 until coordinated migration' }['allowedVersions'] = '/^11\\./'
+  },
+  'allow independent Npgsql major upgrade' => ->(x) {
+    x['packageRules'].find { |p| p['description'] == 'Hold EF Core and Npgsql provider major 10 until coordinated migration' }['matchPackageNames'].delete('Npgsql.EntityFrameworkCore.PostgreSQL')
+  },
+  'allow independent SCSS preset 18 upgrade' => ->(x) {
+    x['packageRules'].find { |p| p['description'] == 'Hold Stylelint 18 and SCSS preset 18 until coordinated migration' }['matchPackageNames'].delete('stylelint-config-standard-scss')
+  },
   'skip full npm installs' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }['skipInstalls'] = true },
   'omit second npm lockfile pass for major PRs' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }.delete('postUpdateOptions') },
   'only repair minor npm updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }['matchUpdateTypes'] = ['minor', 'patch'] },
   'skip npm lockfile artifacts entirely' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }['skipArtifactsUpdate'] = true },
   'allow unsupported TypeScript 7' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep TypeScript in Angular 22 supported peer range' }['allowedVersions'] = '>=6' },
   'freeze TypeScript 6.0 fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep TypeScript in Angular 22 supported peer range' }['allowedVersions'] = '/^6\\.0\\.3$/' },
-  'omit Angular CLI from peer regression guard' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['matchPackageNames'].delete('@angular/cli') },
-  'block future Angular tooling fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['allowedVersions'] = '<22.2.5' }
+  'omit Angular CLI from peer regression guard' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.7 tooling with invalid optional peer trees' }['matchPackageNames'].delete('@angular/cli') },
+  'block future Angular tooling fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.7 tooling with invalid optional peer trees' }['allowedVersions'] = '<22.2.5' }
 }
 mutations.each do |name, change|
   copy = JSON.parse(JSON.generate(config))
   change.call(copy)
   abort("Guard missed negative Renovate mutation: #{name}") if update_errors(copy).empty?
 end
+# Derive each negative candidate from its present exact version. This must
+# keep working even after a fully coordinated Storybook patch upgrade.
+def different_storybook_patch_version(version)
+  match = /\A(\d+)\.(\d+)\.(\d+)\z/.match(version.to_s)
+  abort('Expected an exact Storybook version for negative control') unless match
+  "#{match[1]}.#{match[2]}.#{match[3].to_i + 1}"
+end
+
+def assert_storybook_negative_mutations(sources = {})
+  %w[frontend coglatas-frontend].each do |workspace|
+    manifest_path = "#{workspace}/package.json"
+    lock_path = "#{workspace}/package-lock.json"
+    manifest = JSON.parse(sources.fetch(manifest_path, nil) || (ROOT / manifest_path).read)
+    changed_manifest = JSON.parse(JSON.generate(manifest))
+    current = changed_manifest.fetch('devDependencies').fetch('storybook')
+    changed_manifest['devDependencies']['storybook'] = different_storybook_patch_version(current)
+    abort("Guard missed a partial Storybook core upgrade in #{workspace}") if
+      storybook_alignment_errors(sources.merge(manifest_path => JSON.generate(changed_manifest))).empty?
+
+    lock = JSON.parse(sources.fetch(lock_path, nil) || (ROOT / lock_path).read)
+    changed_lock = JSON.parse(JSON.generate(lock))
+    current_lock = changed_lock.fetch('packages').fetch('').fetch('devDependencies').fetch('@storybook/angular')
+    changed_lock['packages']['']['devDependencies']['@storybook/angular'] = different_storybook_patch_version(current_lock)
+    abort("Guard missed a mismatched Storybook lock root in #{workspace}") if
+      storybook_alignment_errors(sources.merge(lock_path => JSON.generate(changed_lock))).empty?
+  end
+
+  addon_path = 'coglatas-frontend/package.json'
+  addon_manifest = JSON.parse(sources.fetch(addon_path, nil) || (ROOT / addon_path).read)
+  current_addon = addon_manifest.fetch('devDependencies').fetch('@storybook/addon-a11y')
+  addon_manifest['devDependencies']['@storybook/addon-a11y'] = different_storybook_patch_version(current_addon)
+  abort('Guard missed an independently upgraded Storybook addon') if
+    storybook_alignment_errors(sources.merge(addon_path => JSON.generate(addon_manifest))).empty?
+end
+
+# Move a real scoped package to dependencies, then prove that its root lock
+# section and cross-workspace version still participate in the same guard.
+def assert_storybook_dependency_sections(sources = {})
+  manifest_path = 'frontend/package.json'
+  lock_path = 'frontend/package-lock.json'
+  manifest = JSON.parse(sources.fetch(manifest_path, nil) || (ROOT / manifest_path).read)
+  lock = JSON.parse(sources.fetch(lock_path, nil) || (ROOT / lock_path).read)
+  package = '@storybook/angular'
+  version = manifest.fetch('devDependencies').delete(package)
+  lock_version = lock.fetch('packages').fetch('').fetch('devDependencies').delete(package)
+  abort('Synthetic dependency section move lost the reviewed version') unless version == lock_version
+  manifest.fetch('dependencies')[package] = version
+  lock.fetch('packages').fetch('').fetch('dependencies')[package] = version
+  moved_sources = sources.merge(manifest_path => JSON.generate(manifest), lock_path => JSON.generate(lock))
+  abort('Guard rejected a coherent Storybook declaration in dependencies') unless
+    storybook_alignment_errors(moved_sources).empty?
+
+  mismatch = different_storybook_patch_version(version)
+  manifest['dependencies'][package] = mismatch
+  lock['packages']['']['dependencies'][package] = mismatch
+  lock['packages']["node_modules/#{package}"]['version'] = mismatch
+  changed_sources = sources.merge(manifest_path => JSON.generate(manifest), lock_path => JSON.generate(lock))
+  abort('Guard missed a direct Storybook dependency declared in dependencies') if
+    storybook_alignment_errors(changed_sources).empty?
+end
+
+assert_storybook_negative_mutations
+assert_storybook_dependency_sections
+
+# Synthetic coherent future version: exercise the direct-version invariant,
+# not registry integrity or the complete package dependency graph.
+coordinated_sources = {}
+current_storybook = JSON.parse((ROOT / 'frontend/package.json').read).fetch('devDependencies').fetch('storybook')
+candidate_version = different_storybook_patch_version(current_storybook)
+%w[frontend coglatas-frontend].each do |workspace|
+  manifest_path = "#{workspace}/package.json"
+  lock_path = "#{workspace}/package-lock.json"
+  manifest = JSON.parse((ROOT / manifest_path).read)
+  lock = JSON.parse((ROOT / lock_path).read)
+  %w[dependencies devDependencies].each do |section|
+    manifest.fetch(section, {}).each_key do |name|
+      next unless name == 'storybook' || name.start_with?('@storybook/')
+      manifest.fetch(section)[name] = candidate_version
+      lock.fetch('packages').fetch('').fetch(section)[name] = candidate_version
+      lock.fetch('packages').fetch("node_modules/#{name}")['version'] = candidate_version
+    end
+  end
+  coordinated_sources[manifest_path] = JSON.generate(manifest)
+  coordinated_sources[lock_path] = JSON.generate(lock)
+end
+abort('Guard rejected a coherent future Storybook direct-version fixture') unless
+  storybook_alignment_errors(coordinated_sources).empty?
+assert_storybook_negative_mutations(coordinated_sources)
+assert_storybook_dependency_sections(coordinated_sources)
+
 %w[frontend/package.json coglatas-frontend/package.json].each do |path|
   original = JSON.parse((ROOT / path).read)
   global_override = JSON.parse(JSON.generate(original))
@@ -289,7 +544,7 @@ end
 end
 
 bad_sdk = { 'Dockerfile' => (ROOT / 'Dockerfile').read.sub(
-  /mcr\.microsoft\.com\/dotnet\/sdk:#{Regexp.escape(sdk_version)}/, 'mcr.microsoft.com/dotnet/sdk:10.0.999'
+  /mcr\.microsoft\.com\/dotnet\/sdk:[^@\s]+(?=@sha256:)/, 'mcr.microsoft.com/dotnet/sdk:10.0.999'
 ) }
 abort('Guard missed SDK image/version mismatch') if image_errors(bad_sdk, sdk_version).empty?
 

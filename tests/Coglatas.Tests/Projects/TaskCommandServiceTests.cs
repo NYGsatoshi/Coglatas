@@ -7,7 +7,7 @@ using Coglatas.Domain.Enums;
 
 namespace Coglatas.Tests.Projects;
 
-public sealed class TaskCommandServiceTests
+public sealed partial class TaskCommandServiceTests
 {
     [Fact]
     public async Task StructuredBriefPatchPreservesOmittedFieldsClearsExplicitNullAndReturnsPerFieldProvenance()
@@ -107,13 +107,16 @@ public sealed class TaskCommandServiceTests
         Assert.Null(task.BriefGoal);
         Assert.Null(task.BriefDeliverable);
         Assert.Null(task.BriefConstraints);
+        var observedSources = new List<TaskBriefValueSource>();
         Assert.All(
-            new[] { result.Value!.Brief!.Goal, result.Value.Brief.Deliverable, result.Value.Brief.Constraints },
+            [result.Value!.Brief!.Goal, result.Value.Brief.Deliverable, result.Value.Brief.Constraints],
             field =>
             {
+                observedSources.Add(field.Source);
                 Assert.Null(field.Value);
                 Assert.Equal(TaskBriefValueSource.NotSet, field.Source);
             });
+        Assert.Equal(new[] { TaskBriefValueSource.NotSet, TaskBriefValueSource.NotSet, TaskBriefValueSource.NotSet }, observedSources);
     }
 
     [Fact]
@@ -579,7 +582,6 @@ public sealed class TaskCommandServiceTests
             new CreateTaskSubtaskRequest(
                 "child",
                 null,
-                TaskPriority.Medium,
                 Goal: new string('x', TaskBriefText.MaximumFieldLength + 1)));
 
         Assert.False(result.IsSuccess);
@@ -712,7 +714,7 @@ public sealed class TaskCommandServiceTests
         Assert.True(cleared.IsSuccess);
         Assert.Null(task.PlannedStartDate);
         Assert.Null(task.PlannedEndDate);
-        Assert.Contains(cleared.Value!.Warnings, warning => warning.Code == "UNSCHEDULED" && !warning.Blocking);
+        Assert.Contains(cleared.Value!.Warnings, warning => warning is { Code: "UNSCHEDULED", Blocking: false });
         Assert.Equal(deadline, task.DeadlineAt);
     }
 
@@ -747,9 +749,7 @@ public sealed class TaskCommandServiceTests
         Assert.True(result.IsSuccess);
         Assert.Contains(
             result.Value!.Warnings,
-            warning => warning.Code == "DEPENDENCY_VIOLATION" &&
-                       warning.TargetType == "Dependency" &&
-                       !warning.Blocking);
+            warning => warning is { Code: "DEPENDENCY_VIOLATION", TargetType: "Dependency", Blocking: false });
         Assert.Equal(new DateOnly(2026, 8, 2), successor.PlannedStartDate);
     }
 
@@ -920,7 +920,7 @@ public sealed class TaskCommandServiceTests
 
         var result = await fixture.Subresources.CreateSubtaskAsync(
             parent.Id,
-            new CreateTaskSubtaskRequest("child", null, TaskPriority.Medium));
+            new CreateTaskSubtaskRequest("child", null));
 
         Assert.StartsWith("TASK_TRANSITION_GUARD_FAILED|", result.Error);
         Assert.DoesNotContain(

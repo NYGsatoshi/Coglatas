@@ -138,7 +138,7 @@ public sealed class ProjectRepository(AppDbContext dbContext) : IProjectReposito
         var rows = await source.Include(task => task.WorkflowStage)
             .OrderBy(task => task.SortKey).ThenBy(task => task.SortOrder).ThenBy(task => task.DueDate)
             .ThenBy(task => task.Title).ThenBy(task => task.Id)
-            .Skip((query.SafePage - 1) * query.SafePageSize).Take(query.SafePageSize)
+            .Skip((int)Math.Min((query.SafePage - 1L) * query.SafePageSize, int.MaxValue)).Take(query.SafePageSize)
             .Select(task => new
             {
                 Task = task,

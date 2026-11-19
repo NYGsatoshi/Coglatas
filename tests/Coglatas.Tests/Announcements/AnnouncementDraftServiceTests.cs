@@ -13,7 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Coglatas.Tests.Announcements;
 
 [Trait("Scope", "Issue378")]
-public sealed class AnnouncementDraftServiceTests
+public sealed partial class AnnouncementDraftServiceTests
 {
     [Fact]
     public async Task ApplicationOnlyCompositionProvidesFailClosedDraftPersistence()

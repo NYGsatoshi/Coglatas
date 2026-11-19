@@ -8,7 +8,7 @@ using Coglatas.Domain.Enums;
 
 namespace Coglatas.Tests.Events;
 
-public sealed class EventServiceTests
+public sealed partial class EventServiceTests
 {
     [Fact]
     public async Task NonMemberCannotViewPrivateGroupEvent()

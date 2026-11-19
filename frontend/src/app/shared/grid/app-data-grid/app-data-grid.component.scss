@@ -58,6 +58,9 @@
   flex-wrap: wrap;
   gap: 0.35rem;
   min-height: 100%;
+  // Constrain action renderers to their grid cell so adjacent cells stay clickable.
+  min-width: 0;
+  max-width: 100%;
 }
 
 :host ::ng-deep .app-grid-actions__button {
@@ -71,7 +74,11 @@
   font-weight: 700;
   line-height: 1.2;
   min-height: 2.25rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   padding: 0.35rem 0.5rem;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
