@@ -37,4 +37,3 @@ export interface AdmittedProjectTestDiscovery {
   readonly projection: LocalProjectTestDiscoveryProjection;
   readonly inventory: LocalProjectTestDiscovery;
 }
-
