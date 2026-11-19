@@ -85,6 +85,11 @@ bare method fields, and complete result/definition/entry identity bijections.
 Compiled discovery must contain the same exact roster. Unexpected, duplicated,
 unsupported, missing, aliased or whitespace-substituted records fail admission.
 
+The full report is checked for extra native result records, inner result
+collections and result aggregations. An ErrorInfo anywhere is contradictory.
+Only informational RunInfo entries in the native summary's RunInfos collection
+are admitted. A warning leaves this passing-only cohort unqualified.
+
 The Ubuntu 24.04 and Windows latest jobs use pinned Action commits and the exact
 Product SDK. They share workflow-level Product, candidate, runner and controls
 identities, retain each host's original artifacts independently, and keep raw
@@ -98,7 +103,7 @@ python -B tests/candidates/projectide-symbol-cache/compose_and_verify.py --produ
 
 ## Committed verifier controls
 
-The adapted strict runner and its 16 portable unittest methods preserve the
+The adapted strict runner and its portable unittest methods preserve the
 existing independently reviewed run-comparison evidence pattern. Synthetic
 22-case reports/discovery establish positives before counter, Execution,
 identity-bijection, class/method, container and raw-name rejection controls.
