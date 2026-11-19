@@ -54,34 +54,92 @@ class ExactRejection(unittest.TestCase):
 
 
 class WorkflowPythonIsolationControls(unittest.TestCase):
-    def test_both_hosts_check_committed_and_working_script_bytes_before_isolated_python(self) -> None:
+    def test_both_host_workflows_verify_scripts_reject_caches_and_load_controls_without_discovery(self) -> None:
         document = (Path(__file__).resolve().parents[3]
                     / ".github/workflows/projectide-symbol-cache-advisory.yml").read_text(encoding="utf-8")
         self.assertEqual(2, document.count(
-            "python -I -B -m unittest discover -s tests/candidates/projectide-symbol-cache"))
+            "python -I -B -c \"import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')\""))
         self.assertEqual(2, document.count(
             "python -I -B tests/candidates/projectide-symbol-cache/compose_and_verify.py"))
+        self.assertEqual(4, document.count("python -I -B -c \"from pathlib import Path; import sys; root=Path(sys.argv[1]);"))
+        self.assertNotIn("unittest discover -s tests/candidates/projectide-symbol-cache", document)
         self.assertNotIn("python -B ", document)
         lines = document.splitlines()
         self.assertEqual(4, sum("git hash-object --no-filters -- $script.Path" in line for line in lines))
         for index, line in enumerate(lines):
-            if "python -I -B " not in line:
-                continue
-            preceding = "\n".join(lines[max(0, index - 13):index])
-            self.assertIn('git rev-parse "$($env:TEST_HEAD):$($script.Path)"', preceding)
-            self.assertIn("git hash-object --no-filters -- $script.Path", preceding)
+            if "runpy.run_path(p,run_name=" in line or "python -I -B tests/candidates/projectide-symbol-cache/compose_and_verify.py" in line:
+                prior = "\n".join(lines[max(0, index - 21):index])
+                self.assertIn('git rev-parse "$($env:TEST_HEAD):$($script.Path)"', prior)
+                self.assertIn("git hash-object --no-filters -- $script.Path", prior)
+                self.assertIn("Candidate Python bytecode cache is not admitted", prior)
 
-    def test_isolated_interpreter_ignores_untrusted_pythonpath(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="python-import-shadow-") as temporary:
+    def test_untrusted_pythonpath_canary_runs_plain_but_not_isolated(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="symbol-cache-python-shadow-") as temporary:
+            marker = Path(temporary) / "import-marker"
             (Path(temporary) / "sitecustomize.py").write_text(
-                "raise RuntimeError('untrusted path executed')\n", encoding="utf-8")
+                "from pathlib import Path\nPath(" + repr(str(marker)) + ").touch()\n",
+                encoding="utf-8")
             environment = {**os.environ, "PYTHONPATH": temporary}
-            process = subprocess.run(
+            plain = subprocess.run([sys.executable, "-B", "-c", "print('PLAIN')"],
+                                   env=environment, capture_output=True, text=True)
+            self.assertEqual(0, plain.returncode, plain.stderr)
+            self.assertTrue(marker.exists(), "The negative control must execute sitecustomize")
+            marker.unlink()
+            isolated = subprocess.run(
                 [sys.executable, "-I", "-B", "-c",
                  "import sys; assert sys.flags.isolated == 1; print('ISOLATED')"],
-                env=environment, capture_output=True, text=True, check=False)
-            self.assertEqual(0, process.returncode, process.stderr)
-            self.assertEqual("ISOLATED", process.stdout.strip())
+                env=environment, capture_output=True, text=True)
+            self.assertEqual(0, isolated.returncode, isolated.stderr)
+            self.assertEqual("ISOLATED", isolated.stdout.strip())
+            self.assertFalse(marker.exists(), "Isolated Python may not execute PYTHONPATH modules")
+
+    def test_candidate_xml_shadow_cannot_enter_explicit_runpy_execution(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="symbol-cache-source-shadow-") as temporary:
+            root = Path(temporary)
+            marker = root / "shadow-imported"
+            (root / "xml").mkdir()
+            (root / "xml" / "__init__.py").write_text(
+                "from pathlib import Path\nPath(" + repr(str(marker)) + ").touch()\n",
+                encoding="utf-8")
+            program = root / "test_compose_and_verify.py"
+            program.write_text(
+                "import unittest\nimport xml.etree.ElementTree as ET\n"
+                "class VerifiedControl(unittest.TestCase):\n"
+                "    def test_xml_is_available(self):\n"
+                "        self.assertEqual('xml.etree.ElementTree', ET.__name__)\n"
+                "if __name__ == '__main__':\n"
+                "    unittest.main(verbosity=2)\n", encoding="utf-8")
+            code = "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')"
+            result = subprocess.run([sys.executable, "-I", "-B", "-c", code, str(program)],
+                                    cwd=root, capture_output=True, text=True)
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertIn("Ran 1 test", result.stderr)
+            self.assertFalse(marker.exists(), "The candidate directory must not shadow stdlib xml")
+
+    def test_unchanged_source_with_substituted_bytecode_is_refused_by_the_workflow_cache_gate(self) -> None:
+        import py_compile
+        document = (Path(__file__).resolve().parents[3]
+                    / ".github/workflows/projectide-symbol-cache-advisory.yml").read_text(encoding="utf-8")
+        cache_command = next(line.strip() for line in document.splitlines()
+                             if line.strip().startswith('python -I -B -c "from pathlib import Path; import sys;'))
+        code = cache_command.split(' -c "', 1)[1].split('" ', 1)[0]
+        with tempfile.TemporaryDirectory(prefix="symbol-cache-bytecode-") as temporary:
+            directory = Path(temporary)
+            verified = directory / "compose_and_verify.py"
+            verified.write_bytes(b"VERIFIED = True\n")
+            original = verified.read_bytes()
+            def scan():
+                return subprocess.run([sys.executable, "-I", "-B", "-c", code, temporary],
+                                      capture_output=True, text=True)
+            self.assertEqual(0, scan().returncode)
+            cache = directory / "__pycache__"
+            cache.mkdir()
+            injected = directory / "injected.py"
+            injected.write_bytes(b"VERIFIED = False\n")
+            py_compile.compile(str(injected), cfile=str(cache / "compose_and_verify.cpython-312.pyc"),
+                               doraise=True, invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH)
+            self.assertEqual(original, verified.read_bytes(), "The original source must remain unchanged")
+            self.assertNotEqual(0, scan().returncode, "Unchecked hash bytecode must not be admitted")
 
 
 class NativeInventoryControls(ExactRejection):
