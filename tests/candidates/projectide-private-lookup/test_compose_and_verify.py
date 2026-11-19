@@ -40,30 +40,70 @@ class WorkflowPythonIsolationControls(unittest.TestCase):
         self.assertEqual(2, workflow.count("$candidateArguments = @('-I', '-B',"))
         self.assertNotIn("python -B ", workflow)
 
+    def test_step_scoped_executable_byte_guards(self):
+        workflow = (Path(__file__).resolve().parents[3] / ".github/workflows/projectide-private-lookup-advisory.yml").read_text(encoding="utf-8")
+        expected = {"Exercise independent Git provenance refusal controls":[["tests/candidates/workflow-provenance/verify_workflow_provenance.py","PROVENANCE_BLOB"],["tests/candidates/workflow-provenance/test_workflow_provenance.py","PROVENANCE_CONTROLS_BLOB"]],"Verify positive and rejection admission controls":[["tests/candidates/projectide-private-lookup/compose_and_verify.py","RUNNER_BLOB"],["tests/candidates/projectide-private-lookup/test_compose_and_verify.py","CONTROLS_BLOB"]],"Execute original native facts and compiled discovery":[["tests/candidates/projectide-private-lookup/compose_and_verify.py","RUNNER_BLOB"]]}
+        steps = workflow.split("      - name: ")[1:]
+        guarded = [step for step in steps if "foreach ($script in @(" in step]
+        self.assertEqual(2 * len(expected), len(guarded))
+        for title, pairs in expected.items():
+            matching = [step for step in guarded if step.startswith(title + "\n")]
+            self.assertEqual(2, len(matching), title)
+            for step in matching:
+                actual = re.findall(r"@\{ Path = '([^']+)'; Sha = \$env:([A-Z_]+) \}", step)
+                self.assertEqual(pairs, actual)
+                interpreter = step.index("python -I -B")
+                required = (
+                    'git rev-parse "$($env:TEST_HEAD):$($script.Path)"',
+                    "git hash-object --no-filters -- $script.Path",
+                    "if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }",
+                    "if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }",
+                )
+                for guard in required:
+                    self.assertIn(guard, step[:interpreter])
+
     def test_real_casefolded_bytecode_cache_scanner(self):
         workflow = (Path(__file__).resolve().parents[3] / ".github/workflows/projectide-private-lookup-advisory.yml").read_text(encoding="utf-8")
-        scanners = [line.split('python -I -B -c "', 1)[1].split('"', 1)[0]
+        commands = [line.split('python -I -B -c "', 1)[1].split('"', 1)[0]
                     for line in workflow.splitlines()
-                    if 'python -I -B -c "from pathlib import Path; import sys; roots=' in line]
-        self.assertEqual(6, len(scanners))
-        self.assertEqual(1, len(set(scanners)))
-        with tempfile.TemporaryDirectory(prefix="private-lookup-casefold-") as tmp:
-            root = Path(tmp)
-            def run():
-                return subprocess.run([sys.executable, "-I", "-B", "-c", scanners[0], str(root)],
+                    if 'python -I -B -c "import os,sys;roots=' in line]
+        self.assertEqual(6, len(commands))
+        self.assertEqual(1, len(set(commands)))
+        with tempfile.TemporaryDirectory(prefix="private-lookup-fail-closed-cache-") as temporary:
+            root = Path(temporary)
+            def execute(source, directory):
+                return subprocess.run([sys.executable, "-I", "-B", "-c", source, str(directory)],
                                       capture_output=True, text=True, timeout=15)
-            self.assertEqual(0, run().returncode)
-            cache = root / "__PYCACHE__"
-            cache.mkdir()
-            self.assertNotEqual(0, run().returncode)
-            cache.rmdir()
-            for ext in (".PYC", ".PYO"):
-                with self.subTest(ext=ext):
-                    other = root / ("injected" + ext)
-                    other.write_bytes(b"synthetic bytecode")
-                    self.assertNotEqual(0, run().returncode)
-                    other.unlink()
-                    self.assertEqual(0, run().returncode)
+            self.assertEqual(0, execute(commands[0], root).returncode)
+            cached = root / "__PYCACHE__"
+            cached.mkdir()
+            self.assertNotEqual(0, execute(commands[0], root).returncode)
+            cached.rmdir()
+            for suffix in (".PYC", ".PYO"):
+                with self.subTest(suffix=suffix):
+                    item = root / ("candidate" + suffix)
+                    item.write_bytes(b"synthetic cache")
+                    self.assertNotEqual(0, execute(commands[0], root).returncode)
+                    item.unlink()
+            self.assertNotEqual(0, execute(commands[0], root / "missing").returncode)
+            blocked = root / "unreadable"
+            blocked.mkdir()
+            bootstrap = (
+                "import os,sys\n"
+                "original=os.scandir\n"
+                "target=os.path.abspath(sys.argv[1])\n"
+                "def deny(path):\n"
+                "    if os.path.abspath(os.fspath(path)) == target:\n"
+                "        raise PermissionError('synthetic directory read refusal')\n"
+                "    return original(path)\n"
+                "os.scandir=deny\n"
+                "exec(" + repr(commands[0]) + ")\n"
+            )
+            denied = execute(bootstrap, blocked)
+            self.assertNotEqual(0, denied.returncode)
+            self.assertIn("PermissionError", denied.stderr)
+            blocked.rmdir()
+            self.assertEqual(0, execute(commands[0], root).returncode)
 
     def test_isolated_python_excludes_real_pythonpath_shadow(self):
         with tempfile.TemporaryDirectory(prefix="private-lookup-import-shadow-") as tmp:

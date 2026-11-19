@@ -47,30 +47,69 @@ class WorkflowPythonIsolationControls(unittest.TestCase):
         self.assertEqual(2, workflow.count("python -I -B tests/candidates/projectide-semantic-index-web/test_compose_and_verify.py"))
         self.assertNotIn("python -B ", workflow)
 
+    def test_step_scoped_executable_byte_guards(self):
+        workflow = (HERE.parents[2] / ".github/workflows/projectide-semantic-index-web-advisory.yml").read_text(encoding="utf-8")
+        expected = {"Exercise independent Git provenance refusal controls":[["tests/candidates/workflow-provenance/verify_workflow_provenance.py","PROVENANCE_BLOB"],["tests/candidates/workflow-provenance/test_workflow_provenance.py","PROVENANCE_CONTROLS_BLOB"]],"Execute the immutable Angular candidate against original Product":[["tests/candidates/projectide-semantic-index-web/compose_and_verify.py","RUNNER_BLOB"]],"Refuse malformed retained evidence and actual source drift":[["tests/candidates/projectide-semantic-index-web/compose_and_verify.py","RUNNER_BLOB"],["tests/candidates/projectide-semantic-index-web/test_compose_and_verify.py","CONTROLS_BLOB"]]}
+        steps = workflow.split("      - name: ")[1:]
+        guarded = [step for step in steps if "foreach ($script in @(" in step]
+        self.assertEqual(2 * len(expected), len(guarded))
+        for title, pairs in expected.items():
+            matches = [step for step in guarded if step.startswith(title + "\n")]
+            self.assertEqual(2, len(matches), title)
+            for step in matches:
+                actual = re.findall(r"@\{ Path = '([^']+)'; Sha = \$env:([A-Z_]+) \}", step)
+                self.assertEqual(pairs, actual)
+                first_python = step.index("python -I -B")
+                for required in (
+                    'git rev-parse "$($env:TEST_HEAD):$($script.Path)"',
+                    "git hash-object --no-filters -- $script.Path",
+                    "if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }",
+                    "if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }",
+                ):
+                    self.assertIn(required, step[:first_python])
+
     def test_original_casefolded_scanner_rejects_uppercase_bytecode_aliases(self):
         workflow = (HERE.parents[2] / ".github/workflows/projectide-semantic-index-web-advisory.yml").read_text(encoding="utf-8")
-        programs = [line.split('python -I -B -c "',1)[1].split('"',1)[0]
+        programs = [line.split('python -I -B -c "', 1)[1].split('"', 1)[0]
                     for line in workflow.splitlines()
-                    if 'python -I -B -c "from pathlib import Path; import sys; roots=' in line]
+                    if 'python -I -B -c "import os,sys;roots=' in line]
         self.assertEqual(6, len(programs))
         self.assertEqual(1, len(set(programs)))
-        with tempfile.TemporaryDirectory(prefix="semantic-index-web-casefold-") as tmp:
-            root=Path(tmp)
-            def scan():
-                return subprocess.run([sys.executable,"-I","-B","-c",programs[0],str(root)],
-                                      capture_output=True,text=True,timeout=15)
-            self.assertEqual(0,scan().returncode)
-            directory=root/"__PYCACHE__"
-            directory.mkdir()
-            self.assertNotEqual(0,scan().returncode)
-            directory.rmdir()
-            for ext in (".PYC",".PYO"):
-                with self.subTest(ext=ext):
-                    obj=root/("untrusted"+ext)
-                    obj.write_bytes(b"synthetic cache")
-                    self.assertNotEqual(0,scan().returncode)
-                    obj.unlink()
-                    self.assertEqual(0,scan().returncode)
+        with tempfile.TemporaryDirectory(prefix="semantic-index-web-fail-closed-cache-") as temporary:
+            root = Path(temporary)
+            def execute(source, directory):
+                return subprocess.run([sys.executable, "-I", "-B", "-c", source, str(directory)],
+                                      capture_output=True, text=True, timeout=15)
+            self.assertEqual(0, execute(programs[0], root).returncode)
+            cache = root / "__PYCACHE__"
+            cache.mkdir()
+            self.assertNotEqual(0, execute(programs[0], root).returncode)
+            cache.rmdir()
+            for suffix in (".PYC", ".PYO"):
+                with self.subTest(suffix=suffix):
+                    candidate = root / ("untrusted" + suffix)
+                    candidate.write_bytes(b"synthetic cache")
+                    self.assertNotEqual(0, execute(programs[0], root).returncode)
+                    candidate.unlink()
+            self.assertNotEqual(0, execute(programs[0], root / "missing").returncode)
+            blocked = root / "unreadable"
+            blocked.mkdir()
+            bootstrap = (
+                "import os,sys\n"
+                "original=os.scandir\n"
+                "target=os.path.abspath(sys.argv[1])\n"
+                "def deny(path):\n"
+                "    if os.path.abspath(os.fspath(path)) == target:\n"
+                "        raise PermissionError('synthetic directory read refusal')\n"
+                "    return original(path)\n"
+                "os.scandir=deny\n"
+                "exec(" + repr(programs[0]) + ")\n"
+            )
+            result = execute(bootstrap, blocked)
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("PermissionError", result.stderr)
+            blocked.rmdir()
+            self.assertEqual(0, execute(programs[0], root).returncode)
 
     def test_real_pythonpath_import_shadow_is_excluded(self):
         with tempfile.TemporaryDirectory(prefix="semantic-index-web-shadow-") as tmp:

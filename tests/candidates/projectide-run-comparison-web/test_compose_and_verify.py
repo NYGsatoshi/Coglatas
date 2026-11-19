@@ -45,30 +45,69 @@ class WorkflowPythonIsolationControls(unittest.TestCase):
         self.assertEqual(2, workflow.count("python -I -B tests/candidates/projectide-run-comparison-web/test_compose_and_verify.py"))
         self.assertNotIn("python -B ", workflow)
 
+    def test_step_scoped_executable_byte_guards(self):
+        workflow = (HERE.parents[2] / ".github/workflows/projectide-run-comparison-web-advisory.yml").read_text(encoding="utf-8")
+        expected = {"Execute the frozen Angular candidate against exact Product":[["tests/candidates/projectide-run-comparison-web/compose_and_verify.py","RUNNER_BLOB"]],"Exercise strict admission with the original retained Angular report":[["tests/candidates/projectide-run-comparison-web/compose_and_verify.py","RUNNER_BLOB"],["tests/candidates/projectide-run-comparison-web/test_compose_and_verify.py","CONTROLS_BLOB"]]}
+        steps = workflow.split("      - name: ")[1:]
+        guarded = [step for step in steps if "foreach ($script in @(" in step]
+        self.assertEqual(2 * len(expected), len(guarded))
+        for title, pairs in expected.items():
+            matches = [step for step in guarded if step.startswith(title + "\n")]
+            self.assertEqual(2, len(matches), title)
+            for block in matches:
+                actual = re.findall(r"@\{ Path = '([^']+)'; Sha = \$env:([A-Z_]+) \}", block)
+                self.assertEqual(pairs, actual)
+                python_pos = block.index("python -I -B")
+                for guard in (
+                    'git rev-parse "$($env:TEST_HEAD):$($script.Path)"',
+                    "git hash-object --no-filters -- $script.Path",
+                    "if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }",
+                    "if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }",
+                ):
+                    self.assertIn(guard, block[:python_pos])
+
     def test_actual_workflow_scanner_rejects_uppercase_bytecode(self):
         workflow = (HERE.parents[2] / ".github/workflows/projectide-run-comparison-web-advisory.yml").read_text(encoding="utf-8")
-        commands = [line.split('python -I -B -c "',1)[1].split('"',1)[0]
-                    for line in workflow.splitlines()
-                    if 'python -I -B -c "from pathlib import Path; import sys; roots=' in line]
-        self.assertEqual(4, len(commands))
-        self.assertEqual(1, len(set(commands)))
-        with tempfile.TemporaryDirectory(prefix="run-comparison-web-casefold-") as tmp:
-            root=Path(tmp)
-            def check():
-                return subprocess.run([sys.executable,"-I","-B","-c",commands[0],str(root)],
-                                      capture_output=True,text=True,timeout=15)
-            self.assertEqual(0,check().returncode)
-            cache=root/"__PYCACHE__"
+        scripts = [line.split('python -I -B -c "', 1)[1].split('"', 1)[0]
+                   for line in workflow.splitlines()
+                   if 'python -I -B -c "import os,sys;roots=' in line]
+        self.assertEqual(4, len(scripts))
+        self.assertEqual(1, len(set(scripts)))
+        with tempfile.TemporaryDirectory(prefix="run-comparison-web-fail-closed-cache-") as temporary:
+            root = Path(temporary)
+            def execute(code, directory):
+                return subprocess.run([sys.executable, "-I", "-B", "-c", code, str(directory)],
+                                      capture_output=True, text=True, timeout=15)
+            self.assertEqual(0, execute(scripts[0], root).returncode)
+            cache = root / "__PYCACHE__"
             cache.mkdir()
-            self.assertNotEqual(0,check().returncode)
+            self.assertNotEqual(0, execute(scripts[0], root).returncode)
             cache.rmdir()
-            for ext in (".PYC",".PYO"):
-                with self.subTest(ext=ext):
-                    file=root/("untrusted"+ext)
-                    file.write_bytes(b"synthetic")
-                    self.assertNotEqual(0,check().returncode)
-                    file.unlink()
-                    self.assertEqual(0,check().returncode)
+            for suffix in (".PYC", ".PYO"):
+                with self.subTest(suffix=suffix):
+                    target = root / ("injected" + suffix)
+                    target.write_bytes(b"synthetic cache")
+                    self.assertNotEqual(0, execute(scripts[0], root).returncode)
+                    target.unlink()
+            self.assertNotEqual(0, execute(scripts[0], root / "missing").returncode)
+            blocked = root / "unreadable"
+            blocked.mkdir()
+            bootstrap = (
+                "import os,sys\n"
+                "original=os.scandir\n"
+                "target=os.path.abspath(sys.argv[1])\n"
+                "def deny(path):\n"
+                "    if os.path.abspath(os.fspath(path)) == target:\n"
+                "        raise PermissionError('synthetic directory read refusal')\n"
+                "    return original(path)\n"
+                "os.scandir=deny\n"
+                "exec(" + repr(scripts[0]) + ")\n"
+            )
+            result = execute(bootstrap, blocked)
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("PermissionError", result.stderr)
+            blocked.rmdir()
+            self.assertEqual(0, execute(scripts[0], root).returncode)
 
     def test_isolated_python_does_not_execute_hostile_pythonpath_startup(self):
         with tempfile.TemporaryDirectory(prefix="run-comparison-web-shadow-") as tmp:
