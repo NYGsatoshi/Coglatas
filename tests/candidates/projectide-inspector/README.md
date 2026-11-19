@@ -244,3 +244,7 @@ Ignored and ordinary untracked source paths are refused **outside** the register
 Disposable SDK probes pin `10.0.403` with roll-forward disabled and check the selected version before creating either parent import. Their known Git fixture files are explicitly force-staged. Execution controls give each script distinct committed canary bytes and its own pin, require every role's bindings, and verify exactly which isolated canaries ran. These controls add no Product/native execution credit.
 
 The control report reserves `PASS` for all 43 distinct committed methods, zero skips, unchanged native evidence, and completed SDK and PowerShell control scopes. Zero-test, filtered, duplicate-method, skipped or missing-tool-scope runs are `INCOMPLETE` and return a nonzero exit code. Actual CLI regressions retain their exit code, status, count and skip totals separately in the report; `nativeProductCommandsExecuted` remains false.
+
+## Native Inspector RunInfo location control (#2095)
+
+The independent native TRX reader accepts Information RunInfo only directly under one native ResultSummary/RunInfos. Duplicate containers, unsupported/foreign run message children, and relocated informational messages cannot qualify the fixed twelve C# identities even with passing counters. Existing Angular evidence, immutable Product/C# and TypeScript source identities, provenance helper pins, and all six false qualification flags remain unchanged. This is synthetic security-evidence admission hardening only.

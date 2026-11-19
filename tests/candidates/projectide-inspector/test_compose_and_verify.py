@@ -247,6 +247,43 @@ class RetainedReportControls(ExactRejection):
                 ET.SubElement(infos, NS + "RunInfo", outcome=outcome)
                 self.reject("Native TRX contains contradictory failure information", lambda: self.native(root))
 
+    def test_information_messages_are_bound_to_native_result_summary_only(self) -> None:
+        root = ET.fromstring(NATIVE_TRX)
+        summary = root.find(NS + "ResultSummary")
+        infos = ET.SubElement(summary, NS + "RunInfos")
+        ET.SubElement(infos, NS + "RunInfo", outcome="Information")
+        self.assertEqual(sorted(RUNNER.EXPECTED_IDENTITIES), self.native(root))
+        for location in ("root", "case", "definition", "direct-summary", "foreign-summary", "empty-case"):
+            with self.subTest(location=location):
+                root = ET.fromstring(NATIVE_TRX)
+                summary = root.find(NS + "ResultSummary")
+                if location == "direct-summary":
+                    ET.SubElement(summary, NS + "RunInfo", outcome="Information")
+                else:
+                    parent = {"root": root, "case": root.find(NS + "Results")[0],
+                              "definition": root.find(NS + "TestDefinitions")[0],
+                              "foreign-summary": summary,
+                              "empty-case": root.find(NS + "Results")[0]}[location]
+                    namespace = "{urn:foreign-trx}" if location == "foreign-summary" else NS
+                    container = ET.SubElement(parent, namespace + "RunInfos")
+                    if location != "empty-case":
+                        ET.SubElement(container, namespace + "RunInfo", outcome="Information")
+                self.reject("Native TRX contains contradictory failure information", lambda: self.native(root))
+
+    def test_duplicate_or_unsupported_summary_run_infos_are_refused(self) -> None:
+        for change in ("duplicate", "unsupported-child"):
+            with self.subTest(change=change):
+                root = ET.fromstring(NATIVE_TRX)
+                summary = root.find(NS + "ResultSummary")
+                infos = ET.SubElement(summary, NS + "RunInfos")
+                ET.SubElement(infos, NS + "RunInfo", outcome="Information")
+                if change == "duplicate":
+                    another = ET.SubElement(summary, NS + "RunInfos")
+                    ET.SubElement(another, NS + "RunInfo", outcome="Information")
+                else:
+                    ET.SubElement(infos, "{urn:foreign-trx}Opaque")
+                self.reject("Native TRX contains contradictory failure information", lambda: self.native(root))
+
     def test_discovery_rejects_longer_substrings_foreign_extra_and_missing_cases(self) -> None:
         names = sorted(RUNNER.EXPECTED_IDENTITIES)
         variants = {

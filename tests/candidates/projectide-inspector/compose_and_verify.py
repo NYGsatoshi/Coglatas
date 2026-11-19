@@ -101,9 +101,22 @@ def native_inventory(path: Path) -> list[str]:
             or any(value != "0" for key, value in counters.attrib.items()
                    if key not in ("total", "executed", "passed"))):
         raise ValueError("Native TRX must contain exactly twelve complete passing Inspector cases")
-    if trx.findall(".//{*}ErrorInfo") or any(
-            node.get("outcome") != "Information"
-            for node in trx.findall(".//{*}RunInfo")):
+    # Bind accepted host diagnostics to exactly the native run summary.
+    # Foreign and relocated information cannot be justified by passing rows.
+    summary_infos = summary.findall(f"{TRX_NAMESPACE}RunInfos")
+    if (len(summary_infos) > 1
+            or any(child.tag != TRX_NAMESPACE + "RunInfo"
+                   for container in summary_infos for child in container)):
+        raise ValueError("Native TRX contains contradictory failure information")
+    allowed_containers = set(summary_infos)
+    allowed_infos = set(summary.findall(f"{TRX_NAMESPACE}RunInfos/{TRX_NAMESPACE}RunInfo"))
+    if any(
+        node.tag.rsplit("}", 1)[-1] == "ErrorInfo"
+        or (node.tag.rsplit("}", 1)[-1] == "RunInfos" and node not in allowed_containers)
+        or (node.tag.rsplit("}", 1)[-1] == "RunInfo"
+            and (node not in allowed_infos or node.get("outcome") != "Information"))
+        for node in trx.iter()
+    ):
         raise ValueError("Native TRX contains contradictory failure information")
     containers = []
     for container_name, child_name in (("Results", "UnitTestResult"),
