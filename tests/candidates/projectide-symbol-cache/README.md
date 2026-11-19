@@ -19,8 +19,7 @@ or assume that previously retained values become inaccessible after `Clear`.
 - Product commit: `508f641c2391f55f788d6658f3da78939a94308c`.
 - Product tree: `6472827fd981a375e49d8a78992d67bc3d332ebf`.
 - Independent C# blob: `af25db405319329c62479dfbd390b922e116d180`.
-- Composition runner blob: `5ea6160af5e0f862ec65f4c900493128a225c4d3`.
-- Verifier controls blob: `b86dc428ff9461174f4ff5911bf7916dd0baf59f`.
+- The advisory workflow pins the exact composition runner and verifier control blobs in `RUNNER_BLOB` and `CONTROLS_BLOB`.
 - Product SDK: .NET `10.0.403`, `rollForward: disable`, no prerelease SDK.
 - Execution scope: `SYNTHETIC_SYMBOL_CACHE_CORE_ONLY`.
 
