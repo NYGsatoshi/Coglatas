@@ -311,6 +311,16 @@ test('compat-critical file admission rejects missing and duplicated sources and 
   ].join('\n');
   try {
     await assert.rejects(
+      () => loadCompatCriticalContract(path.join(root, 'missing-contract.json')),
+      /Unable to read compat-critical contract/u
+    );
+    const invalidContract = path.join(root, 'invalid-contract.json');
+    await writeFile(invalidContract, '{not valid JSON', 'utf8');
+    await assert.rejects(
+      () => loadCompatCriticalContract(invalidContract),
+      /Unable to read compat-critical contract/u
+    );
+    await assert.rejects(
       () => verifyCompatCriticalSources(contract, root),
       /compat-critical source file is missing/u
     );
