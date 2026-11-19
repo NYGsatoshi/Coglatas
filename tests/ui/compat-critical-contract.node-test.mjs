@@ -227,6 +227,121 @@ test('source verifier accepts valid paths within repository root', async () => {
   }
 });
 
+
+test('compat-critical schema and owner negative cases remain fail-closed', () => {
+  const quarantine = { testId: 'COMPAT-BOOT-001', reason: 'controlled test outage',
+    owner: '@ci-owner', issue: '#584', expiresOn: '2026-12-31' };
+  const mutations = [
+    ['schema revision', c => { c.schemaVersion = 2; }, /schemaVersion must be 1/u],
+    ['contract identity', c => { c.name = 'unrelated'; }, /contract name must be compat-critical/u],
+    ['unknown default profile', c => { c.defaultProfile = 'unknown'; }, /defaultProfile does not exist/u],
+    ['missing tests', c => { c.tests = []; }, /at least one test/u],
+    ['nonobject profiles', c => { c.profiles = []; }, /profiles must be an object/u],
+    ['empty profiles', c => { c.profiles = {}; }, /at least one profile/u],
+    ['unknown profile category', c => { c.profiles['browser-engine'].requiredCategories = ['other']; }, /references unknown categories/u],
+    ['blank profile description', c => { c.profiles['browser-engine'].description = ''; }, /non-empty description/u],
+    ['malformed test ID', c => { c.tests[0].id = 'COMPAT-other'; }, /Invalid compat-critical test id/u],
+    ['duplicate test ID', c => { c.tests[1].id = c.tests[0].id; }, /Duplicate compat-critical test id/u],
+    ['duplicate test title', c => { c.tests[1].title = c.tests[0].title; }, /Duplicate compat-critical test title/u],
+    ['unrecognized test category', c => { c.tests[0].categories = ['unknown']; }, /references unknown categories/u],
+    ['unrecognized test profile', c => { c.tests[0].profiles = ['unknown']; }, /references unknown profiles/u],
+    ['unrecognized test status', c => { c.tests[0].status = 'paused'; }, /unsupported status/u],
+    ['nonarray quarantines', c => { c.quarantines = {}; }, /quarantines must be an array/u],
+    ['nonobject quarantine', c => { c.quarantines = [null]; }, /quarantines\[0\] must be an object/u],
+    ['unknown quarantine identity', c => { c.quarantines = [{ ...quarantine, testId: 'COMPAT-MISSING-001' }]; }, /unknown compat-critical test/u],
+    ['duplicate quarantine', c => { c.quarantines = [{ ...quarantine }, { ...quarantine }]; }, /Duplicate quarantine entry/u],
+    ['invalid quarantine expiry', c => { c.quarantines = [{ ...quarantine, expiresOn: 'not-a-date' }]; }, /invalid expiresOn date/u],
+    ['global missing active category', c => { c.requiredCategories.push('touch'); }, /missing active coverage categories: touch/u],
+    ['duplicate required category', c => { c.requiredCategories.push('boot'); }, /contains duplicates/u],
+    ['empty profile category', c => { c.profiles['browser-engine'].requiredCategories = []; }, /non-empty array/u],
+    ['malformed test object', c => { c.tests[0] = null; }, /tests\[0\] must be an object/u]
+  ];
+  for (const [label, mutate, expected] of mutations) {
+    const candidate = baseContract();
+    mutate(candidate);
+    assert.throws(
+      () => validateCompatCriticalContract(candidate, { now: new Date('2026-09-04T00:00:00Z') }),
+      expected,
+      label
+    );
+  }
+  assert.throws(
+    () => validateCompatCriticalContract(baseContract(), { now: 'not-a-date' }),
+    /Invalid validation date/u
+  );
+});
+
+test('compat-critical selection and discovery refuse unknown, unowned and duplicate results', () => {
+  const contract = validateCompatCriticalContract(baseContract());
+  assert.throws(
+    () => selectCompatCriticalTests(contract, 'unknown-profile'),
+    /Unknown compat-critical profile/u
+  );
+  const rejected = { ...contract, quarantinedIds: new Set(contract.tests.map(entry => entry.id)) };
+  assert.throws(
+    () => selectCompatCriticalTests(rejected, 'browser-engine'),
+    /selects zero compat-critical tests/u
+  );
+  assert.throws(
+    () => verifyCompatCriticalDiscovery(contract, 'browser-engine',
+      'Listing tests:\n  [chromium-desktop] › other.spec.ts:1:1 › suite › Foreign\nTotal: 1'),
+    /Unexpected or ambiguous compat-critical Playwright discovery line/u
+  );
+  const duplicate = [
+    'Listing tests:',
+    '  [chromium-desktop] › smoke.spec.ts:1:1 › suite › Shell boot',
+    '  [chromium-desktop] › smoke.spec.ts:2:1 › suite › Shell boot',
+    '  [chromium-desktop] › navigation.spec.ts:3:1 › suite › Navigation',
+    'Total: 3'
+  ].join('\n');
+  assert.throws(
+    () => verifyCompatCriticalDiscovery(contract, 'browser-engine', duplicate),
+    /Expected exactly one discovered compat-critical test titled "Shell boot"; found 2/u
+  );
+});
+
+test('compat-critical file admission rejects missing and duplicated sources and skipped suites', async () => {
+  const root = await mkdtemp(path.join(os.homedir(), '.coglatas-compat-critical-'));
+  const sourceFile = path.join(root, 'tests/ui/smoke.spec.ts');
+  const contract = validateCompatCriticalContract(baseContract({ singleFile: true }));
+  const valid = [
+    "test('Shell boot', async () => {});",
+    "test('Navigation', async () => {});",
+    ''
+  ].join('\n');
+  try {
+    await assert.rejects(
+      () => verifyCompatCriticalSources(contract, root),
+      /compat-critical source file is missing/u
+    );
+    await mkdir(path.dirname(sourceFile), { recursive: true });
+    await writeFile(sourceFile, valid, 'utf8');
+    await assert.doesNotReject(() => verifyCompatCriticalSources(contract, root));
+
+    await writeFile(sourceFile, valid.replace("test('Navigation'",
+      "test('Shell boot', async () => {});\ntest('Navigation'"), 'utf8');
+    await assert.rejects(
+      () => verifyCompatCriticalSources(contract, root),
+      /must resolve to exactly one Playwright test declaration/u
+    );
+
+    const skipped = [
+      "test.describe.skip('disabled', () => {",
+      "  test('Shell boot', async () => {});",
+      "  test('Navigation', async () => {});",
+      '});',
+      ''
+    ].join('\n');
+    await writeFile(sourceFile, skipped, 'utf8');
+    await assert.rejects(
+      () => verifyCompatCriticalSources(contract, root),
+      /nested under a skipped\/fixme describe block/u
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 function baseContract(options = {}) {
   return {
     schemaVersion: 1,
