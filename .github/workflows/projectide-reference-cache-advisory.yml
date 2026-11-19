@@ -15,8 +15,8 @@ env:
   PROVENANCE_BLOB: bc8106b9c4ac38af7ddb53bd4f904aef98d847e8
   PROVENANCE_CONTROLS_BLOB: c9f7ec729870758b86b21f806423ce1bb726933c
   SOURCE_BLOB: a61a5f0fe947c251830cfd097ed6ccf128b07b11
-  RUNNER_BLOB: 0fca7914fa17fe66b4470848fa1e34a0f5cd8ce3
-  CONTROLS_BLOB: cad83b72161e347957c411e684c457be9113ae34
+  RUNNER_BLOB: 56ce0926cb6d87babd0d37356eab14cd88dec657
+  CONTROLS_BLOB: 72216fc89e0b374e2f8b6c369ba32befe4abf7c1
 
 concurrency:
   group: reference-cache-qualification-${{ github.event.pull_request.number }}
