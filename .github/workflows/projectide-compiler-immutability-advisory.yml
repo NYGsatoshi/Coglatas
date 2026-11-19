@@ -25,8 +25,8 @@ jobs:
       PRODUCT_HEAD: 3613c648f118cafcb1936fdf5a081aa251c6b4bf
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
       SOURCE_BLOB: 067043361a2e7a83613886234e1afc0b499d70e9
-      RUNNER_BLOB: 5d476f82d0fda88bfa60d0af45f640715b0cacd4
-      REGRESSION_BLOB: d52e587c524c9d2d37eba988508417424c79f6ca
+      RUNNER_BLOB: 970fae25d145f7be02bb3d6e263ccd05e1c2c6a4
+      REGRESSION_BLOB: 6cca98010ae14e615a6191be8a88358444d5cc4b
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
@@ -89,13 +89,25 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python -B tests/candidates/projectide-compiler-immutability/test_compose_and_verify.py
+          $committed = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Python executable committed blob mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-compiler-immutability/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Python executable working bytes mismatch' }
+          $committed = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:REGRESSION_BLOB) { throw 'Python executable committed blob mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-compiler-immutability/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:REGRESSION_BLOB) { throw 'Python executable working bytes mismatch' }
+          python -I -B tests/candidates/projectide-compiler-immutability/test_compose_and_verify.py
           if ($LASTEXITCODE -ne 0) { throw 'Compiler immutability admission controls failed' }
       - name: Run exact independent source and real compiled xUnit controls
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python -B tests/candidates/projectide-compiler-immutability/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/compiler-immutability-product" --evidence "$env:RUNNER_TEMP/compiler-immutability-evidence"
+          $committed = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Python executable committed blob mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-compiler-immutability/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Python executable working bytes mismatch' }
+          python -I -B tests/candidates/projectide-compiler-immutability/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/compiler-immutability-product" --evidence "$env:RUNNER_TEMP/compiler-immutability-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Compiler immutability synthetic qualification did not complete' }
       - name: Retain original source, TRX and compiled discovery receipts
         if: always()
@@ -119,8 +131,8 @@ jobs:
       PRODUCT_HEAD: 3613c648f118cafcb1936fdf5a081aa251c6b4bf
       TEST_HEAD: ${{ github.event.pull_request.head.sha }}
       SOURCE_BLOB: 067043361a2e7a83613886234e1afc0b499d70e9
-      RUNNER_BLOB: 5d476f82d0fda88bfa60d0af45f640715b0cacd4
-      REGRESSION_BLOB: d52e587c524c9d2d37eba988508417424c79f6ca
+      RUNNER_BLOB: 970fae25d145f7be02bb3d6e263ccd05e1c2c6a4
+      REGRESSION_BLOB: 6cca98010ae14e615a6191be8a88358444d5cc4b
     steps:
       - name: Preserve committed source bytes
         shell: pwsh
@@ -183,13 +195,25 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python -B tests/candidates/projectide-compiler-immutability/test_compose_and_verify.py
+          $committed = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Python executable committed blob mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-compiler-immutability/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Python executable working bytes mismatch' }
+          $committed = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:REGRESSION_BLOB) { throw 'Python executable committed blob mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-compiler-immutability/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:REGRESSION_BLOB) { throw 'Python executable working bytes mismatch' }
+          python -I -B tests/candidates/projectide-compiler-immutability/test_compose_and_verify.py
           if ($LASTEXITCODE -ne 0) { throw 'Compiler immutability admission controls failed' }
       - name: Run exact independent source and real compiled xUnit controls
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python -B tests/candidates/projectide-compiler-immutability/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/compiler-immutability-product" --evidence "$env:RUNNER_TEMP/compiler-immutability-evidence"
+          $committed = git rev-parse 'HEAD:tests/candidates/projectide-compiler-immutability/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Python executable committed blob mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-compiler-immutability/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Python executable working bytes mismatch' }
+          python -I -B tests/candidates/projectide-compiler-immutability/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/compiler-immutability-product" --evidence "$env:RUNNER_TEMP/compiler-immutability-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Compiler immutability synthetic qualification did not complete' }
       - name: Retain original source, TRX and compiled discovery receipts
         if: always()

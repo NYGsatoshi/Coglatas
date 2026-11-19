@@ -14,9 +14,9 @@ tests as an independent reviewer. The nine xUnit facts are separately authored.
   in this Security PR. The workflow binds the exact source Git blob
   `067043361a2e7a83613886234e1afc0b499d70e9`.
 - Composition runner: `compose_and_verify.py`, bound by its exact Git blob
-  `5d476f82d0fda88bfa60d0af45f640715b0cacd4`.
+  `970fae25d145f7be02bb3d6e263ccd05e1c2c6a4`.
 - Committed admission regression controls: `test_compose_and_verify.py`,
-  Git blob `d52e587c524c9d2d37eba988508417424c79f6ca`, verified and executed on both hosts before the native suite.
+  Git blob `6cca98010ae14e615a6191be8a88358444d5cc4b`, verified and executed on both hosts before the native suite.
 - Only the original Test candidate is copied into a clean, detached Product
   worktree. Its actual compiler-input bytes, staged blob, Product HEAD and
   unrelated tracked Product changes are checked initially, again after restore
@@ -70,8 +70,9 @@ unsupported XML children, foreign discovery and raw-name whitespace. Actual
 with only the dotnet process controlled. They verify failure receipts for bad
 inventories and actual source, index, HEAD and tracked Product drift, including
 refusal after restore before compilation. The controls are not native C# results.
-All original nine C# fact bodies and helpers, the Product pin and the separate
-historical RED source/runner/workflow remain unchanged.
+All original nine C# fact bodies and helpers and the Product pins remain
+unchanged. The #2095 follow-up below hardens both current and historical
+runner admission without changing the required original RED assertions.
 
 Artifacts retain source identities/hashes and pre/post verification receipts;
 the raw C# file is obtained independently from its pinned Git blob. Each host's
@@ -96,7 +97,7 @@ replayed** at the exact vulnerable Product commit
 candidate Test blob. The separate fixed-SHA historical workflow
 `.github/workflows/projectide-compiler-immutability-historical-red.yml`
 uses `replay_vulnerable.py` (Git blob
-`acd00c742086151dfcaf54bc25765cc9cfb25aa2`) to require precisely three
+`88fd9e290c054e8644a905ea1325894dc515de81`) to require precisely three
 compiled TRX failures, zero PASS/skip, and the *specific* original legacy
 synchronization-root invariant. Successful compilation without those exact
 failures, missing TRX, unrelated exceptions, or source drift fail closed.
@@ -128,3 +129,45 @@ python -B tests/candidates/projectide-compiler-immutability/compose_and_verify.p
 Previous old-source CI, Product-authored tests and CodeRabbit comments cannot
 replace current-head native execution or source-authorization/governance
 clearance. #1144 stays BLOCKED, #1128 SUSPENDED/NOT_EVALUATED, Release NO_GO.
+
+
+## Shared admission boundary follow-up (#2095)
+
+The current and historical readers reject nested result records throughout the
+TRX tree, require exact native identities, and preserve their distinct positive
+and negative counters. The historical reader requires the exact three full
+class/method names, a bijection of result/definition/entry IDs, the original
+SyncRoot assertion, and complete native `AssertSealed` plus corresponding test
+frames. Aliased helper, class or caller names cannot satisfy a frame check.
+The original adapter emits three run-level Error notifications for the expected
+failures; those exact three xUnit notifications are required. Extra notifications
+anywhere in the TRX, including misplaced and nested run errors, are refused.
+Every ErrorInfo must be one of the three original per-case assertion records. The original Ubuntu archive remains unchanged and is a
+copied-input positive for the historical regressions, not a new native run.
+
+Both runners reject `assume-unchanged` and `skip-worktree` through binary NUL-delimited
+Git records, staged/working Product drift, and ignored or ordinary untracked
+compiler inputs. Only generated `bin/` and `obj/` roots beside committed Product
+projects are allowed after restore. Neither frozen Product tree contains tracked
+Directory.Build props/targets; every restore/test/discovery command suppresses
+ancestor imports. Source and index checks run after composition, restore, native
+execution and discovery in both historical and current paths.
+
+Each workflow checks committed and actual Python bytes immediately before
+`python -I -B`, including the locally loaded runner before controls execute.
+Real disposable PowerShell controls reject changed/CRLF-normalized executable
+bytes and ignore neighboring import shadows. A disposable real SDK project
+checks poisoned ancestor props and targets; it adds zero Product xUnit cases.
+The current Python suite has 29 controls and the historical suite has 21.
+One newline-filename control deliberately skips Windows because that fixture is
+not representable there; the same POSIX control also verifies an invalid UTF-8 pathname. The original native matrix remains nine PASS on both
+Windows and Ubuntu, plus precisely three expected failures on the existing
+Ubuntu-only historical leg. No Windows historical execution is claimed.
+
+The historical workflow also runs `test_replay_vulnerable.py` against its newly
+produced original TRX/discovery and retains its log. The controls preserve all
+six false qualification fields and deny historical credit for a native pass,
+abort or composition drift. This cohort has no shared provenance helper and no
+executing-workflow provenance receipt; independent API/job/archive and source
+review remains required. These bounded repairs do not close #2095 or #1938,
+qualify generated output content, grant runtime authority, or change Release NO_GO.
