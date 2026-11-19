@@ -130,3 +130,7 @@ Nested result groups, additional test results and error details invalidate the
 receipt even when the counters and all 24 fact identities match. The native
 summary may retain informational messages under `RunInfos`. A warning or any other outcome
 makes this positive-only receipt incomplete. Ordinary adapter output is preserved.
+
+## Strict native RunInfos containers (#2095)
+
+The native Regional Host admission reader already required Information RunInfo to occur under ResultSummary, but did not reject empty foreign/misplaced RunInfos containers, duplicate native containers or unsupported children. This follow-up checks the containers themselves, without modifying the twenty-four original C# test identities, the frozen Product SHA or the six false qualification flags. All changes are limited to synthetic advisory security evidence admission.

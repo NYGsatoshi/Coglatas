@@ -195,7 +195,7 @@ according to the phase. All native restore, test
 and compiled-discovery commands disable ancestor Directory.Build props and
 targets; the pinned Product contains neither committed import file.
 
-The control suite has 43 methods, preserving the original 29 and adding nested
+The control suite has 45 methods, preserving the original 29 and adding nested
 results, run-level failures, index masks, ignored-input/phase checks, a real
 disposable SDK import probe and actual PowerShell helper-bootstrap controls.
 The SDK probe runs only a separate package-free project and adds no Product
@@ -211,7 +211,7 @@ isolated Python execution, PowerShell verifies both the helper's committed blob
 and its unfiltered working bytes. Bootstrap controls execute these exact two
 OS blocks with changed committed bytes, changed or CRLF-normalized working
 bytes, and a neighboring import shadow. The helper's unchanged 25 independent
-provenance controls run separately from this cohort's 43 controls.
+provenance controls run separately from this cohort's 45 controls.
 
 Historical contexts that called the Test head `workflowHead` retain their
 original limitation; they are not restamped. The executing PR merge, reviewed
@@ -243,4 +243,8 @@ Ignored and ordinary untracked source paths are refused **outside** the register
 
 Disposable SDK probes pin `10.0.403` with roll-forward disabled and check the selected version before creating either parent import. Their known Git fixture files are explicitly force-staged. Execution controls give each script distinct committed canary bytes and its own pin, require every role's bindings, and verify exactly which isolated canaries ran. These controls add no Product/native execution credit.
 
-The control report reserves `PASS` for all 43 distinct committed methods, zero skips, unchanged native evidence, and completed SDK and PowerShell control scopes. Zero-test, filtered, duplicate-method, skipped or missing-tool-scope runs are `INCOMPLETE` and return a nonzero exit code. Actual CLI regressions retain their exit code, status, count and skip totals separately in the report; `nativeProductCommandsExecuted` remains false.
+The control report reserves `PASS` for all 45 distinct committed methods, zero skips, unchanged native evidence, and completed SDK and PowerShell control scopes. Zero-test, filtered, duplicate-method, skipped or missing-tool-scope runs are `INCOMPLETE` and return a nonzero exit code. Actual CLI regressions retain their exit code, status, count and skip totals separately in the report; `nativeProductCommandsExecuted` remains false.
+
+## Native Inspector RunInfo location control (#2095)
+
+The independent native TRX reader accepts Information RunInfo only directly under one native ResultSummary/RunInfos. Duplicate containers, unsupported/foreign run message children, and relocated informational messages cannot qualify the fixed twelve C# identities even with passing counters. Existing Angular evidence, immutable Product/C# and TypeScript source identities, provenance helper pins, and all six false qualification flags remain unchanged. This is synthetic security-evidence admission hardening only.
