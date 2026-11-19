@@ -140,6 +140,29 @@ def native_inventory(path: Path, *, historical: bool = False) -> list[str]:
         raise ValueError("Native TRX contains nested result records")
     if any(item.get("outcome") == "Passed" and item.find(".//{*}ErrorInfo") is not None for item in cases):
         raise ValueError("Native TRX passing result contains error information")
+
+    # A correct outer roster is insufficient: scan all TRX nodes, including
+    # extension namespaces and containers outside the counted Results list.
+    direct_cases = set(cases)
+    allowed_run_infos = set(summary.findall(f"{TRX_NAMESPACE}RunInfos/{TRX_NAMESPACE}RunInfo"))
+    allowed_error_infos = set()
+    if historical:
+        for result in cases:
+            if result.get("testName") in HISTORICAL_FAILURES:
+                error = result.find(f"{TRX_NAMESPACE}Output/{TRX_NAMESPACE}ErrorInfo")
+                if error is not None:
+                    allowed_error_infos.add(error)
+    for element in trx.iter():
+        name = element.tag.rsplit("}", 1)[-1]
+        if element not in direct_cases and (name.endswith("TestResult")
+                                            or name in ("InnerResults", "TestResultAggregation")):
+            raise ValueError("Native TRX contains nested result records")
+        if name == "ErrorInfo" and element not in allowed_error_infos:
+            raise ValueError("Native TRX contains unbound error information")
+        if name == "RunInfo" and element not in allowed_run_infos:
+            raise ValueError("Native TRX contains failed or unsupported run-level result information")
+        if name == "RunInfos" and element not in run_infos:
+            raise ValueError("Native TRX contains failed or unsupported run-level result information")
     names = [item.get("testName", "") for item in cases]
     if (set(names) != identities or len(set(names)) != expected
             or any(item.get("outcome") != ("Failed" if historical and item.get("testName") in HISTORICAL_FAILURES else "Passed") for item in cases)):
@@ -186,7 +209,7 @@ def native_inventory(path: Path, *, historical: bool = False) -> list[str]:
         for item in container:
             if item.tag != TRX_NAMESPACE + "RunInfo":
                 raise ValueError("Native TRX contains failed or unsupported run-level result information")
-            if item.get("outcome") in ("Passed", "Completed", "Warning", "Information"):
+            if item.get("outcome") == "Information":
                 continue
             if not historical or item.get("outcome") != "Error":
                 raise ValueError("Native TRX contains failed or unsupported run-level result information")

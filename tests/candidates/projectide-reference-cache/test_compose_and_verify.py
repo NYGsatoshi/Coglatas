@@ -163,8 +163,38 @@ class HistoricalAdmissionControls(unittest.TestCase):
         output = negative.find(NAMESPACE + "Output")
         negative.remove(output)
         positive.append(output)
-        with self.assertRaisesRegex(ValueError, "^Native TRX does not match the exact reference-cache fact roster$"):
+        with self.assertRaisesRegex(ValueError, "^Native TRX contains unbound error information$"):
             self.read(root)
+
+    def test_historical_error_exceptions_are_bound_to_exact_failed_results(self) -> None:
+        self.assertEqual(sorted(RUNNER.HISTORICAL_IDENTITIES), self.read(historical_fixture()))
+        for namespace in (NAMESPACE, "{urn:extension}", ""):
+            with self.subTest(namespace=namespace):
+                root = historical_fixture()
+                failed = next(item for item in root.find(NAMESPACE + "Results")
+                              if item.get("testName") in RUNNER.HISTORICAL_FAILURES)
+                ET.SubElement(failed.find(NAMESPACE + "Output"), namespace + "ErrorInfo")
+                with self.assertRaisesRegex(ValueError, "^Native TRX contains unbound error information$"):
+                    self.read(root)
+        for outcome in ("Passed", "Completed", "Warning"):
+            with self.subTest(outcome=outcome):
+                root = historical_fixture()
+                info = ET.SubElement(root.find(NAMESPACE + "ResultSummary/" + NAMESPACE + "RunInfos"),
+                                     NAMESPACE + "RunInfo", outcome=outcome)
+                with self.assertRaisesRegex(ValueError, "^Native TRX contains failed or unsupported run-level result information$"):
+                    self.read(root)
+        root = historical_fixture()
+        infos = root.find(NAMESPACE + "ResultSummary/" + NAMESPACE + "RunInfos")
+        ET.SubElement(infos, NAMESPACE + "RunInfo", outcome="Information")
+        self.assertEqual(sorted(RUNNER.HISTORICAL_IDENTITIES), self.read(root))
+
+    def test_historical_non_direct_result_records_are_rejected(self) -> None:
+        for name in ("GenericTestResult", "InnerResults", "TestResultAggregation"):
+            with self.subTest(name=name):
+                root = historical_fixture()
+                ET.SubElement(root.find(NAMESPACE + "ResultSummary"), NAMESPACE + name)
+                with self.assertRaisesRegex(ValueError, "^Native TRX contains nested result records$"):
+                    self.read(root)
 
     def test_historical_mode_cannot_select_corrected_or_unapproved_product(self) -> None:
         self.assertEqual(RUNNER.PRODUCT_TREE, RUNNER.selected_product(RUNNER.PRODUCT_HEAD, False))
@@ -271,6 +301,44 @@ class NativeInventoryControls(ExactRejection):
                     ET.ElementTree(root).write(self.report, encoding="utf-8", xml_declaration=True)
                     self.reject("Native TRX contains nested result records",
                                 lambda: RUNNER.native_inventory(self.report, historical=historical))
+
+    def test_all_other_result_nodes_are_rejected_outside_the_counted_roster(self) -> None:
+        for namespace in (NAMESPACE, "{urn:extension}", ""):
+            for name in ("GenericTestResult", "CustomTestResult", "TestResultAggregation", "InnerResults"):
+                for location in ("summary", "case"):
+                    with self.subTest(namespace=namespace, name=name, location=location):
+                        root = native_fixture()
+                        parent = (root.find(NAMESPACE + "ResultSummary") if location == "summary"
+                                  else root.find(NAMESPACE + "Results")[0])
+                        ET.SubElement(parent, namespace + name)
+                        self.reject("Native TRX contains nested result records", lambda: self.read(root))
+
+    def test_information_messages_are_summary_only_and_warnings_are_refused(self) -> None:
+        root = native_fixture()
+        infos = ET.SubElement(root.find(NAMESPACE + "ResultSummary"), NAMESPACE + "RunInfos")
+        info = ET.SubElement(infos, NAMESPACE + "RunInfo", outcome="Information")
+        self.assertEqual(IDENTITIES, self.read(root))
+        for outcome in ("Passed", "Completed", "Warning"):
+            with self.subTest(outcome=outcome):
+                info.set("outcome", outcome)
+                self.reject("Native TRX contains failed or unsupported run-level result information",
+                            lambda: self.read(root))
+        for location in ("case", "definitions", "root"):
+            with self.subTest(location=location):
+                root = native_fixture()
+                parent = (root.find(NAMESPACE + "Results")[0] if location == "case" else
+                          root.find(NAMESPACE + "TestDefinitions")[0] if location == "definitions" else root)
+                infos = ET.SubElement(parent, NAMESPACE + "RunInfos")
+                ET.SubElement(infos, NAMESPACE + "RunInfo", outcome="Information")
+                self.reject("Native TRX contains failed or unsupported run-level result information",
+                            lambda: self.read(root))
+
+    def test_unbound_errors_in_unrelated_nodes_are_rejected(self) -> None:
+        for namespace in (NAMESPACE, "{urn:extension}", ""):
+            with self.subTest(namespace=namespace):
+                root = native_fixture()
+                ET.SubElement(root.find(NAMESPACE + "TestDefinitions")[0], namespace + "ErrorInfo")
+                self.reject("Native TRX contains unbound error information", lambda: self.read(root))
 
     def test_complete_native_shape_and_discovery_match(self) -> None:
         self.assertEqual(IDENTITIES, self.read(native_fixture()))
