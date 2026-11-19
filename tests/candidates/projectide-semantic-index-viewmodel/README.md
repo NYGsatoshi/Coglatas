@@ -118,3 +118,7 @@ Nested result groups, additional test results and error details invalidate the
 receipt even when the counters and all 24 fact identities match. The native
 summary may retain informational messages under `RunInfos`. A warning or any other outcome
 makes this positive-only receipt incomplete. Ordinary adapter output is preserved.
+
+## Strict native RunInfos container admission (#2095)
+
+The Semantic Index ViewModel native TRX reader already binds actual Information RunInfo elements to the native ResultSummary/RunInfos location. The remaining gap is unbound empty containers, duplicate native containers and unsupported children, none of which must qualify solely because counters and test identities pass. The existing twenty-four C# tests, immutable Product SHA, helper provenance checks and all six false qualification flags remain unchanged. Synthetic advisory evidence only; no release promotion.
