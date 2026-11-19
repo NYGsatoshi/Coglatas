@@ -17,7 +17,7 @@ env:
   PRODUCT_HEAD: 070ceb7f49e1e990a8395ea2e3a558a7185e1865
   SOURCE_BLOB: 8ef4f3f287ab4acfb855eda4f9c7a7e31a2d4756
   RUNNER_BLOB: 037c5d1a84632e3c81314b213b2aea1656a5410d
-  CONTROLS_BLOB: 260c102d0f5ba4a3b998fbfecf98e4968303c71f
+  CONTROLS_BLOB: 0f904ac2586ceb6dd6a2abd1298cbfcca8a7eceb
 
 concurrency:
   group: test-discovery-qualification-${{ github.event.pull_request.number }}
@@ -112,7 +112,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-test-discovery' 'tests/candidates/workflow-provenance'
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-test-discovery' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-test-discovery-advisory.yml --context (Join-Path $context 'workflow-context.json')
           if ($LASTEXITCODE -ne 0) { throw 'Executing workflow provenance was refused' }
@@ -132,7 +132,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-test-discovery' 'tests/candidates/workflow-provenance'
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-test-discovery' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B -c "import importlib.util, runpy, sys; s=importlib.util.spec_from_file_location('verify_workflow_provenance', 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'); m=importlib.util.module_from_spec(s); sys.modules[s.name]=m; s.loader.exec_module(m); runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py', run_name='__main__')" *> $log
           $controlsExitCode = $LASTEXITCODE
@@ -154,7 +154,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-test-discovery' 'tests/candidates/workflow-provenance'
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-test-discovery' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-test-discovery/test_compose_and_verify.py' *> $log
           $controlsExitCode = $LASTEXITCODE
@@ -173,7 +173,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-test-discovery' 'tests/candidates/workflow-provenance'
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-test-discovery' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B tests/candidates/projectide-test-discovery/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/test-discovery-qualification-product" --evidence "$env:RUNNER_TEMP/test-discovery-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Test discovery Core and CLI independent synthetic qualification did not complete' }
@@ -277,7 +277,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-test-discovery' 'tests/candidates/workflow-provenance'
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-test-discovery' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-test-discovery-advisory.yml --context (Join-Path $context 'workflow-context.json')
           if ($LASTEXITCODE -ne 0) { throw 'Executing workflow provenance was refused' }
@@ -297,7 +297,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-test-discovery' 'tests/candidates/workflow-provenance'
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-test-discovery' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B -c "import importlib.util, runpy, sys; s=importlib.util.spec_from_file_location('verify_workflow_provenance', 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'); m=importlib.util.module_from_spec(s); sys.modules[s.name]=m; s.loader.exec_module(m); runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py', run_name='__main__')" *> $log
           $controlsExitCode = $LASTEXITCODE
@@ -319,7 +319,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-test-discovery' 'tests/candidates/workflow-provenance'
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-test-discovery' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-test-discovery/test_compose_and_verify.py' *> $log
           $controlsExitCode = $LASTEXITCODE
@@ -338,7 +338,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-test-discovery' 'tests/candidates/workflow-provenance'
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-test-discovery' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B tests/candidates/projectide-test-discovery/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/test-discovery-qualification-product" --evidence "$env:RUNNER_TEMP/test-discovery-qualification-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Test discovery Core and CLI independent synthetic qualification did not complete' }

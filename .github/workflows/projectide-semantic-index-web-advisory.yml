@@ -17,7 +17,7 @@ env:
   PRODUCT_HEAD: 09347c1113f5f9c007bbbc5052278d5b5151feb5
   SOURCE_BLOB: 45213690098c1ae4fc2b79b4eedb1432844a07f9
   RUNNER_BLOB: 23728902ccc211fd801220382be41ad76377048a
-  CONTROLS_BLOB: 1edff8b9d165e8dfe0ac089400c9391a16a9a609
+  CONTROLS_BLOB: 5cfba67aa53ea196d297e867c1e9f595cb9310f1
 
 concurrency:
   group: semantic-index-web-${{ github.event.pull_request.number }}
@@ -114,7 +114,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-web' 'tests/candidates/workflow-provenance'
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-semantic-index-web' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B -c "import importlib.util, runpy, sys; s=importlib.util.spec_from_file_location('verify_workflow_provenance', 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'); m=importlib.util.module_from_spec(s); sys.modules[s.name]=m; s.loader.exec_module(m); runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py', run_name='__main__')" *> $log
           $controlsExitCode = $LASTEXITCODE
@@ -144,7 +144,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-web' 'tests/candidates/workflow-provenance'
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-semantic-index-web' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B tests/candidates/projectide-semantic-index-web/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/semantic-index-web-composed" --evidence "$env:RUNNER_TEMP/semantic-index-web-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Original Angular execution or source admission failed; retain evidence' }
@@ -164,7 +164,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-web' 'tests/candidates/workflow-provenance'
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-semantic-index-web' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B tests/candidates/projectide-semantic-index-web/test_compose_and_verify.py --evidence "$env:RUNNER_TEMP/semantic-index-web-evidence" --report "$context/admission-controls.json" -v *> $log
           $controlsExitCode = $LASTEXITCODE
@@ -270,7 +270,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-web' 'tests/candidates/workflow-provenance'
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-semantic-index-web' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B -c "import importlib.util, runpy, sys; s=importlib.util.spec_from_file_location('verify_workflow_provenance', 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'); m=importlib.util.module_from_spec(s); sys.modules[s.name]=m; s.loader.exec_module(m); runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py', run_name='__main__')" *> $log
           $controlsExitCode = $LASTEXITCODE
@@ -300,7 +300,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-web' 'tests/candidates/workflow-provenance'
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-semantic-index-web' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B tests/candidates/projectide-semantic-index-web/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/semantic-index-web-composed" --evidence "$env:RUNNER_TEMP/semantic-index-web-evidence"
           if ($LASTEXITCODE -ne 0) { throw 'Original Angular execution or source admission failed; retain evidence' }
@@ -320,7 +320,7 @@ jobs:
             $working = git hash-object --no-filters -- $script.Path
             if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
           }
-          python -I -B -c "from pathlib import Path; import sys; roots=[Path(x) for x in sys.argv[1:]]; bad=[p for root in roots for p in root.rglob('*') if p.name.casefold()=='__pycache__' or p.suffix.casefold() in ('.pyc','.pyo')]; sys.exit(bool(bad))" 'tests/candidates/projectide-semantic-index-web' 'tests/candidates/workflow-provenance'
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-semantic-index-web' 'tests/candidates/workflow-provenance'
           if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
           python -I -B tests/candidates/projectide-semantic-index-web/test_compose_and_verify.py --evidence "$env:RUNNER_TEMP/semantic-index-web-evidence" --report "$context/admission-controls.json" -v *> $log
           $controlsExitCode = $LASTEXITCODE
