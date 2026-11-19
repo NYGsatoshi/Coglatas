@@ -1,0 +1,74 @@
+name: ProjectIDE ReSharper premerge evidence policy advisory
+
+on:
+  pull_request:
+    branches: [SecurityTestImplimation]
+    paths:
+      - .github/workflows/projectide-resharper-premerge-advisory.yml
+      - scripts/ci/projectide_resharper_integration_gate.py
+      - tests/ci/test_projectide_resharper_integration_gate.py
+      - docs/ci/projectide-resharper-premerge-evidence.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: projectide-resharper-premerge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  policy-source-verification:
+    name: ReSharper exact-head premerge policy (synthetic, nonrequired)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout immutable Security policy Test HEAD
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Set up pinned independent policy runtime
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12'
+      - name: Bind source and negative Test identities without runtime GitHub access
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '${{ github.event.pull_request.head.sha }}'
+          test "$(git rev-parse HEAD:scripts/ci/projectide_resharper_integration_gate.py)" = '319112ff2be293c62a364a93b34da80b572473a6'
+          test "$(git rev-parse HEAD:tests/ci/test_projectide_resharper_integration_gate.py)" = '02fe37c70bb5eff88162da221687d991e73900ea'
+      - name: Prove strict source/probe/final gate refusals on actual Python
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/premerge-policy"
+          python -B tests/ci/test_projectide_resharper_integration_gate.py -v 2>&1 | tee "$RUNNER_TEMP/premerge-policy/unittest.log"
+          python -B - <<'PY' > "$RUNNER_TEMP/premerge-policy/receipt.json"
+          import hashlib, json, subprocess
+          def blob(path):
+              return subprocess.check_output(["git", "rev-parse", "HEAD:" + path], text=True).strip()
+          source = "scripts/ci/projectide_resharper_integration_gate.py"
+          tests = "tests/ci/test_projectide_resharper_integration_gate.py"
+          print(json.dumps({
+              "testHead": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+              "policySourceBlob": blob(source),
+              "negativeTestBlob": blob(tests),
+              "executionScope": "SYNTHETIC_READ_ONLY_POLICY_ONLY",
+              "requiredCheckQualified": False,
+              "independentReviewComplete": False,
+              "securityOwnerGovernanceComplete": False,
+              "productionQualified": False,
+              "releaseQualified": False
+          }, sort_keys=True))
+          PY
+          sha256sum "$RUNNER_TEMP/premerge-policy/unittest.log" "$RUNNER_TEMP/premerge-policy/receipt.json" > "$RUNNER_TEMP/premerge-policy/digests.txt"
+      - name: Preserve original synthetic source/refusal evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: projectide-resharper-premerge-synthetic-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/premerge-policy
+          if-no-files-found: error
+          retention-days: 7

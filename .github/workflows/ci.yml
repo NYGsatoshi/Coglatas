@@ -59,6 +59,8 @@ jobs:
 
       - name: Test required-check topology parser
         run: python3 scripts/ci/test-required-pr-checks.py
+      - name: Test bounded PR cancellation resource cleanup
+        run: python3 -B scripts/ci/test-pr-ci-resource-cleanup.py
       - name: Test Functional required-gate exemption controls
         run: python3 -B scripts/ci/test-functional-fast-gate.py
 
@@ -133,6 +135,9 @@ jobs:
 
       - name: Test nonpublishing Playwright Reporter hook fail-closed lifecycle
         run: node --test tests/ui/playwright-shard-capture.node-test.mjs
+
+      - name: Test privacy-safe full Playwright source-list discovery
+        run: node --test tests/ui/playwright-full-source-list.node-test.mjs
 
       - name: Verify PR Security prebuilt-image source and negative controls
         run: python3 -B scripts/ci/test-security-runtime-prebuilt.py
@@ -444,14 +449,15 @@ jobs:
 
   build-test:
     name: build-test
-    if: ${{ always() }}
+    # Preserve producer-failure admission below while allowing obsolete runs to stop.
+    if: ${{ !cancelled() }}
     needs: dotnet-build
     runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     services:
       postgres:
-        image: postgres@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42 # PostgreSQL 18.6
+        image: postgres:18.7@sha256:e754b839f447639b7004895f4d8a4bfcb4e9dbe3a1bc035f27f646562a16fd61 # PostgreSQL 18.7
         env:
           POSTGRES_DB: coglatas_ci
           POSTGRES_USER: coglatas_ci
@@ -484,7 +490,9 @@ jobs:
 
     steps:
       - name: Require successful build producer
+        shell: bash
         env:
+          BASH_ENV: /dev/null
           PRODUCER_RESULT: ${{ needs.dotnet-build.result }}
         run: test "$PRODUCER_RESULT" = success
 
@@ -823,14 +831,17 @@ jobs:
 
   frontend-test:
     name: frontend-test
-    if: ${{ always() }}
+    # A job-level always() would keep the full browser suite alive after cancellation.
+    if: ${{ !cancelled() }}
     needs: frontend-build
     runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     steps:
       - name: Require successful frontend producer
+        shell: bash
         env:
+          BASH_ENV: /dev/null
           PRODUCER_RESULT: ${{ needs.frontend-build.result }}
         run: test "$PRODUCER_RESULT" = success
 
@@ -922,7 +933,46 @@ jobs:
         if: needs.frontend-build.outputs.frontend == 'true'
         run: bash scripts/ci/npm-ci-retry.sh frontend
 
+      - name: Verify generated-title SDK applicability on isolated source trial
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.base_ref == 'SecurityTestImplimation' &&
+          github.head_ref == 'ci-opt/playwright-full-source-list-20261105' &&
+          needs.frontend-build.outputs.frontend_playwright == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          receipt="$(mktemp)"
+          trap 'rm -f "$receipt"' EXIT
+          # Select stable, uncolored TAP independently of runner reporter defaults.
+          if ! env -u FORCE_COLOR -u NODE_TEST_REPORTER NODE_DISABLE_COLORS=1 \
+            node --test --test-reporter=tap tests/ui/playwright-source-applicability.node-test.mjs >"$receipt" 2>&1; then
+            echo "::error::SOURCE_APPLICABILITY_SDK_TEST_FAILED"
+            exit 1
+          fi
+          for expected in '# tests 7' '# pass 7' '# fail 0' '# skipped 0'; do
+            if ! grep -Fxq -- "$expected" "$receipt"; then
+              echo "::error::SOURCE_APPLICABILITY_SDK_RESULT_INCOMPLETE"
+              # Only finite aggregate TAP counters are retained; never print case titles.
+              awk '/^# (tests|pass|fail|skipped) [0-9]+$/ { print "::notice::SOURCE_APPLICABILITY_SDK_AGGREGATE=" $2 ":" $3 }' "$receipt"
+              exit 1
+            fi
+          done
+          echo "SOURCE_APPLICABILITY_SDK=7_PASS_0_SKIP"
+
+      - name: List original static Playwright test IDs on isolated trial branch only
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.base_ref == 'SecurityTestImplimation' &&
+          github.head_ref == 'ci-opt/playwright-full-source-list-20261105' &&
+          needs.frontend-build.outputs.frontend_playwright == 'true'
+        shell: bash
+        env:
+          COGLATAS_SOURCE_DISCOVERY_TRIAL: "1"
+        run: node scripts/ci/qualify-playwright-full-source-list.mjs
+
       - name: Run frontend checks in parallel
+        id: frontend-lanes
         if: needs.frontend-build.outputs.frontend == 'true'
         shell: bash
         env:
@@ -936,6 +986,11 @@ jobs:
           # Purely observational, opt-in phase timing; unchanged browser suite.
           COGLATAS_PENPOT_PHASE_PROFILE: ${{ github.event_name == 'pull_request' && github.base_ref == 'SecurityTestImplimation' && contains(github.event.pull_request.labels.*.name, 'ci-penpot-phase-profile') && '1' || '0' }}
         run: bash scripts/ci/run-frontend-parallel.sh
+
+      - name: Finalize owned frontend resources after the test process exits
+        if: always() && needs.frontend-build.outputs.frontend_playwright == 'true' && steps.frontend-lanes.outcome != '' && steps.frontend-lanes.outcome != 'skipped'
+        timeout-minutes: 2
+        run: bash scripts/ci/cleanup-pr-ci-resources.sh frontend-test
 
       - name: Upload browser artifacts on failure
         if: failure() && needs.frontend-build.outputs.frontend_playwright == 'true'
@@ -963,6 +1018,22 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      - name: Collect bounded image keyboard observations from every attempt
+        id: collect-image-keyboard-observations
+        if: always() && needs.frontend-build.outputs.frontend_playwright == 'true'
+        timeout-minutes: 2
+        run: node scripts/ci/collect-image-keyboard-observations.mjs
+
+      - name: Retain validated image keyboard observations after retry success
+        if: always() && needs.frontend-build.outputs.frontend_playwright == 'true' && steps.collect-image-keyboard-observations.outcome == 'success'
+        timeout-minutes: 2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: image-keyboard-observations-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/image-keyboard-observation-validated/*.json
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Collect bounded Search drawer observations from every attempt
         id: collect-search-drawer-observations
         if: always() && needs.frontend-build.outputs.frontend_playwright == 'true'
@@ -979,7 +1050,8 @@ jobs:
 
   security-scan:
     name: security-scan
-    if: ${{ always() }}
+    # Failure is still rejected by the producer guard; cancellation may end this job.
+    if: ${{ !cancelled() }}
     needs: dotnet-build
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -993,7 +1065,9 @@ jobs:
 
     steps:
       - name: Require successful build producer
+        shell: bash
         env:
+          BASH_ENV: /dev/null
           PRODUCER_RESULT: ${{ needs.dotnet-build.result }}
         run: test "$PRODUCER_RESULT" = success
 
@@ -1196,7 +1270,7 @@ jobs:
               echo "::error::Security runtime prebuilt .NET source does not match the tested revision."
               exit 1
             }
-            [[ -s src/Coglatas.Web/bin/Release/net10.0/Coglatas.Web.dll ]]
+            [[ -s src/Coglatas.Web/bin/Release/net11.0/Coglatas.Web.dll ]]
             [[ -f src/Coglatas.Web/obj/project.assets.json ]]
             dockerfile="infra/docker/security-runtime-pr-prebuilt.Dockerfile"
           fi
@@ -1204,11 +1278,19 @@ jobs:
           printf 'COGLATAS_SECURITY_RUNTIME_IMAGE=%s\n' "$image" >> "$GITHUB_ENV"
 
       - name: Run isolated security runtime lanes in parallel
+        id: security-runtime-lanes
         if: github.event_name != 'pull_request' || needs.dotnet-build.outputs.security_compose == 'true'
         shell: bash
         env:
           SYNCFUSION_LICENSE: compose-config-validation-placeholder
         run: bash scripts/ci/run-security-runtime-parallel.sh
+
+      - name: Finalize owned security resources after the scanner processes exit
+        if: always() && steps.security-runtime-lanes.outcome != '' && steps.security-runtime-lanes.outcome != 'skipped'
+        timeout-minutes: 2
+        env:
+          COGLATAS_SECURITY_RUNTIME_FAILED: ${{ steps.security-runtime-lanes.outcome != 'success' && 'true' || 'false' }}
+        run: bash scripts/ci/cleanup-pr-ci-resources.sh security-scan
 
       - name: Scan repository filesystem with Trivy
         if: github.event_name != 'pull_request' || needs.dotnet-build.outputs.security_image == 'true'

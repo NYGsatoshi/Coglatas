@@ -6,6 +6,7 @@ import argparse
 from contextlib import contextmanager
 import hashlib
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
 import stat
@@ -52,30 +53,45 @@ def safe_name(name: str) -> str:
 
 @contextmanager
 def verified_zip(path: Path, expected_digest: str):
-    require(path.is_file() and path.stat().st_size <= MAX_ARCHIVE, "Artifact size is unsupported.")
-    # Parse the exact hashed snapshot, even if the caller replaces its input path.
-    with tempfile.TemporaryFile() as snapshot, path.open("rb") as source:
-        observed, size = hashlib.sha256(), 0
-        while chunk := source.read(1024 * 1024):
-            size += len(chunk)
-            require(size <= MAX_ARCHIVE, "Artifact exceeds the bounded input size.")
-            snapshot.write(chunk)
-            observed.update(chunk)
-        require(observed.hexdigest() == expected_digest, "Independent artifact digest differs.")
-        snapshot.seek(0)
-        with zipfile.ZipFile(snapshot) as archive:
-            members, seen, expanded = archive.infolist(), set(), 0
-            require(0 < len(members) <= 256, "ZIP member count is unsupported.")
-            for member in members:
-                name = safe_name(member.filename)
-                mode = member.external_attr >> 16
-                require(name not in seen and not member.flag_bits & 1 and not stat.S_ISLNK(mode),
-                        "Duplicate, encrypted or linked ZIP member.")
-                seen.add(name)
-                expanded += member.file_size
-                require(0 <= member.file_size <= MAX_ARCHIVE and expanded <= MAX_EXPANDED,
-                        "ZIP expansion exceeds the bounded input size.")
-            yield archive
+    # Never follow an artifact path through a symlink or non-regular file.
+    # O_NOFOLLOW and O_NONBLOCK protect POSIX against link swaps and FIFOs;
+    # fstat validates the actual opened descriptor before consuming bytes.
+    require(not path.is_symlink(), "Artifact input must be a regular file.")
+    try:
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0)
+                             | getattr(os, "O_NOFOLLOW", 0))
+    except OSError:
+        raise ReconciliationError("Artifact input must be a regular file.") from None
+    try:
+        opened = os.fstat(descriptor)
+        require(stat.S_ISREG(opened.st_mode) and 0 < opened.st_size <= MAX_ARCHIVE,
+                "Artifact size or file type is unsupported.")
+        # Keep descriptor ownership even if stream or snapshot setup fails.
+        # Parse the exact hashed snapshot, even if the caller replaces its input path.
+        with os.fdopen(descriptor, "rb", closefd=False) as source, tempfile.TemporaryFile() as snapshot:
+            observed, size = hashlib.sha256(), 0
+            while chunk := source.read(1024 * 1024):
+                size += len(chunk)
+                require(size <= MAX_ARCHIVE, "Artifact exceeds the bounded input size.")
+                snapshot.write(chunk)
+                observed.update(chunk)
+            require(observed.hexdigest() == expected_digest, "Independent artifact digest differs.")
+            snapshot.seek(0)
+            with zipfile.ZipFile(snapshot) as archive:
+                members, seen, expanded = archive.infolist(), set(), 0
+                require(0 < len(members) <= 256, "ZIP member count is unsupported.")
+                for member in members:
+                    name = safe_name(member.filename)
+                    mode = member.external_attr >> 16
+                    require(name not in seen and not member.flag_bits & 1 and not stat.S_ISLNK(mode),
+                            "Duplicate, encrypted or linked ZIP member.")
+                    seen.add(name)
+                    expanded += member.file_size
+                    require(0 <= member.file_size <= MAX_ARCHIVE and expanded <= MAX_EXPANDED,
+                            "ZIP expansion exceeds the bounded input size.")
+                yield archive
+    finally:
+        os.close(descriptor)
 
 
 def read_member(archive: zipfile.ZipFile, name: str, maximum: int) -> bytes:

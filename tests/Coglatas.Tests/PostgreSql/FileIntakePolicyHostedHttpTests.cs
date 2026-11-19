@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -145,7 +144,9 @@ public sealed class FileIntakePolicyHostedHttpTests
                 await WithDbAsync(host, async db =>
                 {
                     var serverVersion = await db.Database.SqlQueryRaw<string>("SELECT current_setting('server_version') AS \"Value\"").SingleAsync();
-                    Assert.StartsWith("18.6", serverVersion, StringComparison.Ordinal);
+                    var serverVersionNumber = await db.Database.SqlQueryRaw<int>(
+                        "SELECT current_setting('server_version_num')::integer AS \"Value\"").SingleAsync();
+                    Assert.Equal(18, serverVersionNumber / 10000);
                     Console.WriteLine($"FILE_INTAKE_PROVIDER={serverVersion}");
                 });
                 var assembly = typeof(FilesController).Assembly;

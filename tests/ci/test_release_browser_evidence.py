@@ -100,6 +100,31 @@ class BrowserEvidenceTests(unittest.TestCase):
         self.context['scannerImage'] = evidence.IMAGE.replace('781a', 'ffff', 1)
         self.reject('SCANNER_IDENTITY_MISMATCH')
 
+    def test_native_risk_description_must_agree_with_numeric_severity(self):
+        self.native['site'][0]['alerts'][0]['riskdesc'] = 'High (Medium)'
+        self.reject('NATIVE_RISK_CLASSIFICATION_CONFLICT')
+
+    def test_native_risk_description_rejects_unclassified_private_content(self):
+        self.native['site'][0]['alerts'][0]['riskdesc'] = 'synthetic-secret-marker'
+        self.reject('NATIVE_RISK_CLASSIFICATION_CONFLICT')
+        self.assertEqual(1, self.run_command())
+        self.assertNotIn('synthetic-secret-marker',
+                         Path(self.args.output).read_text(encoding='utf-8'))
+
+    def test_matching_native_risk_description_retains_medium_advisory(self):
+        self.native['site'][0]['alerts'][0]['riskdesc'] = 'Medium (Medium)'
+        report = self.report()
+        self.assertEqual('MATCHED', report['toolingOutcome'])
+        self.assertEqual({'riskCode': 2, 'instanceCount': 2}, report['nativeRules']['10038'])
+
+    def test_high_with_consistent_risk_description_remains_blocking(self):
+        self.native['site'][0]['alerts'][0].update(riskcode='3', riskdesc='High (Medium)')
+        report = self.report()
+        self.assertEqual('FAILED', report['toolingOutcome'])
+        self.assertFalse(report['conditions']['noHighScannerFinding'])
+        self.assertEqual('BLOCKED', report['releaseAcceptance'])
+
+
     def test_native_wrong_version(self):
         self.native['@version'] = '2.16.0'
         self.reject('NATIVE_SCANNER_VERSION_MISMATCH')
@@ -244,6 +269,24 @@ class BrowserEvidenceTests(unittest.TestCase):
         os.mkfifo(path)
         with self.assertRaisesRegex(evidence.EvidenceError, 'NATIVE_INPUT_MISSING_OR_INVALID'):
             evidence.read(path)
+
+    @unittest.skipUnless(hasattr(os, 'symlink') and os.name == 'posix',
+                         'Link boundary requires a POSIX runner')
+    def test_native_report_symlink_cannot_read_external_private_data(self):
+        outside = self.root / 'private-synthetic-fixture.json'
+        marker = 'synthetic-private-marker-123456'
+        outside.write_text(json.dumps({'secret': marker}), encoding='utf-8')
+        linked = self.root / 'browser-native-v1.json'
+        linked.unlink()
+        linked.symlink_to(outside)
+        with self.assertRaisesRegex(evidence.EvidenceError, 'NATIVE_INPUT_MISSING_OR_INVALID') as captured:
+            evidence.read(linked)
+        self.assertNotIn(marker, str(captured.exception))
+        self.assertEqual(self.run_command(), 1)
+        report = Path(self.args.output).read_text(encoding='utf-8')
+        self.assertNotIn(marker, report)
+        self.assertEqual('ERROR', json.loads(report)['integrityStatus'])
+        self.assertFalse(json.loads(report)['rawArtifactUploadAllowed'])
 
     def test_source_read_limit_is_enforced_on_the_stream(self):
         with patch.object(evidence.release, 'MAX_JSON_BYTES', 32):

@@ -1,0 +1,358 @@
+name: ProjectIDE Inspector exact-source composition advisory
+
+on:
+  pull_request:
+    branches: [SecurityTestImplimation]
+    paths:
+      - .github/workflows/projectide-inspector-composition-advisory.yml
+      - tests/candidates/projectide-inspector/**
+      - tests/candidates/workflow-provenance/**
+
+permissions:
+  contents: read
+
+env:
+  PROVENANCE_BLOB: bc8106b9c4ac38af7ddb53bd4f904aef98d847e8
+  PROVENANCE_CONTROLS_BLOB: c9f7ec729870758b86b21f806423ce1bb726933c
+  PRODUCT_HEAD: 8d2346890f0a89bac4c887dc262d25bc33d11508
+  CSHARP_BLOB: 58a57ad5afbac3723cac307473f22dea86534b41
+  ANGULAR_BLOB: e956562c1a1aa160c303bf8827d3c7146e0c4589
+  RUNNER_BLOB: 433ca5cc9d1408813ab08cbec9e25bc9b67d7511
+  CONTROLS_BLOB: 7893c3a913d357b3ba9aa677a9c57e07a290f0ca
+
+concurrency:
+  group: inspector-composition-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  synthetic-composition-ubuntu:
+    name: Inspector synthetic composition (ubuntu-24.04)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      DOTNET_CLI_UI_LANGUAGE: en-US
+      TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+      BASE_HEAD: ${{ github.event.pull_request.base.sha }}
+      WORKFLOW_HEAD: ${{ github.workflow_sha }}
+      WORKFLOW_REF: ${{ github.workflow_ref }}
+      PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Preserve committed source bytes on both hosts
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot disable checkout newline conversion' }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot select committed LF checkout bytes' }
+      - name: Checkout immutable independent Test owner
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind source identities and exact Product SDK policy
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $actualTest = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $actualTest -ne $env:TEST_HEAD) { throw 'Independent Test HEAD mismatch' }
+          $actualRunner = git rev-parse 'HEAD:tests/candidates/projectide-inspector/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $actualRunner -ne $env:RUNNER_BLOB) { throw 'Composition runner blob mismatch' }
+          $csharp = git rev-parse 'HEAD:tests/candidates/projectide-inspector/InspectorIdentityCandidateTests.cs'
+          if ($LASTEXITCODE -ne 0 -or $csharp -ne $env:CSHARP_BLOB) { throw 'Frozen C# candidate blob mismatch' }
+          $angular = git rev-parse 'HEAD:tests/candidates/projectide-inspector/projectide-inspector-identity.candidate.spec.ts'
+          if ($LASTEXITCODE -ne 0 -or $angular -ne $env:ANGULAR_BLOB) { throw 'Frozen Angular candidate blob mismatch' }
+          $controls = git rev-parse 'HEAD:tests/candidates/projectide-inspector/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission controls blob mismatch' }
+          git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
+          if ($LASTEXITCODE -ne 0) { throw 'Exact Product commit unavailable' }
+          $policy = git show "$($env:PRODUCT_HEAD):global.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Exact Product SDK policy unavailable' }
+          $context = Join-Path $env:RUNNER_TEMP 'inspector-context'
+          New-Item -ItemType Directory -Path $context | Out-Null
+          $policy | Set-Content -Encoding utf8NoBOM (Join-Path $context 'global.json')
+          @{
+            productHead = $env:PRODUCT_HEAD
+            testHead = $actualTest
+            runnerBlob = $actualRunner
+            csharpBlob = $csharp
+            angularBlob = $angular
+            controlsBlob = $controls
+            runnerOs = $env:RUNNER_OS
+            runId = '${{ github.run_id }}'
+            runAttempt = '${{ github.run_attempt }}'
+            executionScope = 'SYNTHETIC_HEADLESS_ONLY'
+            requiredCheckQualified = $false
+            independentReviewComplete = $false
+            nativeUiQualified = $false
+            productionQualified = $false
+            trustQualified = $false
+            releaseQualified = $false
+          } | ConvertTo-Json | Set-Content -Encoding utf8NoBOM (Join-Path $context 'workflow-context.json')
+      - name: Set up exact Product SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: ${{ runner.temp }}/inspector-context/global.json
+      - name: Set up composition interpreter
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12'
+      - name: Bind the immutable executing workflow to the reviewed Test source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'inspector-context'
+          $provenance = git rev-parse 'HEAD:tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenance -ne $env:PROVENANCE_BLOB) { throw 'Provenance helper blob mismatch' }
+          $provenanceBytes = git hash-object --no-filters -- 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenanceBytes -ne $env:PROVENANCE_BLOB) { throw 'Provenance helper working bytes mismatch' }
+          python -I -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-inspector-composition-advisory.yml --context (Join-Path $context 'workflow-context.json')
+          if ($LASTEXITCODE -ne 0) { throw 'Executing workflow provenance was refused' }
+      - name: Exercise independent Git provenance refusal controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'inspector-context'
+          $log = Join-Path $context 'provenance-controls.log'
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/workflow-provenance/test_workflow_provenance.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:PROVENANCE_CONTROLS_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/workflow-provenance/test_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:PROVENANCE_CONTROLS_BLOB) { throw 'Working execution script identity mismatch' }
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/workflow-provenance/verify_workflow_provenance.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:PROVENANCE_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:PROVENANCE_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B -c "import importlib.util, runpy, sys; s=importlib.util.spec_from_file_location('verify_workflow_provenance', 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'); m=importlib.util.module_from_spec(s); sys.modules[s.name]=m; s.loader.exec_module(m); runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py', run_name='__main__')" -v *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content -LiteralPath $log
+          if ($controlsExitCode -ne 0) { throw 'Executing workflow provenance controls failed' }
+      - name: Set up supported frontend runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '26'
+      - name: Pin the Product package manager
+        shell: pwsh
+        run: |
+          npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned npm installation failed' }
+          $version = npm --version
+          if ($LASTEXITCODE -ne 0 -or $version -ne '11.17.0') { throw 'Pinned npm version mismatch' }
+      - name: Qualify immutable independent sources against Product
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'inspector-context'
+          $status = git -c core.autocrlf=false status --porcelain --untracked-files=normal
+          $status | Set-Content (Join-Path $context 'source-status.txt')
+          if ($LASTEXITCODE -ne 0 -or $status) { throw 'Immutable independent Test checkout is not clean' }
+          Push-Location $context
+          try {
+            $sdk = dotnet --version
+            if ($LASTEXITCODE -ne 0 -or $sdk -ne '10.0.403') { throw 'Exact Product SDK mismatch' }
+            $sdk | Set-Content 'dotnet-version.txt'
+          } finally { Pop-Location }
+          node --version | Set-Content (Join-Path $context 'node-version.txt')
+          if ($LASTEXITCODE -ne 0) { throw 'Node runtime unavailable' }
+          npm --version | Set-Content (Join-Path $context 'npm-version.txt')
+          if ($LASTEXITCODE -ne 0) { throw 'npm runtime unavailable' }
+          python --version | Set-Content (Join-Path $context 'python-version.txt')
+          if ($LASTEXITCODE -ne 0) { throw 'Python runtime unavailable' }
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-inspector/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-inspector/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-inspector/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/inspector-composed" --evidence "$env:RUNNER_TEMP/inspector-evidence"
+          if ($LASTEXITCODE -ne 0) { throw 'Inspector exact-source composition failed; retain original evidence' }
+      - name: Reject malformed retained evidence and source drift
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $log = "$env:RUNNER_TEMP/inspector-context/admission-controls.log"
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-inspector/test_compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:CONTROLS_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-inspector/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:CONTROLS_BLOB) { throw 'Working execution script identity mismatch' }
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-inspector/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-inspector/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-inspector/test_compose_and_verify.py --evidence "$env:RUNNER_TEMP/inspector-evidence" --report "$env:RUNNER_TEMP/inspector-context/admission-controls.json" -v *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content $log
+          if ($controlsExitCode -ne 0) { throw 'Inspector retained-evidence admission controls failed' }
+      - name: Retain original source receipts, discovery and test outcomes
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: inspector-synthetic-ubuntu-24.04-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/inspector-context
+            ${{ runner.temp }}/inspector-evidence
+          if-no-files-found: error
+
+  synthetic-composition-windows:
+    name: Inspector synthetic composition (windows-latest)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      DOTNET_CLI_UI_LANGUAGE: en-US
+      TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+      BASE_HEAD: ${{ github.event.pull_request.base.sha }}
+      WORKFLOW_HEAD: ${{ github.workflow_sha }}
+      WORKFLOW_REF: ${{ github.workflow_ref }}
+      PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Preserve committed source bytes on both hosts
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot disable checkout newline conversion' }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot select committed LF checkout bytes' }
+      - name: Checkout immutable independent Test owner
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind source identities and exact Product SDK policy
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $actualTest = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $actualTest -ne $env:TEST_HEAD) { throw 'Independent Test HEAD mismatch' }
+          $actualRunner = git rev-parse 'HEAD:tests/candidates/projectide-inspector/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $actualRunner -ne $env:RUNNER_BLOB) { throw 'Composition runner blob mismatch' }
+          $csharp = git rev-parse 'HEAD:tests/candidates/projectide-inspector/InspectorIdentityCandidateTests.cs'
+          if ($LASTEXITCODE -ne 0 -or $csharp -ne $env:CSHARP_BLOB) { throw 'Frozen C# candidate blob mismatch' }
+          $angular = git rev-parse 'HEAD:tests/candidates/projectide-inspector/projectide-inspector-identity.candidate.spec.ts'
+          if ($LASTEXITCODE -ne 0 -or $angular -ne $env:ANGULAR_BLOB) { throw 'Frozen Angular candidate blob mismatch' }
+          $controls = git rev-parse 'HEAD:tests/candidates/projectide-inspector/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission controls blob mismatch' }
+          git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
+          if ($LASTEXITCODE -ne 0) { throw 'Exact Product commit unavailable' }
+          $policy = git show "$($env:PRODUCT_HEAD):global.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Exact Product SDK policy unavailable' }
+          $context = Join-Path $env:RUNNER_TEMP 'inspector-context'
+          New-Item -ItemType Directory -Path $context | Out-Null
+          $policy | Set-Content -Encoding utf8NoBOM (Join-Path $context 'global.json')
+          @{
+            productHead = $env:PRODUCT_HEAD
+            testHead = $actualTest
+            runnerBlob = $actualRunner
+            csharpBlob = $csharp
+            angularBlob = $angular
+            controlsBlob = $controls
+            runnerOs = $env:RUNNER_OS
+            runId = '${{ github.run_id }}'
+            runAttempt = '${{ github.run_attempt }}'
+            executionScope = 'SYNTHETIC_HEADLESS_ONLY'
+            requiredCheckQualified = $false
+            independentReviewComplete = $false
+            nativeUiQualified = $false
+            productionQualified = $false
+            trustQualified = $false
+            releaseQualified = $false
+          } | ConvertTo-Json | Set-Content -Encoding utf8NoBOM (Join-Path $context 'workflow-context.json')
+      - name: Set up exact Product SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: ${{ runner.temp }}/inspector-context/global.json
+      - name: Set up composition interpreter
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12'
+      - name: Bind the immutable executing workflow to the reviewed Test source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'inspector-context'
+          $provenance = git rev-parse 'HEAD:tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenance -ne $env:PROVENANCE_BLOB) { throw 'Provenance helper blob mismatch' }
+          $provenanceBytes = git hash-object --no-filters -- 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenanceBytes -ne $env:PROVENANCE_BLOB) { throw 'Provenance helper working bytes mismatch' }
+          python -I -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-inspector-composition-advisory.yml --context (Join-Path $context 'workflow-context.json')
+          if ($LASTEXITCODE -ne 0) { throw 'Executing workflow provenance was refused' }
+      - name: Exercise independent Git provenance refusal controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'inspector-context'
+          $log = Join-Path $context 'provenance-controls.log'
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/workflow-provenance/test_workflow_provenance.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:PROVENANCE_CONTROLS_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/workflow-provenance/test_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:PROVENANCE_CONTROLS_BLOB) { throw 'Working execution script identity mismatch' }
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/workflow-provenance/verify_workflow_provenance.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:PROVENANCE_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:PROVENANCE_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B -c "import importlib.util, runpy, sys; s=importlib.util.spec_from_file_location('verify_workflow_provenance', 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'); m=importlib.util.module_from_spec(s); sys.modules[s.name]=m; s.loader.exec_module(m); runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py', run_name='__main__')" -v *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content -LiteralPath $log
+          if ($controlsExitCode -ne 0) { throw 'Executing workflow provenance controls failed' }
+      - name: Set up supported frontend runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '26'
+      - name: Pin the Product package manager
+        shell: pwsh
+        run: |
+          npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned npm installation failed' }
+          $version = npm --version
+          if ($LASTEXITCODE -ne 0 -or $version -ne '11.17.0') { throw 'Pinned npm version mismatch' }
+      - name: Qualify immutable independent sources against Product
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'inspector-context'
+          $status = git -c core.autocrlf=false status --porcelain --untracked-files=normal
+          $status | Set-Content (Join-Path $context 'source-status.txt')
+          if ($LASTEXITCODE -ne 0 -or $status) { throw 'Immutable independent Test checkout is not clean' }
+          Push-Location $context
+          try {
+            $sdk = dotnet --version
+            if ($LASTEXITCODE -ne 0 -or $sdk -ne '10.0.403') { throw 'Exact Product SDK mismatch' }
+            $sdk | Set-Content 'dotnet-version.txt'
+          } finally { Pop-Location }
+          node --version | Set-Content (Join-Path $context 'node-version.txt')
+          if ($LASTEXITCODE -ne 0) { throw 'Node runtime unavailable' }
+          npm --version | Set-Content (Join-Path $context 'npm-version.txt')
+          if ($LASTEXITCODE -ne 0) { throw 'npm runtime unavailable' }
+          python --version | Set-Content (Join-Path $context 'python-version.txt')
+          if ($LASTEXITCODE -ne 0) { throw 'Python runtime unavailable' }
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-inspector/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-inspector/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-inspector/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/inspector-composed" --evidence "$env:RUNNER_TEMP/inspector-evidence"
+          if ($LASTEXITCODE -ne 0) { throw 'Inspector exact-source composition failed; retain original evidence' }
+      - name: Reject malformed retained evidence and source drift
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $log = "$env:RUNNER_TEMP/inspector-context/admission-controls.log"
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-inspector/test_compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:CONTROLS_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-inspector/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:CONTROLS_BLOB) { throw 'Working execution script identity mismatch' }
+          $committed = git rev-parse "$($env:TEST_HEAD):tests/candidates/projectide-inspector/compose_and_verify.py"
+          if ($LASTEXITCODE -ne 0 -or $committed -ne $env:RUNNER_BLOB) { throw 'Committed execution script identity mismatch' }
+          $working = git hash-object --no-filters -- 'tests/candidates/projectide-inspector/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $working -ne $env:RUNNER_BLOB) { throw 'Working execution script identity mismatch' }
+          python -I -B tests/candidates/projectide-inspector/test_compose_and_verify.py --evidence "$env:RUNNER_TEMP/inspector-evidence" --report "$env:RUNNER_TEMP/inspector-context/admission-controls.json" -v *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content $log
+          if ($controlsExitCode -ne 0) { throw 'Inspector retained-evidence admission controls failed' }
+      - name: Retain original source receipts, discovery and test outcomes
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: inspector-synthetic-windows-latest-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/inspector-context
+            ${{ runner.temp }}/inspector-evidence
+          if-no-files-found: error

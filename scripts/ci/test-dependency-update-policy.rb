@@ -89,6 +89,29 @@ def update_errors(config)
   errors << 'Renovate must generate lockfiles with the repository npm version' unless
     config.fetch('constraints', {}).fetch('npm', nil) == repo_npm
 
+  # Use the same pinned SDK for Renovate's NuGet artifact generator and CI.
+  errors << 'Renovate NuGet artifact generation must use global.json SDK' unless
+    config.fetch('constraints', {}).fetch('dotnet', nil) == expected_sdk
+  errors << 'Renovate artifact failures must be visible as a green/red status' unless
+    config.fetch('statusCheckWhen', {}).fetch('artifactError', nil) == 'always'
+
+  # npm install-policy must not silently use the newer npm bundled with Node.
+  audit_workflow = (ROOT / '.github/workflows/npm-security-audit.yml').read
+  npm_setup = "npm install --global npm@#{repo_npm} --ignore-scripts --no-audit --no-fund"
+  errors << 'Both npm audit jobs must install the reviewed exact npm version' unless
+    audit_workflow.scan(npm_setup).length == 2
+
+  # EF Core 11, Npgsql 10 and the old NuGet locks cannot form a valid update.
+  # Keep security patches in the approved 10.x line enabled until joint migration.
+  ef_provider = find_rule.call('Hold EF Core and Npgsql provider major 10 until coordinated migration')
+  errors << 'EF Core, dotnet-ef and Npgsql must remain on the jointly reviewed major' unless
+    ef_provider.is_a?(Hash) && ef_provider['matchManagers'] == ['nuget'] &&
+    ef_provider['matchPackageNames'] == [
+      '/^Microsoft\\.EntityFrameworkCore(\\.|$)/', 'Npgsql.EntityFrameworkCore.PostgreSQL', 'dotnet-ef'
+    ] && ef_provider['allowedVersions'] == '/^10\\./' &&
+    !ef_provider.key?('matchUpdateTypes') && !ef_provider.key?('enabled') &&
+    rules.index(ef_provider) > rules.index(find_rule.call('Group compatible NuGet updates per review'))
+
   # npm's lockfile-only updater can omit still-required transitive dependencies.
   # Ensure the repair covers standalone overrides/majors and grouped patch updates.
   npm_rebuild = find_rule.call('Regenerate npm lockfiles with full installation on every update')
@@ -167,17 +190,17 @@ def update_errors(config)
     rules.index(storybook) > rules.index(npm_updates) &&
     rules.index(storybook) > rules.index(ang22_candidates)
 
-  angular_build = find_rule.call('Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees')
+  angular_build = find_rule.call('Exclude Angular 22.2.5-22.2.7 tooling with invalid optional peer trees')
   errors << 'Only proven broken Angular tooling patches may be excluded; future fixes remain eligible' unless
     angular_build.is_a?(Hash) && angular_build['matchManagers'] == ['npm'] &&
     angular_build['matchPackageNames'] == ['@angular/build', '@angular-devkit/build-angular', '@angular/cli'] &&
-    angular_build['allowedVersions'] == '!/^22\\.2\\.[56]$/' &&
+    angular_build['allowedVersions'] == '!/^22\\.2\\.[5-7]$/' &&
     !angular_build.key?('enabled') && !angular_build.key?('matchUpdateTypes')
 
-  stylelint = find_rule.call('Hold Stylelint 18 until SCSS config supports its peer dependency')
+  stylelint = find_rule.call('Hold Stylelint 18 and SCSS preset 18 until coordinated migration')
   errors << 'Stylelint 18 cannot be proposed until the SCSS preset supports its peer dependency' unless
     stylelint.is_a?(Hash) && stylelint['matchManagers'] == ['npm'] &&
-    stylelint['matchPackageNames'] == ['stylelint'] && stylelint['allowedVersions'] == '/^17\./' &&
+    stylelint['matchPackageNames'] == ['stylelint', 'stylelint-config-standard-scss'] && stylelint['allowedVersions'] == '/^17\./' &&
     !stylelint.key?('enabled')
 
   gantt = find_rule.call('Hold Gantt major migrations until install-script review')
@@ -324,9 +347,10 @@ abort('Future Syncfusion base install scripts must remain denied unless separate
 global_json = JSON.parse((ROOT / 'global.json').read)
 sdk = global_json.fetch('sdk', {})
 sdk_version = sdk['version']
-abort('SDK must be pinned to stable .NET 10') unless sdk_version.is_a?(String) &&
-  sdk_version.match?(/\A10\.0\.\d{3}\z/) &&
-  sdk['rollForward'] == 'disable' && sdk['allowPrerelease'] == false
+stable_sdk = sdk_version.is_a?(String) && sdk_version.match?(/\A10\.0\.\d{3}\z/)
+ga11_sdk = sdk_version == '11.0.100'
+abort('SDK must pin stable .NET 10 or exact .NET 11 GA') unless
+  (stable_sdk || ga11_sdk) && sdk['rollForward'] == 'disable' && sdk['allowPrerelease'] == false
 
 root_npm = JSON.parse((ROOT / 'package.json').read)
 root_lock = JSON.parse((ROOT / 'package-lock.json').read)
@@ -356,8 +380,8 @@ mutations = {
   're-enable reviewed Actions via later group rule' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Update GitHub Actions pins together' }['enabled'] = true },
   'unsanctioned npm CLI proposal' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep coordinated npm CLI updates out of routine dependency PRs' }['enabled'] = true },
   'renovate config manager can update npm constraint' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep coordinated npm CLI updates out of routine dependency PRs' }['matchManagers'] = ['npm'] },
-  'allow incompatible Stylelint 18' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Stylelint 18 until SCSS config supports its peer dependency' }['allowedVersions'] = '>=17' },
-  'disable Stylelint patch updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Stylelint 18 until SCSS config supports its peer dependency' }['enabled'] = false },
+  'allow incompatible Stylelint 18' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Stylelint 18 and SCSS preset 18 until coordinated migration' }['allowedVersions'] = '>=17' },
+  'disable Stylelint patch updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Stylelint 18 and SCSS preset 18 until coordinated migration' }['enabled'] = false },
   'unreviewed Gantt major proposal' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Gantt major migrations until install-script review' }['allowedVersions'] = '/^35\\./' },
   'allow bot-only protected Action bump' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep protected GitHub Actions on reviewed SHA allowlist' }['enabled'] = true },
   'omit one protected Action from manual-review inventory' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep protected GitHub Actions on reviewed SHA allowlist' }['matchPackageNames'].pop },
@@ -365,10 +389,10 @@ mutations = {
   'unqualified Python bootstrap version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions Python bootstrap on reviewed 3.12' }['allowedVersions'] = '3.15' },
   'match Python label instead of extracted package name' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions Python bootstrap on reviewed 3.12' }['matchPackageNames'] = ['python'] },
   'Actions SDK drifts from global.json' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions dotnet-sdk bootstrap aligned with global.json' }['allowedVersions'] = '10.0.999' },
-  'reallow known invalid Angular build artifact' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['allowedVersions'] = '>=22' },
-  'freeze future Angular build fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['allowedVersions'] = '<22.2.5' },
-  'broaden broken-version exclusion to unrelated packages' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['matchPackageNames'] << '@angular/core' },
-  'disable all Angular build updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['enabled'] = false },
+  'reallow known invalid Angular build artifact' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.7 tooling with invalid optional peer trees' }['allowedVersions'] = '>=22' },
+  'freeze future Angular build fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.7 tooling with invalid optional peer trees' }['allowedVersions'] = '<22.2.5' },
+  'broaden broken-version exclusion to unrelated packages' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.7 tooling with invalid optional peer trees' }['matchPackageNames'] << '@angular/core' },
+  'disable all Angular build updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.7 tooling with invalid optional peer trees' }['enabled'] = false },
   'disable npm double-install workaround' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Group compatible npm updates per review' }.delete('postUpdateOptions') },
   'unreviewed Playwright npm version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Playwright npm updates tied to the reviewed browser image' }['allowedVersions'] = '1.65.0' },
   'drop Playwright root package scope' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Playwright npm updates tied to the reviewed browser image' }.delete('matchFileNames') },
@@ -391,14 +415,25 @@ mutations = {
     rules.insert(routine, storybook)
   },
   'change Renovate npm toolchain constraint' => ->(x) { x['constraints']['npm'] = '12.2.1' },
+  'drift Renovate NuGet SDK from global.json' => ->(x) { x['constraints']['dotnet'] = '10.0.999' },
+  'hide Renovate artifact generation failures' => ->(x) { x['statusCheckWhen']['artifactError'] = 'failed' },
+  'allow premature EF Core 11 upgrade' => ->(x) {
+    x['packageRules'].find { |p| p['description'] == 'Hold EF Core and Npgsql provider major 10 until coordinated migration' }['allowedVersions'] = '/^11\\./'
+  },
+  'allow independent Npgsql major upgrade' => ->(x) {
+    x['packageRules'].find { |p| p['description'] == 'Hold EF Core and Npgsql provider major 10 until coordinated migration' }['matchPackageNames'].delete('Npgsql.EntityFrameworkCore.PostgreSQL')
+  },
+  'allow independent SCSS preset 18 upgrade' => ->(x) {
+    x['packageRules'].find { |p| p['description'] == 'Hold Stylelint 18 and SCSS preset 18 until coordinated migration' }['matchPackageNames'].delete('stylelint-config-standard-scss')
+  },
   'skip full npm installs' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }['skipInstalls'] = true },
   'omit second npm lockfile pass for major PRs' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }.delete('postUpdateOptions') },
   'only repair minor npm updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }['matchUpdateTypes'] = ['minor', 'patch'] },
   'skip npm lockfile artifacts entirely' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Regenerate npm lockfiles with full installation on every update' }['skipArtifactsUpdate'] = true },
   'allow unsupported TypeScript 7' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep TypeScript in Angular 22 supported peer range' }['allowedVersions'] = '>=6' },
   'freeze TypeScript 6.0 fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep TypeScript in Angular 22 supported peer range' }['allowedVersions'] = '/^6\\.0\\.3$/' },
-  'omit Angular CLI from peer regression guard' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['matchPackageNames'].delete('@angular/cli') },
-  'block future Angular tooling fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.6 tooling with invalid optional peer trees' }['allowedVersions'] = '<22.2.5' }
+  'omit Angular CLI from peer regression guard' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.7 tooling with invalid optional peer trees' }['matchPackageNames'].delete('@angular/cli') },
+  'block future Angular tooling fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Exclude Angular 22.2.5-22.2.7 tooling with invalid optional peer trees' }['allowedVersions'] = '<22.2.5' }
 }
 mutations.each do |name, change|
   copy = JSON.parse(JSON.generate(config))
@@ -509,7 +544,7 @@ assert_storybook_dependency_sections(coordinated_sources)
 end
 
 bad_sdk = { 'Dockerfile' => (ROOT / 'Dockerfile').read.sub(
-  /mcr\.microsoft\.com\/dotnet\/sdk:#{Regexp.escape(sdk_version)}/, 'mcr.microsoft.com/dotnet/sdk:10.0.999'
+  /mcr\.microsoft\.com\/dotnet\/sdk:[^@\s]+(?=@sha256:)/, 'mcr.microsoft.com/dotnet/sdk:10.0.999'
 ) }
 abort('Guard missed SDK image/version mismatch') if image_errors(bad_sdk, sdk_version).empty?
 

@@ -109,7 +109,7 @@ public sealed partial class TaskCommandServiceTests
         Assert.Null(task.BriefConstraints);
         var observedSources = new List<TaskBriefValueSource>();
         Assert.All(
-            new[] { result.Value!.Brief!.Goal, result.Value.Brief.Deliverable, result.Value.Brief.Constraints },
+            [result.Value!.Brief!.Goal, result.Value.Brief.Deliverable, result.Value.Brief.Constraints],
             field =>
             {
                 observedSources.Add(field.Source);
@@ -714,7 +714,7 @@ public sealed partial class TaskCommandServiceTests
         Assert.True(cleared.IsSuccess);
         Assert.Null(task.PlannedStartDate);
         Assert.Null(task.PlannedEndDate);
-        Assert.Contains(cleared.Value!.Warnings, warning => warning.Code == "UNSCHEDULED" && !warning.Blocking);
+        Assert.Contains(cleared.Value!.Warnings, warning => warning is { Code: "UNSCHEDULED", Blocking: false });
         Assert.Equal(deadline, task.DeadlineAt);
     }
 
@@ -749,9 +749,7 @@ public sealed partial class TaskCommandServiceTests
         Assert.True(result.IsSuccess);
         Assert.Contains(
             result.Value!.Warnings,
-            warning => warning.Code == "DEPENDENCY_VIOLATION" &&
-                       warning.TargetType == "Dependency" &&
-                       !warning.Blocking);
+            warning => warning is { Code: "DEPENDENCY_VIOLATION", TargetType: "Dependency", Blocking: false });
         Assert.Equal(new DateOnly(2026, 8, 2), successor.PlannedStartDate);
     }
 

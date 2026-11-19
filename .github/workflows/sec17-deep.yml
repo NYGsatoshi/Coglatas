@@ -7,6 +7,7 @@ on:
       - 'tests/Coglatas.Tests/TestInfrastructure/**'
       - 'scripts/ci/sec17_deep_execution.py'
       - 'scripts/ci/test_sec17_deep_execution.py'
+      - 'scripts/ci/test_sec_arch_evidence.py'
       - 'scripts/ci/sec_arch_evidence.py'
       - 'scripts/ci/sec_arch_assembly_binding.py'
       - '.github/workflows/sec17-deep.yml'
@@ -31,7 +32,7 @@ jobs:
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42 # PostgreSQL 18.6
+        image: postgres:18.7@sha256:e754b839f447639b7004895f4d8a4bfcb4e9dbe3a1bc035f27f646562a16fd61 # PostgreSQL 18.7
         env:
           POSTGRES_DB: coglatas_ci
           POSTGRES_USER: coglatas_ci

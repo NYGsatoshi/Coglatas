@@ -47,6 +47,47 @@ A full SHA that is not the SHA currently approved in the allowlist is also rejec
 
 Repository-local Actions and reusable workflows (`./...`) are bound by the repository commit and do not require an external allowlist entry.
 
+### Parsed workflow structure and unsupported flow nodes
+
+The pin validator uses the Ruby standard-library **Psych syntax tree** (not
+regex-based indentation guessing) to locate every job-level or step-level
+`uses` key, including quoted job identifiers and variable indentation.
+Its existing line-specific validator then enforces the immutable SHA, exact
+allowlist path, reviewed version comment and privilege rules. A decoded YAML
+`uses` spelling that cannot be matched to an exact reviewed source line
+fails closed; the parser never executes workflow expressions or loads YAML
+objects. Ruby/Psych must be installed; absence, syntax errors, aliases or
+merge keys that could conceal a job/step, duplicate keys and unsupported
+flow-style **jobs and steps** cause validation failure.
+
+For example, neither of these is accepted, **even when the action SHA is
+approved or the step has only a `run` command**:
+
+```yaml
+jobs: {build: {runs-on: ubuntu-24.04, steps: [{run: echo hello}]}}
+```
+
+```yaml
+jobs:
+  build:
+    steps: [{uses: actions/checkout@v7}]
+```
+
+Use a block-style job and step instead:
+
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+```
+
+Flow mappings in **unrelated** event configuration such as
+`on.pull_request: {types: [opened]}` remain supported. Only protected
+workflow Action references are subject to the existing required full-SHA
+policy; unknown Action repositories are rejected in all scopes.
+
 ## Enforcement
 
 `scripts/ci/github_action_pins.py` inventories every `uses:` reference under `.github/workflows/` and fails closed on:
