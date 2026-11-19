@@ -102,7 +102,7 @@ def native_inventory(path: Path) -> list[str]:
                    if key not in ("total", "executed", "passed"))):
         raise ValueError("Native TRX must contain exactly twelve complete passing Inspector cases")
     if trx.findall(".//{*}ErrorInfo") or any(
-            node.get("outcome") in ("Error", "Failed", "Aborted", "Timeout")
+            node.get("outcome") != "Information"
             for node in trx.findall(".//{*}RunInfo")):
         raise ValueError("Native TRX contains contradictory failure information")
     containers = []
@@ -113,6 +113,11 @@ def native_inventory(path: Path) -> list[str]:
             raise ValueError("Native TRX contains missing or unsupported inventory records")
         containers.append(children)
     cases, definitions, entries = containers
+    if (trx.find(".//{*}InnerResults") is not None
+            or trx.find(".//{*}TestResultAggregation") is not None
+            or [node for node in trx.iter()
+                if node.tag.rsplit("}", 1)[-1].endswith("TestResult")] != cases):
+        raise ValueError("Native TRX contains nested result records")
     names = [item.get("testName", "") for item in cases]
     if (set(names) != EXPECTED_IDENTITIES or len(set(names)) != XUNIT_COUNT
             or any(item.get("outcome") != "Passed" for item in cases)):
@@ -245,6 +250,24 @@ def run(command: list[str], cwd: Path, log: Path | None = None, *, preserve_outp
     return result.stdout if preserve_output else result.stdout.strip()
 
 
+def source_only_dotnet(subcommand: str, *args: str) -> list[str]:
+    """Exclude ancestor Directory.Build inputs outside the frozen Product tree."""
+    if subcommand not in ("restore", "test"):
+        raise ValueError("Unsupported native SDK action")
+    return ["dotnet", subcommand, "-p:ImportDirectoryBuildProps=false",
+            "-p:ImportDirectoryBuildTargets=false", *args]
+
+
+def git_bytes(cwd: Path, *args: str) -> bytes:
+    # NUL-delimited records remain bytes: whitespace and undecodable path bytes
+    # must not turn one tracked path into several records.
+    completed = subprocess.run(["git", "-c", "core.autocrlf=false", *args], cwd=cwd,
+                               capture_output=True, check=False, env=local_git_environment())
+    if completed.returncode:
+        raise RuntimeError("Candidate Git inventory failed")
+    return completed.stdout
+
+
 def git(cwd: Path, *arguments: str) -> str:
     return run(["git", "-c", "core.autocrlf=false", *arguments], cwd)
 
@@ -253,7 +276,7 @@ def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def verify_working_tree(worktree: Path, raw_sources: dict[str, bytes], source_blobs: dict[str, str]) -> None:
+def verify_working_tree(worktree: Path, raw_sources: dict[str, bytes], source_blobs: dict[str, str], *, phase: str = "source") -> None:
     if set(raw_sources) != set(SOURCES.values()) or set(source_blobs) != set(raw_sources):
         raise ValueError("Composition source inventory differs from the two frozen candidates")
     for destination, raw in raw_sources.items():
@@ -267,11 +290,29 @@ def verify_working_tree(worktree: Path, raw_sources: dict[str, bytes], source_bl
             raise ValueError("Composed candidate index identity or mode changed")
     if git(worktree, "rev-parse", "HEAD") != PRODUCT_HEAD:
         raise ValueError("Composed Product HEAD changed")
-    expected = sorted(raw_sources)
-    if (git(worktree, "diff", "--cached", "--name-only", "HEAD", "--").splitlines() != expected
-            or git(worktree, "diff", "--name-only", "--")):
+    flags = git_bytes(worktree, "ls-files", "-v", "-z", "--")
+    if any(len(record) < 3 or record[1:2] != b" " or record[:1] != b"H"
+           for record in flags.split(b"\0") if record):
+        raise ValueError("Git index flags hide tracked Product source")
+    expected = sorted(destination.encode() for destination in raw_sources)
+    changed = git_bytes(worktree, "diff", "--cached", "--no-renames", "--name-only", "-z", "HEAD", "--").split(b"\0")[:-1]
+    if changed != expected or git_bytes(worktree, "diff", "--no-renames", "--name-only", "-z", "--"):
         raise ValueError("Tracked Product source changed during independent composition")
-    if git(worktree, "ls-files", "--others", "--exclude-standard"):
+    frontend_outputs = {
+        "source": (), "native": (),
+        "dependencies": (b"frontend/node_modules/",),
+        "tests": (b"frontend/node_modules/", b"frontend/.angular/cache/"),
+    }
+    if phase not in frontend_outputs:
+        raise ValueError("Unsupported composition output phase")
+    allowed_outputs = frontend_outputs[phase]
+    if phase != "source":
+        tracked = git_bytes(worktree, "ls-tree", "-r", "--name-only", "-z", PRODUCT_HEAD).split(b"\0")
+        projects = {path.rpartition(b"/")[0] for path in tracked if path.endswith(b".csproj")}
+        allowed_outputs += tuple((directory + b"/" if directory else b"") + name + b"/"
+                                 for directory in projects for name in (b"bin", b"obj"))
+    untracked = git_bytes(worktree, "ls-files", "--others", "-z").split(b"\0")
+    if any(path and not path.startswith(allowed_outputs) for path in untracked):
         raise ValueError("Unexpected untracked source appeared during independent composition")
 
 
@@ -330,18 +371,18 @@ def main() -> None:
             raise ValueError("Actual SDK does not match Product global.json pin")
         verify_working_tree(target, raw_sources, source_blobs)
         project = "tests/Coglatas.Tests/Coglatas.Tests.csproj"
-        run(["dotnet", "restore", project, "--nologo"], target, evidence / "restore.log")
-        verify_working_tree(target, raw_sources, source_blobs)
-        run(["dotnet", "test", project, "-c", "Release", "--no-restore", "-warnaserror",
+        run(source_only_dotnet("restore", project, "--nologo"), target, evidence / "restore.log")
+        verify_working_tree(target, raw_sources, source_blobs, phase="native")
+        run(source_only_dotnet("test", project, "-c", "Release", "--no-restore", "-warnaserror",
              "--filter", "FullyQualifiedName~InspectorIdentityCandidateTests",
-             "--logger", "trx;LogFileName=inspector.trx", "--results-directory", str(evidence)],
+             "--logger", "trx;LogFileName=inspector.trx", "--results-directory", str(evidence)),
             target, evidence / "xunit.log")
-        verify_working_tree(target, raw_sources, source_blobs)
+        verify_working_tree(target, raw_sources, source_blobs, phase="native")
         names = native_inventory(evidence / "inspector.trx")
-        discovery = run(["dotnet", "test", project, "-c", "Release", "--no-build", "--list-tests",
-                         "--filter", "FullyQualifiedName~InspectorIdentityCandidateTests"],
+        discovery = run(source_only_dotnet("test", project, "-c", "Release", "--no-build", "--list-tests",
+                         "--filter", "FullyQualifiedName~InspectorIdentityCandidateTests"),
                         target, evidence / "compiled-discovery.log", preserve_output=True)
-        verify_working_tree(target, raw_sources, source_blobs)
+        verify_working_tree(target, raw_sources, source_blobs, phase="native")
         if compiled_inventory(discovery) != names:
             raise ValueError("Native TRX and compiled discovery identities differ")
         receipt["xunit"] = {"total": XUNIT_COUNT, "passed": XUNIT_COUNT, "failed": 0, "skipped": 0,
@@ -349,11 +390,11 @@ def main() -> None:
 
         npm = "npm.cmd" if os.name == "nt" else "npm"
         run([npm, "ci", "--ignore-scripts", "--no-audit", "--no-fund"], target / "frontend", evidence / "npm.log")
-        verify_working_tree(target, raw_sources, source_blobs)
+        verify_working_tree(target, raw_sources, source_blobs, phase="dependencies")
         report = evidence / "vitest.json"
         run([npm, "test", "--", "--include=src/app/features/projectide/projectide-inspector-identity.candidate.spec.ts",
              "--reporters=json", "--output-file=" + str(report)], target / "frontend", evidence / "vitest.log")
-        verify_working_tree(target, raw_sources, source_blobs)
+        verify_working_tree(target, raw_sources, source_blobs, phase="tests")
         names = angular_inventory(report, target / ANGULAR_DESTINATION)
         receipt["vitest"] = {"total": ANGULAR_COUNT, "passed": ANGULAR_COUNT, "failed": 0, "skipped": 0,
                              "identities": names}

@@ -64,8 +64,8 @@ The repaired runner now checks:
   files, immutable Product HEAD, complete staged and unstaged tracked changes,
   and absence of unexpected untracked files. These guards run before execution
   and after SDK lookup, restore, xUnit execution, compiled discovery, npm install
-  and Angular execution. Existing ignored build/dependency directories remain
-  generated output, not source evidence.
+  and Angular execution. The phase-specific output allowances below admit registered roots by path;
+  they do not identify which process produced a file.
 
 Every subprocess removes inherited `GIT_*` variables case-insensitively while
 preserving other host/SDK settings. Raw committed-source reads and detached
@@ -73,7 +73,8 @@ worktree creation use the same isolation. The caller's environment is unchanged.
 
 ## Retained-native admission controls
 
-`test_compose_and_verify.py` contains **29 regression methods**. Its mandatory
+The preceding admission repair supplied **29 regression methods**, preserved
+by the current suite. Its mandatory
 inputs are the original TRX, raw discovery, Vitest report, receipt and retained
 files from a successful pinned composition. It verifies their hashes and the
 unchanged C#/Angular blobs, admits the original twelve plus eleven identities,
@@ -94,8 +95,8 @@ Angular filename is relocated, matching the runner's path handling. A real
 `alias/..` directory control exercises this contract without requiring a
 Windows-specific temporary directory alias.
 
-**These 29 controls do not execute C# or Angular, add native passing cases, or
-certify actual clients.** Their JSON record explicitly says
+**Those 29 retained-report controls do not execute C# or Angular, add native
+passing cases, or certify actual clients.** Their historical JSON record explicitly says
 `nativeCommandsExecuted=false` and preserves all six qualification flags false.
 The hosted advisory runs the real composition on each OS first, then supplies
 that host's original native outputs to these controls.
@@ -174,3 +175,72 @@ integration into the ProjectIDE Product branch is eligible for Product work;
 this repair targets Security only. Never infer Main or release authorization.
 Spec #301 stays candidate-only, #1144 BLOCKED, #1128 SUSPENDED/NOT_EVALUATED,
 Trust/Eligibility UNAPPROVED, Native/Production HOLD and Release NO_GO.
+
+## Bounded #2095 admission and workflow follow-up
+
+The original twelve xUnit cases and eleven Angular cases, both source blobs,
+and the immutable Product remain unchanged. The reader now rejects nested
+native results even when Passed or NotExecuted and the twelve outer results
+still pass. Native error information and every run-level outcome other than
+Information are refused without treating the aggregate count as proof.
+
+Raw NUL-delimited index records refuse `assume-unchanged` and `skip-worktree`.
+Ignored files are inspected alongside ordinary untracked input. No generated
+files are accepted at initial composition/SDK lookup. After restore, only the
+`bin/` and `obj/` roots of actual committed Product projects are allowed;
+`frontend/node_modules/` is admitted after dependency installation, and
+`frontend/.angular/cache/` only after Angular execution. Nested namesakes and ignored native/Angular source files outside those
+allowed roots remain refused; ignored files within an allowed root are admitted
+according to the phase. All native restore, test
+and compiled-discovery commands disable ancestor Directory.Build props and
+targets; the pinned Product contains neither committed import file.
+
+The control suite has 43 methods, preserving the original 29 and adding nested
+results, run-level failures, index masks, ignored-input/phase checks, a real
+disposable SDK import probe and actual PowerShell helper-bootstrap controls.
+The SDK probe runs only a separate package-free project and adds no Product
+C# execution credit. Its new JSON record states
+`nativeProductCommandsExecuted=false`, distinguishes disposable SDK controls,
+and retains all six false flags. The original input reports remain unchanged.
+
+The advisory now obtains actual workflow SHA/ref from `github.workflow_sha`
+and `github.workflow_ref`, independently of its exact PR Test head. The pinned
+existing provenance helper requires the expected base/Test merge parents,
+matching workflow blob and complete Test/executing trees. Immediately before
+isolated Python execution, PowerShell verifies both the helper's committed blob
+and its unfiltered working bytes. Bootstrap controls execute these exact two
+OS blocks with changed committed bytes, changed or CRLF-normalized working
+bytes, and a neighboring import shadow. The helper's unchanged 25 independent
+provenance controls run separately from this cohort's 43 controls.
+
+Historical contexts that called the Test head `workflowHead` retain their
+original limitation; they are not restamped. The executing PR merge, reviewed
+Test source and eventual Security squash are separate identities. Fresh
+source-specific Windows/Ubuntu native outputs, original archive/run/job and
+Git parent/tree audits, independent review and ordinary CI remain required.
+This is no hermetic build or runtime authority attestation and does not close
+all #2095 scope. The Security-only target, broader open issues, six false
+qualification flags and existing #1144/#1128/Release holds are unchanged.
+
+Direct runner and control execution also checks each script's committed blob
+and actual unfiltered bytes immediately before isolated Python starts. The
+control invocation additionally binds the runner it imports. Three actual
+PowerShell regression methods exercise all four host/entrypoint blocks with
+working changes, changed commits, Git-normalized CRLF bytes, and local or
+PYTHONPATH import shadows. Original pinned canaries must run only after the
+specific refused input has been restored; these are bootstrap controls, not
+Product execution.
+
+The separate shared provenance-control invocation also uses isolated Python, loads the pinned helper explicitly, and checks both committed and actual helper/control bytes immediately before execution. The cohort bootstrap controls cover these shared invocations and all four exact workflow script pins.
+
+## Review follow-up: admission policy and control completeness
+
+The native reader rejects `TestResultAggregation` explicitly, including empty records, alongside all nested result families. Both staged and unstaged Git path comparisons disable rename detection, so a Product deletion cannot disappear when paired with the candidate addition.
+
+Run-level admission intentionally permits only `Information` RunInfo outcomes. `Warning`, `Passed`, `Completed`, error outcomes and unknown values make the receipt incomplete even when every candidate case passes. This is a strict local admission policy, not a claim that every warning is a native test failure.
+
+Ignored and ordinary untracked source paths are refused **outside** the registered output roots. Within an allowed root, acceptance depends on the path and execution phase; it does not establish how a file was produced. In particular, an ignored C# file under a registered `obj/` root is admitted after restore. These checks do not make the build hermetic.
+
+Disposable SDK probes pin `10.0.403` with roll-forward disabled and check the selected version before creating either parent import. Their known Git fixture files are explicitly force-staged. Execution controls give each script distinct committed canary bytes and its own pin, require every role's bindings, and verify exactly which isolated canaries ran. These controls add no Product/native execution credit.
+
+The control report reserves `PASS` for all 43 distinct committed methods, zero skips, unchanged native evidence, and completed SDK and PowerShell control scopes. Zero-test, filtered, duplicate-method, skipped or missing-tool-scope runs are `INCOMPLETE` and return a nonzero exit code. Actual CLI regressions retain their exit code, status, count and skip totals separately in the report; `nativeProductCommandsExecuted` remains false.
