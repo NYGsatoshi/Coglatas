@@ -142,3 +142,7 @@ Keep #1938 and related #1930 OPEN. Every receipt keeps `requiredCheckQualified`,
 review remain separate; no formal human APPROVED, Artifact Trust, Eligibility,
 RLS/Registry activation, Main adoption, Production or Release approval follows.
 #1144 remains BLOCKED; #1128 remains SUSPENDED / NOT_EVALUATED; Release is NO_GO.
+
+## Whole-document native TRX admission (#2095)
+
+The corrected and historical-red readers reject non-direct or aggregated result records throughout the original document and refuse unbound ErrorInfo or RunInfo records, including extension namespaces. Only Information run messages under ResultSummary/RunInfos are generally admissible. Historical red also admits the exact two failed assertion Output/ErrorInfo records and their two verified xUnit Error announcements, without admitting infrastructure failures or warnings. The C# roster, Product pair and all six false qualification flags are unchanged.
