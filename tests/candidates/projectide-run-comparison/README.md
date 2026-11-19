@@ -16,8 +16,7 @@ The separately merged 20-fact Scenario Core cohort remains unchanged.
 - Product commit: `ea339ed0bc094630654262ebb28568a95ba4198f`.
 - Product tree: `3170396d28e390759acc454194eba411afef2749`.
 - Independent C# blob: `73969c88ae939bc805e8e853b0022ef609a58f03`.
-- Composition runner blob: `e103f47cfe3931f81a24110e0aaab54b7c2b17f5`.
-- Verifier controls blob: `d578bf71bbc4e69495c15b22704e0829567239e1`.
+- The advisory pins the current composition runner and verifier controls in `RUNNER_BLOB` and `CONTROLS_BLOB`.
 - Product SDK: .NET `10.0.403`, with the original roll-forward policy.
 - Execution scope: `SYNTHETIC_RUN_COMPARISON_CORE_ONLY`.
 
