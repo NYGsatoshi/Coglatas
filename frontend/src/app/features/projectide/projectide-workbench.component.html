@@ -225,9 +225,10 @@
                           @for (stage of [schedule.baseline, schedule.hypothesis]; track $index) {
                             @if (stage) {
                               <section [attr.data-testid]="'ide-scenario-schedule-stage-' + $index">
-                                <h5 [id]="'ide-scenario-schedule-stage-' + $index">{{ t($first ? 'ide.scenarioBaseline' : 'ide.scenarioHypothesis') }}</h5>
+                                <h5>{{ t($first ? 'ide.scenarioBaseline' : 'ide.scenarioHypothesis') }}</h5>
                                 <dl><div><dt>{{ t('ide.scenarioScheduleFinish') }}</dt><dd>{{ stage.finishOffsetTicks }}</dd></div></dl>
-                                <div class="scenario-schedule-table" tabindex="0" role="region" [attr.aria-labelledby]="'ide-scenario-schedule-stage-' + $index">
+                                <div class="scenario-schedule-table" tabindex="0" role="region"
+                                  [attr.aria-label]="t($first ? 'ide.scenarioScheduleBaselineTimings' : 'ide.scenarioScheduleHypothesisTimings')">
                                   <table>
                                     <thead><tr>
                                       <th scope="col">{{ t('ide.scenarioScheduleTask') }}</th>
