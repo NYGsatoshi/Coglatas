@@ -12,7 +12,8 @@ const frontend = fileURLToPath(new URL('../', import.meta.url));
 const originalAssets = join(frontend, 'public/assets/projectide');
 const sourceGenerator = join(frontend, 'scripts/generate-projectide-test-discovery-evidence.mjs');
 const existingEvidence = readFileSync(join(frontend, 'src/app/features/projectide/projectide-test-discovery.evidence.ts'));
-const profiles = readdirSync(originalAssets).filter(name => name.endsWith('.json')).sort();
+const sourceRoster = join(frontend, 'scripts/projectide-test-discovery-original-profiles.json');
+const profiles = JSON.parse(readFileSync(sourceRoster, 'utf8'));
 const temporaryRoot = mkdtempSync(join(tmpdir(), 'projectide-evidence-generator-'));
 const isolatedFrontend = join(temporaryRoot, 'frontend');
 const isolatedGenerator = join(isolatedFrontend, 'scripts/generate-projectide-test-discovery-evidence.mjs');
@@ -22,7 +23,9 @@ const cleanup = () => { const root = resolve(temporaryRoot); assert.equal(dirnam
 const restore = () => { for (const profile of profiles) copyFileSync(join(originalAssets, profile), join(producer, profile)); writeFileSync(output, existingEvidence); };
 try {
   mkdirSync(dirname(isolatedGenerator), { recursive: true }); mkdirSync(dirname(output), { recursive: true }); mkdirSync(producer);
-  copyFileSync(sourceGenerator, isolatedGenerator); restore();
+  copyFileSync(sourceGenerator, isolatedGenerator);
+  copyFileSync(sourceRoster, join(dirname(isolatedGenerator), basename(sourceRoster)));
+  restore();
 } catch (error) {
   try { cleanup(); } catch (cleanupFailure) { error.cause = cleanupFailure; }
   throw error;
@@ -35,6 +38,18 @@ const failure = result => { assert.notEqual(result.status, 0, result.stdout); un
 
 test('complete isolated sample DTOs preserve the exact existing evidence bytes', () => {
   restore(); const result = run(); assert.equal(result.status, 0, result.stderr); assert.ok(readFileSync(output).equals(existingEvidence), 'evidence bytes must remain exact'); unchanged();
+});
+test('an unrelated JSON file is rejected in the dedicated original producer directory', () => {
+  restore();
+  const extra = join(producer, 'unrelated-preview-v1.json');
+  writeFileSync(extra, JSON.stringify({ cases: [] }));
+  try {
+    const result = run();
+    failure(result);
+    assert.match(result.stderr, /Expected all 23 original producer profiles/);
+  } finally {
+    rmSync(extra);
+  }
 });
 test('a one-element UUID array is rejected before any evidence replacement', () => {
   restore(); mutate('execution-plan-v1.json', bundle => { const value = bundle.cases.find(c => c.key === 'tests-plan-budget-hypothesis'); const row = value.localProjectTestDiscovery.binding.retainedTests[0]; row.testId = [row.testId]; });
