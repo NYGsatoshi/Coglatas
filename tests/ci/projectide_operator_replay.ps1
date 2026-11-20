@@ -47,6 +47,21 @@ try {
         }
     }
 
+    $originalBytes = [IO.File]::ReadAllBytes((Join-Path $evidence 'projectide.trx'))
+    $original = [xml]::new()
+    $originalStream = [IO.MemoryStream]::new($originalBytes, $false)
+    try {
+        $original.Load($originalStream)
+    } finally {
+        $originalStream.Dispose()
+    }
+    $originalCases = @($original.TestRun.Results.UnitTestResult | Where-Object testName -Like '*WebOperatorRecordingContractTests*')
+    $originalNames = @($originalCases.testName | Sort-Object -CaseSensitive -Unique)
+    if ($original.TestRun.ResultSummary.outcome -cne 'Completed' -or $originalCases.Count -ne 13 -or
+        $originalNames.Count -ne 13 -or @($originalCases | Where-Object outcome -CNE 'Passed').Count -ne 0) {
+        throw 'Operator replay requires thirteen distinct passing original contract test cases.'
+    }
+
     $stage = New-Item -ItemType Directory -Path $StagingDirectory
     $assembly = Get-ReleaseAssembly $testProject
     $preview = Get-ReleaseAssembly $previewProject
@@ -89,14 +104,12 @@ try {
         throw 'The existing operator contract tests failed on the fresh export.'
     }
 
-    [xml]$original = Get-Content -LiteralPath (Join-Path $evidence 'projectide.trx') -Raw
     [xml]$replayed = Get-Content -LiteralPath $replayTrx -Raw
-    $originalCases = @($original.TestRun.Results.UnitTestResult | Where-Object testName -Like '*WebOperatorRecordingContractTests*')
     $replayedCases = @($replayed.TestRun.Results.UnitTestResult)
     $replayedNames = @($replayedCases.testName | Sort-Object -CaseSensitive -Unique)
-    if ($originalCases.Count -ne 13 -or $replayedCases.Count -ne 13 -or $replayedNames.Count -ne 13 -or
+    if ($replayedCases.Count -ne 13 -or $replayedNames.Count -ne 13 -or
         @($replayedCases | Where-Object outcome -ne 'Passed').Count -ne 0 -or
-        @(Compare-Object $originalCases.testName $replayedNames -CaseSensitive).Count -ne 0 -or
+        @(Compare-Object $originalNames $replayedNames -CaseSensitive).Count -ne 0 -or
         $replayed.TestRun.ResultSummary.outcome -ne 'Completed') {
         throw 'The fresh operator export must pass all thirteen original contract test cases.'
     }
@@ -108,7 +121,7 @@ try {
         candidateHead = $head
         recordedFixtureSha256 = $retainedHash
         liveReplaySha256 = $freshHash
-        projectIdeTrxSha256 = (Get-FileHash -LiteralPath (Join-Path $evidence 'projectide.trx') -Algorithm SHA256).Hash.ToLowerInvariant()
+        projectIdeTrxSha256 = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($originalBytes)).ToLowerInvariant()
         operatorTrxSha256 = (Get-FileHash -LiteralPath $replayTrx -Algorithm SHA256).Hash.ToLowerInvariant()
         domainAssemblySha256 = $domainHash
         applicationAssemblySha256 = $applicationHash

@@ -162,7 +162,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Unable to read retained base inventory' }
           python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json --require-receipt-proof --require-acquisition
           if ($LASTEXITCODE -ne 0) { throw 'Incomplete retained test identities' }
-      - name: Verify preservation of existing operator replay evidence
+      - name: Verify operator replay preflight controls
         run: ./tests/ci/test_projectide_operator_replay.ps1
       - name: Replay fresh operator export against the retained contract cases
         run: >-
@@ -301,7 +301,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Unable to read retained base inventory' }
           python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json --require-receipt-proof --require-acquisition
           if ($LASTEXITCODE -ne 0) { throw 'Incomplete retained test identities' }
-      - name: Verify preservation of existing operator replay evidence
+      - name: Verify operator replay preflight controls
         run: ./tests/ci/test_projectide_operator_replay.ps1
       - name: Replay fresh operator export against the retained contract cases
         run: >-

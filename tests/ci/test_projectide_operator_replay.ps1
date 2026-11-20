@@ -8,32 +8,56 @@ $cases = @{
     'operator-replay.lock' = 'Unable to reserve the operator replay evidence directory.'
 }
 
+function Assert-ReplayRefused([string] $Name, [string] $FileName, [string] $Content, [string] $ExpectedError) {
+    $evidence = New-Item -ItemType Directory -Path (Join-Path $testRoot.FullName $Name)
+    $stage = Join-Path $evidence.FullName 'stage'
+    $inputPath = Join-Path $evidence.FullName $FileName
+    [IO.File]::WriteAllText($inputPath, $Content)
+    try {
+        $failure = $null
+        try {
+            & $replay -EvidenceDirectory $evidence.FullName -StagingDirectory $stage
+        } catch {
+            $failure = $_
+        }
+
+        $remaining = @(Get-ChildItem -LiteralPath $evidence.FullName -Force)
+        if ($failure.Exception.Message -cne $ExpectedError -or $remaining.Count -ne 1 -or
+            $remaining[0].FullName -ne $inputPath -or [IO.File]::ReadAllText($inputPath) -cne $Content) {
+            throw "Replay did not refuse $Name and preserve its input. Evidence: $($evidence.FullName)."
+        }
+        Write-Output "Refused $Name and preserved its input."
+    } finally {
+        if (@(Get-ChildItem -LiteralPath $evidence.FullName -Force).Count -eq 1 -and (Test-Path -LiteralPath $inputPath -PathType Leaf)) {
+            Remove-Item -LiteralPath $inputPath
+            Remove-Item -LiteralPath $evidence.FullName
+        }
+    }
+}
+
 try {
     foreach ($case in $cases.GetEnumerator()) {
-        $evidence = New-Item -ItemType Directory -Path (Join-Path $testRoot.FullName $case.Key)
-        $stage = Join-Path $evidence.FullName 'stage'
-        $occupiedPath = Join-Path $evidence.FullName $case.Key
-        [IO.File]::WriteAllText($occupiedPath, 'existing replay evidence')
-        try {
-            $failure = $null
-            try {
-                & $replay -EvidenceDirectory $evidence.FullName -StagingDirectory $stage
-            } catch {
-                $failure = $_
-            }
+        Assert-ReplayRefused $case.Key $case.Key 'existing replay evidence' $case.Value
+    }
 
-            $remaining = @(Get-ChildItem -LiteralPath $evidence.FullName -Force)
-            if ($failure.Exception.Message -cne $case.Value -or $remaining.Count -ne 1 -or
-                $remaining[0].FullName -ne $occupiedPath -or [IO.File]::ReadAllText($occupiedPath) -cne 'existing replay evidence') {
-                throw "Replay did not preserve the occupied evidence slot $($case.Key). Evidence: $($evidence.FullName)."
-            }
-            Write-Output "Preserved existing $($case.Key)."
-        } finally {
-            if (@(Get-ChildItem -LiteralPath $evidence.FullName -Force).Count -eq 1 -and (Test-Path -LiteralPath $occupiedPath -PathType Leaf)) {
-                Remove-Item -LiteralPath $occupiedPath
-                Remove-Item -LiteralPath $evidence.FullName
-            }
+    $invalidRosters = @(
+        @{ Name = 'failed original case'; Count = 13; LastOutcome = 'Failed'; RunOutcome = 'Completed' }
+        @{ Name = 'skipped original case'; Count = 13; LastOutcome = 'NotExecuted'; RunOutcome = 'Completed' }
+        @{ Name = 'truncated original roster'; Count = 12; LastOutcome = 'Passed'; RunOutcome = 'Completed' }
+        @{ Name = 'incomplete original run'; Count = 13; LastOutcome = 'Passed'; RunOutcome = 'Aborted' }
+    )
+    foreach ($case in $invalidRosters) {
+        $results = foreach ($index in 1..$case.Count) {
+            $outcome = if ($index -eq $case.Count) { $case.LastOutcome } else { 'Passed' }
+            '<UnitTestResult testName="WebOperatorRecordingContractTests.Case{0}" outcome="{1}" />' -f $index, $outcome
         }
+        $original = @"
+<TestRun>
+  <Results>$results</Results>
+  <ResultSummary outcome="$($case.RunOutcome)" />
+</TestRun>
+"@
+        Assert-ReplayRefused $case.Name 'projectide.trx' $original 'Operator replay requires thirteen distinct passing original contract test cases.'
     }
 } finally {
     if (@(Get-ChildItem -LiteralPath $testRoot.FullName -Force).Count -eq 0) {
