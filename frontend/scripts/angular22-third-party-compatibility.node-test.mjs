@@ -31,6 +31,26 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
   packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
 // Node's test runner owns completion and reports callback failures.
+
+test('keeps Angular 22.3 chokidar 6 peer isolated from webpack watcher 5', () => {
+  assert.equal(packageJson.overrides['@angular-devkit/core'], '22.3.0');
+  const rootDevKit = frontendPackageLock.packages['node_modules/@angular-devkit/core'];
+  assert.equal(rootDevKit?.version, '22.3.0');
+  assert.equal(rootDevKit?.peerDependencies?.chokidar, '^6.0.0');
+  assert.match(rootDevKit?.integrity ?? '', /^sha512-/u);
+
+  const rootWatcher = frontendPackageLock.packages['node_modules/chokidar'];
+  assert.equal(rootWatcher?.version, '6.0.0');
+  assert.match(rootWatcher?.integrity ?? '', /^sha512-/u);
+  assert.equal(frontendPackageLock.packages['node_modules/readdirp']?.version, '5.1.1');
+
+  const webpackServer = frontendPackageLock.packages['node_modules/webpack-dev-server'];
+  assert.equal(webpackServer?.dependencies?.chokidar, '^5.0.0');
+  const nestedWatcher = frontendPackageLock.packages['node_modules/webpack-dev-server/node_modules/chokidar'];
+  assert.equal(nestedWatcher?.version, '5.0.0');
+  assert.match(nestedWatcher?.integrity ?? '', /^sha512-/u);
+});
+
 void test('keeps the reviewed Angular 22 third-party versions pinned in manifests and lockfile', () => {
   for (const [dependencyType, expected] of [
     ['dependencies', expectedDependencies],

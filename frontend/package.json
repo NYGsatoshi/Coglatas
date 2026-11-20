@@ -92,7 +92,8 @@
     "@storybook/builder-webpack5": {
       "webpack-dev-middleware": "8.6.1"
     },
-    "vite@<8.3.5": "^8.3.5"
+    "vite@<8.3.5": "^8.3.5",
+    "@angular-devkit/core": "22.3.0"
   },
   "license": "UNLICENSED"
 }
