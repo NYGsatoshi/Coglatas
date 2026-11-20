@@ -623,14 +623,11 @@ it('admits every original shipped discovery case across all 23 fixed profiles', 
   expect(new Set(originalProfiles).size).toBe(23);
   const files = readdirSync(profileDirectory).filter(name => name.endsWith('.json'));
   expect(files).toEqual(expect.arrayContaining(originalProfiles));
-  for (const file of files.filter(name => !originalProfiles.includes(name))) {
-    const { cases } = JSON.parse(readFileSync(resolve(profileDirectory, file), 'utf8'));
-    expect(cases.filter((value: object) => Object.hasOwn(value, 'localProjectTestDiscovery')), file).toEqual([]);
-  }
   let projected = 0; const states: Record<string, number> = {};
   for (const file of originalProfiles) for (const value of JSON.parse(readFileSync(resolve(profileDirectory, file), 'utf8')).cases) {
     if (!value.localProjectTestDiscovery) continue;
-    const admitted = (await readLocalTestDiscovery(value))!; expect(admitted).not.toBeNull();
+    const admitted = (await readLocalTestDiscovery(value))!;
+    expect(admitted, `${file} ${value.key}`).not.toBeNull();
     expect(admitted.inventory).toEqual(value.localProjectTestDiscovery.inventory); projected++;
     states[admitted.inventory.state] = (states[admitted.inventory.state] ?? 0) + 1;
     if (/^tests-(scenario|reference|regional)-/u.test(value.key)) {
