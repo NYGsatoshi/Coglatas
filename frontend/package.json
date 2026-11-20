@@ -73,7 +73,7 @@
     "@syncfusion/ej2-angular-base": false
   },
   "overrides": {
-    "undici": "8.12.4",
+    "undici": "8.13.0",
     "fast-uri": "4.2.3",
     "nanoid": "6.0.2",
     "qs": "6.17.1",
