@@ -55,6 +55,11 @@ if (simulationProfile) scenarioFixtures = new(StringComparer.Ordinal) {
     ["tests-simulation-unknown"] = ReferenceScenarioFixture(2300, dependencyConstraint: true, publication: true, truth: null, planTarget: true),
     ["tests-simulation-bounded"] = ReferenceScenarioFixture(2400, dependencyConstraint: true, publication: true, truth: true, planTarget: true)
 };
+if (scenarioScheduleProfile)
+{
+    scenarioFixtures!.Remove("tests-simulation-external");
+    scenarioFixtures.Remove("tests-simulation-unknown");
+}
 if (regionalOperatorRecordingProfile) scenarioFixtures = new(StringComparer.Ordinal) {
     ["tests-regional-root"] = ScenarioFixture(publication: true),
     ["tests-regional-true"] = ReferenceScenarioFixture(9200, dependencyConstraint: true, publication: true, truth: true, uniqueDependencyIdentity: true),
@@ -355,7 +360,8 @@ if (comparisonProfile)
             var row = cases.OfType<JsonObject>().Single(item => item["key"]!.GetValue<string>() == beforeKey);
             row["simulationComparison"] = JsonSerializer.SerializeToNode(new { afterCaseKey = afterKey, text = comparison.Data.CanonicalText, digest = comparison.Digest.Data.Value }); paired++;
         }
-    if (paired != 6) throw new InvalidOperationException("The comparison example requires six actual Core pairs.");
+    if (paired != (scenarioScheduleProfile ? 4 : 6))
+        throw new InvalidOperationException("The comparison example did not produce its expected Core pairs.");
 }
 if (scenarioScheduleProfile)
 {
