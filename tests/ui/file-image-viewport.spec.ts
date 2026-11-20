@@ -2,6 +2,7 @@ import { deflateSync } from 'node:zlib';
 import { expect, Locator, Page, test } from '@playwright/test';
 
 import { expectNoAccessibilityViolations } from './a11y';
+import { observeImageKeyboardScroll } from './helpers/image-keyboard-observation.mjs';
 
 const workspaceId = 'd9000000-0000-4000-8000-000000000001';
 const otherWorkspaceId = 'd9000000-0000-4000-8000-000000000002';
@@ -162,11 +163,60 @@ test.describe('Authorized Files image viewport', () => {
         await expect(preview).toHaveCSS('height', `${image.height}px`);
         await expect(page.getByTestId('files-image-actual')).toHaveAttribute('aria-pressed', 'true');
         const viewport = page.getByTestId('files-image-viewport');
-        await viewport.focus();
-        await page.keyboard.press('ArrowRight');
-        await page.keyboard.press('ArrowDown');
-        await expect.poll(() => viewport.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
-        await expect.poll(() => viewport.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+        await observeImageKeyboardScroll(page, testInfo, width, image.width === 2400 ? 'WIDE' : 'PORTRAIT', async () => {
+          const keyboardScrollSnapshot = async () => ({
+            viewport: await viewport.evaluate((element) => ({
+              scrollLeft: element.scrollLeft,
+              scrollTop: element.scrollTop,
+              scrollWidth: element.scrollWidth,
+              scrollHeight: element.scrollHeight,
+              clientWidth: element.clientWidth,
+              clientHeight: element.clientHeight,
+              isFocused: document.activeElement === element,
+              focusWithin: element.contains(document.activeElement),
+              overflowX: getComputedStyle(element).overflowX,
+              overflowY: getComputedStyle(element).overflowY
+            })),
+            image: await preview.evaluate((element: HTMLImageElement) => ({
+              complete: element.complete,
+              naturalWidth: element.naturalWidth,
+              naturalHeight: element.naturalHeight,
+              displayedWidth: element.getBoundingClientRect().width,
+              displayedHeight: element.getBoundingClientRect().height
+            }))
+          });
+          const beforeFocus = await keyboardScrollSnapshot();
+          await viewport.focus();
+          const afterFocus = await keyboardScrollSnapshot();
+          await page.keyboard.press('ArrowRight');
+          await page.keyboard.press('ArrowDown');
+          try {
+            await expect.poll(() => viewport.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+            await expect.poll(() => viewport.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+          } catch (originalFailure) {
+            // SEC/CI P0 #1980: preserve only synthetic numeric geometry and focus
+            // observations from the failed attempt. Never record URLs or DOM contents.
+            try {
+              const evidence = {
+                schema: 'coglatas-files-image-keyboard-scroll-diagnostic-v1',
+                viewportCssWidth: width,
+                attempt: testInfo.retry,
+                beforeFocus,
+                afterFocus,
+                afterFailedAssertion: await keyboardScrollSnapshot()
+              };
+              const diagnostic = JSON.stringify(evidence);
+              await testInfo.attach('image-keyboard-scroll-failure.json', {
+                body: diagnostic,
+                contentType: 'application/json'
+              });
+              console.error('FILES_IMAGE_KEYBOARD_SCROLL_DIAGNOSTIC ' + diagnostic);
+            } catch {
+              console.error('FILES_IMAGE_KEYBOARD_SCROLL_DIAGNOSTIC_UNAVAILABLE');
+            }
+            throw originalFailure;
+          }
+        });
 
         for (const angle of [90, 180, 270]) {
           await page.getByTestId('files-image-rotate').click();

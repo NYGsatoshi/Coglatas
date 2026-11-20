@@ -195,6 +195,25 @@ security_zap_verify_toolchain() {
   export SECURITY_ZAP_ADDON_LIST_SHA256
 }
 
+security_zap_task_fixture_id() {
+  local role=$1 selected
+  # SEC-05 runs before SEC-06 in the standard security-runtime matrix.
+  # Independent SEC-06 stages resolve the same real disposable fixture.
+  if [[ -z "${SEC05_ALPHA_TASK_ID:-}" || -z "${SEC05_BETA_TASK_ID:-}" ]]; then
+    declare -F sec05_resolve_fixture >/dev/null 2>&1 ||
+      security_zap_fail "SEC-05 fixture resolver is required for concrete Task coverage" || return 1
+    sec05_resolve_fixture || return 1
+  fi
+  case "$role" in
+    alpha-owner|alpha-restricted) selected="$SEC05_ALPHA_TASK_ID" ;;
+    beta-owner) selected="$SEC05_BETA_TASK_ID" ;;
+    *) security_zap_fail "unknown role for concrete Task coverage" || return 1 ;;
+  esac
+  [[ "$selected" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] ||
+    security_zap_fail "SEC-05 fixture Task ID is not a GUID" || return 1
+  printf '%s\n' "$selected"
+}
+
 security_zap_run_role() {
   local role=$1 network=$2 mount_root=$3
   local tenant cookie_header target_regex raw_host report_name output metadata
@@ -228,6 +247,8 @@ security_zap_run_role() {
   # the in-container Automation Framework report job to its writable mount.
   export COGLATAS_SECURITY_ZAP_REPORT_DIR="/state"
   export COGLATAS_SECURITY_ZAP_REPORT_FILE="$report_name"
+  COGLATAS_SECURITY_ZAP_TASK_ID="$(security_zap_task_fixture_id "$role")" || return 1
+  export COGLATAS_SECURITY_ZAP_TASK_ID
   export COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES="$forbidden_json"
 
   plan_name="zap-${role}-plan.yaml"
@@ -292,7 +313,7 @@ security_zap_run_role() {
 
   unset COGLATAS_SECURITY_ZAP_TARGET COGLATAS_SECURITY_ZAP_TARGET_REGEX COGLATAS_SECURITY_ZAP_TENANT
   unset COGLATAS_SECURITY_ZAP_COOKIE COGLATAS_SECURITY_ZAP_CSRF_TOKEN
-  unset COGLATAS_SECURITY_ZAP_REPORT_DIR COGLATAS_SECURITY_ZAP_REPORT_FILE
+  unset COGLATAS_SECURITY_ZAP_REPORT_DIR COGLATAS_SECURITY_ZAP_REPORT_FILE COGLATAS_SECURITY_ZAP_TASK_ID
   unset COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES
 
   (( process_status == 0 )) || return "$process_status"

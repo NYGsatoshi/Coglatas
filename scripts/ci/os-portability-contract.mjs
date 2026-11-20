@@ -188,6 +188,12 @@ export function validateWorkflowText(contract, workflowText, allowlist) {
   assertPlainObject(portability, `${contract.workflow}.jobs.portability`);
   const failures = [];
 
+  const push = workflow.on?.push;
+  if (!Array.isArray(push?.branches) || !push.branches.includes('main') ||
+      !Array.isArray(push.paths) || !push.paths.includes('tools/Coglatas.SecurityArchitecture/**')) {
+    failures.push('Main push paths must include tools/Coglatas.SecurityArchitecture/** for the native Git boundary.');
+  }
+
   if (Object.keys(workflow.jobs).length !== 1) {
     failures.push('OS portability workflow must contain exactly one job named portability.');
   }

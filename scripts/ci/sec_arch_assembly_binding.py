@@ -18,16 +18,16 @@ def assembly_member(name: str) -> str:
     if name not in ASSEMBLIES:
         raise ValueError("Unsupported assembly identity.")
     if name == "Coglatas.SecurityArchitecture":
-        return "tools/Coglatas.SecurityArchitecture/bin/Release/net10.0/" + name + ".dll"
+        return "tools/Coglatas.SecurityArchitecture/bin/Release/net11.0/" + name + ".dll"
     if name == "Coglatas.Tests":
-        return "tests/Coglatas.Tests/bin/Release/net10.0/" + name + ".dll"
-    return "src/" + name + "/bin/Release/net10.0/" + name + ".dll"
+        return "tests/Coglatas.Tests/bin/Release/net11.0/" + name + ".dll"
+    return "src/" + name + "/bin/Release/net11.0/" + name + ".dll"
 
 
 def loaded_assembly_member(name: str) -> str:
     if name not in ASSEMBLIES:
         raise ValueError("Unsupported loaded assembly identity.")
-    return "tests/Coglatas.Tests/bin/Release/net10.0/" + name + ".dll"
+    return "tests/Coglatas.Tests/bin/Release/net11.0/" + name + ".dll"
 
 
 def assembly_path(root: Path, name: str) -> Path:

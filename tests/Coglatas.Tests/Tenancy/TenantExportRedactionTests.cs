@@ -64,7 +64,7 @@ public sealed class TenantExportRedactionTests
         var tenantEntry = archive.GetEntry("tenant.json");
         Assert.NotNull(tenantEntry);
 
-        await using var tenantStream = tenantEntry.Open();
+        await using var tenantStream = await tenantEntry.OpenAsync(FileAccess.Read);
         using var json = await JsonDocument.ParseAsync(tenantStream);
         Assert.Equal(JsonValueKind.Array, json.RootElement.ValueKind);
         Assert.Equal(1, json.RootElement.GetArrayLength());
@@ -104,7 +104,7 @@ public sealed class TenantExportRedactionTests
         using var archiveStream = new MemoryStream(archiveBytes);
         await using var archive = new ZipArchive(archiveStream, ZipArchiveMode.Read);
         var tenantEntry = Assert.IsType<ZipArchiveEntry>(archive.GetEntry("tenant.json"));
-        await using var tenantStream = tenantEntry.Open();
+        await using var tenantStream = await tenantEntry.OpenAsync(FileAccess.Read);
         using var json = await JsonDocument.ParseAsync(tenantStream);
         var row = json.RootElement.EnumerateArray().Single();
 

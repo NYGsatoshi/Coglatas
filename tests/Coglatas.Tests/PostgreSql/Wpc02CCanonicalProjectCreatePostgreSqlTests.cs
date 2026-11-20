@@ -216,7 +216,7 @@ public sealed class Wpc02CCanonicalProjectCreatePostgreSqlTests
                 Assert.Equal(graph.WorkspaceId, result.Value!.WorkspaceId);
                 Assert.True(result.Value.CanCreateUngrouped);
                 Assert.Equal(
-                    new[] { ProjectVisibility.WorkspaceVisible, ProjectVisibility.MembersOnly, ProjectVisibility.Restricted },
+                    [ProjectVisibility.WorkspaceVisible, ProjectVisibility.MembersOnly, ProjectVisibility.Restricted],
                     result.Value.AllowedVisibilities);
                 Assert.Equal(
                     new[] { graph.GroupId, otherActiveGroupId }.Order(),
@@ -229,7 +229,7 @@ public sealed class Wpc02CCanonicalProjectCreatePostgreSqlTests
                 var result = await groupManager.Service.GetCreateOptionsAsync(graph.WorkspaceId);
                 Assert.True(result.IsSuccess, result.Error);
                 Assert.False(result.Value!.CanCreateUngrouped);
-                Assert.Equal(new[] { ProjectVisibility.MembersOnly }, result.Value.AllowedVisibilities);
+                Assert.Equal([ProjectVisibility.MembersOnly], result.Value.AllowedVisibilities);
                 Assert.Equal(graph.GroupId, Assert.Single(result.Value.Groups).Id);
                 Assert.DoesNotContain(result.Value.Groups, group => group.Id == otherActiveGroupId);
             }
@@ -239,7 +239,7 @@ public sealed class Wpc02CCanonicalProjectCreatePostgreSqlTests
                 var result = await delegated.Service.GetCreateOptionsAsync(graph.WorkspaceId);
                 Assert.True(result.IsSuccess, result.Error);
                 Assert.True(result.Value!.CanCreateUngrouped);
-                Assert.Equal(new[] { ProjectVisibility.MembersOnly }, result.Value.AllowedVisibilities);
+                Assert.Equal([ProjectVisibility.MembersOnly], result.Value.AllowedVisibilities);
                 Assert.Equal(2, result.Value.Groups.Count);
             }
 
@@ -306,7 +306,7 @@ public sealed class Wpc02CCanonicalProjectCreatePostgreSqlTests
                 project => project.Id == projectId);
             Assert.Empty(await repository.ListVisibleInWorkspaceAsync(graph.OwnerUserId, Guid.NewGuid()));
             Assert.Equal(
-                new[] { projectId },
+                [projectId],
                 await repository.ListActivatableProjectIdsAsync(graph.OwnerUserId, [projectId]));
             Assert.Empty(await repository.ListActivatableProjectIdsAsync(
                 graph.SystemAdminUserId,
