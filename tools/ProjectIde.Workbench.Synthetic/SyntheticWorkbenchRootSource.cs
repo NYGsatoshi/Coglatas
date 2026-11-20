@@ -18,7 +18,18 @@ public sealed partial class SyntheticWorkbenchViewModel
     {
         ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(expectedResult);
         ClearScopedSources(); var generation = _rootSourceGeneration; var request = _desired; var compilation = _compilation;
-        RootSourceReadState = "Loading"; Changed();
+        RootSourceReadState = "Loading";
+        try { Changed(); }
+        catch when (token.IsCancellationRequested && generation == _rootSourceGeneration)
+        {
+            ClearRootSource();
+            try { Changed(); }
+            catch (Exception)
+            {
+                // Preserve the original Loading notification failure.
+            }
+            throw;
+        }
         bool Current() => !_disposed && generation == _rootSourceGeneration && State == "Ready" && compilation is not null && request is not null &&
             ReferenceEquals(compilation, _compilation) && ReferenceEquals(request, _desired) && ReferenceEquals(Result, compilation.Result);
         if (!Current())
