@@ -112,6 +112,53 @@ public sealed class SyntheticSimulationTraceProfileTests
         Assert.Throws<ArgumentOutOfRangeException>(() => view.ProfileSyntheticSimulation(run.Digest, maximumEvents: 0));
         Assert.Null(view.SimulationTraceProfile); Assert.Same(run, view.SimulationRun);
     }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CancellationWithAThrowingProfileObserverWithdrawsOnlyItsOwnSummary(bool replace)
+    {
+        var fixture = await Ready();
+        using var view = fixture.View;
+        var run = view.SimulationRun!;
+        using var cancellation = new CancellationTokenSource();
+        var failure = new InvalidOperationException("Profile publication observer failed.");
+        var entered = false;
+        var withdrew = false;
+        ProjectSimulationTraceProfile? replacement = null;
+        System.ComponentModel.PropertyChangedEventHandler observer = (_, _) =>
+        {
+            if (!replace && entered && view.SimulationTraceProfile is null)
+            {
+                withdrew = true;
+                throw new InvalidOperationException("Profile withdrawal observer failed.");
+            }
+            if (entered || view.SimulationTraceProfile is null) return;
+            entered = true;
+            if (replace)
+            {
+                Assert.True(view.ProfileSyntheticSimulation(run.Digest, maximumEvents: 6));
+                replacement = Assert.IsType<ProjectSimulationTraceProfile>(view.SimulationTraceProfile);
+            }
+            cancellation.Cancel();
+            throw failure;
+        };
+
+        Exception? observed;
+        view.PropertyChanged += observer;
+        try
+        {
+            observed = Record.Exception(() => { view.ProfileSyntheticSimulation(run.Digest, token: cancellation.Token); });
+        }
+        finally
+        {
+            view.PropertyChanged -= observer;
+        }
+        Assert.Same(failure, observed);
+        Assert.True(entered);
+        Assert.Same(replacement, view.SimulationTraceProfile);
+        Assert.Equal(!replace, withdrew);
+        Assert.Same(run, view.SimulationRun);
+    }
     private static void Change(SyntheticWorkbenchViewModel view, CompilerHostRequest request, string mode)
     {
         if (mode == "reset") view.Reset(); if (mode == "dispose") view.Dispose();
