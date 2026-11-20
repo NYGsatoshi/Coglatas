@@ -152,6 +152,13 @@ public sealed class SyntheticRootSourceAdmissionTests
         VerifyPublicationOwnership(false, null, withdrawalThrows ? new InvalidOperationException("Withdrawal observer failed.") : null,
             boundary: "Loading");
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task ThrowingRootSourceLoadingObserverWithdrawsOnlyItsOwnRead(bool replace) =>
+        VerifyPublicationOwnership(replace, new InvalidOperationException("Loading observer failed."),
+            new InvalidOperationException("Withdrawal observer failed."), boundary: "Loading");
+
     private static async Task VerifyPublicationOwnership(bool replace, InvalidOperationException? publicationFailure,
         InvalidOperationException? withdrawalFailure = null, string boundary = "Ready")
     {
