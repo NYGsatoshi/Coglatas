@@ -53,36 +53,45 @@ public sealed class ProjectSemanticIndexLookupCache
         Func<SemanticIndexLookupTables> create, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        // Each invalidation assigns a new epoch, so an older scope can take the uncached path immediately.
-        if (!ReferenceEquals(_generation, scope.Generation))
-            return new(scope.Owner, scope.Generation, null, 0, create(), false);
+        var key = FrameKey(scope.Generation, dependencies, token, out var bytes);
+        if (key is not null)
+        {
+            lock (_gate)
+            {
+                token.ThrowIfCancellationRequested();
+                if (_ownerScope != scope.Owner || !ReferenceEquals(_generation, scope.Generation))
+                    key = null;
+                else if (_entries.TryGetValue(key, out var retained))
+                    return new(scope.Owner, scope.Generation, key, bytes, retained.Value.Tables, true);
+            }
+        }
+
+        token.ThrowIfCancellationRequested();
+        return new(scope.Owner, scope.Generation, key, key is null ? 0 : bytes, create(), false);
+    }
+
+    private string? FrameKey(object generation, IEnumerable<string> dependencies, CancellationToken token, out int bytes)
+    {
+        bytes = 0;
+        if (!ReferenceEquals(_generation, generation)) return null;
 
         var text = new StringBuilder();
-        var bytes = 0;
-        foreach (var part in dependencies)
+        using var parts = dependencies.GetEnumerator();
+        while (ReferenceEquals(_generation, generation) && parts.MoveNext())
         {
             token.ThrowIfCancellationRequested();
+            // An invalidation can occur while the iterator produces this part.
+            if (!ReferenceEquals(_generation, generation)) return null;
+            var part = parts.Current;
             var length = part.Length.ToString(CultureInfo.InvariantCulture);
             var partBytes = Encoding.UTF8.GetByteCount(part);
-            if (partBytes > _maximumCanonicalBytes - bytes - length.Length - 1)
-                return new(scope.Owner, scope.Generation, null, 0, create(), false);
+            if (partBytes > _maximumCanonicalBytes - bytes - length.Length - 1) return null;
 
             text.Append(length).Append(':').Append(part);
             bytes += partBytes + length.Length + 1;
         }
 
-        string? key = text.ToString();
-        lock (_gate)
-        {
-            token.ThrowIfCancellationRequested();
-            if (_ownerScope != scope.Owner || !ReferenceEquals(_generation, scope.Generation))
-                key = null;
-            else if (_entries.TryGetValue(key, out var retained))
-                return new(scope.Owner, scope.Generation, key, bytes, retained.Value.Tables, true);
-        }
-
-        token.ThrowIfCancellationRequested();
-        return new(scope.Owner, scope.Generation, key, key is null ? 0 : bytes, create(), false);
+        return ReferenceEquals(_generation, generation) ? text.ToString() : null;
     }
 
     // A refused/cancelled build never commits its prepared table. Explicit Clear or

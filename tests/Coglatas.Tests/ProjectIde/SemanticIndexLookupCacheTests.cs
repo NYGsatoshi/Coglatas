@@ -231,6 +231,49 @@ public sealed class SemanticIndexLookupCacheTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
+    public void InvalidationDuringKeyFramingSkipsTheRemainingRoster(bool changeOwner)
+    {
+        var cache = new ProjectSemanticIndexLookupCache();
+        var owner = Input().Source.Context.Branch;
+        var earlier = cache.BeginBinding(owner, CancellationToken.None);
+        var readSuffix = false;
+        var disposed = false;
+
+        IEnumerable<string> Dependencies()
+        {
+            try
+            {
+                yield return "already-framed";
+                if (changeOwner)
+                    cache.BeginBinding(new BranchRef(owner.TenantId, owner.ProjectId, BranchId.Parse(Id(99))), CancellationToken.None);
+                else
+                    cache.Clear();
+                yield return "discovered-during-invalidation";
+                readSuffix = true;
+                yield return "obsolete-roster-suffix";
+            }
+            finally
+            {
+                disposed = true;
+            }
+        }
+
+        var lease = cache.Prepare(earlier, Dependencies(), () =>
+        {
+            Assert.True(disposed);
+            return new([], []);
+        }, CancellationToken.None);
+
+        Assert.False(readSuffix);
+        Assert.Null(lease.Key);
+        Assert.Equal(0, lease.Bytes);
+        cache.Commit(lease, CancellationToken.None);
+        Assert.Equal(0, cache.RetainedCount);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
     public async Task ClearCompletesWhileAnOlderBuilderPreparesLookups(bool pauseDuringDependencies)
     {
         var cache = new ProjectSemanticIndexLookupCache();
