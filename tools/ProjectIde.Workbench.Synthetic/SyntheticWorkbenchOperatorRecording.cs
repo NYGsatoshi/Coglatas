@@ -87,13 +87,31 @@ public sealed partial class SyntheticWorkbenchViewModel
         var execution = actual!.Response.Execution!;
         var snapshot = ProjectCompilerPredicateObservationSnapshot.Read(execution, compilation!, execution.Observation, diagnostic!, mode, maximumBodyBytes, token);
         if (!Current()) return false;
-        _recordedOperators = snapshot; _operatorDiagnostic = diagnostic; _operatorCompilation = compilation; _operatorSnapshotSelection = selection; Changed();
-        if (token.IsCancellationRequested)
+        _recordedOperators = snapshot;
+        _operatorDiagnostic = diagnostic;
+        _operatorCompilation = compilation;
+        _operatorSnapshotSelection = selection;
+        var publicationCompleted = false;
+        bool cancelledAtPublication;
+        try
         {
-            if (generation == _operatorSnapshotGeneration && ReferenceEquals(_recordedOperators, snapshot))
-            { ClearOperatorSnapshot(); Changed(); }
-            token.ThrowIfCancellationRequested();
+            Changed();
+            publicationCompleted = true;
         }
+        finally
+        {
+            cancelledAtPublication = token.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _operatorSnapshotGeneration && ReferenceEquals(_recordedOperators, snapshot))
+            {
+                ClearOperatorSnapshot();
+                try { Changed(); }
+                catch when (!publicationCompleted)
+                {
+                    // Preserve the original publication exception after withdrawing the cancelled view.
+                }
+            }
+        }
+        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
         return Current() && ReferenceEquals(RecordedOperators, snapshot) && snapshot.State != CompilerPredicateObservationSnapshotState.RefusedInvocation;
     }
 

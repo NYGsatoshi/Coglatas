@@ -84,13 +84,29 @@ public sealed partial class SyntheticWorkbenchViewModel
         var execution = actual!.Response.Execution!;
         var snapshot = ProjectCompilerPassObservationSnapshot.Read(execution, compilation!, execution.Observation, compilation!.Input.InputDigest, expectedResult, mode, maximumBodyBytes, token);
         if (!Current()) return false;
-        _recordedPasses = snapshot; _passCompilation = compilation; Changed();
-        if (token.IsCancellationRequested)
+        _recordedPasses = snapshot;
+        _passCompilation = compilation;
+        var publicationCompleted = false;
+        bool cancelledAtPublication;
+        try
         {
-            if (generation == _passSnapshotGeneration && ReferenceEquals(_recordedPasses, snapshot))
-            { ClearPassSnapshot(); Changed(); }
-            token.ThrowIfCancellationRequested();
+            Changed();
+            publicationCompleted = true;
         }
+        finally
+        {
+            cancelledAtPublication = token.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _passSnapshotGeneration && ReferenceEquals(_recordedPasses, snapshot))
+            {
+                ClearPassSnapshot();
+                try { Changed(); }
+                catch when (!publicationCompleted)
+                {
+                    // Preserve the original publication exception after withdrawing the cancelled view.
+                }
+            }
+        }
+        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
         return Current() && ReferenceEquals(RecordedPasses, snapshot) && snapshot.State is not (CompilerPassObservationSnapshotState.RefusedInvocation or
             CompilerPassObservationSnapshotState.RefusedInputBinding or CompilerPassObservationSnapshotState.RefusedWrongResult);
     }

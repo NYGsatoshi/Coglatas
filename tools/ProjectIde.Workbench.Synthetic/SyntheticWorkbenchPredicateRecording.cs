@@ -82,13 +82,30 @@ public sealed partial class SyntheticWorkbenchViewModel
         }
         var snapshot = ProjectRecordedPredicatePremiseSnapshot.Read(_rootSourceAdmission!, compilation!.PredicatePremises!, diagnostic!, expectedResult, mode, maximumBodyBytes, token);
         if (!Current()) return false;
-        _recordedPredicatePremises = snapshot; _recordedPredicateDiagnostic = diagnostic; _recordedPredicateCompilation = compilation; Changed();
-        if (token.IsCancellationRequested)
+        _recordedPredicatePremises = snapshot;
+        _recordedPredicateDiagnostic = diagnostic;
+        _recordedPredicateCompilation = compilation;
+        var publicationCompleted = false;
+        bool cancelledAtPublication;
+        try
         {
-            if (generation == _recordedPredicateGeneration && ReferenceEquals(_recordedPredicatePremises, snapshot))
-            { ClearRecordedPredicatePremises(); Changed(); }
-            token.ThrowIfCancellationRequested();
+            Changed();
+            publicationCompleted = true;
         }
+        finally
+        {
+            cancelledAtPublication = token.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _recordedPredicateGeneration && ReferenceEquals(_recordedPredicatePremises, snapshot))
+            {
+                ClearRecordedPredicatePremises();
+                try { Changed(); }
+                catch when (!publicationCompleted)
+                {
+                    // Preserve the original publication exception after withdrawing the cancelled view.
+                }
+            }
+        }
+        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
         return Current() && ReferenceEquals(RecordedPredicatePremises, snapshot) && snapshot.State is not
             (RecordedPredicateSnapshotState.RefusedWrongResult or RecordedPredicateSnapshotState.RefusedRecord or RecordedPredicateSnapshotState.RefusedDiagnostic or RecordedPredicateSnapshotState.RefusedBodyBinding);
     }
