@@ -107,19 +107,36 @@ public sealed class SyntheticDiagnosticPremiseTests
         private readonly SyntheticWorkbenchViewModel _vm;
         private readonly CancellationTokenSource _source = new();
         private readonly bool _replace;
+        private readonly InvalidOperationException? _publicationFailure;
         private readonly ContentDigest _expectedResult;
         private int _notifications;
         public CancellationToken Token => _source.Token;
         public bool Fired { get; private set; }
         public bool ReplacementSucceeded { get; private set; }
+        public int WithdrawalNotifications { get; private set; }
         public ProjectDiagnosticPremiseSnapshot? Replacement { get; private set; }
-        public CancelOnPublication(SyntheticWorkbenchViewModel vm, bool replace)
-        { _vm = vm; _replace = replace; _expectedResult = vm.Result!.ResultDigest; vm.PropertyChanged += Changed; }
+        public CancelOnPublication(SyntheticWorkbenchViewModel vm, bool replace, InvalidOperationException? publicationFailure)
+        {
+            _vm = vm;
+            _expectedResult = vm.Result!.ResultDigest;
+            _replace = replace;
+            _publicationFailure = publicationFailure;
+            vm.PropertyChanged += Changed;
+        }
         public Exception? Read() => Record.Exception(ReadCore);
         private void ReadCore() => _vm.ReadSyntheticDiagnosticPremises(_expectedResult, DiagnosticPremiseSnapshotMode.AvailableBodies, token: Token);
         private void Changed(object? sender, PropertyChangedEventArgs args)
         {
-            if (Fired || ++_notifications != 2) return;
+            if (Fired)
+            {
+                if (_publicationFailure is not null && Token.IsCancellationRequested && _vm.DiagnosticPremises is null)
+                {
+                    WithdrawalNotifications++;
+                    throw new InvalidOperationException("Withdrawal observer failed.");
+                }
+                return;
+            }
+            if (++_notifications != 2) return;
             Fired = true;
             if (_replace)
             {
@@ -127,13 +144,22 @@ public sealed class SyntheticDiagnosticPremiseTests
                 Replacement = _vm.DiagnosticPremises;
             }
             _source.Cancel();
+            if (_publicationFailure is not null) throw _publicationFailure;
         }
         public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
     }
 
     [Theory]
     [InlineData(false)] [InlineData(true)]
-    public async Task CancellationAtPremisePublicationWithdrawsOnlyItsOwnedView(bool replace)
+    public Task CancellationAtPremisePublicationWithdrawsOnlyItsOwnedView(bool replace) =>
+        VerifyPublicationOwnership(replace, null);
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public Task ThrowingObserverWithdrawsOnlyItsCancelledAdjacentView(bool replace) =>
+        VerifyPublicationOwnership(replace, new InvalidOperationException("Publication observer failed."));
+
+    private static async Task VerifyPublicationOwnership(bool replace, InvalidOperationException? publicationFailure)
     {
         var (_, request, host) = DiagnosticPremiseSnapshotTests.Prepare((string)DiagnosticPremiseSnapshotTests.ProofCases().First()[0]);
         using var vm = await Admit(request, host);
@@ -141,7 +167,7 @@ public sealed class SyntheticDiagnosticPremiseTests
         var result = vm.Result!; var resultData = result.Data;
         Assert.True(vm.ReadSyntheticDiagnosticPremises(result.ResultDigest, DiagnosticPremiseSnapshotMode.AvailableBodies));
         var previous = vm.DiagnosticPremises!; Assert.Equal(3, previous.Bodies.Count);
-        using var cancellation = new CancelOnPublication(vm, replace); var token = cancellation.Token;
+        using var cancellation = new CancelOnPublication(vm, replace, publicationFailure); var token = cancellation.Token;
         var error = cancellation.Read();
         Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested); Assert.Same(result, vm.Result); Assert.Equal(resultData, result.Data);
         Assert.Equal(3, previous.Bodies.Count);
@@ -151,7 +177,13 @@ public sealed class SyntheticDiagnosticPremiseTests
             Assert.Same(cancellation.Replacement, vm.DiagnosticPremises); Assert.Equal(3, vm.DiagnosticPremises!.Bodies.Count);
         }
         else Assert.Null(vm.DiagnosticPremises);
-        Assert.IsType<OperationCanceledException>(error);
+        if (publicationFailure is null)
+            Assert.IsType<OperationCanceledException>(error);
+        else
+        {
+            Assert.Same(publicationFailure, error);
+            Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+        }
     }
 
     private sealed class CancelInitialRecordedRead : IDisposable
