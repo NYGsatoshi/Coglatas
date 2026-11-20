@@ -36,9 +36,10 @@ that original baseline with the current Scenario recording. A Scenario without
 a captured baseline has no comparison. A partial recording leaves modeled
 finish unavailable. Replacing the run or scope withdraws the comparison.
 Applying a Draft also withdraws the Scenario baseline. A cancelled read
-withdraws its own publication, including cancellation during notification.
-A reentrant newer read retains its own result. The Angular schedule view and
-paired qualification remain under #1032.
+withdraws its own publication, even when a subscriber also throws during
+notification. The original subscriber failure reaches the caller. A reentrant
+newer read retains its own result. The Angular schedule view and paired
+qualification remain under #1032.
 
 The fixed Workbench fixture compiles and runs its actual baseline Test,
 applies duration and input-default assumptions, and compiles and tests the

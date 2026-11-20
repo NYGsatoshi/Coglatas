@@ -249,6 +249,36 @@ public sealed class SyntheticSimulationComparisonTests
         Assert.Same(f.Baseline, view.ScenarioBaselineSimulation);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ScenarioScheduleImpactObserverFailurePreservesCancellationOwnership(bool replace)
+    {
+        var f = await ReadyScenarioSchedule();
+        using var view = f.View;
+        using var source = new CancellationTokenSource();
+        var error = new InvalidOperationException("Schedule observer failed.");
+        var entered = false;
+        ProjectScenarioElapsedScheduleImpact? newer = null;
+        view.PropertyChanged += (_, _) =>
+        {
+            if (entered || view.ScenarioScheduleImpact is null) return;
+            entered = true;
+            if (replace)
+            {
+                Assert.True(view.ReadScenarioScheduleImpact());
+                newer = view.ScenarioScheduleImpact;
+            }
+            source.Cancel();
+            throw error;
+        };
+        Assert.Same(error, Assert.Throws<InvalidOperationException>(() => view.ReadScenarioScheduleImpact(source.Token)));
+        Assert.True(entered);
+        if (replace) Assert.NotNull(newer);
+        Assert.Same(newer, view.ScenarioScheduleImpact);
+        Assert.Same(f.Baseline, view.ScenarioBaselineSimulation);
+    }
+
     private static async Task<(SyntheticWorkbenchViewModel View, ProjectScenarioPlan Scenario, ProjectSimulationRun? Baseline)>
         ReadyScenarioSchedule(bool captureBaseline = true, SimulationRunLimits? limits = null)
     {

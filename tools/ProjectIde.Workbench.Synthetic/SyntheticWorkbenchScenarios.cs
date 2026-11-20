@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using Coglatas.Application.ProjectIde.Core;
 using Coglatas.Domain.ProjectIde;
 
@@ -91,16 +92,20 @@ public sealed partial class SyntheticWorkbenchViewModel
         if (!Current()) return false;
         var read = new ScenarioScheduleRead(scenario, baseline, hypothesis, impact);
         _scenarioScheduleRead = read;
-        Changed();
-        if (cancellationToken.IsCancellationRequested)
+        Exception? publicationFailure = null;
+        try { Changed(); }
+        catch (Exception error) { publicationFailure = error; }
+
+        var cancelled = cancellationToken.IsCancellationRequested;
+        Exception? withdrawalFailure = null;
+        if (cancelled && generation == _scenarioScheduleGeneration && ReferenceEquals(_scenarioScheduleRead, read))
         {
-            if (generation == _scenarioScheduleGeneration && ReferenceEquals(_scenarioScheduleRead, read))
-            {
-                ClearScenarioScheduleImpact();
-                Changed();
-            }
-            cancellationToken.ThrowIfCancellationRequested();
+            ClearScenarioScheduleImpact();
+            try { Changed(); }
+            catch (Exception error) { withdrawalFailure = error; }
         }
+        if (publicationFailure is not null) ExceptionDispatchInfo.Capture(publicationFailure).Throw();
+        if (cancelled) throw new OperationCanceledException("Scenario schedule impact was cancelled.", withdrawalFailure, cancellationToken);
         return Current() && ReferenceEquals(_scenarioScheduleRead, read);
     }
 
