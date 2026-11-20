@@ -36,13 +36,9 @@ public sealed partial class SyntheticWorkbenchViewModel
         if (!Current()) return false;
         _rootSourceAdmission = admission; _rootSourceRequest = request;
         RootSourceReadState = admission is null ? "Unavailable" : "Ready";
-        var publicationCompleted = false;
+        Exception? withdrawalFailure = null;
         bool cancelledAtPublication;
-        try
-        {
-            Changed();
-            publicationCompleted = true;
-        }
+        try { Changed(); }
         finally
         {
             cancelledAtPublication = token.IsCancellationRequested;
@@ -50,13 +46,12 @@ public sealed partial class SyntheticWorkbenchViewModel
             {
                 ClearRootSource();
                 try { Changed(); }
-                catch when (!publicationCompleted)
-                {
-                    // Preserve the original publication exception after withdrawing the cancelled view.
-                }
+                catch (Exception error) { withdrawalFailure = error; }
             }
         }
-        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Root Source read was cancelled.", withdrawalFailure, token);
         return Current() && CurrentRootSource && ReferenceEquals(_rootSourceAdmission, admission);
     }
     private void ClearRootSource()

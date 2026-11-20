@@ -36,13 +36,9 @@ public sealed partial class SyntheticWorkbenchViewModel
         _diagnosticPremises = snapshot;
         _premiseCompilation = compilation;
         _premiseDiagnostic = diagnostic;
-        var publicationCompleted = false;
+        Exception? withdrawalFailure = null;
         bool cancelledAtPublication;
-        try
-        {
-            Changed();
-            publicationCompleted = true;
-        }
+        try { Changed(); }
         finally
         {
             cancelledAtPublication = token.IsCancellationRequested;
@@ -50,13 +46,12 @@ public sealed partial class SyntheticWorkbenchViewModel
             {
                 ClearDiagnosticPremises();
                 try { Changed(); }
-                catch when (!publicationCompleted)
-                {
-                    // Preserve the original publication exception after withdrawing the cancelled view.
-                }
+                catch (Exception error) { withdrawalFailure = error; }
             }
         }
-        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Diagnostic premise read was cancelled.", withdrawalFailure, token);
         return Current() && ReferenceEquals(DiagnosticPremises, snapshot) && snapshot.State is not
             (DiagnosticPremiseSnapshotState.RefusedWrongResult or DiagnosticPremiseSnapshotState.RefusedInputBinding or
              DiagnosticPremiseSnapshotState.RefusedDiagnostic or DiagnosticPremiseSnapshotState.RefusedBodyBinding);
