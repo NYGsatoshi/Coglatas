@@ -83,6 +83,7 @@ public static class ProjectScenarios
             if (requests.Count == MaximumOverrides || overrideBytes > MaximumOverrideBytes) return Refuse(ProjectScenarioState.ResourceLimit);
             requests.Add(item);
         }
+        cancellationToken.ThrowIfCancellationRequested();
         if (requests.Count == 0) return Refuse(ProjectScenarioState.NoChange);
         requests.Sort((a, b) => StringComparer.Ordinal.Compare(Key(a), Key(b)));
         if (requests.Select(Key).Distinct(StringComparer.Ordinal).Count() != requests.Count) return Refuse(ProjectScenarioState.Conflict);
