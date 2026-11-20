@@ -237,7 +237,9 @@
                                       <th scope="col">{{ t('ide.scenarioScheduleFloat') }}</th>
                                     </tr></thead>
                                     <tbody>@for (task of stage.tasks; track $index) {
-                                      <tr><th scope="row"><code>{{ task.location.entityId }}</code></th>
+                                      <tr><th scope="row"><code>{{ task.location.entityId }}</code>
+                                        <small>{{ t('ide.revision') }} {{ contextRevision(task.location.context) }}</small>
+                                      </th>
                                         <td>{{ task.startOffsetTicks }}</td><td>{{ task.finishOffsetTicks }}</td><td>{{ task.totalFloatTicks }}</td></tr>
                                     }</tbody>
                                   </table>
