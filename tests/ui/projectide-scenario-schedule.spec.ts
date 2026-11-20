@@ -30,6 +30,11 @@ for (const locale of ['en', 'ja'] as const) {
     await expect(page.getByTestId('ide-scenario-schedule-delta')).toHaveText('2');
     const baseline = page.getByTestId('ide-scenario-schedule-stage-0');
     await expect(baseline.getByRole('row').filter({ hasText: '00000007-' }).locator('td').last()).toHaveText('5');
+    const task = '00000007-0000-4000-8000-000000000001';
+    const baselineTask = baseline.getByRole('rowheader').filter({ hasText: task });
+    const hypothesisTask = page.getByTestId('ide-scenario-schedule-stage-1').getByRole('rowheader').filter({ hasText: task });
+    await expect(baselineTask).toContainText('000056b8-0000-4000-8000-000000000001');
+    await expect(hypothesisTask).toContainText('000056c3-0000-4000-8000-000000000001');
     await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
     await page.getByRole('button', { name: locale === 'en' ? 'Load Scenario snapshot' : 'シナリオのスナップショットを読み込む', exact: true }).click();
     await expect(page.getByTestId('ide-context')).toHaveValue('tests-simulation-root-hypothesis');
