@@ -211,14 +211,192 @@ public sealed class SemanticIndexLookupCacheTests
         var constructor = tablesType.GetConstructors(flags).Single();
         var factory = Expression.Lambda(prepare.GetParameters()[2].ParameterType, Expression.New(constructor,
             Expression.Constant(index.Symbols, typeof(IReadOnlyList<CompilerIndexedSymbol>)),
-            Expression.Constant(index.References, typeof(IReadOnlyList<CompilerBoundReference>)))).Compile();
-        var prepared = prepare.Invoke(cache, [earlierScope, new[] { "exact-roster-control" }, factory, CancellationToken.None]);
+            Expression.Constant(index.References, typeof(IReadOnlyList<CompilerBoundReference>)),
+            Expression.Constant(CancellationToken.None))).Compile();
+        var enumerated = false;
+        IEnumerable<string> EarlierRoster()
+        {
+            enumerated = true;
+            yield return "exact-roster-control";
+        }
+
+        var prepared = prepare.Invoke(cache, [earlierScope, EarlierRoster(), factory, CancellationToken.None]);
+        Assert.False(enumerated);
         commit.Invoke(cache, [prepared, CancellationToken.None]);
         Assert.Equal(0, cache.RetainedCount); Assert.Equal(0, cache.LookupReuseCount);
         var currentScope = begin.Invoke(cache, [owner, CancellationToken.None]) ?? owner;
         var current = prepare.Invoke(cache, [currentScope, new[] { "exact-roster-control" }, factory, CancellationToken.None]);
         commit.Invoke(cache, [current, CancellationToken.None]); Assert.Equal(1, cache.RetainedCount);
     }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void InvalidationDuringKeyFramingSkipsTheRemainingRoster(bool changeOwner)
+    {
+        var cache = new ProjectSemanticIndexLookupCache();
+        var owner = Input().Source.Context.Branch;
+        var earlier = cache.BeginBinding(owner, CancellationToken.None);
+        var readSuffix = false;
+        var disposed = false;
+
+        IEnumerable<string> Dependencies()
+        {
+            try
+            {
+                yield return "already-framed";
+                if (changeOwner)
+                    cache.BeginBinding(new BranchRef(owner.TenantId, owner.ProjectId, BranchId.Parse(Id(99))), CancellationToken.None);
+                else
+                    cache.Clear();
+                yield return "discovered-during-invalidation";
+                readSuffix = true;
+                yield return "obsolete-roster-suffix";
+            }
+            finally
+            {
+                disposed = true;
+            }
+        }
+
+        var lease = cache.Prepare(earlier, Dependencies(), () =>
+        {
+            Assert.True(disposed);
+            return new([], [], CancellationToken.None);
+        }, CancellationToken.None);
+
+        Assert.False(readSuffix);
+        Assert.Null(lease.Key);
+        Assert.Equal(0, lease.Bytes);
+        cache.Commit(lease, CancellationToken.None);
+        Assert.Equal(0, cache.RetainedCount);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void CancellationDuringFreshLookupsDoesNotReadTheRemainingRoster(bool cancelInSymbols)
+    {
+        var input = ReferenceCompletionTests.CompletionInput(4);
+        var binding = CompilerBindingClosure.Build(ProjectSemanticBinder.Bind(input), input.InputDigest);
+        var index = CompilerSemanticIndex.Build(binding, input.InputDigest);
+        var symbol = index.Symbols[0];
+        var reference = new CompilerBoundReference(symbol.Symbol.Location, ReferenceResolutionState.Resolved, symbol.Symbol.Key);
+        using var cancellation = new CancellationTokenSource();
+        var symbols = new CancelOnFirstRead<CompilerIndexedSymbol>(symbol, cancellation);
+        var references = new CancelOnFirstRead<CompilerBoundReference>(reference, cancellation);
+
+        Assert.Throws<OperationCanceledException>(() => new SemanticIndexLookupTables(
+            cancelInSymbols ? symbols : index.Symbols, cancelInSymbols ? [] : references, cancellation.Token));
+        Assert.Equal(cancelInSymbols ? 1 : 0, symbols.ReadCount);
+        Assert.Equal(cancelInSymbols ? 0 : 1, references.ReadCount);
+    }
+
+    [Fact]
+    public void RepeatedKeysLocationsAndOriginsStayAmbiguousWhileUniquePositionsArePreserved()
+    {
+        var input = ReferenceCompletionTests.CompletionInput(4);
+        var binding = CompilerBindingClosure.Build(ProjectSemanticBinder.Bind(input), input.InputDigest);
+        var index = CompilerSemanticIndex.Build(binding, input.InputDigest);
+        var first = index.Symbols[0];
+        var second = index.Symbols[1];
+        var third = index.Symbols[2];
+        var unique = index.Symbols[3];
+        var duplicateLocation = third with { Symbol = third.Symbol with { Location = second.Symbol.Location } };
+        var reference = new CompilerBoundReference(first.Symbol.Location, ReferenceResolutionState.Resolved, first.Symbol.Key);
+        var uniqueReference = new CompilerBoundReference(unique.Symbol.Location, ReferenceResolutionState.Resolved, unique.Symbol.Key);
+        var tables = new SemanticIndexLookupTables([first, first, first, second, duplicateLocation, unique],
+            [reference, reference, reference, uniqueReference], CancellationToken.None);
+
+        Assert.Equal(3, tables.KeyCount);
+        Assert.Equal(1, tables.LocationCount);
+        Assert.False(tables.HasKey(first.Symbol.Key));
+        Assert.False(tables.TryKey(first.Symbol.Key, out _));
+        Assert.False(tables.TryLocation(first.Symbol.Location.Data.CanonicalText, out _));
+        Assert.False(tables.TryLocation(second.Symbol.Location.Data.CanonicalText, out _));
+        Assert.False(tables.TryOrigin(reference.Origin.Data.CanonicalText, out _));
+        Assert.True(tables.TryKey(third.Symbol.Key, out var thirdKey));
+        Assert.Equal(4, thirdKey);
+        Assert.True(tables.TryLocation(unique.Symbol.Location.Data.CanonicalText, out var uniqueLocation));
+        Assert.Equal(5, uniqueLocation);
+        Assert.True(tables.TryOrigin(uniqueReference.Origin.Data.CanonicalText, out var uniqueOrigin));
+        Assert.Equal(3, uniqueOrigin);
+    }
+
+    private sealed class CancelOnFirstRead<T>(T row, CancellationTokenSource cancellation) : IReadOnlyList<T>
+    {
+        public int Count => 4;
+        public int ReadCount { get; private set; }
+
+        public T this[int index]
+        {
+            get
+            {
+                ReadCount++;
+                if (index == 0) cancellation.Cancel();
+                return row;
+            }
+        }
+
+        public IEnumerator<T> GetEnumerator()
+        {
+            for (var index = 0; index < Count; index++) yield return this[index];
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ClearCompletesWhileAnOlderBuilderPreparesLookups(bool pauseDuringDependencies)
+    {
+        var cache = new ProjectSemanticIndexLookupCache();
+        var scope = cache.BeginBinding(Input().Source.Context.Branch, CancellationToken.None);
+        var paused = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var resume = new ManualResetEventSlim();
+        var timeout = TimeSpan.FromSeconds(10);
+
+        void Pause()
+        {
+            paused.SetResult();
+            if (!resume.Wait(TimeSpan.FromSeconds(30)))
+                throw new TimeoutException("Lookup preparation did not resume.");
+        }
+
+        IEnumerable<string> Dependencies()
+        {
+            if (pauseDuringDependencies) Pause();
+            yield return "original-roster";
+        }
+
+        SemanticIndexLookupTables Create()
+        {
+            if (!pauseDuringDependencies) Pause();
+            return new([], [], CancellationToken.None);
+        }
+
+        var preparation = Task.Run(() => cache.Prepare(scope, Dependencies(), Create, CancellationToken.None));
+        Task? clear = null;
+        try
+        {
+            await paused.Task.WaitAsync(timeout);
+            clear = Task.Run(cache.Clear);
+            await clear.WaitAsync(timeout);
+        }
+        finally
+        {
+            resume.Set();
+            await preparation;
+            if (clear is not null) await clear;
+        }
+
+        cache.Commit(await preparation, CancellationToken.None);
+        Assert.Equal(0, cache.RetainedCount);
+        Assert.Equal(0, cache.RetainedCanonicalBytes);
+        Assert.Equal(0, cache.LookupReuseCount);
+    }
+
 
     [Fact]
     public async Task OverlappingBuildersAndExplicitClearKeepTheirOwnInputDataAndNeverPublishAPartialTable()
