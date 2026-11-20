@@ -479,26 +479,46 @@ public sealed class SemanticDiffTests
         private readonly CancellationTokenSource _source = new();
         private readonly bool _replace;
         private readonly PartialSemanticModel _before;
+        public Exception? ObserverFailure { get; }
         public CancellationToken Token => _source.Token;
         public bool Fired { get; private set; }
+        public bool WithdrawalFailed { get; private set; }
         public ProjectSemanticDiff? Replacement { get; private set; }
-        public CancelHistoricalRead(SyntheticWorkbenchViewModel vm, bool replace, PartialSemanticModel before)
-        { _vm = vm; _replace = replace; _before = before; vm.PropertyChanged += Changed; }
+        public CancelHistoricalRead(SyntheticWorkbenchViewModel vm, bool replace, PartialSemanticModel before, bool throwOnNotification)
+        {
+            _vm = vm; _replace = replace; _before = before;
+            if (throwOnNotification) ObserverFailure = new InvalidOperationException("Semantic diff publication observer failed.");
+            vm.PropertyChanged += Changed;
+        }
         public Exception? Read() => Record.Exception(ReadCore);
         private void ReadCore() => _vm.CompareSynthetic(_before, _before.Input.InputDigest, Token);
         private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
+            if (Fired && !_replace && _vm.SemanticDiff is null && ObserverFailure is not null)
+            {
+                WithdrawalFailed = true;
+                throw new InvalidOperationException("Semantic diff withdrawal observer failed.");
+            }
             if (Fired || _vm.SemanticDiff is null) return;
             Fired = true;
             if (_replace) Replacement = _vm.CompareSynthetic(_before, _before.Input.InputDigest);
             _source.Cancel();
+            if (ObserverFailure is { } failure) throw failure;
         }
         public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
     }
 
     [Theory]
     [InlineData(false)] [InlineData(true)]
-    public async Task CancellationAtHistoricalReadPublicationWithdrawsOnlyItsOwnedView(bool replace)
+    public Task CancellationAtHistoricalReadPublicationWithdrawsOnlyItsOwnedView(bool replace) =>
+        VerifyDiffPublicationCancellation(replace, throwOnNotification: false);
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public Task ThrowingObserverDoesNotRetainCancelledSemanticDiff(bool replace) =>
+        VerifyDiffPublicationCancellation(replace, throwOnNotification: true);
+
+    private static async Task VerifyDiffPublicationCancellation(bool replace, bool throwOnNotification)
     {
         var basis = DraftRenameTests.Draft(); var before = ProjectSemanticBinder.Bind(basis);
         var prepared = ProjectDraftRename.Preview(before, DraftRenameTests.Target(basis), basis.InputDigest, "Changed", DraftRenameTests.Next(basis));
@@ -511,7 +531,7 @@ public sealed class SemanticDiffTests
         var result = view.Result!; var resultData = result.Data; var source = view.Source!; var sourceData = source.Data; var originalBefore = basis.Data;
         var previous = view.CompareSynthetic(before, basis.InputDigest)!; Assert.Equal(SemanticDiffState.Complete, previous.State); Assert.NotEmpty(previous.Changes);
         var previousData = previous.Data;
-        using var cancellation = new CancelHistoricalRead(view, replace, before); var token = cancellation.Token;
+        using var cancellation = new CancelHistoricalRead(view, replace, before, throwOnNotification); var token = cancellation.Token;
         var error = cancellation.Read();
         Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
         Assert.Same(result, view.Result); Assert.Equal(resultData, result.Data); Assert.Same(source, view.Source); Assert.Equal(sourceData, source.Data);
@@ -522,6 +542,47 @@ public sealed class SemanticDiffTests
             Assert.Same(cancellation.Replacement, view.SemanticDiff);
         }
         else Assert.Null(view.SemanticDiff);
-        Assert.IsType<OperationCanceledException>(error);
+        Assert.Equal(throwOnNotification && !replace, cancellation.WithdrawalFailed);
+        if (throwOnNotification) Assert.Same(cancellation.ObserverFailure, error);
+        else Assert.IsType<OperationCanceledException>(error);
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task ClearingSemanticDiffReportsCancellationAndRetainsNewerView(bool replace)
+    {
+        var input = DraftRenameTests.Draft();
+        var before = ProjectSemanticBinder.Bind(input);
+        CompilerArtifactIdentity Artifact(string field) => new(SourceJson.Parse(input.Settings.Value.GetProperty(field).GetRawText()));
+        var host = new LocalNetCompilerHost(new(input.Compiler, Artifact("schema"), Artifact("ruleset"), Artifact("semantics"), Artifact("ir"), Artifact("evaluator"),
+            input.Settings.Value.GetProperty("featureSet").EnumerateArray().Select(item => item.GetString())));
+        using var view = new SyntheticWorkbenchViewModel();
+        var request = new CompilerHostRequest(new(input), 1);
+        view.BeginSynthetic(request);
+        Assert.True(view.TryAccept(await host.CompileAsync(request)));
+        var source = view.Source;
+        var result = view.Result;
+        Assert.True(view.CompareSynthetic(before, input.InputDigest)!.NoChanges);
+        using var cancellation = new CancellationTokenSource();
+        var sawClear = false;
+        ProjectSemanticDiff? replacement = null;
+        System.ComponentModel.PropertyChangedEventHandler observer = (_, _) =>
+        {
+            if (sawClear || view.SemanticDiff is not null) return;
+            sawClear = true;
+            if (replace) replacement = view.CompareSynthetic(before, input.InputDigest);
+            cancellation.Cancel();
+        };
+        view.PropertyChanged += observer;
+        try
+        {
+            Assert.Throws<OperationCanceledException>(() => view.CompareSynthetic(before, input.InputDigest, cancellation.Token));
+        }
+        finally { view.PropertyChanged -= observer; }
+        Assert.True(sawClear);
+        if (replace) Assert.NotNull(replacement);
+        Assert.Same(replacement, view.SemanticDiff);
+        Assert.Same(source, view.Source);
+        Assert.Same(result, view.Result);
     }
 }
