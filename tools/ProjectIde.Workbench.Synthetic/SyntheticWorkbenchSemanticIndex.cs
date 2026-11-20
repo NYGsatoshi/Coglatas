@@ -81,13 +81,9 @@ public sealed partial class SyntheticWorkbenchViewModel
 
     private void NotifyOwnedSemanticRead(CancellationToken token, Func<bool> ownsView, Action withdraw)
     {
-        var notificationCompleted = false;
+        Exception? withdrawalFailure = null;
         bool cancelledAtNotification;
-        try
-        {
-            Changed();
-            notificationCompleted = true;
-        }
+        try { Changed(); }
         finally
         {
             cancelledAtNotification = token.IsCancellationRequested;
@@ -95,13 +91,12 @@ public sealed partial class SyntheticWorkbenchViewModel
             {
                 withdraw();
                 try { Changed(); }
-                catch when (!notificationCompleted)
-                {
-                    // Preserve the original notification exception after withdrawing the cancelled view.
-                }
+                catch (Exception error) { withdrawalFailure = error; }
             }
         }
-        if (cancelledAtNotification) token.ThrowIfCancellationRequested();
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtNotification)
+            throw new OperationCanceledException("Semantic Index read was cancelled.", withdrawalFailure, token);
     }
 
     public CompilerIndexCompletionPage? ReadIndexedCompletion(int pageSize = CompilerSemanticIndex.MaximumPageSize,
