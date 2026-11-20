@@ -7,7 +7,7 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
   coglatasPackageJson = JSON.parse(await readFile(new URL('../../coglatas-frontend/package.json', import.meta.url), 'utf8')),
   coglatasPackageLock = JSON.parse(await readFile(new URL('../../coglatas-frontend/package-lock.json', import.meta.url), 'utf8')),
   expectedDependencies = {
-    '@lucide/angular': '1.72.0',
+    '@lucide/angular': '1.76.0',
     // This major update is explicitly part of the coordinated .NET 11 migration PR.
     '@microsoft/signalr': '11.0.0',
     '@syncfusion/ej2-angular-gantt': '34.2.8',
@@ -22,11 +22,11 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
   },
   qualifiedJsdomRanges = Object.freeze({ '30.1.3': '^30.1.3', '31.0.0': '^31.0.0', '31.0.1': '^31.0.0' }),
   expectedDevDependencies = {
-    '@angular-devkit/build-angular': '22.2.4',
+    '@angular-devkit/build-angular': '22.3.0',
     '@storybook/angular': '10.6.7',
     jsdom: '30.1.3',
     storybook: '10.6.7',
-    vitest: '5.1.0',
+    vitest: '5.1.1',
   },
   packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -113,15 +113,15 @@ void test('denies unreviewed nested Syncfusion 35.1.41 installers with a package
 });
 
 void test('pins the qualified Angular 22 CDK and sibling CLI/DevKit package integrity', () => {
-  assert.equal(packageJson.dependencies['@angular/cdk'], '22.2.7');
-  assert.equal(frontendPackageLock.packages[''].dependencies['@angular/cdk'], '22.2.7');
-  assert.equal(frontendPackageLock.packages['node_modules/@angular/cdk'].version, '22.2.7');
+  assert.equal(packageJson.dependencies['@angular/cdk'], '22.3.0');
+  assert.equal(frontendPackageLock.packages[''].dependencies['@angular/cdk'], '22.3.0');
+  assert.equal(frontendPackageLock.packages['node_modules/@angular/cdk'].version, '22.3.0');
   for (const [name, version] of Object.entries({
-    '@angular-devkit/architect': '0.2202.5',
-    '@angular-devkit/build-angular': '22.2.4',
-    '@angular-devkit/core': '22.2.5',
-    '@angular/build': '22.2.4',
-    '@angular/cli': '22.2.5',
+    '@angular-devkit/architect': '0.2203.0',
+    '@angular-devkit/build-angular': '22.3.0',
+    '@angular-devkit/core': '22.3.0',
+    '@angular/build': '22.3.0',
+    '@angular/cli': '22.3.0',
   })) {
     assert.equal(coglatasPackageJson.devDependencies[name], version);
     assert.equal(coglatasPackageLock.packages[''].devDependencies[name], version);
