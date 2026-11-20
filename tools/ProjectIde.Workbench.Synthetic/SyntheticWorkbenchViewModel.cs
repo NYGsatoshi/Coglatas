@@ -454,6 +454,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
     private void NotifyHistoricalRead(CancellationToken cancellationToken, Func<bool> ownsResult, Action withdraw)
     {
         var notificationCompleted = false;
+        bool cancelledAtPublication;
         try
         {
             Changed();
@@ -461,7 +462,8 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         }
         finally
         {
-            if (cancellationToken.IsCancellationRequested && ownsResult())
+            cancelledAtPublication = cancellationToken.IsCancellationRequested;
+            if (cancelledAtPublication && ownsResult())
             {
                 withdraw();
                 try { Changed(); }
@@ -471,7 +473,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
                 }
             }
         }
-        cancellationToken.ThrowIfCancellationRequested();
+        if (cancelledAtPublication) cancellationToken.ThrowIfCancellationRequested();
     }
 
     public void Reset()
