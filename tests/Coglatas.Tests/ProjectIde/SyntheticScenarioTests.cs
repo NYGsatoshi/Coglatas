@@ -150,16 +150,18 @@ public sealed class SyntheticScenarioTests
         private readonly PartialSemanticModel _basis;
         private readonly bool _draft;
         private readonly bool _replace;
+        private readonly InvalidOperationException? _publicationError;
         private readonly CancellationTokenSource _source = new();
         private int _notifications;
         public CancellationToken Token => _source.Token;
         public bool Fired { get; private set; }
+        public int WithdrawalNotifications { get; private set; }
         public object? Replacement { get; private set; }
         public CancelScenarioPreview(SyntheticWorkbenchViewModel vm, CompilerInputManifest input,
-            ProjectScenarioOverride change, bool draft, bool replace)
+            ProjectScenarioOverride change, bool draft, bool replace, InvalidOperationException? publicationError)
         {
             _vm = vm; _input = input; _change = change; _basis = ProjectSemanticBinder.Bind(input);
-            _draft = draft; _replace = replace; vm.PropertyChanged += Changed;
+            _draft = draft; _replace = replace; _publicationError = publicationError; vm.PropertyChanged += Changed;
         }
         public Exception? Read() => Record.Exception(ReadCore);
         private void ReadCore() => ReadPreview(704, Token);
@@ -172,10 +174,21 @@ public sealed class SyntheticScenarioTests
         }
         private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
-            if (Fired || ++_notifications != 2) return;
+            if (Fired)
+            {
+                var withdrawn = _draft ? _vm.ScenarioDraftPreview is null : _vm.ScenarioPreview is null;
+                if (_publicationError is not null && Token.IsCancellationRequested && withdrawn)
+                {
+                    WithdrawalNotifications++;
+                    throw new InvalidOperationException("Scenario withdrawal observer failed.");
+                }
+                return;
+            }
+            if (++_notifications != 2) return;
             Fired = true;
             if (_replace) Replacement = ReadPreview(705);
             _source.Cancel();
+            if (_publicationError is not null) throw _publicationError;
         }
         public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
     }
@@ -183,7 +196,16 @@ public sealed class SyntheticScenarioTests
     [Theory]
     [InlineData(false, false)] [InlineData(false, true)]
     [InlineData(true, false)] [InlineData(true, true)]
-    public async Task CancellationAtScenarioPreviewPublicationWithdrawsOnlyItsOwnedPreview(bool draft, bool replace)
+    public Task CancellationAtScenarioPreviewPublicationWithdrawsOnlyItsOwnedPreview(bool draft, bool replace) =>
+        VerifyScenarioPublication(draft, replace, null);
+
+    [Theory]
+    [InlineData(false, false)] [InlineData(false, true)]
+    [InlineData(true, false)] [InlineData(true, true)]
+    public Task ThrowingScenarioObserverWithdrawsOnlyItsCancelledPreview(bool draft, bool replace) =>
+        VerifyScenarioPublication(draft, replace, new InvalidOperationException("Scenario publication observer failed."));
+
+    private static async Task VerifyScenarioPublication(bool draft, bool replace, InvalidOperationException? publicationError)
     {
         var f = await Ready();
         using var view = f.View;
@@ -212,7 +234,8 @@ public sealed class SyntheticScenarioTests
             var prior = Preview(view, f.Change); Assert.Equal(ProjectScenarioState.Ready, prior.State); Assert.NotEmpty(prior.Plan!.Changes);
             previous = prior; previousData = prior.Plan.Input.Data;
         }
-        using var cancellation = new CancelScenarioPreview(view, f.Input, f.Change, draft, replace); var token = cancellation.Token;
+        using var cancellation = new CancelScenarioPreview(view, f.Input, f.Change, draft, replace, publicationError);
+        var token = cancellation.Token;
         var error = cancellation.Read();
         Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
         Assert.Same(result, view.Result); Assert.Equal(resultData, result.Data); Assert.Same(source, view.Source); Assert.Equal(sourceData, source.Data);
@@ -226,8 +249,19 @@ public sealed class SyntheticScenarioTests
             if (draft) Assert.Equal(ProjectScenarioState.Ready, Assert.IsType<ProjectScenarioDraftPreview>(current).State);
             else Assert.Equal(ProjectScenarioState.Ready, Assert.IsType<ProjectScenarioPreview>(current).State);
         }
-        else Assert.Null(current);
-        Assert.IsType<OperationCanceledException>(error);
+        else
+        {
+            Assert.Null(current);
+            Assert.Null(view.ScenarioPreview);
+            Assert.Null(view.ScenarioDraftPreview);
+        }
+        if (publicationError is null)
+            Assert.IsType<OperationCanceledException>(error);
+        else
+        {
+            Assert.Same(publicationError, error);
+            Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+        }
     }
     private sealed class CancelInitialScenarioPreview : IDisposable
     {
