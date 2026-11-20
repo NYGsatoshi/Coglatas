@@ -65,15 +65,10 @@ try
     {
         artifact = Failure("NotRun", "Error", "coglatas.invalid-or-mismatched-input"); exitCode = 3;
     }
-    // Encode completely before CreateNew; inventory is not a successful Test execution.
-    var bytes = artifact.ToCanonicalBytes();
-    // CreateNew preserves all existing files, including the Source and its input envelope.
-    await using var output = new FileStream(args[2], FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.Asynchronous);
-    await output.WriteAsync(bytes);
-    await output.FlushAsync();
+    await ProjectTestOutput.WriteNewAsync(args[2], artifact.ToCanonicalBytes());
     return exitCode;
 }
-catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
 {
     Console.Error.WriteLine("Project Test input/output unavailable; no successful result was published.");
     return 3;
