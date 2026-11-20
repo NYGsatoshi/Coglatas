@@ -30,6 +30,7 @@ public sealed partial class SyntheticWorkbenchViewModel
         _simulationTraceProfile = profile;
         _profiledRun = run;
         var notificationCompleted = false;
+        bool cancelledAtPublication;
         try
         {
             Changed();
@@ -37,7 +38,8 @@ public sealed partial class SyntheticWorkbenchViewModel
         }
         finally
         {
-            if (token.IsCancellationRequested && generation == _profileGeneration &&
+            cancelledAtPublication = token.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _profileGeneration &&
                 ReferenceEquals(_simulationTraceProfile, profile))
             {
                 ClearSimulationTraceProfile();
@@ -48,7 +50,7 @@ public sealed partial class SyntheticWorkbenchViewModel
                 }
             }
         }
-        token.ThrowIfCancellationRequested();
+        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
         return Current() && ReferenceEquals(SimulationTraceProfile, profile) && profile.State != SimulationTraceProfileState.Refused;
     }
     /// <summary>Read the existing fixed model recording through its current owned summary.</summary>
