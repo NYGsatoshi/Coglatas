@@ -1,0 +1,398 @@
+name: ProjectIDE private lookup native RED GREEN advisory
+
+on:
+  pull_request:
+    branches: [SecurityTestImplimation]
+    paths:
+      - .github/workflows/projectide-private-lookup-advisory.yml
+      - tests/candidates/projectide-private-lookup/**
+      - tests/candidates/workflow-provenance/**
+
+permissions:
+  contents: read
+
+env:
+  PROVENANCE_BLOB: bc8106b9c4ac38af7ddb53bd4f904aef98d847e8
+  PROVENANCE_CONTROLS_BLOB: c9f7ec729870758b86b21f806423ce1bb726933c
+  SOURCE_BLOB: 38a7a5a58da7b94c986cd2bd553a7068da22f6e6
+  RUNNER_BLOB: bb28c9754fd25e489eaa0200e5d29cd972afead7
+  CONTROLS_BLOB: 96fd9d805a1288d392b334107a60042968abf40f
+
+concurrency:
+  group: private-lookup-qualification-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  private-lookup-ubuntu:
+    name: Private lookup ${{ matrix.mode }} (ubuntu-24.04)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [corrected, historical-red]
+        include:
+          - mode: corrected
+            product: 1948e1834f79dfcf10bad5f0308546b2bcd939ae
+            product_tree: 5f8e0ce0b56ee5812277f5582de41ef9ee85fedd
+            scope: SYNTHETIC_PRIVATE_LOOKUP_CORE_ONLY
+          - mode: historical-red
+            product: 1696603417073e21db216244aabe72427fd61ced
+            product_tree: 77611a2465d30637abac525a9ee43d4009578254
+            scope: SYNTHETIC_PRIVATE_LOOKUP_HISTORICAL_LIFETIME_ONLY
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      DOTNET_CLI_UI_LANGUAGE: en-US
+      TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+      BASE_HEAD: ${{ github.event.pull_request.base.sha }}
+      WORKFLOW_HEAD: ${{ github.workflow_sha }}
+      WORKFLOW_REF: ${{ github.workflow_ref }}
+      PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+      PRODUCT_HEAD: ${{ matrix.product }}
+      PRODUCT_TREE: ${{ matrix.product_tree }}
+    steps:
+      - name: Preserve committed source bytes
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot preserve committed source bytes' }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot preserve LF source bytes' }
+      - name: Checkout immutable independent Security Test head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact source identities and Product SDK policy
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $actual = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $actual -ne $env:TEST_HEAD) { throw 'Independent Test HEAD mismatch' }
+          $case = git rev-parse 'HEAD:tests/candidates/projectide-private-lookup/SecurityPrivateLookupCandidateTests.cs'
+          if ($LASTEXITCODE -ne 0 -or $case -ne $env:SOURCE_BLOB) { throw 'Independent source blob mismatch' }
+          $runner = git rev-parse 'HEAD:tests/candidates/projectide-private-lookup/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Independent runner blob mismatch' }
+          $controls = git rev-parse 'HEAD:tests/candidates/projectide-private-lookup/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission controls blob mismatch' }
+          git cat-file -e "$($env:PRODUCT_HEAD)^{commit}" 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            git fetch --no-tags --no-write-fetch-head origin $env:PRODUCT_HEAD
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot retrieve immutable Product commit' }
+          }
+          $product = git rev-parse "$($env:PRODUCT_HEAD)^{commit}"
+          if ($LASTEXITCODE -ne 0 -or $product -ne $env:PRODUCT_HEAD) { throw 'Exact Product commit mismatch' }
+          $productTree = git rev-parse "$($env:PRODUCT_HEAD)^{tree}"
+          if ($LASTEXITCODE -ne 0 -or $productTree -ne $env:PRODUCT_TREE) { throw 'Exact Product tree mismatch' }
+          $policy = git show "$($env:PRODUCT_HEAD):global.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Immutable Product SDK policy missing' }
+          $context = Join-Path $env:RUNNER_TEMP 'private-lookup-qualification-context'
+          New-Item -ItemType Directory -Path $context | Out-Null
+          $policy | Set-Content -Encoding utf8NoBOM (Join-Path $context 'global.json')
+          @{
+            testHead = $actual
+            productTree = $productTree
+            productHead = $env:PRODUCT_HEAD
+            sourceBlob = $case
+            runnerBlob = $runner
+            controlsBlob = $controls
+            runnerOs = $env:RUNNER_OS
+            runId = '${{ github.run_id }}'
+            runAttempt = '${{ github.run_attempt }}'
+            mode = '${{ matrix.mode }}'
+            executionScope = '${{ matrix.scope }}'
+            requiredCheckQualified = $false
+            independentReviewComplete = $false
+            nativeUiQualified = $false
+            productionQualified = $false
+            trustQualified = $false
+            releaseQualified = $false
+          } | ConvertTo-Json | Set-Content -Encoding utf8NoBOM (Join-Path $context 'workflow-context.json')
+      - name: Install exact Product .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: ${{ runner.temp }}/private-lookup-qualification-context/global.json
+      - name: Install composition Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12'
+      - name: Bind the immutable executing workflow to the reviewed Test source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'private-lookup-qualification-context'
+          $provenance = git rev-parse 'HEAD:tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenance -ne $env:PROVENANCE_BLOB) { throw 'Provenance helper blob mismatch' }
+          $provenanceBytes = git hash-object --no-filters -- 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenanceBytes -ne $env:PROVENANCE_BLOB) { throw 'Provenance helper working bytes mismatch' }
+          python -I -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-private-lookup-advisory.yml --context (Join-Path $context 'workflow-context.json')
+          if ($LASTEXITCODE -ne 0) { throw 'Executing workflow provenance was refused' }
+      - name: Exercise independent Git provenance refusal controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'private-lookup-qualification-context'
+          $log = Join-Path $context 'provenance-controls.log'
+          # Reject changed committed and working Python executable bytes before loading.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'; Sha = $env:PROVENANCE_BLOB },
+            @{ Path = 'tests/candidates/workflow-provenance/test_workflow_provenance.py'; Sha = $env:PROVENANCE_CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-private-lookup' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B -c "import importlib.util, runpy, sys; s=importlib.util.spec_from_file_location('verify_workflow_provenance', 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'); m=importlib.util.module_from_spec(s); sys.modules[s.name]=m; s.loader.exec_module(m); runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py', run_name='__main__')" *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content -LiteralPath $log
+          if ($controlsExitCode -ne 0) { throw 'Executing workflow provenance controls failed' }
+      - name: Verify positive and rejection admission controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'private-lookup-qualification-context'
+          $status = git status --porcelain --untracked-files=all
+          if ($LASTEXITCODE -ne 0 -or $status) { throw 'Independent Test checkout changed' }
+          [System.IO.File]::WriteAllText((Join-Path $context 'source-status.txt'), ($status -join "`n"), [System.Text.UTF8Encoding]::new($false))
+          python --version | Set-Content -Encoding utf8NoBOM (Join-Path $context 'python-version.txt')
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot retain actual Python version' }
+          $log = Join-Path $context 'admission-controls.log'
+          # Reject changed committed and working Python executable bytes before loading.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-private-lookup/compose_and_verify.py'; Sha = $env:RUNNER_BLOB },
+            @{ Path = 'tests/candidates/projectide-private-lookup/test_compose_and_verify.py'; Sha = $env:CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-private-lookup' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-private-lookup/test_compose_and_verify.py' *> $log
+          $result = $LASTEXITCODE
+          Get-Content -LiteralPath $log
+          if ($result -ne 0) { throw 'Private lookup admission controls failed' }
+      - name: Execute original native facts and compiled discovery
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Reject changed committed and working Python executable bytes before loading.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-private-lookup/compose_and_verify.py'; Sha = $env:RUNNER_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-private-lookup' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          $candidateArguments = @('-I', '-B', 'tests/candidates/projectide-private-lookup/compose_and_verify.py',
+            '--product-head', $env:PRODUCT_HEAD,
+            '--worktree', "$env:RUNNER_TEMP/private-lookup-qualification-product",
+            '--evidence', "$env:RUNNER_TEMP/private-lookup-qualification-evidence")
+          if ('${{ matrix.mode }}' -eq 'historical-red') { $candidateArguments += '--historical' }
+          python @candidateArguments
+          if ($LASTEXITCODE -ne 0) { throw 'Private lookup original native qualification did not complete' }
+      - name: Retain original source, native outcomes and identities
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: private-lookup-${{ matrix.mode }}-ubuntu-24.04-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/private-lookup-qualification-context
+            ${{ runner.temp }}/private-lookup-qualification-evidence
+          if-no-files-found: error
+          retention-days: 7
+
+  private-lookup-windows:
+    name: Private lookup ${{ matrix.mode }} (windows-latest)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [corrected, historical-red]
+        include:
+          - mode: corrected
+            product: 1948e1834f79dfcf10bad5f0308546b2bcd939ae
+            product_tree: 5f8e0ce0b56ee5812277f5582de41ef9ee85fedd
+            scope: SYNTHETIC_PRIVATE_LOOKUP_CORE_ONLY
+          - mode: historical-red
+            product: 1696603417073e21db216244aabe72427fd61ced
+            product_tree: 77611a2465d30637abac525a9ee43d4009578254
+            scope: SYNTHETIC_PRIVATE_LOOKUP_HISTORICAL_LIFETIME_ONLY
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      DOTNET_CLI_UI_LANGUAGE: en-US
+      TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+      BASE_HEAD: ${{ github.event.pull_request.base.sha }}
+      WORKFLOW_HEAD: ${{ github.workflow_sha }}
+      WORKFLOW_REF: ${{ github.workflow_ref }}
+      PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+      PRODUCT_HEAD: ${{ matrix.product }}
+      PRODUCT_TREE: ${{ matrix.product_tree }}
+    steps:
+      - name: Preserve committed source bytes
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot preserve committed source bytes' }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot preserve LF source bytes' }
+      - name: Checkout immutable independent Security Test head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact source identities and Product SDK policy
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $actual = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $actual -ne $env:TEST_HEAD) { throw 'Independent Test HEAD mismatch' }
+          $case = git rev-parse 'HEAD:tests/candidates/projectide-private-lookup/SecurityPrivateLookupCandidateTests.cs'
+          if ($LASTEXITCODE -ne 0 -or $case -ne $env:SOURCE_BLOB) { throw 'Independent source blob mismatch' }
+          $runner = git rev-parse 'HEAD:tests/candidates/projectide-private-lookup/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Independent runner blob mismatch' }
+          $controls = git rev-parse 'HEAD:tests/candidates/projectide-private-lookup/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission controls blob mismatch' }
+          git cat-file -e "$($env:PRODUCT_HEAD)^{commit}" 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            git fetch --no-tags --no-write-fetch-head origin $env:PRODUCT_HEAD
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot retrieve immutable Product commit' }
+          }
+          $product = git rev-parse "$($env:PRODUCT_HEAD)^{commit}"
+          if ($LASTEXITCODE -ne 0 -or $product -ne $env:PRODUCT_HEAD) { throw 'Exact Product commit mismatch' }
+          $productTree = git rev-parse "$($env:PRODUCT_HEAD)^{tree}"
+          if ($LASTEXITCODE -ne 0 -or $productTree -ne $env:PRODUCT_TREE) { throw 'Exact Product tree mismatch' }
+          $policy = git show "$($env:PRODUCT_HEAD):global.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Immutable Product SDK policy missing' }
+          $context = Join-Path $env:RUNNER_TEMP 'private-lookup-qualification-context'
+          New-Item -ItemType Directory -Path $context | Out-Null
+          $policy | Set-Content -Encoding utf8NoBOM (Join-Path $context 'global.json')
+          @{
+            testHead = $actual
+            productTree = $productTree
+            productHead = $env:PRODUCT_HEAD
+            sourceBlob = $case
+            runnerBlob = $runner
+            controlsBlob = $controls
+            runnerOs = $env:RUNNER_OS
+            runId = '${{ github.run_id }}'
+            runAttempt = '${{ github.run_attempt }}'
+            mode = '${{ matrix.mode }}'
+            executionScope = '${{ matrix.scope }}'
+            requiredCheckQualified = $false
+            independentReviewComplete = $false
+            nativeUiQualified = $false
+            productionQualified = $false
+            trustQualified = $false
+            releaseQualified = $false
+          } | ConvertTo-Json | Set-Content -Encoding utf8NoBOM (Join-Path $context 'workflow-context.json')
+      - name: Install exact Product .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: ${{ runner.temp }}/private-lookup-qualification-context/global.json
+      - name: Install composition Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12'
+      - name: Bind the immutable executing workflow to the reviewed Test source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'private-lookup-qualification-context'
+          $provenance = git rev-parse 'HEAD:tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenance -ne $env:PROVENANCE_BLOB) { throw 'Provenance helper blob mismatch' }
+          $provenanceBytes = git hash-object --no-filters -- 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenanceBytes -ne $env:PROVENANCE_BLOB) { throw 'Provenance helper working bytes mismatch' }
+          python -I -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-private-lookup-advisory.yml --context (Join-Path $context 'workflow-context.json')
+          if ($LASTEXITCODE -ne 0) { throw 'Executing workflow provenance was refused' }
+      - name: Exercise independent Git provenance refusal controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'private-lookup-qualification-context'
+          $log = Join-Path $context 'provenance-controls.log'
+          # Reject changed committed and working Python executable bytes before loading.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'; Sha = $env:PROVENANCE_BLOB },
+            @{ Path = 'tests/candidates/workflow-provenance/test_workflow_provenance.py'; Sha = $env:PROVENANCE_CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-private-lookup' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B -c "import importlib.util, runpy, sys; s=importlib.util.spec_from_file_location('verify_workflow_provenance', 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'); m=importlib.util.module_from_spec(s); sys.modules[s.name]=m; s.loader.exec_module(m); runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py', run_name='__main__')" *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content -LiteralPath $log
+          if ($controlsExitCode -ne 0) { throw 'Executing workflow provenance controls failed' }
+      - name: Verify positive and rejection admission controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'private-lookup-qualification-context'
+          $status = git status --porcelain --untracked-files=all
+          if ($LASTEXITCODE -ne 0 -or $status) { throw 'Independent Test checkout changed' }
+          [System.IO.File]::WriteAllText((Join-Path $context 'source-status.txt'), ($status -join "`n"), [System.Text.UTF8Encoding]::new($false))
+          python --version | Set-Content -Encoding utf8NoBOM (Join-Path $context 'python-version.txt')
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot retain actual Python version' }
+          $log = Join-Path $context 'admission-controls.log'
+          # Reject changed committed and working Python executable bytes before loading.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-private-lookup/compose_and_verify.py'; Sha = $env:RUNNER_BLOB },
+            @{ Path = 'tests/candidates/projectide-private-lookup/test_compose_and_verify.py'; Sha = $env:CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-private-lookup' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B -c "import runpy,sys; p=sys.argv[1]; sys.argv=[p]; runpy.run_path(p,run_name='__main__')" 'tests/candidates/projectide-private-lookup/test_compose_and_verify.py' *> $log
+          $result = $LASTEXITCODE
+          Get-Content -LiteralPath $log
+          if ($result -ne 0) { throw 'Private lookup admission controls failed' }
+      - name: Execute original native facts and compiled discovery
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Reject changed committed and working Python executable bytes before loading.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-private-lookup/compose_and_verify.py'; Sha = $env:RUNNER_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-private-lookup' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          $candidateArguments = @('-I', '-B', 'tests/candidates/projectide-private-lookup/compose_and_verify.py',
+            '--product-head', $env:PRODUCT_HEAD,
+            '--worktree', "$env:RUNNER_TEMP/private-lookup-qualification-product",
+            '--evidence', "$env:RUNNER_TEMP/private-lookup-qualification-evidence")
+          if ('${{ matrix.mode }}' -eq 'historical-red') { $candidateArguments += '--historical' }
+          python @candidateArguments
+          if ($LASTEXITCODE -ne 0) { throw 'Private lookup original native qualification did not complete' }
+      - name: Retain original source, native outcomes and identities
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: private-lookup-${{ matrix.mode }}-windows-latest-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/private-lookup-qualification-context
+            ${{ runner.temp }}/private-lookup-qualification-evidence
+          if-no-files-found: error
+          retention-days: 7

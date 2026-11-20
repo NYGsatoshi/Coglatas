@@ -219,6 +219,7 @@ security_schemathesis_run_role() {
   printf 'SEC-04 Schemathesis: lane=%s role=%s seed=%s phases=%s max-examples=%s\n' \
     "$lane" "$role" "$seed" "$phases" "$examples"
 
+  local scan_started=$SECONDS
   set +e
   docker run --rm \
     --user "$(id -u):$(id -g)" \
@@ -259,6 +260,10 @@ security_schemathesis_run_role() {
       2>&1 | security_scan_redact_stream
   status=${PIPESTATUS[0]}
   set -e
+  # Advisory-only timing; preserve the scanner's native exit status. Role
+  # identifiers are from the fixed harness registry, never request content.
+  printf 'CI security scanner timing: tool=schemathesis role=%s elapsed_seconds=%d scanner_exit=%d\n' \
+    "$role" "$((SECONDS - scan_started))" "$status" || true
 
   set +e
   python3 scripts/security/process-schemathesis-report.py \

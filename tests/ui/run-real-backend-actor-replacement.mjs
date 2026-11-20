@@ -14,31 +14,61 @@ const sha = /^[a-f0-9]{40}$/;
 const digest = /^[a-f0-9]{64}$/;
 const imageId = /^sha256:[a-f0-9]{64}$/;
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+const refusalCodes = new Set(['PLATFORM_UNSUPPORTED', 'PREBUILT_RUNTIME_REQUIRED', 'SCENARIO_BYTES_MISMATCH',
+  'ARTIFACT_ROOT_UNSAFE', 'SOURCE_METADATA_UNAVAILABLE', 'PRODUCER_STAMP_MISMATCH',
+  'PRODUCER_HEAD_TREE_MISMATCH', 'RUN_IDENTITY_INVALID', 'PR_PRODUCER_IDENTITY_INVALID',
+  'PUSH_PRODUCER_IDENTITY_INVALID', 'IMAGE_IDENTITY_INVALID', 'TRACKED_SOURCE_DIRTY',
+  'CONTROL_SETUP_INCOMPLETE', 'HARNESS_INCOMPLETE', 'COMPLETION_RECEIPT_REJECTED', 'UNCLASSIFIED_FAILURE']);
+class AdmissionRefusal extends Error {
+  constructor(code) { super('Actor admission refused'); this.code = code; }
+}
+function admissionCheck(code, verify) {
+  try { verify(); } catch { throw new AdmissionRefusal(code); }
+}
+export function incompleteReceipt(phase, error, fallback = 'UNCLASSIFIED_FAILURE') {
+  const failureCode = error instanceof AdmissionRefusal ? error.code : fallback;
+  return { schemaVersion: 1, qualification: 'INCOMPLETE',
+    phase: ['ADMISSION', 'HARNESS', 'RECEIPT'].includes(phase) ? phase : 'UNKNOWN',
+    failureCode: refusalCodes.has(failureCode) ? failureCode : 'UNCLASSIFIED_FAILURE',
+    release: 'RELEASE_NO_GO' };
+}
 function keys(value, allowed) {
   assert.ok(value && typeof value === 'object' && !Array.isArray(value));
   assert.ok(Object.keys(value).every(key => allowed.includes(key)));
 }
 export function validateAdmission(input) {
-  assert.ok(sha.test(input.source) && sha.test(input.head) && sha.test(input.sourceTree));
-  assert.equal(input.source, input.checkout);
-  assert.equal(input.source, input.artifactSource);
-  assert.equal(input.source, input.dotnetSource);
-  assert.equal(input.source, input.frontendSource);
-  assert.equal(input.sourceTree, input.headTree, 'Producer and reviewed head trees differ');
-  assert.match(input.runId, /^[1-9][0-9]*$/);
-  assert.match(input.attempt, /^[1-9][0-9]*$/);
+  admissionCheck('PRODUCER_STAMP_MISMATCH', () => {
+    assert.ok(sha.test(input.source) && sha.test(input.head) && sha.test(input.sourceTree));
+    assert.equal(input.source, input.checkout);
+    assert.equal(input.source, input.artifactSource);
+    assert.equal(input.source, input.dotnetSource);
+    assert.equal(input.source, input.frontendSource);
+  });
+  admissionCheck('PRODUCER_HEAD_TREE_MISMATCH', () => {
+    assert.equal(input.sourceTree, input.headTree, 'Producer and reviewed head trees differ');
+  });
+  admissionCheck('RUN_IDENTITY_INVALID', () => {
+    assert.match(input.runId, /^[1-9][0-9]*$/);
+    assert.match(input.attempt, /^[1-9][0-9]*$/);
+  });
   if (input.event === 'pull_request') {
-    assert.equal(input.artifactHead, input.head);
-    assert.deepEqual(input.parents?.slice(1), [input.head]);
-    assert.equal(input.imageName, `coglatas-pr-functional:${input.source}`);
+    admissionCheck('PR_PRODUCER_IDENTITY_INVALID', () => {
+      assert.equal(input.artifactHead, input.head);
+      assert.deepEqual(input.parents?.slice(1), [input.head]);
+      assert.equal(input.imageName, `coglatas-pr-functional:${input.source}`);
+    });
   } else {
-    assert.equal(input.event, 'push');
-    assert.equal(input.ref, 'refs/heads/main');
-    assert.equal(input.head, input.source);
-    assert.equal(input.imageName, `coglatas-main-runtime:${input.source}`);
+    admissionCheck('PUSH_PRODUCER_IDENTITY_INVALID', () => {
+      assert.equal(input.event, 'push');
+      assert.equal(input.ref, 'refs/heads/main');
+      assert.equal(input.head, input.source);
+      assert.equal(input.imageName, `coglatas-main-runtime:${input.source}`);
+    });
   }
-  assert.match(input.producerImage, imageId);
-  assert.match(input.engineImage, imageId);
+  admissionCheck('IMAGE_IDENTITY_INVALID', () => {
+    assert.match(input.producerImage, imageId);
+    assert.match(input.engineImage, imageId);
+  });
 }
 export function validateJourney(report, source, started, now = Date.now()) {
   keys(report, ['schemaVersion', 'scope', 'source', 'startedAtUtc', 'completedAtUtc', 'qualification', 'release',
@@ -116,6 +146,7 @@ async function fileHash(file) {
 }
 async function run() {
   let phase = 'ADMISSION';
+  let refusalCode = 'PLATFORM_UNSUPPORTED';
   const publicFile = resolve('artifacts/actor-replacement/receipt.json');
   // This path contains only the closed receipt. All child output stays in runner-temp.
   mkdirSync(resolve('artifacts/actor-replacement'), { recursive: true });
@@ -123,10 +154,14 @@ async function run() {
   let fd;
   try {
     assert.equal(process.platform, 'linux');
+    refusalCode = 'PREBUILT_RUNTIME_REQUIRED';
     assert.equal(process.env.COGLATAS_REUSE_PREBUILT_APP_IMAGE, '1');
+    refusalCode = 'SCENARIO_BYTES_MISMATCH';
     assert.equal(hash(readFileSync('tests/ui/actor-replacement-real.mjs')), frozenScenario);
+    refusalCode = 'ARTIFACT_ROOT_UNSAFE';
     const root = resolve(process.env.ACTOR_ARTIFACT_ROOT || '');
     assert.ok(root.startsWith(resolve(process.env.RUNNER_TEMP) + '/'));
+    refusalCode = 'SOURCE_METADATA_UNAVAILABLE';
     const source = process.env.GITHUB_SHA;
     const head = process.env.GITHUB_EVENT_NAME === 'pull_request' ? process.env.PR_HEAD_SHA : source;
     assert.match(source, sha);
@@ -147,7 +182,9 @@ async function run() {
       runId: process.env.GITHUB_RUN_ID, attempt: process.env.GITHUB_RUN_ATTEMPT
     };
     validateAdmission(admission);
+    refusalCode = 'TRACKED_SOURCE_DIRTY';
     assert.equal(command('/usr/bin/git', ['status', '--porcelain', '--untracked-files=no']), '');
+    refusalCode = 'CONTROL_SETUP_INCOMPLETE';
     const control = mkdtempSync(join(resolve(process.env.RUNNER_TEMP), 'actor-control-'));
     for (const name of ['home', 'tmp', 'diagnostics']) mkdirSync(join(control, name), { mode: 0o700 });
     const password = `Actor!${randomBytes(24).toString('hex')}`;
@@ -163,6 +200,7 @@ async function run() {
     const hashes = Object.fromEntries([['harnessSha256', 'functional-compose-harness.sh'], ['helperSha256', 'acceptance-image-reuse.sh'],
       ['verifierSha256', 'runtime_image_identity.py']].map(([key, file]) => [key, hash(readFileSync(`scripts/ci/${file}`))]));
     phase = 'HARNESS';
+    refusalCode = 'HARNESS_INCOMPLETE';
     fd = openSync(join(control, 'harness.private.log'), 'wx', 0o600);
     const started = Date.now();
     const child = spawn('/usr/bin/bash', ['scripts/ci/functional-compose-harness.sh'], { env: childEnv, stdio: ['ignore', fd, fd] });
@@ -181,6 +219,7 @@ async function run() {
       closeSync(fd); fd = undefined;
     }
     phase = 'RECEIPT';
+    refusalCode = 'COMPLETION_RECEIPT_REJECTED';
     assert.equal(interrupted, false);
     const log = privateFile(join(control, 'harness.private.log'), 16 * 1024 * 1024);
     const records = log.split(/\r?\n/).filter(line => line.startsWith('FUNCTIONAL_IMAGE_REUSE '));
@@ -196,8 +235,8 @@ async function run() {
       imageArchiveSha256: await fileHash(join(root, 'runtime-image.tar.gz')),
       release: 'RELEASE_NO_GO' };
     process.exitCode = 0;
-  } catch {
-    receipt = { schemaVersion: 1, qualification: 'INCOMPLETE', phase, release: 'RELEASE_NO_GO' };
+  } catch (error) {
+    receipt = incompleteReceipt(phase, error, refusalCode);
     process.exitCode = 1;
   } finally {
     if (fd !== undefined) closeSync(fd);

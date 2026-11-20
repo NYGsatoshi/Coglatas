@@ -1,4 +1,5 @@
 name: PR CI
+# Full-CI qualification for stable-authority event batching; job semantics unchanged.
 
 on:
   pull_request: # Required checks: intentionally unfiltered.
@@ -58,12 +59,18 @@ jobs:
 
       - name: Test required-check topology parser
         run: python3 scripts/ci/test-required-pr-checks.py
+      - name: Test bounded PR cancellation resource cleanup
+        run: python3 -B scripts/ci/test-pr-ci-resource-cleanup.py
+      - name: Test Functional required-gate exemption controls
+        run: python3 -B scripts/ci/test-functional-fast-gate.py
 
       - name: Test SEC-ARCH execution evidence false-green controls
         run: python3 -B scripts/ci/test_sec_arch_evidence.py
 
       - name: Test SEC-ARCH independent producer artifact binding
         run: python3 -B scripts/ci/test_sec_arch_reconcile.py
+      - name: Test split PR Functional artifact and Main compatibility
+        run: python3 -B scripts/ci/test-main-runtime-artifact.py RuntimeArtifactTests
 
       - name: Test specification-contract Advisory summary controls
         run: |
@@ -103,6 +110,11 @@ jobs:
         run: |
           bash -n scripts/ci/parallel-lane-lib.sh
           bash -n scripts/ci/run-frontend-parallel.sh
+          node --test tests/ui/penpot-phase-profile.node-test.mjs scripts/ci/test-penpot-phase-evidence.mjs tests/ui/static-playwright-shard.node-test.mjs tests/ui/static-playwright-protected-launcher.node-test.mjs
+          node --check tests/ui/settled-scroll-position.ts
+          node --check tests/ui/settled-scroll-position.node-test.mjs
+          python3 -c 'import ast; from pathlib import Path; ast.parse(Path("scripts/ci/test_av_mig_runtime_cli.py").read_text())'
+          python3 -B scripts/ci/test_av_mig_runtime_reuse.py
           bash -n scripts/ci/run-security-runtime-parallel.sh
           bash -n scripts/ci/restore-main-build-artifacts.sh
           bash -n scripts/performance/with-environment.sh
@@ -114,6 +126,30 @@ jobs:
         run: |
           python3 -B scripts/ci/check-nuget-lock-policy.py
           python3 -B scripts/ci/test-nuget-lock-policy.py
+
+      - name: Verify offline Playwright shard identity and retry evidence contracts
+        run: node --test tests/ui/playwright-shard-evidence.node-test.mjs
+
+      - name: Cross-check Node SHA256 receipt schema against Python canonical digest
+        run: python3 -B scripts/ci/test-playwright-shard-interop.py
+
+      - name: Test nonpublishing Playwright Reporter hook fail-closed lifecycle
+        run: node --test tests/ui/playwright-shard-capture.node-test.mjs
+
+      - name: Test privacy-safe full Playwright source-list discovery
+        run: node --test tests/ui/playwright-full-source-list.node-test.mjs
+
+      - name: Verify PR Security prebuilt-image source and negative controls
+        run: python3 -B scripts/ci/test-security-runtime-prebuilt.py
+
+      - name: Test single-owner Security artifacts and negative controls
+        run: python3 -B scripts/ci/test-security-artifact-single-owner.py
+
+      - name: Test security scanner per-role timing and fail-closed controls
+        run: bash scripts/ci/test-security-scanner-role-timing.sh
+
+      - name: Validate setup-node cache ownership and negative controls
+        run: python3 -B scripts/ci/test_setup_node_cache_policy.py
 
       - name: LegacyNameGuard
         run: python3 scripts/ci/check-coglatas-rename.py
@@ -335,13 +371,18 @@ jobs:
         with:
           name: pr-functional-runtime
           path: ${{ runner.temp }}/actor-inputs
+      - name: Download same-run .NET producer for actor
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dotnet-release-build
+          path: ${{ runner.temp }}/actor-dotnet-build
       - name: Download same-run frontend provenance
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: frontend-build-artifacts
           path: ${{ runner.temp }}/actor-inputs
       - name: Restore exact producer runtime without rebuilding
-        run: bash scripts/ci/restore-main-build-artifacts.sh "$RUNNER_TEMP/actor-inputs" "$GITHUB_SHA" "$GITHUB_WORKSPACE"
+        run: bash scripts/ci/restore-main-build-artifacts.sh "$RUNNER_TEMP/actor-inputs" "$GITHUB_SHA" "$GITHUB_WORKSPACE" "$RUNNER_TEMP/actor-dotnet-build"
       - name: Prepare immutable browser image
         run: docker pull mcr.microsoft.com/playwright:v1.64.0-noble@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f
       - name: Require the fixed real-browser actor journey
@@ -384,17 +425,29 @@ jobs:
               test "$FUNCTIONAL_RESULT" = success
               ;;
             false)
-              test "$ROUTING_REASON" = validated-documentation-only
+              # The router independently recognizes a narrow, statically
+              # verified CI-tooling allowlist in addition to documentation.
+              # Never treat unknown, incomplete or runtime diffs as exempt.
+              case "$ROUTING_REASON" in
+                validated-documentation-only)
+                  exemption="validated documentation-only change"
+                  ;;
+                validated-ci-tooling-only)
+                  exemption="validated static CI-tooling-only change"
+                  ;;
+                *) exit 1 ;;
+              esac
               test "$RUNTIME_RESULT" = skipped
               test "$FUNCTIONAL_RESULT" = skipped
-              echo "NOT_APPLICABLE: validated documentation-only change" >> "$GITHUB_STEP_SUMMARY"
+              echo "NOT_APPLICABLE: $exemption" >> "$GITHUB_STEP_SUMMARY"
               ;;
             *) exit 1 ;;
           esac
 
   build-test:
     name: build-test
-    if: ${{ always() }}
+    # Preserve producer-failure admission below while allowing obsolete runs to stop.
+    if: ${{ !cancelled() }}
     needs: dotnet-build
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -434,7 +487,9 @@ jobs:
 
     steps:
       - name: Require successful build producer
+        shell: bash
         env:
+          BASH_ENV: /dev/null
           PRODUCER_RESULT: ${{ needs.dotnet-build.result }}
         run: test "$PRODUCER_RESULT" = success
 
@@ -715,6 +770,9 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "26"
+          # This job uses an isolated npm cache (or does not install packages).
+          # Do not save an unrelated default ~/.npm cache into GitHub Actions.
+          package-manager-cache: false
 
       - name: Use repository npm version without lifecycle scripts
         if: needs.changes.outputs.frontend == 'true'
@@ -770,14 +828,17 @@ jobs:
 
   frontend-test:
     name: frontend-test
-    if: ${{ always() }}
+    # A job-level always() would keep the full browser suite alive after cancellation.
+    if: ${{ !cancelled() }}
     needs: frontend-build
     runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     steps:
       - name: Require successful frontend producer
+        shell: bash
         env:
+          BASH_ENV: /dev/null
           PRODUCER_RESULT: ${{ needs.frontend-build.result }}
         run: test "$PRODUCER_RESULT" = success
 
@@ -827,6 +888,9 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "26"
+          # This job uses an isolated npm cache (or does not install packages).
+          # Do not save an unrelated default ~/.npm cache into GitHub Actions.
+          package-manager-cache: false
 
       - name: Use repository npm version without lifecycle scripts
         if: needs.frontend-build.outputs.frontend == 'true'
@@ -866,7 +930,46 @@ jobs:
         if: needs.frontend-build.outputs.frontend == 'true'
         run: bash scripts/ci/npm-ci-retry.sh frontend
 
+      - name: Verify generated-title SDK applicability on isolated source trial
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.base_ref == 'SecurityTestImplimation' &&
+          github.head_ref == 'ci-opt/playwright-full-source-list-20261105' &&
+          needs.frontend-build.outputs.frontend_playwright == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          receipt="$(mktemp)"
+          trap 'rm -f "$receipt"' EXIT
+          # Select stable, uncolored TAP independently of runner reporter defaults.
+          if ! env -u FORCE_COLOR -u NODE_TEST_REPORTER NODE_DISABLE_COLORS=1 \
+            node --test --test-reporter=tap tests/ui/playwright-source-applicability.node-test.mjs >"$receipt" 2>&1; then
+            echo "::error::SOURCE_APPLICABILITY_SDK_TEST_FAILED"
+            exit 1
+          fi
+          for expected in '# tests 7' '# pass 7' '# fail 0' '# skipped 0'; do
+            if ! grep -Fxq -- "$expected" "$receipt"; then
+              echo "::error::SOURCE_APPLICABILITY_SDK_RESULT_INCOMPLETE"
+              # Only finite aggregate TAP counters are retained; never print case titles.
+              awk '/^# (tests|pass|fail|skipped) [0-9]+$/ { print "::notice::SOURCE_APPLICABILITY_SDK_AGGREGATE=" $2 ":" $3 }' "$receipt"
+              exit 1
+            fi
+          done
+          echo "SOURCE_APPLICABILITY_SDK=7_PASS_0_SKIP"
+
+      - name: List original static Playwright test IDs on isolated trial branch only
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.base_ref == 'SecurityTestImplimation' &&
+          github.head_ref == 'ci-opt/playwright-full-source-list-20261105' &&
+          needs.frontend-build.outputs.frontend_playwright == 'true'
+        shell: bash
+        env:
+          COGLATAS_SOURCE_DISCOVERY_TRIAL: "1"
+        run: node scripts/ci/qualify-playwright-full-source-list.mjs
+
       - name: Run frontend checks in parallel
+        id: frontend-lanes
         if: needs.frontend-build.outputs.frontend == 'true'
         shell: bash
         env:
@@ -877,7 +980,14 @@ jobs:
           FRONTEND_STORYBOOK: "false"
           FRONTEND_PLAYWRIGHT: ${{ needs.frontend-build.outputs.frontend_playwright }}
           COGLATAS_PLAYWRIGHT_REUSE_HOST_BUILD: "true"
+          # Purely observational, opt-in phase timing; unchanged browser suite.
+          COGLATAS_PENPOT_PHASE_PROFILE: ${{ github.event_name == 'pull_request' && github.base_ref == 'SecurityTestImplimation' && contains(github.event.pull_request.labels.*.name, 'ci-penpot-phase-profile') && '1' || '0' }}
         run: bash scripts/ci/run-frontend-parallel.sh
+
+      - name: Finalize owned frontend resources after the test process exits
+        if: always() && needs.frontend-build.outputs.frontend_playwright == 'true' && steps.frontend-lanes.outcome != '' && steps.frontend-lanes.outcome != 'skipped'
+        timeout-minutes: 2
+        run: bash scripts/ci/cleanup-pr-ci-resources.sh frontend-test
 
       - name: Upload browser artifacts on failure
         if: failure() && needs.frontend-build.outputs.frontend_playwright == 'true'
@@ -905,6 +1015,22 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      - name: Collect bounded image keyboard observations from every attempt
+        id: collect-image-keyboard-observations
+        if: always() && needs.frontend-build.outputs.frontend_playwright == 'true'
+        timeout-minutes: 2
+        run: node scripts/ci/collect-image-keyboard-observations.mjs
+
+      - name: Retain validated image keyboard observations after retry success
+        if: always() && needs.frontend-build.outputs.frontend_playwright == 'true' && steps.collect-image-keyboard-observations.outcome == 'success'
+        timeout-minutes: 2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: image-keyboard-observations-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/image-keyboard-observation-validated/*.json
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Collect bounded Search drawer observations from every attempt
         id: collect-search-drawer-observations
         if: always() && needs.frontend-build.outputs.frontend_playwright == 'true'
@@ -921,7 +1047,8 @@ jobs:
 
   security-scan:
     name: security-scan
-    if: ${{ always() }}
+    # Failure is still rejected by the producer guard; cancellation may end this job.
+    if: ${{ !cancelled() }}
     needs: dotnet-build
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -935,7 +1062,9 @@ jobs:
 
     steps:
       - name: Require successful build producer
+        shell: bash
         env:
+          BASH_ENV: /dev/null
           PRODUCER_RESULT: ${{ needs.dotnet-build.result }}
         run: test "$PRODUCER_RESULT" = success
 
@@ -1033,6 +1162,7 @@ jobs:
           # PRs verify the generated contract once; main/manual repeat generation.
           COGLATAS_SECURITY_OPENAPI_DETERMINISM_RUNS: ${{ github.event_name == 'pull_request' && '1' || '2' }}
           COGLATAS_SECURITY_REUSE_PREBUILT_OPENAPI: ${{ github.event_name == 'pull_request' && '1' || '0' }}
+          COGLATAS_SECURITY_AVMIG_REUSE_REFERENCES: ${{ github.event_name == 'pull_request' && '1' || '0' }}
           # Verifier mutation suites run on PR only when verifier/policy/toolchain
           # or their concrete Program/AppHub mutation targets changed.
           COGLATAS_SECURITY_AVMIG_SELFTESTS: ${{ github.event_name != 'pull_request' && '1' || (needs.dotnet-build.outputs.avmig_selftests == 'true' && '1' || '0') }}
@@ -1125,15 +1255,39 @@ jobs:
         run: |
           set -euo pipefail
           image="coglatas-security-runtime:${GITHUB_SHA}"
-          docker build --file infra/docker/security-runtime.Dockerfile --tag "$image" .
+          dockerfile="infra/docker/security-runtime.Dockerfile"
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            # Only the exact verified .NET producer's compiled output may be
+            # shipped into the PR security image. Main/manual retain baseline.
+            expected="$(git rev-parse HEAD)"
+            [[ "$expected" == "$GITHUB_SHA" ]]
+            stamp="artifacts/ci/dotnet-build-sha"
+            [[ -f "$stamp" && ! -L "$stamp" ]]
+            [[ "$(tr -d '\r\n' < "$stamp")" == "$expected" ]] || {
+              echo "::error::Security runtime prebuilt .NET source does not match the tested revision."
+              exit 1
+            }
+            [[ -s src/Coglatas.Web/bin/Release/net11.0/Coglatas.Web.dll ]]
+            [[ -f src/Coglatas.Web/obj/project.assets.json ]]
+            dockerfile="infra/docker/security-runtime-pr-prebuilt.Dockerfile"
+          fi
+          docker build --file "$dockerfile" --tag "$image" .
           printf 'COGLATAS_SECURITY_RUNTIME_IMAGE=%s\n' "$image" >> "$GITHUB_ENV"
 
       - name: Run isolated security runtime lanes in parallel
+        id: security-runtime-lanes
         if: github.event_name != 'pull_request' || needs.dotnet-build.outputs.security_compose == 'true'
         shell: bash
         env:
           SYNCFUSION_LICENSE: compose-config-validation-placeholder
         run: bash scripts/ci/run-security-runtime-parallel.sh
+
+      - name: Finalize owned security resources after the scanner processes exit
+        if: always() && steps.security-runtime-lanes.outcome != '' && steps.security-runtime-lanes.outcome != 'skipped'
+        timeout-minutes: 2
+        env:
+          COGLATAS_SECURITY_RUNTIME_FAILED: ${{ steps.security-runtime-lanes.outcome != 'success' && 'true' || 'false' }}
+        run: bash scripts/ci/cleanup-pr-ci-resources.sh security-scan
 
       - name: Scan repository filesystem with Trivy
         if: github.event_name != 'pull_request' || needs.dotnet-build.outputs.security_image == 'true'
@@ -1201,11 +1355,11 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: security-scan-reports
+          # Scanner evidence is already published once by sec06-zap-evidence,
+          # including on scanner failure. Do not duplicate its payload here.
           path: |
             dotnet-vulnerable-packages.txt
             trivy-filesystem-report.txt
             gitleaks-report.json
-            artifacts/security/schemathesis/
-            artifacts/security/zap/
           if-no-files-found: warn
           retention-days: 7

@@ -9,6 +9,22 @@ cd "$repo_root"
 # shellcheck source=scripts/ci/parallel-lane-lib.sh
 source scripts/ci/parallel-lane-lib.sh
 
+run_security_stage() {
+  local stage="$1"
+  local began="$SECONDS"
+  local rc=0
+  if bash scripts/ci/run-security-runtime-smoke.sh "$stage"; then
+    :
+  else
+    rc=$?
+  fi
+  # Only trusted stage names, elapsed time and native result are published.
+  # Failed stages retain their real exit code and trigger the existing cleanup.
+  printf 'CI security stage: %s exit=%d elapsed_seconds=%d\n' \
+    "$stage" "$rc" "$((SECONDS - began))"
+  return "$rc"
+}
+
 run_runtime_lane() {
   local kind="$1"
   export COGLATAS_SECURITY_CI_PROJECT="coglatas-security-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-${kind}"
@@ -21,19 +37,19 @@ run_runtime_lane() {
   }
   trap cleanup EXIT
 
-  bash scripts/ci/run-security-runtime-smoke.sh prepare
-  bash scripts/ci/run-security-runtime-smoke.sh sec03
+  run_security_stage prepare
+  run_security_stage sec03
 
   case "$kind" in
     core)
-      bash scripts/ci/run-security-runtime-smoke.sh sec05
-      bash scripts/ci/run-security-runtime-smoke.sh aud02
+      run_security_stage sec05
+      run_security_stage aud02
       ;;
     schemathesis)
-      bash scripts/ci/run-security-runtime-smoke.sh sec04
+      run_security_stage sec04
       ;;
     zap)
-      bash scripts/ci/run-security-runtime-smoke.sh sec06
+      run_security_stage sec06
       ;;
     *)
       echo "Unknown security runtime lane '$kind'." >&2
