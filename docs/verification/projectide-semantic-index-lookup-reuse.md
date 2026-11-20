@@ -24,6 +24,9 @@ outside the session lock so Clear can invalidate an in-progress preparation.
 A scope invalidated before preparation skips key framing. Invalidation during
 framing stops the roster walk when observed and discards the partial key.
 Both paths build fresh tables.
+Fresh table construction checks cancellation before each symbol and reference
+read. A cancelled build stops scanning the remaining roster. Repeated entries
+remain ambiguous regardless of how many times they occur.
 A build carries its original owner/epoch token
 through preparation and commit; invalidation cannot restore an earlier owner. Prepared tables are committed only
 after the complete index has passed its original derived-work, canonical-byte

@@ -262,7 +262,7 @@ public sealed class SemanticIndexLookupCacheTests
         var lease = cache.Prepare(earlier, Dependencies(), () =>
         {
             Assert.True(disposed);
-            return new([], []);
+            return new([], [], CancellationToken.None);
         }, CancellationToken.None);
 
         Assert.False(readSuffix);
@@ -373,7 +373,7 @@ public sealed class SemanticIndexLookupCacheTests
         SemanticIndexLookupTables Create()
         {
             if (!pauseDuringDependencies) Pause();
-            return new([], []);
+            return new([], [], CancellationToken.None);
         }
 
         var preparation = Task.Run(() => cache.Prepare(scope, Dependencies(), Create, CancellationToken.None));

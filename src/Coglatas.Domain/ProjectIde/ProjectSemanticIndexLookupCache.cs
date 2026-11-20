@@ -134,24 +134,48 @@ internal sealed record SemanticIndexLookupLease(BranchRef Owner, object Generati
 
 internal sealed class SemanticIndexLookupTables
 {
-    private readonly Dictionary<string, int> _keys;
-    private readonly Dictionary<string, int> _locations;
-    private readonly Dictionary<string, int> _origins;
-    internal int KeyCount => _keys.Count;
-    internal int LocationCount => _locations.Count;
+    private const int AmbiguousPosition = -1;
+    private readonly Dictionary<string, int> _keys = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _locations = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _origins = new(StringComparer.Ordinal);
+    internal int KeyCount { get; }
+    internal int LocationCount { get; }
 
-    internal SemanticIndexLookupTables(IReadOnlyList<CompilerIndexedSymbol> symbols, IReadOnlyList<CompilerBoundReference> references, CancellationToken token = default)
+    internal SemanticIndexLookupTables(IReadOnlyList<CompilerIndexedSymbol> symbols, IReadOnlyList<CompilerBoundReference> references, CancellationToken token)
     {
-        _keys = symbols.Select((item, index) => (item.Symbol.Key, Index: index)).GroupBy(item => item.Key, StringComparer.Ordinal)
-            .Where(group => group.Count() == 1).ToDictionary(group => group.Key, group => group.Single().Index, StringComparer.Ordinal);
-        _locations = symbols.Select((item, index) => (Location: item.Symbol.Location.Data.CanonicalText, Index: index)).GroupBy(item => item.Location, StringComparer.Ordinal)
-            .Where(group => group.Count() == 1).ToDictionary(group => group.Key, group => group.Single().Index, StringComparer.Ordinal);
-        _origins = references.Select((item, index) => (Origin: item.Origin.Data.CanonicalText, Index: index)).GroupBy(item => item.Origin, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.Count() == 1 ? group.Single().Index : -1, StringComparer.Ordinal);
+        for (var index = 0; index < symbols.Count; index++)
+        {
+            token.ThrowIfCancellationRequested();
+            var symbol = symbols[index].Symbol;
+            KeyCount += RegisterPosition(_keys, symbol.Key, index);
+            LocationCount += RegisterPosition(_locations, symbol.Location.Data.CanonicalText, index);
+        }
+        for (var index = 0; index < references.Count; index++)
+        {
+            token.ThrowIfCancellationRequested();
+            RegisterPosition(_origins, references[index].Origin.Data.CanonicalText, index);
+        }
+        token.ThrowIfCancellationRequested();
     }
 
-    internal bool HasKey(string key) => _keys.ContainsKey(key);
-    internal bool TryKey(string key, out int index) => _keys.TryGetValue(key, out index);
-    internal bool TryLocation(string location, out int index) => _locations.TryGetValue(location, out index);
-    internal bool TryOrigin(string origin, out int index) => _origins.TryGetValue(origin, out index) && index >= 0;
+    // Return the change in unique positions. Later occurrences keep an ambiguous key ambiguous.
+    private static int RegisterPosition(Dictionary<string, int> positions, string key, int index)
+    {
+        if (!positions.TryGetValue(key, out var previous))
+        {
+            positions.Add(key, index);
+            return 1;
+        }
+        if (previous == AmbiguousPosition) return 0;
+        positions[key] = AmbiguousPosition;
+        return -1;
+    }
+
+    internal bool HasKey(string key) => TryKey(key, out _);
+    internal bool TryKey(string key, out int index) => TryUniquePosition(_keys, key, out index);
+    internal bool TryLocation(string location, out int index) => TryUniquePosition(_locations, location, out index);
+    internal bool TryOrigin(string origin, out int index) => TryUniquePosition(_origins, origin, out index);
+
+    private static bool TryUniquePosition(Dictionary<string, int> positions, string key, out int index) =>
+        positions.TryGetValue(key, out index) && index != AmbiguousPosition;
 }
