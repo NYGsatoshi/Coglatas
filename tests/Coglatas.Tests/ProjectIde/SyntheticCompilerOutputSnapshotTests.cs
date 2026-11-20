@@ -183,7 +183,7 @@ public sealed class SyntheticCompilerOutputSnapshotTests
         using var cancellation = new CancelPublishedRead(view, replace, publicationError);
         void ObserveWithdrawal(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
-            if (!cancellation.Fired || view.CompilerOutputSnapshot is not null) return;
+            if (!cancellation.Token.IsCancellationRequested || view.CompilerOutputSnapshot is not null) return;
             withdrawalCount++;
             throw new InvalidOperationException("Output withdrawal observer failed");
         }
