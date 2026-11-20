@@ -213,6 +213,40 @@
                         <details><summary>{{ t('ide.testsDetails') }}</summary><p>{{ t('ide.testsInput') }}: <code>{{ row.tests.run.inputDigest.value }}</code></p></details>
                       </section>
                     }</div>
+                    @if (store.scenarioSchedule(); as schedule) {
+                      <section data-testid="ide-scenario-schedule" aria-labelledby="ide-scenario-schedule-heading">
+                        <h4 id="ide-scenario-schedule-heading">{{ t('ide.scenarioScheduleHeading') }}</h4>
+                        @if (schedule === 'unavailable') {
+                          <p role="status">{{ t('ide.scenarioScheduleUnavailable') }}</p>
+                        } @else if (schedule.state === 'Incomplete') {
+                          <p role="status">{{ t('ide.scenarioScheduleIncomplete') }}</p>
+                        } @else {
+                          <dl><div><dt>{{ t('ide.scenarioScheduleDelta') }}</dt><dd data-testid="ide-scenario-schedule-delta">{{ schedule.modeledFinishDeltaTicks }}</dd></div></dl>
+                          @for (stage of [schedule.baseline, schedule.hypothesis]; track $index) {
+                            @if (stage) {
+                              <section [attr.data-testid]="'ide-scenario-schedule-stage-' + $index">
+                                <h5 [id]="'ide-scenario-schedule-stage-' + $index">{{ t($first ? 'ide.scenarioBaseline' : 'ide.scenarioHypothesis') }}</h5>
+                                <dl><div><dt>{{ t('ide.scenarioScheduleFinish') }}</dt><dd>{{ stage.finishOffsetTicks }}</dd></div></dl>
+                                <div class="scenario-schedule-table" tabindex="0" role="region" [attr.aria-labelledby]="'ide-scenario-schedule-stage-' + $index">
+                                  <table>
+                                    <thead><tr>
+                                      <th scope="col">{{ t('ide.scenarioScheduleTask') }}</th>
+                                      <th scope="col">{{ t('ide.scenarioScheduleStart') }}</th>
+                                      <th scope="col">{{ t('ide.scenarioScheduleTaskFinish') }}</th>
+                                      <th scope="col">{{ t('ide.scenarioScheduleFloat') }}</th>
+                                    </tr></thead>
+                                    <tbody>@for (task of stage.tasks; track $index) {
+                                      <tr><th scope="row"><code>{{ task.location.entityId }}</code></th>
+                                        <td>{{ task.startOffsetTicks }}</td><td>{{ task.finishOffsetTicks }}</td><td>{{ task.totalFloatTicks }}</td></tr>
+                                    }</tbody>
+                                  </table>
+                                </div>
+                              </section>
+                            }
+                          }
+                        }
+                      </section>
+                    }
                   </section>
                 }
               } @else { <p role="status">{{ t('ide.scenarioUnavailable') }}</p> }
@@ -905,41 +939,7 @@
                       <div class="panels">
                         <button type="button" (click)="loadPassBoundarySourcePage(page.offset - page.maximumTargets)" [disabled]="page.offset === 0">{{ t('ide.passSourcePrevious') }}</button>
                         <button type="button" (click)="loadPassBoundarySourcePage(page.offset + page.maximumTargets)" [disabled]="page.offset + page.targets.length >= page.totalTargets">{{ t('ide.passSourceNext') }}</button>
-                    </div>
-                    @if (store.scenarioSchedule(); as schedule) {
-                      <section data-testid="ide-scenario-schedule" aria-labelledby="ide-scenario-schedule-heading">
-                        <h4 id="ide-scenario-schedule-heading">{{ t('ide.scenarioScheduleHeading') }}</h4>
-                        @if (schedule === 'unavailable') {
-                          <p role="status">{{ t('ide.scenarioScheduleUnavailable') }}</p>
-                        } @else if (schedule.state === 'Incomplete') {
-                          <p role="status">{{ t('ide.scenarioScheduleIncomplete') }}</p>
-                        } @else {
-                          <dl><div><dt>{{ t('ide.scenarioScheduleDelta') }}</dt><dd data-testid="ide-scenario-schedule-delta">{{ schedule.modeledFinishDeltaTicks }}</dd></div></dl>
-                          @for (stage of [schedule.baseline, schedule.hypothesis]; track $index) {
-                            @if (stage) {
-                              <section [attr.data-testid]="'ide-scenario-schedule-stage-' + $index">
-                                <h5 [id]="'ide-scenario-schedule-stage-' + $index">{{ t($first ? 'ide.scenarioBaseline' : 'ide.scenarioHypothesis') }}</h5>
-                                <dl><div><dt>{{ t('ide.scenarioScheduleFinish') }}</dt><dd>{{ stage.finishOffsetTicks }}</dd></div></dl>
-                                <div class="scenario-schedule-table" tabindex="0" role="region" [attr.aria-labelledby]="'ide-scenario-schedule-stage-' + $index">
-                                  <table>
-                                    <thead><tr>
-                                      <th scope="col">{{ t('ide.scenarioScheduleTask') }}</th>
-                                      <th scope="col">{{ t('ide.scenarioScheduleStart') }}</th>
-                                      <th scope="col">{{ t('ide.scenarioScheduleTaskFinish') }}</th>
-                                      <th scope="col">{{ t('ide.scenarioScheduleFloat') }}</th>
-                                    </tr></thead>
-                                    <tbody>@for (task of stage.tasks; track $index) {
-                                      <tr><th scope="row"><code>{{ task.location.entityId }}</code></th>
-                                        <td>{{ task.startOffsetTicks }}</td><td>{{ task.finishOffsetTicks }}</td><td>{{ task.totalFloatTicks }}</td></tr>
-                                    }</tbody>
-                                  </table>
-                                </div>
-                              </section>
-                            }
-                          }
-                        }
-                      </section>
-                    }
+                      </div>
                     </section>
                   }
                 </section>
