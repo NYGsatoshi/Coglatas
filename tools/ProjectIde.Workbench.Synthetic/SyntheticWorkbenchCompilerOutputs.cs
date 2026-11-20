@@ -29,13 +29,9 @@ public sealed partial class SyntheticWorkbenchViewModel
         if (!Current()) return false;
         _compilerOutputSnapshot = snapshot;
         _outputSnapshotCompilation = compilation;
-        var notificationCompleted = false;
+        Exception? withdrawalFailure = null;
         bool cancelledAtPublication;
-        try
-        {
-            Changed();
-            notificationCompleted = true;
-        }
+        try { Changed(); }
         finally
         {
             cancelledAtPublication = token.IsCancellationRequested;
@@ -44,13 +40,12 @@ public sealed partial class SyntheticWorkbenchViewModel
             {
                 ClearCompilerOutputSnapshot();
                 try { Changed(); }
-                catch when (!notificationCompleted)
-                {
-                    // Preserve the publication exception after withdrawing the cancelled snapshot.
-                }
+                catch (Exception error) { withdrawalFailure = error; }
             }
         }
-        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Compiler output read was cancelled.", withdrawalFailure, token);
         return Current() && ReferenceEquals(CompilerOutputSnapshot, snapshot) && snapshot.State is not
             (CompilerOutputSnapshotState.RefusedWrongResult or CompilerOutputSnapshotState.RefusedInputBinding or CompilerOutputSnapshotState.RefusedOutputBinding);
     }
