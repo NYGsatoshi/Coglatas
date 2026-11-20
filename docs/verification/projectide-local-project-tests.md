@@ -96,8 +96,9 @@ package lock, pinned dependencies and identity must match. It does not restore
 packages, rewrite a lock or treat a cache/artifact digest as permission. Source
 and envelope reads are each bounded by the existing 4 MiB default. Each command
 encodes its artifact, writes and closes a temporary file in the destination
-directory, then publishes it without replacing an existing file. A failed
-write or flush leaves the requested output path untouched. Exit codes are
+directory, then publishes it without replacing an existing file. Unix output
+directories must support hard links. A failed write, flush or publication
+leaves the requested output path untouched. Exit codes are
 0 Pass, 1 Fail, 2 Inconclusive/NotRun, 3 Error or input/output failure. Early
 failures have a distinct CLI-failure envelope and cannot impersonate a bound
 Test run. Unsupported input settings (including future scheduler, solver,

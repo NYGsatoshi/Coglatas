@@ -17,8 +17,17 @@ internal static class ProjectTestOutput
                 await output.FlushAsync();
             }
 
-            File.Move(temporary, destination, overwrite: false);
-            ownsTemporary = false;
+            if (OperatingSystem.IsWindows())
+            {
+                File.Move(temporary, destination, overwrite: false);
+                ownsTemporary = false;
+            }
+            else
+            {
+                // A Unix no-overwrite Move can check existence before calling a replacing rename.
+                // Linking the closed file creates the destination in one no-replace operation.
+                File.CreateHardLink(destination, temporary);
+            }
         }
         finally
         {
