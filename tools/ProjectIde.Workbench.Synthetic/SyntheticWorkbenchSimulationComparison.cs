@@ -29,6 +29,7 @@ public sealed partial class SyntheticWorkbenchViewModel
         _simulationComparison = comparison;
         _comparisonAfter = after;
         var notificationCompleted = false;
+        bool cancelledAtPublication;
         try
         {
             Changed();
@@ -36,7 +37,8 @@ public sealed partial class SyntheticWorkbenchViewModel
         }
         finally
         {
-            if (token.IsCancellationRequested && generation == _comparisonGeneration &&
+            cancelledAtPublication = token.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _comparisonGeneration &&
                 ReferenceEquals(_simulationComparison, comparison))
             {
                 ClearSimulationComparison();
@@ -47,7 +49,7 @@ public sealed partial class SyntheticWorkbenchViewModel
                 }
             }
         }
-        token.ThrowIfCancellationRequested();
+        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
         return Current() && ReferenceEquals(SimulationComparison, comparison) && comparison.State != SimulationRunComparisonState.Refused;
     }
     private void ClearSimulationComparison()
