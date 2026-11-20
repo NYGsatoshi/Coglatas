@@ -39,9 +39,8 @@ public sealed partial class SyntheticWorkbenchViewModel
         var generation = _semanticIndexGeneration; var scoped = _scopedGeneration; var compilation = _compilation; var desired = _desired;
         bool Current() => !_disposed && generation == _semanticIndexGeneration && scoped == _scopedGeneration && CurrentScopedSources &&
             compilation is not null && ReferenceEquals(compilation, _compilation) && ReferenceEquals(desired, _desired);
-        SemanticIndexReadState = "Loading"; Changed();
-        if (token.IsCancellationRequested)
-        { if (generation == _semanticIndexGeneration && scoped == _scopedGeneration) { ClearSemanticIndex(); Changed(); } token.ThrowIfCancellationRequested(); }
+        SemanticIndexReadState = "Loading";
+        NotifyOwnedSemanticRead(token, () => generation == _semanticIndexGeneration && scoped == _scopedGeneration, ClearSemanticIndex);
         if (!Current() || compilation?.Dependencies is not { } dependencies || desired is null)
         { if (generation == _semanticIndexGeneration) { SemanticIndexReadState = "Unavailable"; Changed(); } return false; }
         CompilerSemanticIndex index;
@@ -51,9 +50,10 @@ public sealed partial class SyntheticWorkbenchViewModel
         if (!Current()) return false;
         if (index.State != CompilerSemanticIndexState.Complete || !index.IndexCoverageComplete)
         { SemanticIndexReadState = "Unavailable"; Changed(); return false; }
-        var owner = new SemanticIndexOwner(index, compilation, scoped); _semanticIndexOwner = owner; SemanticIndexReadState = "Ready"; Changed();
-        if (token.IsCancellationRequested)
-        { if (ReferenceEquals(_semanticIndexOwner, owner)) { ClearSemanticIndex(); Changed(); } token.ThrowIfCancellationRequested(); }
+        var owner = new SemanticIndexOwner(index, compilation, scoped);
+        _semanticIndexOwner = owner;
+        SemanticIndexReadState = "Ready";
+        NotifyOwnedSemanticRead(token, () => ReferenceEquals(_semanticIndexOwner, owner), ClearSemanticIndex);
         return Current() && ReferenceEquals(SemanticIndex, index);
     }
     public bool SelectIndexedSymbol(CompilerIndexedSymbol symbol)
@@ -72,11 +72,38 @@ public sealed partial class SyntheticWorkbenchViewModel
             ReferenceEquals(index, SemanticIndex) && ReferenceEquals(symbol, SelectedIndexedSymbol);
         Changed(); token.ThrowIfCancellationRequested(); if (!Current()) return null;
         var value = read(index!, symbol!); token.ThrowIfCancellationRequested(); if (!Current()) return null;
-        var owner = new SemanticQueryOwner(index!, symbol!, generation); _semanticQueryOwner = owner; publish(value); Changed();
-        if (token.IsCancellationRequested)
-        { if (ReferenceEquals(_semanticQueryOwner, owner)) { ClearSemanticQueries(); Changed(); } token.ThrowIfCancellationRequested(); }
+        var owner = new SemanticQueryOwner(index!, symbol!, generation);
+        _semanticQueryOwner = owner;
+        publish(value);
+        NotifyOwnedSemanticRead(token, () => ReferenceEquals(_semanticQueryOwner, owner), ClearSemanticQueries);
         return Current() && ReferenceEquals(_semanticQueryOwner, owner) ? value : null;
     }
+
+    private void NotifyOwnedSemanticRead(CancellationToken token, Func<bool> ownsView, Action withdraw)
+    {
+        var notificationCompleted = false;
+        bool cancelledAtNotification;
+        try
+        {
+            Changed();
+            notificationCompleted = true;
+        }
+        finally
+        {
+            cancelledAtNotification = token.IsCancellationRequested;
+            if (cancelledAtNotification && ownsView())
+            {
+                withdraw();
+                try { Changed(); }
+                catch when (!notificationCompleted)
+                {
+                    // Preserve the original notification exception after withdrawing the cancelled view.
+                }
+            }
+        }
+        if (cancelledAtNotification) token.ThrowIfCancellationRequested();
+    }
+
     public CompilerIndexCompletionPage? ReadIndexedCompletion(int pageSize = CompilerSemanticIndex.MaximumPageSize,
         CompilerIndexCursor? cursor = null, CancellationToken cancellationToken = default)
     {
