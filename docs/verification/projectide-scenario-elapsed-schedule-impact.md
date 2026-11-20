@@ -29,3 +29,19 @@ This profile models elapsed time, nonnegative finish-to-start lags and
 unlimited capacity. Calendar and Resource-aware scheduling, milestone or
 release estimates, and paired client and runtime acceptance remain under
 #1032. The query starts no simulation and produces no Test verdict.
+
+The offline Windows Workbench keeps the simulation recording that was current
+when the user loaded the Scenario. An explicit schedule-impact read compares
+that original baseline with the current Scenario recording. A Scenario without
+a captured baseline has no comparison. A partial recording leaves modeled
+finish unavailable. Replacing the run or scope withdraws the comparison.
+Applying a Draft also withdraws the Scenario baseline. A cancelled read
+withdraws its own publication, including cancellation during notification.
+A reentrant newer read retains its own result. The Angular schedule view and
+paired qualification remain under #1032.
+
+The fixed Workbench fixture compiles and runs its actual baseline Test,
+applies duration and input-default assumptions, and compiles and tests the
+fresh Scenario. The Source diff, typed assumptions, Test verdicts and elapsed
+schedule comparison remain inspectable as distinct layers before applying
+and revalidating the new Draft.

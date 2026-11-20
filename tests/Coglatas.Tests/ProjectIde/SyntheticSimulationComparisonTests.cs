@@ -118,6 +118,187 @@ public sealed class SyntheticSimulationComparisonTests
         Assert.Equal(0L, view.SimulationComparison.ObservedElapsedDelta); Assert.Equal(24, converted.VirtualTicks - converted.Manifest.StartTicks);
         Assert.Equal(originalTrace, paused.Data); Assert.Equal(15, f.Before.VirtualTicks - f.Before.Manifest.StartTicks);
     }
+    [Fact]
+    public async Task ScenarioScheduleImpactUsesTheCapturedBaselineUntilDraftConversion()
+    {
+        var f = await ReadyScenarioSchedule();
+        using var view = f.View;
+        var baseline = Assert.IsType<ProjectSimulationRun>(f.Baseline);
+        var hypothesis = Assert.IsType<ProjectSimulationRun>(view.SimulationRun);
+        Assert.Same(baseline, view.ScenarioBaselineSimulation);
+        Assert.Null(view.ScenarioScheduleImpact);
+        Assert.True(view.ReadScenarioScheduleImpact());
+        var impact = Assert.IsType<ProjectScenarioElapsedScheduleImpact>(view.ScenarioScheduleImpact);
+        Assert.Equal(ScenarioElapsedScheduleImpactState.Complete, impact.State);
+        Assert.Equal(3, impact.ModeledFinishDeltaTicks);
+        Assert.Equal(baseline.Digest, impact.Baseline!.RunDigest);
+        Assert.Equal(hypothesis.Digest, impact.Hypothesis!.RunDigest);
+        Assert.Equal(6, Assert.Single(impact.Baseline.Tasks, row => row.Task.EntityId == EntityId.Parse(Id(7))).TotalFloatTicks);
+
+        var basis = f.Scenario.Basis;
+        Assert.Equal(CompilerVerdict.Fail, view.ScenarioBaselineTests!.Verdict);
+        Assert.Equal(CompilerVerdict.Pass, view.TestRun!.Verdict);
+        Assert.Equal(basis.InputDigest, view.ScenarioBaselineTests.Input.InputDigest);
+        Assert.Equal(f.Scenario.Input.InputDigest, view.TestRun.Input.InputDigest);
+        Assert.Equal(2, f.Scenario.Changes.Count);
+        var sourceDiff = view.CompareSynthetic(ProjectSemanticBinder.Bind(basis), basis.InputDigest);
+        Assert.NotNull(sourceDiff);
+        Assert.False(sourceDiff.NoChanges);
+        Assert.Same(impact, view.ScenarioScheduleImpact);
+
+        var originalRevision = basis.Source.Context.CommittedRevision!;
+        var conversion = view.PreviewScenarioDraft(ProjectSemanticBinder.Bind(basis), basis.InputDigest,
+            new(ProposalId.Parse(Id(1230)), CandidateRevisionId.Parse(Id(1231)), originalRevision, originalRevision))!.Plan!;
+        Assert.Same(impact, view.ScenarioScheduleImpact);
+        var draft = Assert.IsType<CompilerHostRequest>(view.ApplyScenarioDraft(conversion, basis, 3));
+        Assert.Null(view.ScenarioBaselineSimulation);
+        Assert.Null(view.ScenarioScheduleImpact);
+        Assert.True(view.TryAccept(await Host(conversion.After).CompileAsync(draft)));
+        Assert.True(view.LoadSyntheticScopedSources());
+        Assert.True(view.RunSyntheticTests());
+        Assert.Equal(CompilerVerdict.Pass, view.TestRun!.Verdict);
+        Assert.Equal(conversion.After.InputDigest, view.TestRun.Input.InputDigest);
+        Assert.True(view.RunSyntheticSimulation(Guid.Parse(Id(1232)), 100));
+        Assert.False(view.ReadScenarioScheduleImpact());
+        Assert.Equal(115, baseline.VirtualTicks);
+        Assert.Equal(118, hypothesis.VirtualTicks);
+    }
+
+    [Fact]
+    public async Task ScenarioScheduleImpactDoesNotSubstituteALaterRunForAMissingBaseline()
+    {
+        var f = await ReadyScenarioSchedule(captureBaseline: false);
+        using var view = f.View;
+        Assert.Null(view.ScenarioBaselineSimulation);
+        Assert.NotNull(view.SimulationRun);
+        Assert.False(view.ReadScenarioScheduleImpact());
+        Assert.Null(view.ScenarioScheduleImpact);
+    }
+
+    [Fact]
+    public async Task ScenarioScheduleImpactWithdrawsProjectionWhenTheRunChangesAndShowsIncomplete()
+    {
+        var f = await ReadyScenarioSchedule(limits: new(MaximumEvents: 2));
+        using var view = f.View;
+        Assert.True(view.ReadScenarioScheduleImpact());
+        Assert.Equal(ScenarioElapsedScheduleImpactState.Incomplete, view.ScenarioScheduleImpact!.State);
+        Assert.Null(view.ScenarioScheduleImpact.ModeledFinishDeltaTicks);
+
+        Assert.True(view.RunSyntheticSimulation(Guid.Parse(Id(1233)), 100));
+        Assert.Null(view.ScenarioScheduleImpact);
+        Assert.Same(f.Baseline, view.ScenarioBaselineSimulation);
+        Assert.True(view.ReadScenarioScheduleImpact());
+        Assert.Equal(3, view.ScenarioScheduleImpact!.ModeledFinishDeltaTicks);
+
+        Assert.True(view.LoadSyntheticScopedSources());
+        Assert.Null(view.ScenarioScheduleImpact);
+        Assert.False(view.ReadScenarioScheduleImpact());
+        view.Reset();
+        Assert.Null(view.ScenarioBaselineSimulation);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ScenarioScheduleImpactKeepsOnlyTheLatestReentrantRead(bool afterPublication)
+    {
+        var f = await ReadyScenarioSchedule();
+        using var view = f.View;
+        ProjectScenarioElapsedScheduleImpact? newer = null;
+        var entered = false;
+        view.PropertyChanged += (_, _) =>
+        {
+            if (entered || (view.ScenarioScheduleImpact is not null) != afterPublication) return;
+            entered = true;
+            Assert.True(view.ReadScenarioScheduleImpact());
+            newer = view.ScenarioScheduleImpact;
+        };
+        Assert.False(view.ReadScenarioScheduleImpact());
+        Assert.True(entered);
+        Assert.NotNull(newer);
+        Assert.Same(newer, view.ScenarioScheduleImpact);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ScenarioScheduleImpactCancellationWithdrawsOnlyTheCancelledPublication(bool replace)
+    {
+        var f = await ReadyScenarioSchedule();
+        using var view = f.View;
+        using var source = new CancellationTokenSource();
+        ProjectScenarioElapsedScheduleImpact? newer = null;
+        var entered = false;
+        var hypothesis = view.SimulationRun;
+        view.PropertyChanged += (_, _) =>
+        {
+            if (entered || view.ScenarioScheduleImpact is null) return;
+            entered = true;
+            if (replace)
+            {
+                Assert.True(view.ReadScenarioScheduleImpact());
+                newer = view.ScenarioScheduleImpact;
+            }
+            source.Cancel();
+        };
+        Assert.Throws<OperationCanceledException>(() => view.ReadScenarioScheduleImpact(source.Token));
+        Assert.True(entered);
+        if (replace) Assert.NotNull(newer);
+        Assert.Same(newer, view.ScenarioScheduleImpact);
+        Assert.Same(hypothesis, view.SimulationRun);
+        Assert.Same(f.Baseline, view.ScenarioBaselineSimulation);
+    }
+
+    private static async Task<(SyntheticWorkbenchViewModel View, ProjectScenarioPlan Scenario, ProjectSimulationRun? Baseline)>
+        ReadyScenarioSchedule(bool captureBaseline = true, SimulationRunLimits? limits = null)
+    {
+        var input = ScenarioScheduleInput();
+        var view = new SyntheticWorkbenchViewModel();
+        var initial = new CompilerHostRequest(new(input), 1);
+        view.BeginSynthetic(initial);
+        Assert.True(view.TryAccept(await Host(input).CompileAsync(initial)));
+        Assert.True(view.RunSyntheticTests());
+        Assert.True(view.LoadSyntheticScopedSources());
+        if (captureBaseline) Assert.True(view.RunSyntheticSimulation(Guid.Parse(Id(1220)), 100));
+        var baseline = view.SimulationRun;
+        var plan = Assert.IsType<CompilerExecutionPlan>(view.ScopedExecutionPlan);
+        var task = plan.Data.Value.GetProperty("tasks").EnumerateArray().Single(row => row.GetProperty("sourceEntityId").GetString() == Id(7));
+        var target = ProjectLocation.Parse(SourceJson.Parse(task.GetProperty("location").GetRawText()));
+        var duration = JsonNode.Parse(task.GetProperty("duration").GetRawText())!;
+        duration["value"] = "14";
+        var port = task.GetProperty("ports").EnumerateArray().Single();
+        var enabled = JsonNode.Parse(port.GetProperty("defaultValue").GetRawText())!;
+        enabled["value"] = true;
+        var scenario = Assert.IsType<ProjectScenarioPlan>(view.PreviewScenario(ScenarioId.Parse(Id(1221)), ScenarioRevisionId.Parse(Id(1222)),
+            [new(target, ProjectScenarioOverrideKind.TaskDuration, Json(duration)),
+                new(target, ProjectScenarioOverrideKind.TaskInputDefault, Json(enabled), PortId.Parse(Id(8)))])?.Plan);
+        var request = Assert.IsType<CompilerHostRequest>(view.LoadScenario(scenario, 2));
+        Assert.True(view.TryAccept(await Host(scenario.Input).CompileAsync(request)));
+        Assert.True(view.LoadSyntheticScopedSources());
+        Assert.True(view.RunSyntheticTests());
+        Assert.True(view.RunSyntheticSimulation(Guid.Parse(Id(1223)), 100, limits));
+        return (view, scenario, baseline);
+    }
+
+    private static CompilerInputManifest ScenarioScheduleInput()
+    {
+        var timing = ProjectSimulationTests.Plan().Input;
+        var tested = ProjectTestRunnerTests.Fixture(mutate: (port, _, test) =>
+        {
+            port["defaultValue"]!["value"] = false;
+            test["entityId"] = Id(10);
+        });
+        var declarations = JsonNode.Parse(timing.Source.Declarations.CanonicalText)!.AsArray();
+        var testedDeclarations = JsonNode.Parse(tested.Source.Declarations.CanonicalText)!.AsArray();
+        var scheduledTask = declarations.Single(node => node!["entityId"]!.GetValue<string>() == Id(7))!;
+        var testedTask = testedDeclarations.Single(node => node!["entityId"]!.GetValue<string>() == Id(7))!;
+        scheduledTask["payload"]!["ports"] = testedTask["payload"]!["ports"]!.DeepClone();
+        declarations.Add(testedDeclarations.Single(node => node!["entityId"]!.GetValue<string>() == Id(10))!.DeepClone());
+        var settings = JsonNode.Parse(timing.Settings.CanonicalText)!.AsObject();
+        settings["evaluator"] = JsonNode.Parse(SyntheticProjectTestConfiguration.Evaluator.Data.CanonicalText);
+        return new(ProjectSource.Create(timing.Source.Context, timing.Source.Documents, Json(declarations), timing.Source.Relations), Json(settings));
+    }
+
     private static LocalNetCompilerHost Host(CompilerInputManifest input)
     {
         CompilerArtifactIdentity Artifact(string field) => new(SourceJson.Parse(input.Settings.Value.GetProperty(field).GetRawText()));
