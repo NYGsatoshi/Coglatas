@@ -245,15 +245,28 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         var generation = _selectionGeneration;
         var preview = ProjectDraftRename.Preview(model, selected.Symbol.Location, _desired.Input.ExpectedInputDigest,
             name, nextContext, cancellationToken);
-        RenamePreview = preview; Changed();
-        if (cancellationToken.IsCancellationRequested)
+        RenamePreview = preview;
+        var publicationCompleted = false;
+        bool cancelledAtPublication;
+        try
         {
-            if (generation == _selectionGeneration && ReferenceEquals(RenamePreview, preview))
-            {
-                RenamePreview = null; Changed();
-            }
-            cancellationToken.ThrowIfCancellationRequested();
+            Changed();
+            publicationCompleted = true;
         }
+        finally
+        {
+            cancelledAtPublication = cancellationToken.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _selectionGeneration && ReferenceEquals(RenamePreview, preview))
+            {
+                RenamePreview = null;
+                try { Changed(); }
+                catch when (!publicationCompleted)
+                {
+                    // Preserve the original publication exception after withdrawing the cancelled preview.
+                }
+            }
+        }
+        if (cancelledAtPublication) cancellationToken.ThrowIfCancellationRequested();
         return !_disposed && generation == _selectionGeneration && ReferenceEquals(RenamePreview, preview) ? preview : null;
     }
 
@@ -285,15 +298,29 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         var preview = ProjectDraftRevert.Preview(parent, reverted, model, expectedParent, expectedReverted,
             _desired.Input.ExpectedInputDigest, proposal, history, cancellationToken);
         if (_disposed || lifecycle != _lifecycle || generation != _revertPreviewGeneration) return null;
-        RevertPreview = preview; Changed();
-        if (cancellationToken.IsCancellationRequested)
+        RevertPreview = preview;
+        var publicationCompleted = false;
+        bool cancelledAtPublication;
+        try
         {
-            if (generation == _revertPreviewGeneration && ReferenceEquals(RevertPreview, preview))
-            {
-                _revertPreviewGeneration++; RevertPreview = null; Changed();
-            }
-            cancellationToken.ThrowIfCancellationRequested();
+            Changed();
+            publicationCompleted = true;
         }
+        finally
+        {
+            cancelledAtPublication = cancellationToken.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _revertPreviewGeneration && ReferenceEquals(RevertPreview, preview))
+            {
+                _revertPreviewGeneration++;
+                RevertPreview = null;
+                try { Changed(); }
+                catch when (!publicationCompleted)
+                {
+                    // Preserve the original publication exception after withdrawing the cancelled preview.
+                }
+            }
+        }
+        if (cancelledAtPublication) cancellationToken.ThrowIfCancellationRequested();
         return !_disposed && lifecycle == _lifecycle && generation == _revertPreviewGeneration && ReferenceEquals(RevertPreview, preview) ? preview : null;
     }
 

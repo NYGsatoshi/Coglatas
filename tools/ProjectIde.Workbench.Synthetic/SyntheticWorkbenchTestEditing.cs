@@ -29,15 +29,28 @@ public sealed partial class SyntheticWorkbenchViewModel
         }
         var preview = ProjectTestEditing.Preview(model, target, _desired.Input.ExpectedInputDigest, definition, next, cancellationToken);
         if (_disposed || lifecycle != _lifecycle || generation != _testEditGeneration || selection != _selectionGeneration) return null;
-        TestEditPreview = preview; Changed();
-        if (cancellationToken.IsCancellationRequested)
+        TestEditPreview = preview;
+        var publicationCompleted = false;
+        bool cancelledAtPublication;
+        try
         {
-            if (generation == _testEditGeneration && ReferenceEquals(TestEditPreview, preview))
-            {
-                ClearTestEdit(); Changed();
-            }
-            cancellationToken.ThrowIfCancellationRequested();
+            Changed();
+            publicationCompleted = true;
         }
+        finally
+        {
+            cancelledAtPublication = cancellationToken.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _testEditGeneration && ReferenceEquals(TestEditPreview, preview))
+            {
+                ClearTestEdit();
+                try { Changed(); }
+                catch when (!publicationCompleted)
+                {
+                    // Preserve the original publication exception after withdrawing the cancelled preview.
+                }
+            }
+        }
+        if (cancelledAtPublication) cancellationToken.ThrowIfCancellationRequested();
         if (!_disposed && lifecycle == _lifecycle && generation == _testEditGeneration && selection == _selectionGeneration &&
             ReferenceEquals(TestEditPreview, preview)) return preview;
         // Clear only this interrupted publication; a reentrant newer preview belongs to its own generation.
