@@ -344,18 +344,22 @@ public sealed class SyntheticRegionalOperatorRecordingTests
         private readonly SyntheticWorkbenchViewModel _view;
         private readonly Func<bool> _hasPublication;
         private readonly Action? _replace;
+        private readonly bool _throwOnPublication;
         private readonly CancellationTokenSource _source = new();
         private bool _fired;
 
         public CancellationToken Token => _source.Token;
         public InvalidOperationException PublicationError { get; } = new("Regional publication observer failed.");
+        public InvalidOperationException WithdrawalError { get; } = new("Regional withdrawal observer failed.");
         public int WithdrawalNotifications { get; private set; }
 
-        public ThrowingPublicationObserver(SyntheticWorkbenchViewModel view, Func<bool> hasPublication, Action? replace)
+        public ThrowingPublicationObserver(SyntheticWorkbenchViewModel view, Func<bool> hasPublication, Action? replace,
+            bool throwOnPublication)
         {
             _view = view;
             _hasPublication = hasPublication;
             _replace = replace;
+            _throwOnPublication = throwOnPublication;
             _view.PropertyChanged += Changed;
         }
 
@@ -363,10 +367,10 @@ public sealed class SyntheticRegionalOperatorRecordingTests
         {
             if (_fired)
             {
-                if (Token.IsCancellationRequested && !_hasPublication())
+                if (Token.IsCancellationRequested)
                 {
                     WithdrawalNotifications++;
-                    throw new InvalidOperationException("Regional withdrawal observer failed.");
+                    if (!_hasPublication()) throw WithdrawalError;
                 }
                 return;
             }
@@ -374,7 +378,7 @@ public sealed class SyntheticRegionalOperatorRecordingTests
             _fired = true;
             _replace?.Invoke();
             _source.Cancel();
-            throw PublicationError;
+            if (_throwOnPublication) throw PublicationError;
         }
 
         public void Dispose()
@@ -387,7 +391,14 @@ public sealed class SyntheticRegionalOperatorRecordingTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task ThrowingMetadataObserverWithdrawsOnlyItsCancelledRegionalRead(bool replace)
+    public Task ThrowingMetadataObserverWithdrawsOnlyItsCancelledRegionalRead(bool replace) =>
+        VerifyMetadataWithdrawal(replace, throwOnPublication: true);
+
+    [Fact]
+    public Task ThrowingRegionalMetadataWithdrawalObserverPreservesCancellation() =>
+        VerifyMetadataWithdrawal(replace: false, throwOnPublication: false);
+
+    private static async Task VerifyMetadataWithdrawal(bool replace, bool throwOnPublication)
     {
         var fixture = TwoRegions(false);
         var request = Full(new(new(fixture.Input), 7, fixture.Snapshots));
@@ -402,7 +413,7 @@ public sealed class SyntheticRegionalOperatorRecordingTests
 
         void PublishReplacement() => Assert.True(vm.ReadRegionalOperatorRecordingMetadata());
         using var observer = new ThrowingPublicationObserver(vm, () => vm.RegionalOperatorReceiptMetadata is not null,
-            replace ? PublishReplacement : null);
+            replace ? PublishReplacement : null, throwOnPublication);
         var error = Record.Exception(() => { vm.ReadRegionalOperatorRecordingMetadata(observer.Token); });
 
         Assert.True(observer.Token.IsCancellationRequested);
@@ -419,14 +430,21 @@ public sealed class SyntheticRegionalOperatorRecordingTests
             Assert.Null(vm.RegionalOperatorReceiptMetadata);
             Assert.Null(vm.RegionalOperatorRecordMetadata);
         }
-        Assert.Same(observer.PublicationError, error);
+        AssertObserverError(observer, error, throwOnPublication);
         Assert.Equal(replace ? 0 : 1, observer.WithdrawalNotifications);
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task ThrowingSnapshotObserverWithdrawsOnlyItsCancelledRegionalRead(bool replace)
+    public Task ThrowingSnapshotObserverWithdrawsOnlyItsCancelledRegionalRead(bool replace) =>
+        VerifySnapshotWithdrawal(replace, throwOnPublication: true);
+
+    [Fact]
+    public Task ThrowingRegionalSnapshotWithdrawalObserverPreservesCancellation() =>
+        VerifySnapshotWithdrawal(replace: false, throwOnPublication: false);
+
+    private static async Task VerifySnapshotWithdrawal(bool replace, bool throwOnPublication)
     {
         var fixture = TwoRegions(false);
         var request = Full(new(new(fixture.Input), 7, fixture.Snapshots));
@@ -446,7 +464,7 @@ public sealed class SyntheticRegionalOperatorRecordingTests
             replacement = vm.RecordedRegionalOperators;
         }
         using var observer = new ThrowingPublicationObserver(vm, () => vm.RecordedRegionalOperators is not null,
-            replace ? PublishReplacement : null);
+            replace ? PublishReplacement : null, throwOnPublication);
         var error = Record.Exception(() => { Read(vm, actual, token: observer.Token); });
 
         Assert.True(observer.Token.IsCancellationRequested);
@@ -461,8 +479,20 @@ public sealed class SyntheticRegionalOperatorRecordingTests
             Assert.Single(replacement.Bodies);
         }
         else Assert.Null(vm.RecordedRegionalOperators);
-        Assert.Same(observer.PublicationError, error);
+        AssertObserverError(observer, error, throwOnPublication);
         Assert.Equal(replace ? 0 : 1, observer.WithdrawalNotifications);
+    }
+
+    private static void AssertObserverError(ThrowingPublicationObserver observer, Exception? error, bool throwOnPublication)
+    {
+        if (throwOnPublication)
+        {
+            Assert.Same(observer.PublicationError, error);
+            return;
+        }
+        var cancelled = Assert.IsType<OperationCanceledException>(error);
+        Assert.Equal(observer.Token, cancelled.CancellationToken);
+        Assert.Same(observer.WithdrawalError, cancelled.InnerException);
     }
 
     [Fact]
