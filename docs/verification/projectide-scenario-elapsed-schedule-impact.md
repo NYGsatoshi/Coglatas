@@ -38,11 +38,23 @@ finish unavailable. Replacing the run or scope withdraws the comparison.
 Applying a Draft also withdraws the Scenario baseline. A cancelled read
 withdraws its own publication, even when a subscriber also throws during
 notification. The original subscriber failure reaches the caller. A reentrant
-newer read retains its own result. The Angular schedule view and paired
-qualification remain under #1032.
+newer read retains its own result.
 
 The fixed Workbench fixture compiles and runs its actual baseline Test,
 applies duration and input-default assumptions, and compiles and tests the
 fresh Scenario. The Source diff, typed assumptions, Test verdicts and elapsed
 schedule comparison remain inspectable as distinct layers before applying
 and revalidating the new Draft.
+
+The Angular Scenario schedule example associates the schedule frame with
+the verified baseline and Scenario recordings and their overlay digest. The
+reader checks the modeled finish, per-Task offsets, and dependency
+constraints on total slack against those recordings and their lowered plans.
+It displays the schedule beside the Source, assumptions, and Test results.
+The bounded example displays an unavailable finish change, and a stale or
+mismatched schedule cannot replace the other admitted Scenario results.
+Loading another stage withdraws the comparison.
+
+Generate the separate fixture with the Preview tool's `--scenario-schedule`
+option. Run the Angular Scenario and schedule unit tests and
+`tests/ui/projectide-scenario-schedule.spec.ts` against that generated asset.
