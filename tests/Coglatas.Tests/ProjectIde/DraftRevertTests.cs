@@ -452,31 +452,61 @@ public sealed class DraftRevertTests
         private readonly SyntheticWorkbenchViewModel _vm;
         private readonly CancellationTokenSource _source = new();
         private readonly bool _replace;
+        private readonly InvalidOperationException? _publicationError;
         private readonly PartialSemanticModel _parent;
         private readonly PartialSemanticModel _reverted;
         private readonly ProposalContext _proposal;
         private readonly ProjectHistoryRevision[] _history;
         public CancellationToken Token => _source.Token;
         public bool Fired { get; private set; }
+        public int WithdrawalNotifications { get; private set; }
         public DraftRevertPreview? Published { get; private set; }
         public DraftRevertPreview? Replacement { get; private set; }
-        public CancelDraftPreview(SyntheticWorkbenchViewModel vm, bool replace, PartialSemanticModel parent, PartialSemanticModel reverted, ProposalContext proposal, ProjectHistoryRevision[] history)
-        { _vm = vm; _replace = replace; _parent = parent; _reverted = reverted; _proposal = proposal; _history = history; vm.PropertyChanged += Changed; }
+        public CancelDraftPreview(SyntheticWorkbenchViewModel vm, bool replace, PartialSemanticModel parent, PartialSemanticModel reverted, ProposalContext proposal, ProjectHistoryRevision[] history,
+            InvalidOperationException? publicationError)
+        {
+            _vm = vm;
+            _replace = replace;
+            _publicationError = publicationError;
+            _parent = parent;
+            _reverted = reverted;
+            _proposal = proposal;
+            _history = history;
+            vm.PropertyChanged += Changed;
+        }
         public Exception? Read() => Record.Exception(ReadCore);
         private void ReadCore() => _vm.PreviewRevert(_parent, _reverted, _parent.Input.InputDigest, _reverted.Input.InputDigest, _proposal, _history, Token);
         private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
-            if (Fired || _vm.RevertPreview is not { } published) return;
+            if (Fired)
+            {
+                if (_publicationError is not null && Token.IsCancellationRequested && _vm.RevertPreview is null)
+                {
+                    WithdrawalNotifications++;
+                    throw new InvalidOperationException("Draft withdrawal observer failed.");
+                }
+                return;
+            }
+            if (_vm.RevertPreview is not { } published) return;
             Fired = true; Published = published;
             if (_replace) Replacement = _vm.PreviewRevert(_parent, _reverted, _parent.Input.InputDigest, _reverted.Input.InputDigest, _proposal, _history);
             _source.Cancel();
+            if (_publicationError is not null) throw _publicationError;
         }
         public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
     }
 
     [Theory]
     [InlineData(false)] [InlineData(true)]
-    public async Task CancellationAtDraftPreviewPublicationWithdrawsOnlyItsOwnedPlan(bool replace)
+    public Task CancellationAtDraftPreviewPublicationWithdrawsOnlyItsOwnedPlan(bool replace) =>
+        VerifyDraftPublication(replace, null);
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public Task ThrowingDraftObserverWithdrawsOnlyItsCancelledPlan(bool replace) =>
+        VerifyDraftPublication(replace, new InvalidOperationException("Draft publication observer failed."));
+
+    private static async Task VerifyDraftPublication(bool replace, InvalidOperationException? publicationError)
     {
         var a = Input(source: Revision(60)); var b = Input(source: Revision(61, "Changed")); var input = Input(source: Revision(62, "Changed", "Later"));
         CompilerArtifactIdentity Artifact(string field) => new(SourceJson.Parse(input.Settings.Value.GetProperty(field).GetRawText()));
@@ -490,7 +520,8 @@ public sealed class DraftRevertTests
         var selected = view.Selected; var tests = view.TestRun;
         var previous = view.PreviewRevert(parent, reverted, a.InputDigest, b.InputDigest, proposal, history)!; Assert.Equal(DraftRevertState.Ready, previous.State); Assert.NotNull(previous.Plan);
         var previousData = previous.Plan.After.Data; Assert.NotEqual(sourceData, previous.Plan.After.Source.Data);
-        using var cancellation = new CancelDraftPreview(view, replace, parent, reverted, proposal, history); var token = cancellation.Token;
+        using var cancellation = new CancelDraftPreview(view, replace, parent, reverted, proposal, history, publicationError);
+        var token = cancellation.Token;
         var error = cancellation.Read();
         Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
         Assert.NotNull(cancellation.Published); Assert.Equal(DraftRevertState.Ready, cancellation.Published.State); Assert.NotNull(cancellation.Published.Plan);
@@ -502,7 +533,13 @@ public sealed class DraftRevertTests
             Assert.NotSame(cancellation.Published, cancellation.Replacement); Assert.Same(cancellation.Replacement, view.RevertPreview);
         }
         else Assert.Null(view.RevertPreview);
-        Assert.IsType<OperationCanceledException>(error);
+        if (publicationError is null)
+            Assert.IsType<OperationCanceledException>(error);
+        else
+        {
+            Assert.Same(publicationError, error);
+            Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+        }
     }
     private sealed class CancelInitialPreview : IDisposable
     {
