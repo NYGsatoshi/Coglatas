@@ -19,6 +19,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
     private long _selectionGeneration;
     private long _revertPreviewGeneration;
     private long _historyReadGeneration;
+    private long _semanticDiffGeneration;
     private long _taskSuggestionGeneration;
     private CoreCompilation? _compilation;
     public string State { get; private set; } = "Empty";
@@ -404,21 +405,25 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        SemanticDiff = null;
-        if (_compilation?.Model is not { } after || _desired is null || State != "Ready") return null;
         var lifecycle = _lifecycle;
+        var generation = ++_semanticDiffGeneration;
+        if (SemanticDiff is not null)
+        {
+            SemanticDiff = null;
+            Changed();
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!Current() || _compilation?.Model is not { } after || _desired is null || State != "Ready") return null;
         var diff = ProjectSemanticDiff.Compare(before, after, expectedBefore, _desired.Input.ExpectedInputDigest,
             cancellationToken: cancellationToken);
-        SemanticDiff = diff; Changed();
-        if (cancellationToken.IsCancellationRequested)
-        {
-            if (lifecycle == _lifecycle && ReferenceEquals(SemanticDiff, diff))
-            {
-                SemanticDiff = null; Changed();
-            }
-            cancellationToken.ThrowIfCancellationRequested();
-        }
-        return !_disposed && lifecycle == _lifecycle && ReferenceEquals(SemanticDiff, diff) ? diff : null;
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!Current()) return null;
+        SemanticDiff = diff;
+        NotifyHistoricalRead(cancellationToken, OwnsDiff, () => { _semanticDiffGeneration++; SemanticDiff = null; });
+        return OwnsDiff() ? diff : null;
+
+        bool Current() => !_disposed && lifecycle == _lifecycle && generation == _semanticDiffGeneration;
+        bool OwnsDiff() => Current() && ReferenceEquals(SemanticDiff, diff);
     }
 
     /// <summary>Reconstruct only caller-authorized synthetic history in the accepted Project scope.</summary>
@@ -436,17 +441,37 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         if (_desired is null || Source is null || State != "Ready" ||
             revision.Branch.TenantId != Source.TenantId || revision.Branch.ProjectId != Source.ProjectId) return null;
         var result = ProjectSourceHistory.Read(revision, records, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         if (_disposed || lifecycle != _lifecycle || generation != _historyReadGeneration) return null;
-        History = result; Changed();
-        if (cancellationToken.IsCancellationRequested)
+        History = result;
+        NotifyHistoricalRead(cancellationToken, OwnsHistory, () => { _historyReadGeneration++; History = null; });
+        return OwnsHistory() ? result : null;
+
+        bool OwnsHistory() => !_disposed && lifecycle == _lifecycle && generation == _historyReadGeneration &&
+            ReferenceEquals(History, result);
+    }
+
+    private void NotifyHistoricalRead(CancellationToken cancellationToken, Func<bool> ownsResult, Action withdraw)
+    {
+        var notificationCompleted = false;
+        try
         {
-            if (generation == _historyReadGeneration && ReferenceEquals(History, result))
-            {
-                _historyReadGeneration++; History = null; Changed();
-            }
-            cancellationToken.ThrowIfCancellationRequested();
+            Changed();
+            notificationCompleted = true;
         }
-        return !_disposed && lifecycle == _lifecycle && generation == _historyReadGeneration && ReferenceEquals(History, result) ? result : null;
+        finally
+        {
+            if (cancellationToken.IsCancellationRequested && ownsResult())
+            {
+                withdraw();
+                try { Changed(); }
+                catch when (!notificationCompleted)
+                {
+                    // Retain the publication exception if the withdrawal observer also fails.
+                }
+            }
+        }
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     public void Reset()
@@ -467,7 +492,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         SourceTarget = null; NavigationState = "";
         return ++_selectionGeneration;
     }
-    private void ClearResult() { _acceptedRegionalOperatorInvocation = null; _acceptedPassInvocation = null; _acceptedOperatorInvocation = null; _acceptedPredicateInvocation = null; ClearScopedSources(); ClearTests(); _revertPreviewGeneration++; _historyReadGeneration++; _compilation = null; Result = null; Inspection = null; SemanticDiff = null; History = null; RevertPreview = null; ClearSelection(); }
+    private void ClearResult() { _acceptedRegionalOperatorInvocation = null; _acceptedPassInvocation = null; _acceptedOperatorInvocation = null; _acceptedPredicateInvocation = null; ClearScopedSources(); ClearTests(); _revertPreviewGeneration++; _historyReadGeneration++; _semanticDiffGeneration++; _compilation = null; Result = null; Inspection = null; SemanticDiff = null; History = null; RevertPreview = null; ClearSelection(); }
     private string Resolve(ProjectLocation location, bool requireSourceMap = false) =>
         SyntheticSourceNavigation.Resolve(_desired, Source, _compilation, location, requireSourceMap);
     private void Changed() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
