@@ -27,15 +27,28 @@ public sealed partial class SyntheticWorkbenchViewModel
         }
         var profile = ProjectSimulationTraceProfile.Read(run!, expectedRun, maximumEvents, token);
         if (!Current()) return false;
-        _simulationTraceProfile = profile; _profiledRun = run; Changed();
-        if (token.IsCancellationRequested)
+        _simulationTraceProfile = profile;
+        _profiledRun = run;
+        var notificationCompleted = false;
+        try
         {
-            if (generation == _profileGeneration && ReferenceEquals(_simulationTraceProfile, profile))
-            {
-                ClearSimulationTraceProfile(); Changed();
-            }
-            token.ThrowIfCancellationRequested();
+            Changed();
+            notificationCompleted = true;
         }
+        finally
+        {
+            if (token.IsCancellationRequested && generation == _profileGeneration &&
+                ReferenceEquals(_simulationTraceProfile, profile))
+            {
+                ClearSimulationTraceProfile();
+                try { Changed(); }
+                catch when (!notificationCompleted)
+                {
+                    // Preserve the original observer failure after withdrawing the cancelled summary.
+                }
+            }
+        }
+        token.ThrowIfCancellationRequested();
         return Current() && ReferenceEquals(SimulationTraceProfile, profile) && profile.State != SimulationTraceProfileState.Refused;
     }
     /// <summary>Read the existing fixed model recording through its current owned summary.</summary>
