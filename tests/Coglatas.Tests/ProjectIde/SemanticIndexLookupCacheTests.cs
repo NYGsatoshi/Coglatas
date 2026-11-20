@@ -354,13 +354,13 @@ public sealed class SemanticIndexLookupCacheTests
         var cache = new ProjectSemanticIndexLookupCache();
         var scope = cache.BeginBinding(Input().Source.Context.Branch, CancellationToken.None);
         var paused = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var resume = new ManualResetEventSlim();
+        var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var timeout = TimeSpan.FromSeconds(10);
 
         void Pause()
         {
             paused.SetResult();
-            if (!resume.Wait(TimeSpan.FromSeconds(30)))
+            if (!resume.Task.Wait(TimeSpan.FromSeconds(30)))
                 throw new TimeoutException("Lookup preparation did not resume.");
         }
 
@@ -386,7 +386,7 @@ public sealed class SemanticIndexLookupCacheTests
         }
         finally
         {
-            resume.Set();
+            resume.SetResult();
             await preparation;
             if (clear is not null) await clear;
         }
