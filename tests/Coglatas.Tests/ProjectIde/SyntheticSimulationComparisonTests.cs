@@ -62,7 +62,14 @@ public sealed class SyntheticSimulationComparisonTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task CancellationWithAThrowingComparisonObserverWithdrawsOnlyItsOwnSummary(bool replace)
+    public Task CancellationWithAThrowingComparisonObserverWithdrawsOnlyItsOwnSummary(bool replace) =>
+        VerifyComparisonWithdrawal(replace, throwOnPublication: true);
+
+    [Fact]
+    public Task ThrowingComparisonWithdrawalObserverPreservesCancellation() =>
+        VerifyComparisonWithdrawal(replace: false, throwOnPublication: false);
+
+    private static async Task VerifyComparisonWithdrawal(bool replace, bool throwOnPublication)
     {
         var fixture = await Ready();
         using var view = fixture.View;
@@ -70,15 +77,17 @@ public sealed class SyntheticSimulationComparisonTests
         var before = fixture.Before;
         var after = view.SimulationRun!;
         var publicationError = new InvalidOperationException("Run comparison observer failed.");
+        var withdrawalError = new InvalidOperationException("Run comparison withdrawal observer failed.");
         var published = false;
-        var withdrew = false;
+        var withdrawalNotifications = 0;
         ProjectSimulationRunComparison? replacement = null;
         System.ComponentModel.PropertyChangedEventHandler observe = (_, _) =>
         {
-            if (published && !replace && view.SimulationComparison is null)
+            if (cancellation.IsCancellationRequested)
             {
-                withdrew = true;
-                throw new InvalidOperationException("Run comparison withdrawal observer failed.");
+                withdrawalNotifications++;
+                if (view.SimulationComparison is null) throw withdrawalError;
+                return;
             }
             if (published || view.SimulationComparison is null) return;
             published = true;
@@ -88,7 +97,7 @@ public sealed class SyntheticSimulationComparisonTests
                 replacement = Assert.IsType<ProjectSimulationRunComparison>(view.SimulationComparison);
             }
             cancellation.Cancel();
-            throw publicationError;
+            if (throwOnPublication) throw publicationError;
         };
         Exception? observed;
         view.PropertyChanged += observe;
@@ -100,10 +109,17 @@ public sealed class SyntheticSimulationComparisonTests
         {
             view.PropertyChanged -= observe;
         }
-        Assert.Same(publicationError, observed);
+        if (throwOnPublication) Assert.Same(publicationError, observed);
+        else
+        {
+            var cancelled = Assert.IsType<OperationCanceledException>(observed);
+            Assert.Equal(cancellation.Token, cancelled.CancellationToken);
+            Assert.Same(withdrawalError, cancelled.InnerException);
+        }
         Assert.True(published);
         Assert.Same(replacement, view.SimulationComparison);
-        Assert.Equal(!replace, withdrew);
+        Assert.True(cancellation.IsCancellationRequested);
+        Assert.Equal(replace ? 0 : 1, withdrawalNotifications);
         Assert.Same(after, view.SimulationRun);
     }
     [Theory]
