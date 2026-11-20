@@ -175,28 +175,93 @@ public sealed class SyntheticReferencePagesTests
         else Assert.Null(vm.SourceTarget);
     }
 
+    [Theory]
+    [InlineData("page")] [InlineData("ordinary")] [InlineData("replacement")]
+    public async Task ThrowingObserverWithdrawsOnlyTheCancelledReferencePage(string action)
+    {
+        using var vm = await Ready();
+        using var cancellation = new PublicationCancellation(vm, action, throwDuringPublication: true);
+        var root = vm.RootSource;
+        var result = vm.Result;
+        var inspection = vm.Inspection;
+        var symbol = vm.Selected!;
+        var references = inspection!.FindReferences(symbol.Symbol.Location);
+
+        var failure = Assert.Throws<InvalidOperationException>(() =>
+            vm.ReadReferenceSearchPage(cancellationToken: cancellation.Token));
+
+        Assert.Same(cancellation.PublicationError, failure);
+        Assert.True(cancellation.Token.IsCancellationRequested);
+        var cancelled = Assert.IsType<ReferenceSearchPage>(cancellation.CancelledPage);
+        Assert.Same(references[0], cancelled.References[0]);
+        Assert.Same(root, vm.RootSource);
+        Assert.Same(result, vm.Result);
+        Assert.Same(inspection, vm.Inspection);
+        Assert.Same(symbol, vm.Selected);
+        if (action == "replacement")
+        {
+            var replacement = Assert.IsType<ReferenceSearchPage>(cancellation.ReplacementPage);
+            Assert.Same(references[32], replacement.References[0]);
+            Assert.Same(replacement, vm.ReferencePage);
+            Assert.Same(replacement.References[0].Origin, vm.SourceTarget);
+            Assert.False(cancellation.WithdrawalNotified);
+        }
+        else
+        {
+            Assert.Null(vm.ReferencePage);
+            Assert.True(cancellation.WithdrawalNotified);
+            if (action == "ordinary") Assert.Same(symbol.Symbol.Location, vm.SourceTarget);
+            else Assert.Null(vm.SourceTarget);
+        }
+    }
+
     private sealed class PublicationCancellation : IDisposable
     {
         private readonly SyntheticWorkbenchViewModel _viewModel;
         private readonly CancellationTokenSource _source = new();
         private readonly string _action;
+        private readonly bool _throwDuringPublication;
         private int _notifications;
         public bool Fired { get; private set; }
+        public bool WithdrawalNotified { get; private set; }
+        public ReferenceSearchPage? CancelledPage { get; private set; }
+        public ReferenceSearchPage? ReplacementPage { get; private set; }
+        public InvalidOperationException PublicationError { get; } = new("Reference page publication failed.");
         public CancellationToken Token => _source.Token;
-        internal PublicationCancellation(SyntheticWorkbenchViewModel viewModel, string action)
+        internal PublicationCancellation(SyntheticWorkbenchViewModel viewModel, string action, bool throwDuringPublication = false)
         {
-            _viewModel = viewModel; _action = action;
+            _viewModel = viewModel;
+            _action = action;
+            _throwDuringPublication = throwDuringPublication;
             _viewModel.PropertyChanged += Changed;
         }
         private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
             var current = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
-            if (Fired || ++_notifications != 2) return;
+            if (Fired)
+            {
+                if (_throwDuringPublication && _source.IsCancellationRequested && current.ReferencePage is null)
+                {
+                    WithdrawalNotified = true;
+                    throw new InvalidOperationException("Reference page withdrawal failed.");
+                }
+                return;
+            }
+            if (++_notifications != 2) return;
             Fired = true;
             var page = Assert.IsType<ReferenceSearchPage>(current.ReferencePage);
+            CancelledPage = page;
             Assert.True(current.NavigateReferencePageOrigin(page, page.References[0]));
             if (_action == "ordinary") Assert.True(current.Navigate());
+            if (_action == "replacement")
+            {
+                var cursor = Assert.IsType<ReferenceSearchCursor>(page.NextCursor);
+                var replacement = Assert.IsType<ReferenceSearchPage>(current.ReadReferenceSearchPage(cursor: cursor));
+                Assert.True(current.NavigateReferencePageOrigin(replacement, replacement.References[0]));
+                ReplacementPage = replacement;
+            }
             _source.Cancel();
+            if (_throwDuringPublication) throw PublicationError;
         }
         public void Dispose()
         {
