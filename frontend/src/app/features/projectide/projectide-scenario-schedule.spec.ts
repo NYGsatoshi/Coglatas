@@ -10,7 +10,7 @@ import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 vi.stubGlobal('crypto', webcrypto);
 const fixture = readFileSync('public/assets/projectide/scenario-schedule-v1.json', 'utf8');
 const domain = 'coglatas.local-scenario-elapsed-schedule/1';
-const hash = (text: string) => ({ algorithm: 'sha-256' as const, value: createHash('sha256').update(domain + '\0' + text).digest('hex') });
+const hash = (text: string, format = domain) => ({ algorithm: 'sha-256' as const, value: createHash('sha256').update(format + '\0' + text).digest('hex') });
 const bundle = () => readPreviewBundle(JSON.parse(fixture));
 async function prepared(key = 'tests-simulation-root-base') {
   const values = bundle();
@@ -34,6 +34,37 @@ describe('Core Scenario schedule evidence', () => {
     expect(scenarioScheduleMatches(scenario, result)).toBe(true);
     Object.assign(scenario.scenario.simulationRun!, { text: 'changed' });
     expect(scenarioScheduleMatches(scenario, result)).toBe(false);
+  });
+
+  it.each(['baseline', 'scenario'] as const)('uses the admitted Task identity for reordered %s event contexts', async stage => {
+    const scenario = await prepared();
+    const original = (await readScenarioSchedule(scenario))!;
+    const run = scenario[stage].simulationRun!;
+    const recording = JSON.parse(run.text);
+    const context = recording.events[0].context;
+    recording.events[0].context = Object.fromEntries(Object.entries(context).reverse());
+    expect(JSON.stringify(recording.events[0].context)).not.toBe(JSON.stringify(context));
+    const runText = JSON.stringify(recording);
+    const runDigest = hash(runText, 'coglatas.simulation-run/1');
+    Object.assign(run, { text: runText, digest: runDigest });
+
+    const comparison = scenario.baseline.simulationComparison!;
+    const pair = JSON.parse(comparison.text);
+    pair[stage === 'baseline' ? 'before' : 'after'].runDigest = runDigest;
+    const pairText = JSON.stringify(pair);
+    Object.assign(comparison, { text: pairText, digest: hash(pairText, 'coglatas.local-simulation-comparison/1') });
+
+    const schedule = scenario.baseline.scenarioScheduleImpact!;
+    const projection = JSON.parse(schedule.text);
+    projection[stage === 'baseline' ? 'baselineRunDigest' : 'scenarioRunDigest'] = runDigest;
+    const scheduleText = JSON.stringify(projection);
+    Object.assign(schedule, { text: scheduleText, digest: hash(scheduleText) });
+
+    const admitted = (await readScenarioSchedule(scenario))!;
+    expect(admitted.state).toBe('Complete');
+    expect(admitted.modeledFinishDeltaTicks).toBe(original.modeledFinishDeltaTicks);
+    expect(admitted.baseline).toEqual(original.baseline);
+    expect(admitted.hypothesis).toEqual(original.hypothesis);
   });
 
   it('can show the bounded comparison without a finish or a delta', async () => {
