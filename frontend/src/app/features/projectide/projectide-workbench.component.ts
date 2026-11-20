@@ -741,8 +741,7 @@ export class ProjectIdeWorkbenchComponent {
     if (!this.canRead()) this.store.clear('denied');
   }
   navigateTestAssertion(assertion: LocalTestAssertion): void {
-    this.focusGeneration++;
-    if (!this.canRead()) this.store.clear('denied');
+    if (!this.canRead()) { this.focusGeneration++; this.store.clear('denied'); }
     else if (this.store.navigateTestAssertion(assertion)) this.open('source', true);
   }
   testName(identity: string): string {

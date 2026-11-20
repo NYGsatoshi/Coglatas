@@ -159,6 +159,44 @@ describe('ProjectIDE Workbench components', () => {
     expect(c.store.sourceLocation()).toEqual(row.location);
     c.open('tests'); fixture.detectChanges(); expect(root.querySelector('[data-testid="ide-test-discovery-source-error"]')).toBeNull();
   });
+
+  it.each(['earlier', 'copied'])('preserves definition navigation when an %s assertion is rejected', async kind => {
+    const { c, fixture } = await render(true, true, false, 'simulation');
+    c.choose('tests-simulation-root-base'); c.loadResult(); c.open('tests');
+    await c.loadLocalTests();
+    const earlier = c.store.localTests()!.run.tests[0].assertions[0];
+    await c.loadLocalTests();
+    const assertion = c.store.localTests()!.run.tests[0].assertions[0];
+    expect(assertion).not.toBe(earlier);
+    await c.loadLocalTestDiscovery();
+    const row = c.store.localTestDiscovery()!.inventory.tests[0];
+
+    const original = crypto.subtle.digest.bind(crypto.subtle);
+    let release!: () => void;
+    let entered!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const began = new Promise<void>(resolve => { entered = resolve; });
+    vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(async (algorithm, value) => {
+      entered();
+      await gate;
+      return original(algorithm, value);
+    });
+
+    const pending = c.navigateDiscoveredTest(row);
+    await began;
+    try {
+      c.navigateTestAssertion(kind === 'earlier' ? earlier : { ...assertion });
+      expect(c.store.testDiscoveryNavigationState()).toBe('loading');
+    } finally {
+      release();
+      await pending;
+    }
+    fixture.detectChanges();
+    expect(c.panel()).toBe('source');
+    expect(c.store.sourceLocation()).toEqual(row.location);
+    expect(c.store.localTests()!.run.tests[0].assertions[0]).toBe(assertion);
+  });
+
   it('pages all33 actual Core definitions without dropping the full count or evaluating assertions', async () => {
     const { c, fixture, root } = await render(); c.choose('tests-many'); c.loadResult(); c.open('tests');
     await c.loadLocalTestDiscovery(); fixture.detectChanges();

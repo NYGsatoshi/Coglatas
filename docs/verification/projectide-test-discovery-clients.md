@@ -24,4 +24,6 @@ Owned frozen snapshots are invalidated by input/result/bundle/context/permission
 
 Developer verification covers Core-produced data, reader/store mutation and generation controls, Windows cancellation/notification reentry, and component actions/paging/localization/Source cleanup. Exact current-source native/frontend/browser/hosted evidence and source review belong on the associated PR; unexecuted checks are not PASS. The standalone unavailable sample must remain within the original bundle bound.
 
+Both clients verify that a Test assertion belongs to the current report before replacing the selected Source. An earlier or copied assertion also leaves a pending definition navigation intact.
+
 Broader interactive Test editing, richer fixture/expression/assertion families, durable Jobs, remote adapters, required-suite policy, current persisted actor/Tenant/Project/Branch authority, protected export/retention and policy-bound server Merge remain open. P0 #1945 owns independent new API/client/runtime qualification; no SecurityTestImplimation source or workflow is changed. #1144 remains BLOCKED, #1128 SUSPENDED/NOT_EVALUATED, and no Native/Trust/Eligibility/RLS/Production/Release activation is granted.

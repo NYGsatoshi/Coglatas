@@ -97,15 +97,13 @@ public sealed partial class SyntheticWorkbenchViewModel
     public bool SelectTestAssertion(ProjectTestAssertionResult assertion)
     {
         ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(assertion);
+        if (State != "Ready" || TestRun is not { } run || _desired is null ||
+            !run.Input.InputDigest.Equals(_desired.Input.ExpectedInputDigest) || !run.Input.Source.Data.Equals(Source?.Data) ||
+            !run.Tests.SelectMany(test => test.Assertions).Any(item => ReferenceEquals(item, assertion))) return false;
+
         var generation = ClearSelection();
-        if (State == "Ready" && TestRun is { } run && _desired is not null &&
-            run.Input.InputDigest.Equals(_desired.Input.ExpectedInputDigest) && run.Input.Source.Data.Equals(Source?.Data) &&
-            run.Tests.SelectMany(test => test.Assertions).Any(item => ReferenceEquals(item, assertion)))
-        {
-            NavigationState = Resolve(assertion.Location);
-            if (NavigationState == "ready") SelectedTestAssertion = assertion;
-        }
-        else NavigationState = "unavailable";
+        NavigationState = Resolve(assertion.Location);
+        if (NavigationState == "ready") SelectedTestAssertion = assertion;
         Changed(); return !_disposed && generation == _selectionGeneration && ReferenceEquals(SelectedTestAssertion, assertion);
     }
 

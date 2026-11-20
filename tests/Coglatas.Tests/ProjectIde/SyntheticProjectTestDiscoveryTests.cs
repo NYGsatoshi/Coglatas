@@ -103,6 +103,29 @@ public sealed class SyntheticProjectTestDiscoveryTests
     }
 
     [Fact]
+    public async Task AnEarlierAssertionDoesNotClearCurrentDefinitionNavigation()
+    {
+        using var view = await Ready();
+        Assert.True(view.RunSyntheticTests());
+        var earlier = Assert.Single(Assert.Single(view.TestRun!.Tests).Assertions);
+        Assert.True(view.RunSyntheticTests());
+        var current = Assert.Single(Assert.Single(view.TestRun!.Tests).Assertions);
+        Assert.NotSame(earlier, current);
+        Assert.Equal(earlier.Data, current.Data);
+        var discovery = Assert.IsType<ProjectTestDiscovery>(view.DiscoverSyntheticTests());
+        var definition = Assert.Single(discovery.Tests);
+        Assert.True(view.SelectDiscoveredTest(definition));
+        Assert.True(view.Navigate());
+
+        Assert.False(view.SelectTestAssertion(earlier));
+        Assert.Same(definition, view.SelectedDiscoveredTest);
+        Assert.Equal(definition.Location, view.SourceTarget);
+        Assert.Equal("ready", view.NavigationState);
+        Assert.Same(discovery, view.TestDiscovery);
+        Assert.Same(current, Assert.Single(Assert.Single(view.TestRun!.Tests).Assertions));
+    }
+
+    [Fact]
     public async Task EarlierAndCopiedRowsCannotNavigateAfterReloadOrContextReplacement()
     {
         using var view = await Ready(); var first = view.DiscoverSyntheticTests()!; var row = Assert.Single(first.Tests);

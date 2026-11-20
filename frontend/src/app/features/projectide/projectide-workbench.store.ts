@@ -1121,10 +1121,11 @@ export class ProjectIdeWorkbenchStore {
     }
   }
   navigateTestAssertion(assertion: LocalTestAssertion): boolean {
-    const admitted = this.localTests(); this.resetSelection();
-    if (!admitted || !admitted.run.tests.some(test => test.assertions.includes(assertion))) { this.navigationState.set('unavailable'); return false; }
+    const admitted = this.localTests();
+    if (!admitted?.run.tests.some(test => test.assertions.includes(assertion))) return false;
     try { readPreviewBundle(this.bundle()); } catch { this.clear('unsupported'); return false; }
-    if (!this.localTests()) { this.clearLocalTests(); this.navigationState.set('stale'); return false; }
+    if (this.localTests() !== admitted) { this.clearLocalTests(); this.navigationState.set('stale'); return false; }
+    this.resetSelection();
     return this.navigateLocation(assertion.location);
   }
   private clearLocalTestReport(): void { this.clearScenario(); this.testEditState.set('idle'); this.testGeneration++; this.testSnapshot.set(null); this.testReadState.set('idle'); }
