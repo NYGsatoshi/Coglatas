@@ -80,13 +80,31 @@ public sealed partial class SyntheticWorkbenchViewModel
         bool Current() => generation == _regionalOperatorReadGeneration && root == _rootSourceGeneration && scope == _scopedGeneration &&
             CurrentRegionalOperatorSource && ReferenceEquals(request, _desiredRegionalOperatorRequest) && ReferenceEquals(actual, _acceptedRegionalOperatorInvocation);
         Changed(); token.ThrowIfCancellationRequested(); if (!Current()) return false;
-        _regionalOperatorReceiptMetadata = actual!.Receipt.Data; _regionalOperatorRecordMetadata = actual.Receipt.ObservationMetadata; Changed();
-        if (token.IsCancellationRequested)
+        _regionalOperatorReceiptMetadata = actual!.Receipt.Data;
+        _regionalOperatorRecordMetadata = actual.Receipt.ObservationMetadata;
+        var publicationCompleted = false;
+        bool cancelledAtPublication;
+        try
         {
-            if (generation == _regionalOperatorReadGeneration && ReferenceEquals(_regionalOperatorReceiptMetadata, actual.Receipt.Data))
-            { _regionalOperatorReadGeneration++; _regionalOperatorReceiptMetadata = null; _regionalOperatorRecordMetadata = null; Changed(); }
-            token.ThrowIfCancellationRequested();
+            Changed();
+            publicationCompleted = true;
         }
+        finally
+        {
+            cancelledAtPublication = token.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _regionalOperatorReadGeneration && ReferenceEquals(_regionalOperatorReceiptMetadata, actual.Receipt.Data))
+            {
+                _regionalOperatorReadGeneration++;
+                _regionalOperatorReceiptMetadata = null;
+                _regionalOperatorRecordMetadata = null;
+                try { Changed(); }
+                catch when (!publicationCompleted)
+                {
+                    // Preserve the original publication exception after withdrawing the cancelled metadata.
+                }
+            }
+        }
+        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
         return Current() && ReferenceEquals(RegionalOperatorReceiptMetadata, actual.Receipt.Data);
     }
 
@@ -130,14 +148,31 @@ public sealed partial class SyntheticWorkbenchViewModel
         var snapshot = ProjectCompilerRegionalPredicateObservationSnapshot.Read(execution, compilation!, execution.Observation, region!, diagnostic!,
             mode, maximumBodyBytes, token);
         if (!Current()) return false;
-        _recordedRegionalOperators = snapshot; _regionalOperatorSnapshotInvocation = actual;
-        _regionalOperatorSnapshotRegion = region; _regionalOperatorSnapshotDiagnostic = diagnostic; Changed();
-        if (token.IsCancellationRequested)
+        _recordedRegionalOperators = snapshot;
+        _regionalOperatorSnapshotInvocation = actual;
+        _regionalOperatorSnapshotRegion = region;
+        _regionalOperatorSnapshotDiagnostic = diagnostic;
+        var publicationCompleted = false;
+        bool cancelledAtPublication;
+        try
         {
-            if (generation == _regionalOperatorSnapshotGeneration && ReferenceEquals(_recordedRegionalOperators, snapshot))
-            { ClearRegionalOperatorSnapshot(); Changed(); }
-            token.ThrowIfCancellationRequested();
+            Changed();
+            publicationCompleted = true;
         }
+        finally
+        {
+            cancelledAtPublication = token.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _regionalOperatorSnapshotGeneration && ReferenceEquals(_recordedRegionalOperators, snapshot))
+            {
+                ClearRegionalOperatorSnapshot();
+                try { Changed(); }
+                catch when (!publicationCompleted)
+                {
+                    // Preserve the original publication exception after withdrawing the cancelled view.
+                }
+            }
+        }
+        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
         return Current() && ReferenceEquals(RecordedRegionalOperators, snapshot) && snapshot.State != CompilerRegionalPredicateSnapshotState.RefusedInvocation;
     }
 
