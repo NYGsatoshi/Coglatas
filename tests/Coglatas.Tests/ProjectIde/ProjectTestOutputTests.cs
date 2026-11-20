@@ -79,4 +79,25 @@ public sealed class ProjectTestOutputTests
             directory.Delete(recursive: true);
         }
     }
+
+    [Theory]
+    [InlineData("missing/.")]
+    [InlineData("missing/nested/..")]
+    public async Task ExplicitDirectorySegmentsCannotPublishToTheNormalizedPath(string relativePath)
+    {
+        var directory = Directory.CreateTempSubdirectory("projectide-test-directory-segment-");
+        try
+        {
+            var path = Path.Combine(directory.FullName, relativePath);
+
+            var error = await Record.ExceptionAsync(() => ProjectTestOutput.WriteNewAsync(path, "[]"u8.ToArray()));
+
+            Assert.Empty(directory.EnumerateFileSystemInfos());
+            Assert.Equal("path", Assert.IsType<ArgumentException>(error).ParamName);
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
 }
