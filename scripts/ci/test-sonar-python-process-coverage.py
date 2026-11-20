@@ -622,7 +622,7 @@ class ExistingDatabaseCoverageDiscoveryTests(unittest.TestCase):
         ('test_performance_db_approval_history.py', 4),
         ('test_performance_environment_class.py', 9),
         ('test_performance_public_digest.py', 3),
-        ('test_performance_runtime_compatibility.py', 10),
+        ('test_performance_runtime_compatibility.py', 11),
         ('test_performance_diagnostic_recovery.py', 10),
     )
 
@@ -654,6 +654,12 @@ class ExistingDatabaseCoverageDiscoveryTests(unittest.TestCase):
                     if isinstance(value, type) and issubclass(value, unittest.TestCase) and value.__module__ == name:
                         declared.extend(cases(loader.loadTestsFromTestCase(value)))
                 selected = list(cases(loader.loadTestsFromModule(module)))
+                if filename == 'test_performance_runtime_compatibility.py':
+                    # The new runtime-image APT integrity guard must stay in the measured cohort.
+                    self.assertIn(
+                        name + '.RuntimeCompatibilityTests.test_both_runtime_recipes_fail_closed_on_partial_ubuntu_package_indexes',
+                        selected,
+                    )
                 self.assertEqual(len(declared), count)
                 self.assertEqual(len(selected), len(set(selected)))
                 self.assertEqual(sorted(selected), sorted(declared))
@@ -693,7 +699,7 @@ class ExistingDatabaseCoverageDiscoveryTests(unittest.TestCase):
                 self.assertIn('OK', result.stderr)
             executed = (folder / 'executed.txt').read_text(encoding='utf-8').splitlines()
             self.assertEqual(sorted(executed), sorted(expected))
-            self.assertEqual(len(executed), 99)
+            self.assertEqual(len(executed), 100)
             shards = list(folder.glob('data.*'))
             self.assertEqual(len(shards), len(self.SUITES))
             for shard in shards:
