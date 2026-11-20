@@ -8,6 +8,7 @@ using Coglatas.ProjectIde.Workbench.Synthetic;
 var largeSemanticIndexProfile = args is [_, "--semantic-index-large"];
 var semanticIndexProfile = args is [_, "--semantic-index"] || largeSemanticIndexProfile;
 var testEditProfile = args is [_, "--test-edit"];
+var testDiscoveryProfile = args is [_, "--test-discovery"];
 var dependencyProfile = args is [_, "--dependency-analysis"];
 var graphProfile = args is [_, "--graph-closure"];
 var debugProfile = args is [_, "--simulation-debug"];
@@ -26,7 +27,7 @@ var outputSnapshotProfile = args is [_, "--compiler-outputs"] || recordingProfil
 var publicationProfile = args is [_, "--scoped-publication"] || outputSnapshotProfile;
 var scopedProfile = args is [_, "--scoped-sources"];
 var scenarioProfile = args is [_, "--scenario"] || dependencyProfile || graphProfile || scopedProfile || publicationProfile || planProfile || regionalOperatorRecordingProfile || semanticIndexProfile;
-if (args.Length != 1 && !testEditProfile && !scenarioProfile && !rootPremiseProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile/--compiler-outputs/--compiler-recordings/--diagnostic-premises/--root-diagnostic-premises/--predicate-recordings/--operator-recordings/--regional-operator-recordings/--pass-recordings/--semantic-index/--semantic-index-large profile.");
+if (args.Length != 1 && !testEditProfile && !testDiscoveryProfile && !scenarioProfile && !rootPremiseProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --test-discovery, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile/--compiler-outputs/--compiler-recordings/--diagnostic-premises/--root-diagnostic-premises/--predicate-recordings/--operator-recordings/--regional-operator-recordings/--pass-recordings/--semantic-index/--semantic-index-large profile.");
 var testEditFixture = testEditProfile ? TestEditFixture() : null;
 var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenarioFixture>(StringComparer.Ordinal)
 {
@@ -108,6 +109,7 @@ var legacyNames = names;
 if (rootPremiseProfile) names = ["fail", "pass", "unknown", "test-assertion-navigation"];
 if (operatorRecordingProfile || passRecordingProfile) names = ["fail", "pass", "unknown", "test-assertion-navigation", "operator-and-short-circuit", "operator-nested-duplicates", "operator-or-unknown", "operator-not-pass", "operator-requirement-false-nested", "operator-requirement-true-short-circuit", "operator-requirement-unknown"];
 if (testEditProfile) names = ["tests-edit-before", "tests-edit-after"];
+if (testDiscoveryProfile) names = ["tests-discovery-unavailable"];
 if (scenarioProfile) names = scenarioFixtures!.Keys.SelectMany(key => new[] { key + "-base", key + "-hypothesis", key + "-draft" }).ToArray();
 if (largeSemanticIndexProfile) names = scenarioFixtures!.Keys.Select(key => key + "-base").ToArray();
 foreach (var (name, index) in names.Select((name, index) => (name, index)))
@@ -222,24 +224,62 @@ foreach (var (name, index) in names.Select((name, index) => (name, index)))
             result = new { text = result.Data.CanonicalText, digest = result.ResultDigest.Data.Value } });
         cases[^1] = fixture;
     }
-    if (name.StartsWith("tests-", StringComparison.Ordinal))
+    var testReportCase = name.StartsWith("tests-", StringComparison.Ordinal) && !testDiscoveryProfile;
+    var hasTestDefinitions = input.Source.Declarations.Value.EnumerateArray().Any(item => item.GetProperty("kind").GetString() == "coglatas.project-test") ||
+        input.Source.Documents.Any(document => document.Root.Kind == "coglatas.project-test");
+    var discoveryCase = !debugProfile && (name.StartsWith("tests-", StringComparison.Ordinal) || hasTestDefinitions);
+    if (testReportCase || discoveryCase)
     {
-        var plan = ProjectTestPlan.Compile(compilation.Model!, SyntheticProjectTestConfiguration.Evaluator, name == "tests-exhausted" ? new(256, 1) : null);
-        using var cancellation = new CancellationTokenSource();
-        if (name == "tests-cancelled") cancellation.Cancel();
+        var discoveryModel = compilation.Model ?? throw new InvalidOperationException("Test projection requires its accepted Core model.");
+        var plan = ProjectTestPlan.Compile(discoveryModel, SyntheticProjectTestConfiguration.Evaluator, name == "tests-exhausted" ? new(256, 1) : null);
         var expected = name == "tests-stale" ? ContentDigest.Compute("coglatas.synthetic-stale-test-input/1", []) : input.InputDigest;
-        var testRun = plan.Execute(expected, cancellation.Token);
         var testDeclarations = PlanDeclarationReader.Read(input.Source).Where(item => item.Data.Value.GetProperty("kind").GetString() == "coglatas.project-test")
             .OrderBy(item => item.Data.Value.GetProperty("entityId").GetString(), StringComparer.Ordinal).ToArray();
-        var projection = new { format = "coglatas.local-test-projection/1", inputText = input.Data.CanonicalText,
-            plan = new { text = plan.Data.CanonicalText, digest = plan.Digest.Data.Value },
-            result = new { text = testRun.Data.CanonicalText, digest = testRun.Digest.Data.Value },
-            declarations = testDeclarations.Select(item => new { testId = item.Data.Value.GetProperty("entityId").GetString(), text = item.Data.CanonicalText }).ToArray(),
-            assertions = testDeclarations.Where(item => item.Declaration is ProjectTestPlanDeclaration)
-                .SelectMany(item => ((ProjectTestPlanDeclaration)item.Declaration!).Assertions.Select(assertion => new
-                { testId = item.Data.Value.GetProperty("entityId").GetString(), key = assertion.Key, text = assertion.Data.CanonicalText })).ToArray() };
         var fixture = JsonSerializer.SerializeToNode(cases[^1])!.AsObject();
-        fixture["localProjectTests"] = JsonSerializer.SerializeToNode(projection); cases[^1] = fixture;
+        if (testReportCase)
+        {
+            using var cancellation = new CancellationTokenSource();
+            if (name == "tests-cancelled") cancellation.Cancel();
+            var testRun = plan.Execute(expected, cancellation.Token);
+            var projection = new { format = "coglatas.local-test-projection/1", inputText = input.Data.CanonicalText,
+                plan = new { text = plan.Data.CanonicalText, digest = plan.Digest.Data.Value },
+                result = new { text = testRun.Data.CanonicalText, digest = testRun.Digest.Data.Value },
+                declarations = testDeclarations.Select(item => new { testId = item.Data.Value.GetProperty("entityId").GetString(), text = item.Data.CanonicalText }).ToArray(),
+                assertions = testDeclarations.Where(item => item.Declaration is ProjectTestPlanDeclaration)
+                    .SelectMany(item => ((ProjectTestPlanDeclaration)item.Declaration!).Assertions.Select(assertion => new
+                    { testId = item.Data.Value.GetProperty("entityId").GetString(), key = assertion.Key, text = assertion.Data.CanonicalText })).ToArray() };
+            fixture["localProjectTests"] = JsonSerializer.SerializeToNode(projection);
+        }
+        // The independently pinned debugger profile retains its original byte contract.
+        if (discoveryCase)
+        {
+            var inventory = plan.Discover(expected);
+            fixture["localProjectTestDiscovery"] = JsonSerializer.SerializeToNode(new
+            {
+                format = "coglatas.local-test-discovery-projection/1", inputText = input.Data.CanonicalText,
+                requestedInputDigest = expected.Data.Value,
+                binding = inspection is null ? new
+                {
+                    inputDigest = discoveryModel.Input.InputDigest.Data.Value,
+                    sourceDigest = discoveryModel.Input.Source.Digest.Data.Value,
+                    bindingComplete = discoveryModel.BindingComplete,
+                    retainedTests = discoveryModel.Declarations.Where(item => item.Data.Value.GetProperty("kind").GetString() == "coglatas.project-test")
+                        .OrderBy(item => item.Data.Value.GetProperty("entityId").GetString(), StringComparer.Ordinal)
+                        .Select(item => new { testId = item.Data.Value.GetProperty("entityId").GetString(), decodeStatus = item.Status.ToString() }).ToArray(),
+                    references = discoveryModel.References.Select(item => new { origin = item.Origin.Data.Value, state = item.State.ToString(), symbolKey = item.SymbolKey }).ToArray()
+                } : null,
+                plan = new { text = plan.Data.CanonicalText, digest = plan.Digest.Data.Value },
+                definitions = testDeclarations.Select(item => new { testId = item.Data.Value.GetProperty("entityId").GetString(), text = item.Data.CanonicalText }).ToArray(),
+                inventory = new
+                {
+                    state = inventory.State.ToString(), inputDigest = inventory.InputDigest?.Data.Value, planDigest = inventory.PlanDigest?.Data.Value,
+                    discoveredTests = inventory.DiscoveredTests, bindingComplete = inventory.BindingComplete, evaluatorMatches = inventory.EvaluatorMatches,
+                    tests = inventory.Tests.Select(test => new { testId = test.TestId.ToString(), location = test.Location.Data.Value,
+                        displayName = test.DisplayName, decodeStatus = test.DecodeStatus.ToString(), assertionCount = test.AssertionCount }).ToArray()
+                }
+            });
+        }
+        cases[^1] = fixture;
     }
     if (name == "tests-edit-before")
     {
@@ -638,6 +678,7 @@ static CompilerInputManifest LocalTestInput(string name, int revision)
             expected = new { type = booleanType, state = "coglatas.known", value = true } } } } };
     var settings = JsonNode.Parse(input.Settings.CanonicalText)!.AsObject();
     if (name != "tests-evaluator-mismatch") settings["evaluator"] = JsonNode.Parse(SyntheticProjectTestConfiguration.Evaluator.Data.CanonicalText);
+    if (name == "tests-discovery-unavailable") settings["executionProfile"]!["maximumOperations"] = 1;
     var testNode = JsonSerializer.SerializeToNode(test)!.AsObject();
     var assertions = testNode["payload"]!["assertions"]!.AsArray();
     if (name == "tests-unicode") assertions[0]!["key"] = "example.テスト/α~β"; // Intentional Unicode key fixture.

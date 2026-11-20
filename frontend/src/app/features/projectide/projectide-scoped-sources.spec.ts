@@ -1,3 +1,4 @@
+import { localTestDiscoveryMatchesCase, readLocalTestDiscovery } from './projectide-test-discovery.reader';
 import { readLocalTests } from './projectide-tests.reader';
 /// <reference types="node" />
 import { readFileSync } from 'node:fs';
@@ -110,4 +111,31 @@ describe('Scoped Source admission remains private and owned', () => {
       expect(scopedSourcesMatch(value, copy)).toBe(false); expect(resolveScopedSource(value, copy, location)).toBeNull();
     }
   });
+});
+
+
+it('keeps admitted scoped Sources current when only the independent discovery projection changes', async () => {
+  const value = fixture(); const source = (await readScopedSources(value))!; const discovery = (await readLocalTestDiscovery(value))!;
+  expect(scopedSourcesMatch(value, source)).toBe(true); expect(localTestDiscoveryMatchesCase(value, discovery)).toBe(true);
+  (value.localProjectTestDiscovery!.inventory.tests[0] as { displayName: string }).displayName += ' changed';
+  expect(localTestDiscoveryMatchesCase(value, discovery)).toBe(false); expect(scopedSourcesMatch(value, source)).toBe(true);
+  const region = source.regions[0]; expect(resolveScopedSource(value, source, region.records[0].location)).not.toBeNull();
+});
+
+
+it('does not clone unrelated discovery data while admitting bounded Source-only evidence', async () => {
+  const value = fixture(); Object.assign(value.localProjectTestDiscovery!, { unrelated: () => { throw new Error('unused discovery data'); } });
+  const source = (await readScopedSources(value))!; expect(source).not.toBeNull(); expect(scopedSourcesMatch(value, source)).toBe(true);
+});
+
+it.each(['publication-plan', 'projection-member', 'publication-hidden-plan', 'projection-hidden-member'])('rejects own undefined Source members before snapshotting: %s', async mode => {
+  const value = readPreviewBundle(JSON.parse(readFileSync(resolve('public/assets/projectide/scoped-publication-v2.json'), 'utf8'))).cases[0];
+  expect(value.scopedSources!.publication).not.toHaveProperty('plan');
+  const original = (await readScopedSources(value))!; expect(original.publicationVerified).toBe(true);
+  if (mode === 'publication-plan') Object.assign(value.scopedSources!.publication!, { plan: undefined });
+  else if (mode === 'projection-member') Object.assign(value.scopedSources!, { unrequested: undefined });
+  else if (mode === 'publication-hidden-plan') Object.defineProperty(value.scopedSources!.publication!, 'plan', { value: undefined, enumerable: false });
+  else Object.defineProperty(value.scopedSources!, 'unrequested', { value: undefined, enumerable: false });
+  expect(scopedSourcesMatch(value, original)).toBe(false);
+  await expect(readScopedSources(value)).rejects.toThrow();
 });
