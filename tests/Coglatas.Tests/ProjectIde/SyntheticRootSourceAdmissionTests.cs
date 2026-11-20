@@ -80,6 +80,7 @@ public sealed class SyntheticRootSourceAdmissionTests
         private readonly SyntheticWorkbenchViewModel _vm;
         private readonly CancellationTokenSource _source = new();
         private readonly ContentDigest _expectedResult;
+        private readonly string _boundary;
         private readonly bool _replace;
         private readonly InvalidOperationException? _publicationFailure;
         private readonly InvalidOperationException? _withdrawalFailure;
@@ -90,11 +91,12 @@ public sealed class SyntheticRootSourceAdmissionTests
         public bool ReplacementPremisesRead { get; private set; }
         public ProjectSource? Replacement { get; private set; }
         public ProjectDiagnosticPremiseSnapshot? ReplacementPremises { get; private set; }
-        public CancelRootPublication(SyntheticWorkbenchViewModel vm, bool replace, InvalidOperationException? publicationFailure,
+        public CancelRootPublication(SyntheticWorkbenchViewModel vm, string boundary, bool replace, InvalidOperationException? publicationFailure,
             InvalidOperationException? withdrawalFailure)
         {
             _vm = vm;
             _expectedResult = vm.Result!.ResultDigest;
+            _boundary = boundary;
             _replace = replace;
             _publicationFailure = publicationFailure;
             _withdrawalFailure = withdrawalFailure;
@@ -113,7 +115,7 @@ public sealed class SyntheticRootSourceAdmissionTests
                 }
                 return;
             }
-            if (_vm.RootSourceReadState != "Ready") return;
+            if (_vm.RootSourceReadState != _boundary) return;
             Fired = true;
             if (_replace)
             {
@@ -143,8 +145,15 @@ public sealed class SyntheticRootSourceAdmissionTests
     public Task ThrowingAdjacentViewWithdrawalObserverPreservesCancellation() =>
         VerifyPublicationOwnership(false, null, new InvalidOperationException("Withdrawal observer failed."));
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task RootSourceAdmissionCancellationPreservesCallerToken(bool withdrawalThrows) =>
+        VerifyPublicationOwnership(false, null, withdrawalThrows ? new InvalidOperationException("Withdrawal observer failed.") : null,
+            boundary: "Loading");
+
     private static async Task VerifyPublicationOwnership(bool replace, InvalidOperationException? publicationFailure,
-        InvalidOperationException? withdrawalFailure = null)
+        InvalidOperationException? withdrawalFailure = null, string boundary = "Ready")
     {
         var (_, request, host) = DiagnosticPremiseSnapshotTests.Prepare((string)Cases().First()[0]);
         using var vm = new SyntheticWorkbenchViewModel(); vm.BeginSynthetic(request);
@@ -153,7 +162,7 @@ public sealed class SyntheticRootSourceAdmissionTests
         Assert.True(vm.SelectDiagnostic(vm.Problems.First(d => d.Evidence.Kind == CompilerEvidenceKind.ModelProof)));
         Assert.True(vm.LoadSyntheticRootSource(result.ResultDigest));
         var previous = vm.RootSource!; var previousData = previous.Data; Assert.NotEmpty(previousData.CanonicalText);
-        using var cancellation = new CancelRootPublication(vm, replace, publicationFailure, withdrawalFailure); var token = cancellation.Token;
+        using var cancellation = new CancelRootPublication(vm, boundary, replace, publicationFailure, withdrawalFailure); var token = cancellation.Token;
         var error = cancellation.Read();
         Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
         Assert.Same(result, vm.Result); Assert.Equal(resultData, result.Data); Assert.Equal(previousData, previous.Data);
