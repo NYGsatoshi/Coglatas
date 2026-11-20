@@ -20,6 +20,11 @@ on:
       - tools/ProjectIde.Preview/**
       - tests/Coglatas.Tests/ProjectIde/WebSimulationDebugContractTests.cs
       - frontend/public/assets/projectide/simulation-debug-v1.json
+      - src/Coglatas.Application/ProjectIde/Core/*PredicateObservationCompiler*
+      - tests/Coglatas.Tests/ProjectIde/SyntheticOperatorRecordingTests.cs
+      - tests/Coglatas.Tests/ProjectIde/WebOperatorRecordingContractTests.cs
+      - frontend/public/assets/projectide/operator-recordings-v1.json
+      - tests/ci/projectide_operator_replay.ps1
       - frontend/public/assets/projectide/.gitattributes
       - .github/workflows/projectide-artifact-candidates.yml
 
@@ -155,6 +160,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Unable to read retained base inventory' }
           python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json --require-receipt-proof --require-acquisition
           if ($LASTEXITCODE -ne 0) { throw 'Incomplete retained test identities' }
+      - name: Replay fresh operator export against the retained contract cases
+        run: >-
+          ./tests/ci/projectide_operator_replay.ps1
+          -EvidenceDirectory candidate-evidence
+          -StagingDirectory (Join-Path $env:RUNNER_TEMP 'projectide-operator-replay')
       - name: Upload actual candidate results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -287,6 +297,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Unable to read retained base inventory' }
           python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json --require-receipt-proof --require-acquisition
           if ($LASTEXITCODE -ne 0) { throw 'Incomplete retained test identities' }
+      - name: Replay fresh operator export against the retained contract cases
+        run: >-
+          ./tests/ci/projectide_operator_replay.ps1
+          -EvidenceDirectory candidate-evidence
+          -StagingDirectory (Join-Path $env:RUNNER_TEMP 'projectide-operator-replay')
       - name: Upload actual candidate results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
