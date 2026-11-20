@@ -82,13 +82,9 @@ public sealed partial class SyntheticWorkbenchViewModel
         Changed(); token.ThrowIfCancellationRequested(); if (!Current()) return false;
         _regionalOperatorReceiptMetadata = actual!.Receipt.Data;
         _regionalOperatorRecordMetadata = actual.Receipt.ObservationMetadata;
-        var publicationCompleted = false;
+        Exception? withdrawalFailure = null;
         bool cancelledAtPublication;
-        try
-        {
-            Changed();
-            publicationCompleted = true;
-        }
+        try { Changed(); }
         finally
         {
             cancelledAtPublication = token.IsCancellationRequested;
@@ -98,13 +94,12 @@ public sealed partial class SyntheticWorkbenchViewModel
                 _regionalOperatorReceiptMetadata = null;
                 _regionalOperatorRecordMetadata = null;
                 try { Changed(); }
-                catch when (!publicationCompleted)
-                {
-                    // Preserve the original publication exception after withdrawing the cancelled metadata.
-                }
+                catch (Exception error) { withdrawalFailure = error; }
             }
         }
-        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Regional recording metadata read was cancelled.", withdrawalFailure, token);
         return Current() && ReferenceEquals(RegionalOperatorReceiptMetadata, actual.Receipt.Data);
     }
 
@@ -152,13 +147,9 @@ public sealed partial class SyntheticWorkbenchViewModel
         _regionalOperatorSnapshotInvocation = actual;
         _regionalOperatorSnapshotRegion = region;
         _regionalOperatorSnapshotDiagnostic = diagnostic;
-        var publicationCompleted = false;
+        Exception? withdrawalFailure = null;
         bool cancelledAtPublication;
-        try
-        {
-            Changed();
-            publicationCompleted = true;
-        }
+        try { Changed(); }
         finally
         {
             cancelledAtPublication = token.IsCancellationRequested;
@@ -166,13 +157,12 @@ public sealed partial class SyntheticWorkbenchViewModel
             {
                 ClearRegionalOperatorSnapshot();
                 try { Changed(); }
-                catch when (!publicationCompleted)
-                {
-                    // Preserve the original publication exception after withdrawing the cancelled view.
-                }
+                catch (Exception error) { withdrawalFailure = error; }
             }
         }
-        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Regional recording snapshot read was cancelled.", withdrawalFailure, token);
         return Current() && ReferenceEquals(RecordedRegionalOperators, snapshot) && snapshot.State != CompilerRegionalPredicateSnapshotState.RefusedInvocation;
     }
 
