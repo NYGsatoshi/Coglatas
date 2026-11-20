@@ -241,8 +241,14 @@ public sealed class SyntheticPassSourceNavigationTests
         SyntheticPassSourcePage? observedPage = null;
         SyntheticPassSourceTarget? observedTarget = null;
 
-        void ObservePublication(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        void Observe(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
+            if (cancellation.IsCancellationRequested)
+            {
+                withdrawalCount++;
+                if (view.PassBoundarySourcePage is null) throw withdrawalError;
+                return;
+            }
             if (published || (readBoundary ? view.RecordedPassBoundary is null : view.PassBoundarySourcePage is null)) return;
             published = true;
             if (readBoundary && replace) Assert.True(Read(view));
@@ -256,15 +262,7 @@ public sealed class SyntheticPassSourceNavigationTests
             if (throwOnPublication) throw publicationError;
         }
 
-        void ObserveWithdrawal(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
-        {
-            if (!cancellation.IsCancellationRequested) return;
-            withdrawalCount++;
-            if (view.PassBoundarySourcePage is null) throw withdrawalError;
-        }
-
-        view.PropertyChanged += ObservePublication;
-        view.PropertyChanged += ObserveWithdrawal;
+        view.PropertyChanged += Observe;
         var error = Record.Exception(() =>
         {
             if (readBoundary)
@@ -273,8 +271,7 @@ public sealed class SyntheticPassSourceNavigationTests
             else
                 view.ReadPassBoundarySourcePage(maximumTargets: 1, token: cancellation.Token);
         });
-        view.PropertyChanged -= ObserveWithdrawal;
-        view.PropertyChanged -= ObservePublication;
+        view.PropertyChanged -= Observe;
 
         if (throwOnPublication) Assert.Same(publicationError, error);
         else
