@@ -154,6 +154,45 @@ public sealed class SyntheticSemanticIndexTests
     public Task ThrowingIndexWithdrawalObserverPreservesCancellation(string boundary) =>
         VerifyIndexWithdrawal(boundary, replace: false, throwOnPublication: false);
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task CancelledIndexRefusalWithdrawsOnlyItsOwnedState(bool replace, bool throwOnPublication)
+    {
+        using var vm = await Ready(admit: false);
+        var result = vm.Result;
+        var source = vm.Source;
+        CompilerSemanticIndex? replacement = null;
+
+        void ReplaceIndex()
+        {
+            if (!replace) return;
+            Assert.True(vm.LoadSyntheticScopedSources());
+            Assert.True(vm.LoadSyntheticSemanticIndex());
+            replacement = Assert.IsType<CompilerSemanticIndex>(vm.SemanticIndex);
+        }
+
+        using var observer = new ThrowingObserver(vm, () => vm.SemanticIndexReadState == "Unavailable",
+            () => vm.SemanticIndexReadState == "Idle", ReplaceIndex, throwOnPublication);
+        var error = Record.Exception(() => { vm.LoadSyntheticSemanticIndex(observer.Token); });
+
+        Assert.True(observer.Token.IsCancellationRequested);
+        Assert.Same(result, vm.Result);
+        Assert.Same(source, vm.Source);
+        Assert.Equal(replace ? "Ready" : "Idle", vm.SemanticIndexReadState);
+        Assert.Same(replacement, vm.SemanticIndex);
+        Assert.Equal(replace ? 0 : 1, observer.WithdrawalNotifications);
+        if (!replace) AssertObserverError(observer, error, throwOnPublication);
+        else
+        {
+            Assert.NotNull(replacement);
+            var cancelled = Assert.IsType<OperationCanceledException>(error);
+            Assert.Equal(observer.Token, cancelled.CancellationToken);
+            Assert.Null(cancelled.InnerException);
+        }
+    }
+
     private static async Task VerifyIndexWithdrawal(string boundary, bool replace, bool throwOnPublication)
     {
         using var vm = await Ready();
