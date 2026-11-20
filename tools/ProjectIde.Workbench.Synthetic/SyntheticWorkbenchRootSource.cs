@@ -28,9 +28,17 @@ public sealed partial class SyntheticWorkbenchViewModel
         }
         ProjectRootSourceAdmission? admission;
         try { admission = ProjectRootSourceAdmission.Read(compilation!, Result!, expectedResult, token); }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException cancellation)
         {
-            if (Current()) { ClearRootSource(); Changed(); }
+            if (Current())
+            {
+                ClearRootSource();
+                try { Changed(); }
+                catch (Exception notificationFailure)
+                {
+                    throw new OperationCanceledException(cancellation.Message, notificationFailure, cancellation.CancellationToken);
+                }
+            }
             throw;
         }
         if (!Current()) return false;
