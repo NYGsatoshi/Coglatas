@@ -228,6 +228,18 @@ def archive_binding(archive, source_sha, image_name, producer_id):
             DIGEST.fullmatch(producer_id) is not None, "Invalid producer identity.")
     require(image_name in ("coglatas-main-runtime:" + source_sha, "coglatas-pr-functional:" + source_sha),
             "Invalid source-derived image tag.")
+    return _archive_binding(archive, source_sha, image_name, producer_id)
+
+
+def sonar_measurement_archive_binding(archive, source_sha, image_name):
+    """Derive config identity only after validating the complete noncanonical archive graph."""
+    require(image_name == "coglatas-sonar-actor-measurement:" + source_sha,
+            "Invalid measurement-only image tag.")
+    return _archive_binding(archive, source_sha, image_name, None)
+
+
+def _archive_binding(archive, source_sha, image_name, producer_id):
+    require(re.fullmatch(r"[0-9a-f]{40}", source_sha) is not None, "Invalid source identity.")
     members = archive_members(archive)
     def document(name):
         return parse_json(members.get(name, {}).get("content"))
@@ -247,7 +259,8 @@ def archive_binding(archive, source_sha, image_name, producer_id):
             manifest.get("mediaType") == MANIFEST and not manifest.get("artifactType") and
             not manifest.get("subject"), "Unsupported runnable image manifest.")
     config_name, config_member = descriptor_member(manifest.get("config"), members, CONFIG)
-    require(config_member["digest"] == producer_id, "Image config differs from producer identity.")
+    if producer_id is not None:
+        require(config_member["digest"] == producer_id, "Image config differs from producer identity.")
     config = parse_json(config_member["content"])
     require(isinstance(config, dict) and config.get("os") == "linux" and
             config.get("architecture") == "amd64" and config.get("variant") in (None, ""),
@@ -272,7 +285,7 @@ def archive_binding(archive, source_sha, image_name, producer_id):
         legacy[0], config, image_name, layers)
     return {"schemaVersion": 1, "format": "single-oci-manifest-containerd", "sourceSha": source_sha,
             "verifierSha256": digest_file(Path(__file__)),
-            "imageName": image_name, "producerImageId": producer_id,
+            "imageName": image_name, "producerImageId": config_member["digest"],
             "engineImageId": manifest_member["digest"], "manifestSize": manifest_member["size"],
             "archiveSha256": digest_file(archive), "archiveSize": archive.stat().st_size,
             "platform": {"os": "linux", "architecture": "amd64"},
