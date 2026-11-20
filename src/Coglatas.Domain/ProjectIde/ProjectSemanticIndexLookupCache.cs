@@ -16,7 +16,7 @@ public sealed class ProjectSemanticIndexLookupCache
     private readonly Dictionary<string, LinkedListNode<Entry>> _entries = new(StringComparer.Ordinal);
     private readonly LinkedList<Entry> _recent = new();
     private BranchRef? _ownerScope;
-    private object _generation = new();
+    private volatile object _generation = new();
     private int _canonicalBytes;
     private long _lookupReuseCount;
 
@@ -53,6 +53,10 @@ public sealed class ProjectSemanticIndexLookupCache
         Func<SemanticIndexLookupTables> create, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
+        // Each invalidation assigns a new epoch, so an older scope can take the uncached path immediately.
+        if (!ReferenceEquals(_generation, scope.Generation))
+            return new(scope.Owner, scope.Generation, null, 0, create(), false);
+
         var text = new StringBuilder();
         var bytes = 0;
         foreach (var part in dependencies)

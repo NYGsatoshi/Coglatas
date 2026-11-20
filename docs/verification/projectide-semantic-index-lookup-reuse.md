@@ -21,6 +21,7 @@ changes clear prior tables even for a stale/empty index. Clear invalidates
 pending publication by an earlier builder, including invalidation between build
 start and lookup preparation. Key framing and fresh table construction run
 outside the session lock so Clear can invalidate an in-progress preparation.
+A scope invalidated before preparation builds fresh tables and skips key framing.
 A build carries its original owner/epoch token
 through preparation and commit; invalidation cannot restore an earlier owner. Prepared tables are committed only
 after the complete index has passed its original derived-work, canonical-byte

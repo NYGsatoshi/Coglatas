@@ -212,7 +212,15 @@ public sealed class SemanticIndexLookupCacheTests
         var factory = Expression.Lambda(prepare.GetParameters()[2].ParameterType, Expression.New(constructor,
             Expression.Constant(index.Symbols, typeof(IReadOnlyList<CompilerIndexedSymbol>)),
             Expression.Constant(index.References, typeof(IReadOnlyList<CompilerBoundReference>)))).Compile();
-        var prepared = prepare.Invoke(cache, [earlierScope, new[] { "exact-roster-control" }, factory, CancellationToken.None]);
+        var enumerated = false;
+        IEnumerable<string> EarlierRoster()
+        {
+            enumerated = true;
+            yield return "exact-roster-control";
+        }
+
+        var prepared = prepare.Invoke(cache, [earlierScope, EarlierRoster(), factory, CancellationToken.None]);
+        Assert.False(enumerated);
         commit.Invoke(cache, [prepared, CancellationToken.None]);
         Assert.Equal(0, cache.RetainedCount); Assert.Equal(0, cache.LookupReuseCount);
         var currentScope = begin.Invoke(cache, [owner, CancellationToken.None]) ?? owner;
