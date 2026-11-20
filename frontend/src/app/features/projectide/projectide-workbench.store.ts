@@ -1052,8 +1052,7 @@ export class ProjectIdeWorkbenchStore {
   async navigateDiscoveredTest(test: LocalDiscoveredTest, isCurrent: () => boolean = () => true): Promise<boolean> {
     const admitted = this.localTestDiscovery(); const context = this.context(); const bundle = this.bundle();
     const generation = this.testDiscoveryGeneration;
-    if (!isCurrent()) return false;
-    if (!admitted || !context || !bundle || !admitted.inventory.tests.includes(test)) { this.testDiscoveryNavigationState.set('unavailable'); return false; }
+    if (!isCurrent() || !admitted || !context || !bundle || !admitted.inventory.tests.includes(test)) return false;
     try { readPreviewBundle(bundle); } catch { this.clear('unsupported'); return false; }
     const intent = ++this.sourceIntentGeneration; this.testDiscoveryNavigationState.set('loading');
     this.testDiscoveryNavigationIntent = intent;

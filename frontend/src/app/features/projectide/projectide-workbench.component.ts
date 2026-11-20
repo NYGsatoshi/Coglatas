@@ -720,8 +720,9 @@ export class ProjectIdeWorkbenchComponent {
     }, 0);
   }
   async navigateDiscoveredTest(test: LocalDiscoveredTest): Promise<void> {
+    if (!this.canRead()) { this.focusGeneration++; this.store.clear('denied'); return; }
+    if (!this.store.localTestDiscovery()?.inventory.tests.includes(test)) return;
     const generation = ++this.focusGeneration;
-    if (!this.canRead()) { this.store.clear('denied'); return; }
     const navigated = await this.store.navigateDiscoveredTest(test, () => generation === this.focusGeneration && this.canRead());
     if (!this.canRead()) { this.store.clear('denied'); return; }
     if (navigated && generation === this.focusGeneration) this.open('source', true);

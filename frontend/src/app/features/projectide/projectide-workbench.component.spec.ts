@@ -115,6 +115,39 @@ describe('ProjectIDE Workbench components', () => {
     const pending = c.navigateDiscoveredTest(row); await began; c.open('overview'); release(); await pending; fixture.detectChanges();
     expect(c.panel()).toBe('overview'); expect(c.store.sourceTarget()).toBeNull();
   });
+  it.each(['earlier', 'copied'])('preserves an in-flight Source action after an %s definition is rejected', async kind => {
+    const { c, fixture } = await render(true, true, false, 'simulation');
+    c.choose('tests-simulation-root-base'); c.loadResult(); c.open('tests');
+    await c.loadLocalTestDiscovery();
+    const earlier = c.store.localTestDiscovery()!.inventory.tests[0];
+    await c.loadLocalTestDiscovery();
+    const row = c.store.localTestDiscovery()!.inventory.tests[0];
+
+    const original = crypto.subtle.digest.bind(crypto.subtle);
+    let release!: () => void;
+    let entered!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const began = new Promise<void>(resolve => { entered = resolve; });
+    vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(async (algorithm, value) => {
+      entered();
+      await gate;
+      return original(algorithm, value);
+    });
+
+    const pending = c.navigateDiscoveredTest(row);
+    await began;
+    try {
+      await c.navigateDiscoveredTest(kind === 'earlier' ? earlier : { ...row });
+      expect(c.store.testDiscoveryNavigationState()).toBe('loading');
+    } finally {
+      release();
+      await pending;
+    }
+    fixture.detectChanges();
+    expect(c.panel()).toBe('source');
+    expect(c.store.sourceLocation()).toEqual(row.location);
+  });
+
   it.each(['en', 'ja'] as const)('shows a retryable Source action failure inside the %s Tests panel', async locale => {
     const { c, fixture, root } = await render(true, true, false, 'simulation'); c.i18n.setLocale(locale); c.choose('tests-simulation-root-base'); c.loadResult(); c.open('tests');
     await c.loadLocalTestDiscovery(); const admitted = c.store.localTestDiscovery()!; const row = admitted.inventory.tests[0];

@@ -278,6 +278,7 @@ describe('Reviewed Source publication, stamps and bounded basis regressions', ()
     expect(await store.loadLocalTestDiscovery()).toBe(true); const admitted = store.localTestDiscovery()!; const row = admitted.inventory.tests[0];
     expect(await store.navigateDiscoveredTest(row)).toBe(true); const target = store.sourceTarget(); expect(target).not.toBeNull();
     expect(await store.navigateDiscoveredTest(mode === 'old' ? old : { ...row })).toBe(false);
+    expect(store.testDiscoveryNavigationState()).toBe('ready');
     expect(store.localTestDiscovery()).toBe(admitted); expect(store.sourceTarget()).toBe(target); expect(store.sourceLocation()).toEqual(row.location);
   });
   it('withdraws the Source target if its admitting projection changes in place', async () => {
