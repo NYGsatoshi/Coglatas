@@ -211,7 +211,8 @@ public sealed class SemanticIndexLookupCacheTests
         var constructor = tablesType.GetConstructors(flags).Single();
         var factory = Expression.Lambda(prepare.GetParameters()[2].ParameterType, Expression.New(constructor,
             Expression.Constant(index.Symbols, typeof(IReadOnlyList<CompilerIndexedSymbol>)),
-            Expression.Constant(index.References, typeof(IReadOnlyList<CompilerBoundReference>)))).Compile();
+            Expression.Constant(index.References, typeof(IReadOnlyList<CompilerBoundReference>)),
+            Expression.Constant(CancellationToken.None))).Compile();
         var enumerated = false;
         IEnumerable<string> EarlierRoster()
         {
@@ -269,6 +270,80 @@ public sealed class SemanticIndexLookupCacheTests
         Assert.Equal(0, lease.Bytes);
         cache.Commit(lease, CancellationToken.None);
         Assert.Equal(0, cache.RetainedCount);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void CancellationDuringFreshLookupsDoesNotReadTheRemainingRoster(bool cancelInSymbols)
+    {
+        var input = ReferenceCompletionTests.CompletionInput(4);
+        var binding = CompilerBindingClosure.Build(ProjectSemanticBinder.Bind(input), input.InputDigest);
+        var index = CompilerSemanticIndex.Build(binding, input.InputDigest);
+        var symbol = index.Symbols[0];
+        var reference = new CompilerBoundReference(symbol.Symbol.Location, ReferenceResolutionState.Resolved, symbol.Symbol.Key);
+        using var cancellation = new CancellationTokenSource();
+        var symbols = new CancelOnFirstRead<CompilerIndexedSymbol>(symbol, cancellation);
+        var references = new CancelOnFirstRead<CompilerBoundReference>(reference, cancellation);
+
+        Assert.Throws<OperationCanceledException>(() => new SemanticIndexLookupTables(
+            cancelInSymbols ? symbols : index.Symbols, cancelInSymbols ? [] : references, cancellation.Token));
+        Assert.Equal(cancelInSymbols ? 1 : 0, symbols.ReadCount);
+        Assert.Equal(cancelInSymbols ? 0 : 1, references.ReadCount);
+    }
+
+    [Fact]
+    public void RepeatedKeysLocationsAndOriginsStayAmbiguousWhileUniquePositionsArePreserved()
+    {
+        var input = ReferenceCompletionTests.CompletionInput(4);
+        var binding = CompilerBindingClosure.Build(ProjectSemanticBinder.Bind(input), input.InputDigest);
+        var index = CompilerSemanticIndex.Build(binding, input.InputDigest);
+        var first = index.Symbols[0];
+        var second = index.Symbols[1];
+        var third = index.Symbols[2];
+        var unique = index.Symbols[3];
+        var duplicateLocation = third with { Symbol = third.Symbol with { Location = second.Symbol.Location } };
+        var reference = new CompilerBoundReference(first.Symbol.Location, ReferenceResolutionState.Resolved, first.Symbol.Key);
+        var uniqueReference = new CompilerBoundReference(unique.Symbol.Location, ReferenceResolutionState.Resolved, unique.Symbol.Key);
+        var tables = new SemanticIndexLookupTables([first, first, first, second, duplicateLocation, unique],
+            [reference, reference, reference, uniqueReference], CancellationToken.None);
+
+        Assert.Equal(3, tables.KeyCount);
+        Assert.Equal(1, tables.LocationCount);
+        Assert.False(tables.HasKey(first.Symbol.Key));
+        Assert.False(tables.TryKey(first.Symbol.Key, out _));
+        Assert.False(tables.TryLocation(first.Symbol.Location.Data.CanonicalText, out _));
+        Assert.False(tables.TryLocation(second.Symbol.Location.Data.CanonicalText, out _));
+        Assert.False(tables.TryOrigin(reference.Origin.Data.CanonicalText, out _));
+        Assert.True(tables.TryKey(third.Symbol.Key, out var thirdKey));
+        Assert.Equal(4, thirdKey);
+        Assert.True(tables.TryLocation(unique.Symbol.Location.Data.CanonicalText, out var uniqueLocation));
+        Assert.Equal(5, uniqueLocation);
+        Assert.True(tables.TryOrigin(uniqueReference.Origin.Data.CanonicalText, out var uniqueOrigin));
+        Assert.Equal(3, uniqueOrigin);
+    }
+
+    private sealed class CancelOnFirstRead<T>(T row, CancellationTokenSource cancellation) : IReadOnlyList<T>
+    {
+        public int Count => 4;
+        public int ReadCount { get; private set; }
+
+        public T this[int index]
+        {
+            get
+            {
+                ReadCount++;
+                if (index == 0) cancellation.Cancel();
+                return row;
+            }
+        }
+
+        public IEnumerator<T> GetEnumerator()
+        {
+            for (var index = 0; index < Count; index++) yield return this[index];
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
     [Theory]

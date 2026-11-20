@@ -140,7 +140,7 @@ internal sealed class SemanticIndexLookupTables
     internal int KeyCount => _keys.Count;
     internal int LocationCount => _locations.Count;
 
-    internal SemanticIndexLookupTables(IReadOnlyList<CompilerIndexedSymbol> symbols, IReadOnlyList<CompilerBoundReference> references)
+    internal SemanticIndexLookupTables(IReadOnlyList<CompilerIndexedSymbol> symbols, IReadOnlyList<CompilerBoundReference> references, CancellationToken token = default)
     {
         _keys = symbols.Select((item, index) => (item.Symbol.Key, Index: index)).GroupBy(item => item.Key, StringComparer.Ordinal)
             .Where(group => group.Count() == 1).ToDictionary(group => group.Key, group => group.Single().Index, StringComparer.Ordinal);
