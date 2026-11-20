@@ -325,13 +325,29 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
             Resolve(selected.Symbol.Location, requireSourceMap: true) != "ready") return null;
         var page = inspection.SuggestRequirementTasks(selected.Symbol.Location, _desired.Input.ExpectedInputDigest, pageSize, cursor, cancellationToken);
         if (_disposed || lifecycle != _lifecycle || selection != _selectionGeneration || generation != _taskSuggestionGeneration) return null;
-        TaskSuggestions = page; Changed();
-        if (cancellationToken.IsCancellationRequested)
+        TaskSuggestions = page;
+        var publicationCompleted = false;
+        bool cancelledAtPublication;
+        try
         {
-            if (generation == _taskSuggestionGeneration && ReferenceEquals(TaskSuggestions, page))
-            { _taskSuggestionGeneration++; TaskSuggestions = null; Changed(); }
-            cancellationToken.ThrowIfCancellationRequested();
+            Changed();
+            publicationCompleted = true;
         }
+        finally
+        {
+            cancelledAtPublication = cancellationToken.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _taskSuggestionGeneration && ReferenceEquals(TaskSuggestions, page))
+            {
+                _taskSuggestionGeneration++;
+                TaskSuggestions = null;
+                try { Changed(); }
+                catch when (!publicationCompleted)
+                {
+                    // Preserve the original publication exception after withdrawing the cancelled page.
+                }
+            }
+        }
+        if (cancelledAtPublication) cancellationToken.ThrowIfCancellationRequested();
         return !_disposed && lifecycle == _lifecycle && selection == _selectionGeneration && generation == _taskSuggestionGeneration &&
             ReferenceEquals(TaskSuggestions, page) ? page : null;
     }
@@ -357,13 +373,28 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         var generation = _selectionGeneration;
         var page = inspection.CompleteEntityReference(selected.Symbol.Location, _desired.Input.ExpectedInputDigest,
             pageSize, cursor, cancellationToken);
-        ReferenceCompletion = page; Changed();
-        if (cancellationToken.IsCancellationRequested)
+        ReferenceCompletion = page;
+        var publicationCompleted = false;
+        bool cancelledAtPublication;
+        try
         {
-            if (generation == _selectionGeneration && ReferenceEquals(ReferenceCompletion, page))
-            { ReferenceCompletion = null; Changed(); }
-            cancellationToken.ThrowIfCancellationRequested();
+            Changed();
+            publicationCompleted = true;
         }
+        finally
+        {
+            cancelledAtPublication = cancellationToken.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _selectionGeneration && ReferenceEquals(ReferenceCompletion, page))
+            {
+                ReferenceCompletion = null;
+                try { Changed(); }
+                catch when (!publicationCompleted)
+                {
+                    // Preserve the original publication exception after withdrawing the cancelled page.
+                }
+            }
+        }
+        if (cancelledAtPublication) cancellationToken.ThrowIfCancellationRequested();
         return !_disposed && generation == _selectionGeneration && ReferenceEquals(ReferenceCompletion, page) ? page : null;
     }
 
