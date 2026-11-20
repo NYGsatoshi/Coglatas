@@ -115,22 +115,31 @@ public sealed class SyntheticSimulationTraceProfileTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task CancellationWithAThrowingProfileObserverWithdrawsOnlyItsOwnSummary(bool replace)
+    public Task CancellationWithAThrowingProfileObserverWithdrawsOnlyItsOwnSummary(bool replace) =>
+        VerifyProfileWithdrawal(replace, throwOnPublication: true);
+
+    [Fact]
+    public Task ThrowingProfileWithdrawalObserverPreservesCancellation() =>
+        VerifyProfileWithdrawal(replace: false, throwOnPublication: false);
+
+    private static async Task VerifyProfileWithdrawal(bool replace, bool throwOnPublication)
     {
         var fixture = await Ready();
         using var view = fixture.View;
         var run = view.SimulationRun!;
         using var cancellation = new CancellationTokenSource();
-        var failure = new InvalidOperationException("Profile publication observer failed.");
+        var publicationFailure = new InvalidOperationException("Profile publication observer failed.");
+        var withdrawalFailure = new InvalidOperationException("Profile withdrawal observer failed.");
         var entered = false;
-        var withdrew = false;
+        var withdrawalNotifications = 0;
         ProjectSimulationTraceProfile? replacement = null;
         System.ComponentModel.PropertyChangedEventHandler observer = (_, _) =>
         {
-            if (!replace && entered && view.SimulationTraceProfile is null)
+            if (cancellation.IsCancellationRequested)
             {
-                withdrew = true;
-                throw new InvalidOperationException("Profile withdrawal observer failed.");
+                withdrawalNotifications++;
+                if (view.SimulationTraceProfile is null) throw withdrawalFailure;
+                return;
             }
             if (entered || view.SimulationTraceProfile is null) return;
             entered = true;
@@ -140,7 +149,7 @@ public sealed class SyntheticSimulationTraceProfileTests
                 replacement = Assert.IsType<ProjectSimulationTraceProfile>(view.SimulationTraceProfile);
             }
             cancellation.Cancel();
-            throw failure;
+            if (throwOnPublication) throw publicationFailure;
         };
 
         Exception? observed;
@@ -153,10 +162,17 @@ public sealed class SyntheticSimulationTraceProfileTests
         {
             view.PropertyChanged -= observer;
         }
-        Assert.Same(failure, observed);
+        if (throwOnPublication) Assert.Same(publicationFailure, observed);
+        else
+        {
+            var cancelled = Assert.IsType<OperationCanceledException>(observed);
+            Assert.Equal(cancellation.Token, cancelled.CancellationToken);
+            Assert.Same(withdrawalFailure, cancelled.InnerException);
+        }
         Assert.True(entered);
         Assert.Same(replacement, view.SimulationTraceProfile);
-        Assert.Equal(!replace, withdrew);
+        Assert.True(cancellation.IsCancellationRequested);
+        Assert.Equal(replace ? 0 : 1, withdrawalNotifications);
         Assert.Same(run, view.SimulationRun);
     }
     private static void Change(SyntheticWorkbenchViewModel view, CompilerHostRequest request, string mode)
