@@ -1,3 +1,4 @@
+using System.Reflection;
 using Coglatas.Application.ProjectIde.Core;
 using Coglatas.Domain.ProjectIde;
 using Coglatas.ProjectIde.Workbench.Synthetic;
@@ -9,13 +10,14 @@ public sealed class SyntheticSemanticIndexTests
 {
     private static CompilerIndexedSymbol RootPort(SyntheticWorkbenchViewModel vm) => Assert.Single(vm.SemanticIndex!.Symbols,
         item => item.Symbol.Context.Equals(vm.Source!.Context) && item.Symbol.EntityId == EntityId.Parse(Id(7)) && item.Symbol.PortId == PortId.Parse(Id(8)));
-    private static async Task<SyntheticWorkbenchViewModel> Ready(bool admit = true)
+    private static async Task<SyntheticWorkbenchViewModel> Ready(bool admit = true, ProjectSemanticIndexLookupCache? cache = null)
     {
         var fixture = CompilerBindingClosureTests.Graph(backToRoot: true, withRelation: true); var input = fixture.Input;
         CompilerArtifactIdentity Artifact(string field) => new(SourceJson.Parse(input.Settings.Value.GetProperty(field).GetRawText()));
         var profile = new CompilerHostProfile(input.Compiler, Artifact("schema"), Artifact("ruleset"), Artifact("semantics"), Artifact("ir"), Artifact("evaluator"),
             input.Settings.Value.GetProperty("featureSet").EnumerateArray().Select(item => item.GetString()));
-        var request = new CompilerHostRequest(new(input), 1, fixture.Snapshots); var vm = new SyntheticWorkbenchViewModel();
+        var request = new CompilerHostRequest(new(input), 1, fixture.Snapshots);
+        var vm = cache is null ? new SyntheticWorkbenchViewModel() : new SyntheticWorkbenchViewModel(cache);
         try
         {
             vm.BeginSynthetic(request); Assert.True(vm.TryAccept(await new LocalNetCompilerHost(profile).CompileAsync(request)));
@@ -190,6 +192,83 @@ public sealed class SyntheticSemanticIndexTests
             var cancelled = Assert.IsType<OperationCanceledException>(error);
             Assert.Equal(observer.Token, cancelled.CancellationToken);
             Assert.Null(cancelled.InnerException);
+        }
+    }
+
+    [Fact]
+    public async Task IndexBuildCancellationSurvivesThrowingWithdrawalObserver()
+    {
+        var cache = new ProjectSemanticIndexLookupCache();
+        using var vm = await Ready(cache: cache);
+        var result = vm.Result;
+        var source = vm.Source;
+        var prior = Assert.IsType<CompilerSemanticIndex>(vm.SemanticIndex);
+        using var observer = new BuildCancellationObserver(vm);
+        observer.CancelWhileWaitingForCache(cache);
+
+        Assert.Same(result, vm.Result);
+        Assert.Same(source, vm.Source);
+        Assert.NotEmpty(prior.Symbols);
+        Assert.Null(vm.SemanticIndex);
+        Assert.Equal("Idle", vm.SemanticIndexReadState);
+        Assert.Equal(1, observer.WithdrawalNotifications);
+        var cancellation = Assert.IsType<OperationCanceledException>(observer.Error);
+        Assert.Equal(observer.Token, cancellation.CancellationToken);
+        Assert.Same(observer.WithdrawalError, cancellation.InnerException);
+    }
+
+    private sealed class BuildCancellationObserver : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _view;
+        private readonly Thread _read;
+        private readonly ManualResetEventSlim _loading = new();
+        private readonly CancellationTokenSource _cancel = new();
+        public CancellationToken Token => _cancel.Token;
+        public Exception? Error { get; private set; }
+        public int WithdrawalNotifications { get; private set; }
+        public InvalidOperationException WithdrawalError { get; } = new("Semantic withdrawal observer failed.");
+
+        public BuildCancellationObserver(SyntheticWorkbenchViewModel view)
+        {
+            _view = view;
+            _view.PropertyChanged += Changed;
+            _read = new Thread(Read) { IsBackground = true };
+        }
+
+        public void CancelWhileWaitingForCache(ProjectSemanticIndexLookupCache cache)
+        {
+            // Hold the actual cache gate until the reader reaches Build, after its Loading notification.
+            var field = typeof(ProjectSemanticIndexLookupCache).GetField("_gate", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.NotNull(field);
+            var gate = Assert.IsType<object>(field.GetValue(cache));
+            try
+            {
+                lock (gate)
+                {
+                    _read.Start();
+                    Assert.True(_loading.Wait(TimeSpan.FromSeconds(10)));
+                    Assert.True(SpinWait.SpinUntil(() => (_read.ThreadState & ThreadState.WaitSleepJoin) != 0, TimeSpan.FromSeconds(10)));
+                    _cancel.Cancel();
+                }
+            }
+            finally { Assert.True(_read.Join(TimeSpan.FromSeconds(10))); }
+        }
+
+        private void Read() => Error = Record.Exception(() => { _view.LoadSyntheticSemanticIndex(Token); });
+
+        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (_view.SemanticIndexReadState == "Loading") _loading.Set();
+            if (_view.SemanticIndexReadState != "Idle" || !Token.IsCancellationRequested) return;
+            WithdrawalNotifications++;
+            throw WithdrawalError;
+        }
+
+        public void Dispose()
+        {
+            _view.PropertyChanged -= Changed;
+            _loading.Dispose();
+            _cancel.Dispose();
         }
     }
 
