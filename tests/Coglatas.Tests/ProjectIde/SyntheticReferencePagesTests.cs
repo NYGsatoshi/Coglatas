@@ -180,7 +180,7 @@ public sealed class SyntheticReferencePagesTests
     public async Task ThrowingObserverWithdrawsOnlyTheCancelledReferencePage(string action)
     {
         using var vm = await Ready();
-        using var cancellation = new PublicationCancellation(vm, action, throwDuringPublication: true);
+        using var cancellation = new PublicationCancellation(vm, action, throwDuringPublication: true, throwDuringWithdrawal: true);
         var root = vm.RootSource;
         var result = vm.Result;
         var inspection = vm.Inspection;
@@ -205,6 +205,7 @@ public sealed class SyntheticReferencePagesTests
             Assert.Same(replacement, vm.ReferencePage);
             Assert.Same(replacement.References[0].Origin, vm.SourceTarget);
             Assert.False(cancellation.WithdrawalNotified);
+            Assert.Equal(0, cancellation.NotificationsAfterCancellation);
         }
         else
         {
@@ -215,24 +216,52 @@ public sealed class SyntheticReferencePagesTests
         }
     }
 
+    [Fact]
+    public async Task ThrowingWithdrawalObserverPreservesCancellationAndItsOriginalToken()
+    {
+        using var vm = await Ready();
+        using var cancellation = new PublicationCancellation(vm, "page", throwDuringWithdrawal: true);
+        var result = vm.Result;
+        var root = vm.RootSource;
+        var symbol = vm.Selected;
+
+        var error = Assert.Throws<OperationCanceledException>(() =>
+            vm.ReadReferenceSearchPage(cancellationToken: cancellation.Token));
+
+        Assert.Equal(cancellation.Token, error.CancellationToken);
+        Assert.Same(cancellation.WithdrawalError, error.InnerException);
+        Assert.Equal(1, cancellation.NotificationsAfterCancellation);
+        Assert.True(cancellation.WithdrawalNotified);
+        Assert.NotNull(cancellation.CancelledPage);
+        Assert.Null(vm.ReferencePage);
+        Assert.Null(vm.SourceTarget);
+        Assert.Same(result, vm.Result);
+        Assert.Same(root, vm.RootSource);
+        Assert.Same(symbol, vm.Selected);
+    }
+
     private sealed class PublicationCancellation : IDisposable
     {
         private readonly SyntheticWorkbenchViewModel _viewModel;
         private readonly CancellationTokenSource _source = new();
         private readonly string _action;
         private readonly bool _throwDuringPublication;
-        private int _notifications;
+        private readonly bool _throwDuringWithdrawal;
         public bool Fired { get; private set; }
         public bool WithdrawalNotified { get; private set; }
+        public int NotificationsAfterCancellation { get; private set; }
         public ReferenceSearchPage? CancelledPage { get; private set; }
         public ReferenceSearchPage? ReplacementPage { get; private set; }
         public InvalidOperationException PublicationError { get; } = new("Reference page publication failed.");
+        public InvalidOperationException WithdrawalError { get; } = new("Reference page withdrawal failed.");
         public CancellationToken Token => _source.Token;
-        internal PublicationCancellation(SyntheticWorkbenchViewModel viewModel, string action, bool throwDuringPublication = false)
+        internal PublicationCancellation(SyntheticWorkbenchViewModel viewModel, string action, bool throwDuringPublication = false,
+            bool throwDuringWithdrawal = false)
         {
             _viewModel = viewModel;
             _action = action;
             _throwDuringPublication = throwDuringPublication;
+            _throwDuringWithdrawal = throwDuringWithdrawal;
             _viewModel.PropertyChanged += Changed;
         }
         private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
@@ -240,16 +269,17 @@ public sealed class SyntheticReferencePagesTests
             var current = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
             if (Fired)
             {
-                if (_throwDuringPublication && _source.IsCancellationRequested && current.ReferencePage is null)
+                if (!_source.IsCancellationRequested) return;
+                NotificationsAfterCancellation++;
+                if (current.ReferencePage is null)
                 {
                     WithdrawalNotified = true;
-                    throw new InvalidOperationException("Reference page withdrawal failed.");
+                    if (_throwDuringWithdrawal) throw WithdrawalError;
                 }
                 return;
             }
-            if (++_notifications != 2) return;
+            if (current.ReferencePage is not { } page) return;
             Fired = true;
-            var page = Assert.IsType<ReferenceSearchPage>(current.ReferencePage);
             CancelledPage = page;
             Assert.True(current.NavigateReferencePageOrigin(page, page.References[0]));
             if (_action == "ordinary") Assert.True(current.Navigate());
