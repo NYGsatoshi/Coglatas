@@ -60,6 +60,53 @@ public sealed class SyntheticSimulationComparisonTests
         Assert.Null(view.SimulationComparison); Assert.Same(after, view.SimulationRun);
     }
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CancellationWithAThrowingComparisonObserverWithdrawsOnlyItsOwnSummary(bool replace)
+    {
+        var fixture = await Ready();
+        using var view = fixture.View;
+        using var cancellation = new CancellationTokenSource();
+        var before = fixture.Before;
+        var after = view.SimulationRun!;
+        var publicationError = new InvalidOperationException("Run comparison observer failed.");
+        var published = false;
+        var withdrew = false;
+        ProjectSimulationRunComparison? replacement = null;
+        System.ComponentModel.PropertyChangedEventHandler observe = (_, _) =>
+        {
+            if (published && !replace && view.SimulationComparison is null)
+            {
+                withdrew = true;
+                throw new InvalidOperationException("Run comparison withdrawal observer failed.");
+            }
+            if (published || view.SimulationComparison is null) return;
+            published = true;
+            if (replace)
+            {
+                Assert.True(view.CompareSyntheticSimulationRuns(before, before.Digest));
+                replacement = Assert.IsType<ProjectSimulationRunComparison>(view.SimulationComparison);
+            }
+            cancellation.Cancel();
+            throw publicationError;
+        };
+        Exception? observed;
+        view.PropertyChanged += observe;
+        try
+        {
+            observed = Record.Exception(() => { view.CompareSyntheticSimulationRuns(before, before.Digest, cancellation.Token); });
+        }
+        finally
+        {
+            view.PropertyChanged -= observe;
+        }
+        Assert.Same(publicationError, observed);
+        Assert.True(published);
+        Assert.Same(replacement, view.SimulationComparison);
+        Assert.Equal(!replace, withdrew);
+        Assert.Same(after, view.SimulationRun);
+    }
+    [Theory]
     [InlineData("reset")] [InlineData("dispose")] [InlineData("begin")] [InlineData("reload")] [InlineData("run")] [InlineData("debug")]
     public async Task ReplacingTheOwnedContextWithdrawsBothComparisonSummaries(string mode)
     {
