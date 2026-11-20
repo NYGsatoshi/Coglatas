@@ -100,4 +100,36 @@ public sealed class ProjectTestOutputTests
             directory.Delete(recursive: true);
         }
     }
+
+    [Fact]
+    public async Task ADriveDesignatorAloneIsRejectedAsMissingAFileName()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var drive = Path.GetPathRoot(Environment.SystemDirectory)!.TrimEnd(Path.DirectorySeparatorChar);
+        var error = await Assert.ThrowsAsync<ArgumentException>(() => ProjectTestOutput.WriteNewAsync(drive, "[]"u8.ToArray()));
+        Assert.Equal("path", error.ParamName);
+    }
+
+    [Fact]
+    public async Task AnExplicitFileNameRemainsValidInARelativeOutput()
+    {
+        var directory = Directory.CreateTempSubdirectory("projectide-test-relative-output-");
+        try
+        {
+            var destination = Path.Combine(directory.FullName, "result.json");
+            var relative = Path.GetRelativePath(Directory.GetCurrentDirectory(), destination);
+            if (OperatingSystem.IsWindows() && Path.GetPathRoot(destination) is { Length: 3 } driveRoot)
+            {
+                var drive = driveRoot[..2];
+                relative = drive + Path.GetRelativePath(Path.GetFullPath(drive), destination);
+            }
+            await ProjectTestOutput.WriteNewAsync(relative, "[]"u8.ToArray());
+            Assert.Equal("[]", await File.ReadAllTextAsync(destination));
+            Assert.Equal(destination, Assert.Single(Directory.GetFileSystemEntries(directory.FullName)));
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
 }
