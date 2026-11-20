@@ -201,6 +201,99 @@ public sealed class SyntheticPassSourceNavigationTests
         Assert.True(vm.NavigatePassBoundarySource(page, original)); Assert.Same(original.Location, vm.SourceTarget);
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task ThrowingObserverWithdrawsOnlyItsCancelledPassView(bool readBoundary, bool replace)
+    {
+        var (_, _, profile) = SyntheticOperatorRecordingTests.Input("pass");
+        using var session = new LocalPassObservationCompilerRecordingSession(profile);
+        using var view = new SyntheticWorkbenchViewModel();
+        var actual = await Prepare(view, session);
+        Assert.True(Read(view));
+        var previousBoundary = view.RecordedPassBoundary!;
+        Assert.True(view.ReadPassBoundarySourcePage(maximumTargets: 1));
+        var previousPage = view.PassBoundarySourcePage!;
+        var previousTarget = Assert.Single(previousPage.Targets);
+        Assert.True(previousPage.TotalTargets > 1);
+        Assert.True(view.NavigatePassBoundarySource(previousPage, previousTarget));
+        var root = view.RootSource;
+        var result = view.Result!;
+        var receiptData = actual.Receipt.Data;
+
+        using var cancellation = new CancellationTokenSource();
+        var publicationError = new InvalidOperationException("Pass view publication observer failed");
+        var published = false;
+        var withdrawalCount = 0;
+        ProjectCompilerPassBoundarySnapshot? observedBoundary = null;
+        SyntheticPassSourcePage? observedPage = null;
+        SyntheticPassSourceTarget? observedTarget = null;
+
+        void ObservePublication(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (published || (readBoundary ? view.RecordedPassBoundary is null : view.PassBoundarySourcePage is null)) return;
+            published = true;
+            if (readBoundary && replace) Assert.True(Read(view));
+            observedBoundary = view.RecordedPassBoundary;
+            if (readBoundary || replace)
+                Assert.True(view.ReadPassBoundarySourcePage(replace ? 1 : 0, 1));
+            observedPage = view.PassBoundarySourcePage!;
+            observedTarget = Assert.Single(observedPage.Targets);
+            Assert.True(view.NavigatePassBoundarySource(observedPage, observedTarget));
+            cancellation.Cancel();
+            throw publicationError;
+        }
+
+        void ObserveWithdrawal(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (!cancellation.IsCancellationRequested || view.PassBoundarySourcePage is not null) return;
+            withdrawalCount++;
+            throw new InvalidOperationException("Pass view withdrawal observer failed");
+        }
+
+        view.PropertyChanged += ObservePublication;
+        view.PropertyChanged += ObserveWithdrawal;
+        var error = Record.Exception(() =>
+        {
+            if (readBoundary)
+                view.ReadRecordedPassBoundary(result.ResultDigest, 5, CompilerPassObservationSnapshotMode.AvailableOriginalJson,
+                    token: cancellation.Token);
+            else
+                view.ReadPassBoundarySourcePage(maximumTargets: 1, token: cancellation.Token);
+        });
+        view.PropertyChanged -= ObserveWithdrawal;
+        view.PropertyChanged -= ObservePublication;
+
+        Assert.Same(publicationError, error);
+        Assert.True(published);
+        Assert.True(cancellation.IsCancellationRequested);
+        Assert.Same(root, view.RootSource);
+        Assert.Same(result, view.Result);
+        Assert.Equal(receiptData, actual.Receipt.Data);
+        Assert.NotEmpty(previousBoundary.Bodies);
+        Assert.Same(previousTarget, Assert.Single(previousPage.Targets));
+        if (replace)
+        {
+            Assert.Same(observedBoundary, view.RecordedPassBoundary);
+            Assert.Same(observedPage, view.PassBoundarySourcePage);
+            Assert.Equal(1, observedPage!.Offset);
+            Assert.Same(observedTarget!.Location, view.SourceTarget);
+            Assert.Equal("ready", view.NavigationState);
+            Assert.Equal(0, withdrawalCount);
+        }
+        else
+        {
+            if (readBoundary) Assert.True(view.RecordedPassBoundary is null, "The cancelled pass boundary remained visible.");
+            else Assert.Same(previousBoundary, view.RecordedPassBoundary);
+            Assert.True(view.PassBoundarySourcePage is null, "The cancelled pass Source page remained visible.");
+            Assert.Null(view.SourceTarget);
+            Assert.Empty(view.NavigationState);
+            Assert.Equal(1, withdrawalCount);
+        }
+    }
+
     private sealed class CancelPagePublication : IDisposable
     {
         private readonly SyntheticWorkbenchViewModel _vm;
