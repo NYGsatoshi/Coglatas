@@ -210,33 +210,58 @@ public sealed class RequirementTaskSuggestionTests
         private readonly SyntheticWorkbenchViewModel _vm;
         private readonly CancellationTokenSource _source = new();
         private readonly bool _replace;
+        private readonly InvalidOperationException? _publicationError;
         public CancellationToken Token => _source.Token;
         public bool Fired { get; private set; }
+        public int WithdrawalNotifications { get; private set; }
         public RequirementTaskSuggestionPage? Replacement { get; private set; }
-        public CancelQueryPublication(SyntheticWorkbenchViewModel vm, bool replace)
-        { _vm = vm; _replace = replace; vm.PropertyChanged += Changed; }
+        public CancelQueryPublication(SyntheticWorkbenchViewModel vm, bool replace, InvalidOperationException? publicationError)
+        {
+            _vm = vm;
+            _replace = replace;
+            _publicationError = publicationError;
+            vm.PropertyChanged += Changed;
+        }
         public Exception? Read() => Record.Exception(ReadCore);
         private void ReadCore() => _vm.SuggestRequirementTasks(cancellationToken: Token);
         private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
-            if (Fired || _vm.TaskSuggestions is null) return;
+            if (Fired)
+            {
+                if (_publicationError is not null && Token.IsCancellationRequested && _vm.TaskSuggestions is null)
+                {
+                    WithdrawalNotifications++;
+                    throw new InvalidOperationException("Candidate withdrawal observer failed.");
+                }
+                return;
+            }
+            if (_vm.TaskSuggestions is null) return;
             Fired = true;
             if (_replace) Replacement = _vm.SuggestRequirementTasks(1);
             _source.Cancel();
+            if (_publicationError is not null) throw _publicationError;
         }
         public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
     }
 
     [Theory]
     [InlineData(false)] [InlineData(true)]
-    public async Task CancellationAtSemanticQueryPublicationWithdrawsOnlyItsOwnedPage(bool replace)
+    public Task CancellationAtSemanticQueryPublicationWithdrawsOnlyItsOwnedPage(bool replace) =>
+        VerifyCandidatePublication(replace, null);
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public Task ThrowingCandidateObserverWithdrawsOnlyItsCancelledPage(bool replace) =>
+        VerifyCandidatePublication(replace, new InvalidOperationException("Candidate publication observer failed."));
+
+    private static async Task VerifyCandidatePublication(bool replace, InvalidOperationException? publicationError)
     {
         var input = SuggestionInput();
         using var view = await AcceptedView(input);
         var result = view.Result!; var resultData = result.Data; var sourceData = view.Source!.Data; var inspection = view.Inspection;
         var previous = view.SuggestRequirementTasks(); Assert.NotNull(previous); Assert.Equal(3, previous.Candidates.Count);
         var previousCandidates = previous.Candidates.ToArray();
-        using var cancellation = new CancelQueryPublication(view, replace); var token = cancellation.Token;
+        using var cancellation = new CancelQueryPublication(view, replace, publicationError); var token = cancellation.Token;
         var error = cancellation.Read();
         Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
         Assert.Same(result, view.Result); Assert.Equal(resultData, result.Data); Assert.Equal(sourceData, view.Source!.Data); Assert.Same(inspection, view.Inspection);
@@ -247,7 +272,13 @@ public sealed class RequirementTaskSuggestionTests
             Assert.Same(cancellation.Replacement, view.TaskSuggestions);
         }
         else Assert.Null(view.TaskSuggestions);
-        Assert.IsType<OperationCanceledException>(error);
+        if (publicationError is null)
+            Assert.IsType<OperationCanceledException>(error);
+        else
+        {
+            Assert.Same(publicationError, error);
+            Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+        }
     }
     private sealed class CancelInitialSuggestion : IDisposable
     {
