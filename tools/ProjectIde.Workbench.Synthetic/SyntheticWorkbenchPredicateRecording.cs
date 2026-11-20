@@ -85,13 +85,9 @@ public sealed partial class SyntheticWorkbenchViewModel
         _recordedPredicatePremises = snapshot;
         _recordedPredicateDiagnostic = diagnostic;
         _recordedPredicateCompilation = compilation;
-        var publicationCompleted = false;
+        Exception? withdrawalFailure = null;
         bool cancelledAtPublication;
-        try
-        {
-            Changed();
-            publicationCompleted = true;
-        }
+        try { Changed(); }
         finally
         {
             cancelledAtPublication = token.IsCancellationRequested;
@@ -99,13 +95,12 @@ public sealed partial class SyntheticWorkbenchViewModel
             {
                 ClearRecordedPredicatePremises();
                 try { Changed(); }
-                catch when (!publicationCompleted)
-                {
-                    // Preserve the original publication exception after withdrawing the cancelled view.
-                }
+                catch (Exception error) { withdrawalFailure = error; }
             }
         }
-        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Predicate recording read was cancelled.", withdrawalFailure, token);
         return Current() && ReferenceEquals(RecordedPredicatePremises, snapshot) && snapshot.State is not
             (RecordedPredicateSnapshotState.RefusedWrongResult or RecordedPredicateSnapshotState.RefusedRecord or RecordedPredicateSnapshotState.RefusedDiagnostic or RecordedPredicateSnapshotState.RefusedBodyBinding);
     }

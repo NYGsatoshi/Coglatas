@@ -86,13 +86,9 @@ public sealed partial class SyntheticWorkbenchViewModel
         if (!Current()) return false;
         _recordedPasses = snapshot;
         _passCompilation = compilation;
-        var publicationCompleted = false;
+        Exception? withdrawalFailure = null;
         bool cancelledAtPublication;
-        try
-        {
-            Changed();
-            publicationCompleted = true;
-        }
+        try { Changed(); }
         finally
         {
             cancelledAtPublication = token.IsCancellationRequested;
@@ -100,13 +96,12 @@ public sealed partial class SyntheticWorkbenchViewModel
             {
                 ClearPassSnapshot();
                 try { Changed(); }
-                catch when (!publicationCompleted)
-                {
-                    // Preserve the original publication exception after withdrawing the cancelled view.
-                }
+                catch (Exception error) { withdrawalFailure = error; }
             }
         }
-        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Pass recording read was cancelled.", withdrawalFailure, token);
         return Current() && ReferenceEquals(RecordedPasses, snapshot) && snapshot.State is not (CompilerPassObservationSnapshotState.RefusedInvocation or
             CompilerPassObservationSnapshotState.RefusedInputBinding or CompilerPassObservationSnapshotState.RefusedWrongResult);
     }

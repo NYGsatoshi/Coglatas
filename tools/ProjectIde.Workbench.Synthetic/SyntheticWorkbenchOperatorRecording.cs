@@ -91,13 +91,9 @@ public sealed partial class SyntheticWorkbenchViewModel
         _operatorDiagnostic = diagnostic;
         _operatorCompilation = compilation;
         _operatorSnapshotSelection = selection;
-        var publicationCompleted = false;
+        Exception? withdrawalFailure = null;
         bool cancelledAtPublication;
-        try
-        {
-            Changed();
-            publicationCompleted = true;
-        }
+        try { Changed(); }
         finally
         {
             cancelledAtPublication = token.IsCancellationRequested;
@@ -105,13 +101,12 @@ public sealed partial class SyntheticWorkbenchViewModel
             {
                 ClearOperatorSnapshot();
                 try { Changed(); }
-                catch when (!publicationCompleted)
-                {
-                    // Preserve the original publication exception after withdrawing the cancelled view.
-                }
+                catch (Exception error) { withdrawalFailure = error; }
             }
         }
-        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Operator recording read was cancelled.", withdrawalFailure, token);
         return Current() && ReferenceEquals(RecordedOperators, snapshot) && snapshot.State != CompilerPredicateObservationSnapshotState.RefusedInvocation;
     }
 
