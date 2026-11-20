@@ -246,13 +246,9 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         var preview = ProjectDraftRename.Preview(model, selected.Symbol.Location, _desired.Input.ExpectedInputDigest,
             name, nextContext, cancellationToken);
         RenamePreview = preview;
-        var publicationCompleted = false;
+        Exception? withdrawalFailure = null;
         bool cancelledAtPublication;
-        try
-        {
-            Changed();
-            publicationCompleted = true;
-        }
+        try { Changed(); }
         finally
         {
             cancelledAtPublication = cancellationToken.IsCancellationRequested;
@@ -260,13 +256,12 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
             {
                 RenamePreview = null;
                 try { Changed(); }
-                catch when (!publicationCompleted)
-                {
-                    // Preserve the original publication exception after withdrawing the cancelled preview.
-                }
+                catch (Exception error) { withdrawalFailure = error; }
             }
         }
-        if (cancelledAtPublication) cancellationToken.ThrowIfCancellationRequested();
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Draft preview was cancelled.", withdrawalFailure, cancellationToken);
         return !_disposed && generation == _selectionGeneration && ReferenceEquals(RenamePreview, preview) ? preview : null;
     }
 
@@ -299,13 +294,9 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
             _desired.Input.ExpectedInputDigest, proposal, history, cancellationToken);
         if (_disposed || lifecycle != _lifecycle || generation != _revertPreviewGeneration) return null;
         RevertPreview = preview;
-        var publicationCompleted = false;
+        Exception? withdrawalFailure = null;
         bool cancelledAtPublication;
-        try
-        {
-            Changed();
-            publicationCompleted = true;
-        }
+        try { Changed(); }
         finally
         {
             cancelledAtPublication = cancellationToken.IsCancellationRequested;
@@ -314,13 +305,12 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
                 _revertPreviewGeneration++;
                 RevertPreview = null;
                 try { Changed(); }
-                catch when (!publicationCompleted)
-                {
-                    // Preserve the original publication exception after withdrawing the cancelled preview.
-                }
+                catch (Exception error) { withdrawalFailure = error; }
             }
         }
-        if (cancelledAtPublication) cancellationToken.ThrowIfCancellationRequested();
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Draft preview was cancelled.", withdrawalFailure, cancellationToken);
         return !_disposed && lifecycle == _lifecycle && generation == _revertPreviewGeneration && ReferenceEquals(RevertPreview, preview) ? preview : null;
     }
 

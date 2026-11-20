@@ -30,13 +30,9 @@ public sealed partial class SyntheticWorkbenchViewModel
         var preview = ProjectTestEditing.Preview(model, target, _desired.Input.ExpectedInputDigest, definition, next, cancellationToken);
         if (_disposed || lifecycle != _lifecycle || generation != _testEditGeneration || selection != _selectionGeneration) return null;
         TestEditPreview = preview;
-        var publicationCompleted = false;
+        Exception? withdrawalFailure = null;
         bool cancelledAtPublication;
-        try
-        {
-            Changed();
-            publicationCompleted = true;
-        }
+        try { Changed(); }
         finally
         {
             cancelledAtPublication = cancellationToken.IsCancellationRequested;
@@ -44,13 +40,12 @@ public sealed partial class SyntheticWorkbenchViewModel
             {
                 ClearTestEdit();
                 try { Changed(); }
-                catch when (!publicationCompleted)
-                {
-                    // Preserve the original publication exception after withdrawing the cancelled preview.
-                }
+                catch (Exception error) { withdrawalFailure = error; }
             }
         }
-        if (cancelledAtPublication) cancellationToken.ThrowIfCancellationRequested();
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Draft preview was cancelled.", withdrawalFailure, cancellationToken);
         if (!_disposed && lifecycle == _lifecycle && generation == _testEditGeneration && selection == _selectionGeneration &&
             ReferenceEquals(TestEditPreview, preview)) return preview;
         // Clear only this interrupted publication; a reentrant newer preview belongs to its own generation.
