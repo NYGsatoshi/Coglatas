@@ -56,12 +56,28 @@ public sealed partial class SyntheticWorkbenchViewModel
         cancellationToken.ThrowIfCancellationRequested();
         if (!Current()) return null;
         var owner = new ReferencePageOwner(page, inspection, symbol, compilation.Result, root, rootGeneration, query);
-        _referencePageOwner = owner; Changed();
-        if (cancellationToken.IsCancellationRequested)
+        _referencePageOwner = owner;
+        var publicationCompleted = false;
+        bool cancelledAtPublication;
+        try
         {
-            if (query == _referencePageGeneration && ReferenceEquals(_referencePageOwner, owner)) { ClearReferenceSearchPage(); Changed(); }
-            cancellationToken.ThrowIfCancellationRequested();
+            Changed();
+            publicationCompleted = true;
         }
+        finally
+        {
+            cancelledAtPublication = cancellationToken.IsCancellationRequested;
+            if (cancelledAtPublication && query == _referencePageGeneration && ReferenceEquals(_referencePageOwner, owner))
+            {
+                ClearReferenceSearchPage();
+                try { Changed(); }
+                catch when (!publicationCompleted)
+                {
+                    // Preserve the original publication exception after withdrawing the cancelled page.
+                }
+            }
+        }
+        if (cancelledAtPublication) cancellationToken.ThrowIfCancellationRequested();
         return Current() && ReferenceEquals(ReferencePage, page) ? page : null;
     }
 
