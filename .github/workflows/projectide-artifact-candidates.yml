@@ -15,6 +15,9 @@ on:
       - tests/ci/projectide_artifact_inventory.py
       - tests/ci/projectide_core_isolated.py
       - tests/ci/projectide_integration_inventory.json
+      - tools/ProjectIde.Tests/**
+      - tests/Coglatas.Tests/ProjectIde/ProjectTestCli*Tests.cs
+      - tests/Coglatas.Tests/ProjectIde/ProjectTestOutputTests.cs
       # Recorded debugger producer, replay tests, and immutable fixture are all
       # independent changes that must activate the full two-host artifact suite.
       - tools/ProjectIde.Preview/**
