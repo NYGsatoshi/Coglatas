@@ -57,13 +57,9 @@ public sealed partial class SyntheticWorkbenchViewModel
         if (!Current()) return null;
         var owner = new ReferencePageOwner(page, inspection, symbol, compilation.Result, root, rootGeneration, query);
         _referencePageOwner = owner;
-        var publicationCompleted = false;
+        Exception? withdrawalFailure = null;
         bool cancelledAtPublication;
-        try
-        {
-            Changed();
-            publicationCompleted = true;
-        }
+        try { Changed(); }
         finally
         {
             cancelledAtPublication = cancellationToken.IsCancellationRequested;
@@ -71,13 +67,12 @@ public sealed partial class SyntheticWorkbenchViewModel
             {
                 ClearReferenceSearchPage();
                 try { Changed(); }
-                catch when (!publicationCompleted)
-                {
-                    // Preserve the original publication exception after withdrawing the cancelled page.
-                }
+                catch (Exception error) { withdrawalFailure = error; }
             }
         }
-        if (cancelledAtPublication) cancellationToken.ThrowIfCancellationRequested();
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Reference search page publication was cancelled.", withdrawalFailure, cancellationToken);
         return Current() && ReferenceEquals(ReferencePage, page) ? page : null;
     }
 
