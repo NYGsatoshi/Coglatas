@@ -56,8 +56,19 @@ public sealed partial class SyntheticWorkbenchViewModel
             return Refuse();
         CompilerSemanticIndex index;
         try { index = CompilerSemanticIndex.Build(dependencies.Binding, desired.Input.ExpectedInputDigest, cancellationToken: token, lookupCache: _semanticIndexLookupCache); }
-        catch (OperationCanceledException)
-        { if (Current()) { ClearSemanticIndex(); Changed(); } throw; }
+        catch (OperationCanceledException cancellation)
+        {
+            if (Current())
+            {
+                ClearSemanticIndex();
+                try { Changed(); }
+                catch (Exception notificationFailure)
+                {
+                    throw new OperationCanceledException(cancellation.Message, notificationFailure, cancellation.CancellationToken);
+                }
+            }
+            throw;
+        }
         if (!Current()) return false;
         if (index.State != CompilerSemanticIndexState.Complete || !index.IndexCoverageComplete)
             return Refuse();
