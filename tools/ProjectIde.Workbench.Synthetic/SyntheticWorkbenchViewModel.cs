@@ -326,13 +326,9 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         var page = inspection.SuggestRequirementTasks(selected.Symbol.Location, _desired.Input.ExpectedInputDigest, pageSize, cursor, cancellationToken);
         if (_disposed || lifecycle != _lifecycle || selection != _selectionGeneration || generation != _taskSuggestionGeneration) return null;
         TaskSuggestions = page;
-        var publicationCompleted = false;
+        Exception? withdrawalFailure = null;
         bool cancelledAtPublication;
-        try
-        {
-            Changed();
-            publicationCompleted = true;
-        }
+        try { Changed(); }
         finally
         {
             cancelledAtPublication = cancellationToken.IsCancellationRequested;
@@ -341,13 +337,12 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
                 _taskSuggestionGeneration++;
                 TaskSuggestions = null;
                 try { Changed(); }
-                catch when (!publicationCompleted)
-                {
-                    // Preserve the original publication exception after withdrawing the cancelled page.
-                }
+                catch (Exception error) { withdrawalFailure = error; }
             }
         }
-        if (cancelledAtPublication) cancellationToken.ThrowIfCancellationRequested();
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Candidate query was cancelled.", withdrawalFailure, cancellationToken);
         return !_disposed && lifecycle == _lifecycle && selection == _selectionGeneration && generation == _taskSuggestionGeneration &&
             ReferenceEquals(TaskSuggestions, page) ? page : null;
     }
@@ -374,13 +369,9 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         var page = inspection.CompleteEntityReference(selected.Symbol.Location, _desired.Input.ExpectedInputDigest,
             pageSize, cursor, cancellationToken);
         ReferenceCompletion = page;
-        var publicationCompleted = false;
+        Exception? withdrawalFailure = null;
         bool cancelledAtPublication;
-        try
-        {
-            Changed();
-            publicationCompleted = true;
-        }
+        try { Changed(); }
         finally
         {
             cancelledAtPublication = cancellationToken.IsCancellationRequested;
@@ -388,13 +379,12 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
             {
                 ReferenceCompletion = null;
                 try { Changed(); }
-                catch when (!publicationCompleted)
-                {
-                    // Preserve the original publication exception after withdrawing the cancelled page.
-                }
+                catch (Exception error) { withdrawalFailure = error; }
             }
         }
-        if (cancelledAtPublication) cancellationToken.ThrowIfCancellationRequested();
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Candidate query was cancelled.", withdrawalFailure, cancellationToken);
         return !_disposed && generation == _selectionGeneration && ReferenceEquals(ReferenceCompletion, page) ? page : null;
     }
 
