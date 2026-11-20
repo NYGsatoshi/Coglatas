@@ -453,13 +453,9 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
 
     private void NotifyHistoricalRead(CancellationToken cancellationToken, Func<bool> ownsResult, Action withdraw)
     {
-        var notificationCompleted = false;
+        Exception? withdrawalFailure = null;
         bool cancelledAtPublication;
-        try
-        {
-            Changed();
-            notificationCompleted = true;
-        }
+        try { Changed(); }
         finally
         {
             cancelledAtPublication = cancellationToken.IsCancellationRequested;
@@ -467,13 +463,12 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
             {
                 withdraw();
                 try { Changed(); }
-                catch when (!notificationCompleted)
-                {
-                    // Retain the publication exception if the withdrawal observer also fails.
-                }
+                catch (Exception error) { withdrawalFailure = error; }
             }
         }
-        if (cancelledAtPublication) cancellationToken.ThrowIfCancellationRequested();
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Historical read was cancelled.", withdrawalFailure, cancellationToken);
     }
 
     public void Reset()
