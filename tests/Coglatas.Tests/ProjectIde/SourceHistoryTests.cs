@@ -306,25 +306,28 @@ public sealed class SourceHistoryTests
         private readonly ProjectSource _after;
         private readonly ProjectHistoryRevision[] _records;
         public Exception? ObserverFailure { get; }
+        public Exception? WithdrawalFailure { get; }
         public CancellationToken Token => _source.Token;
         public bool Fired { get; private set; }
-        public bool WithdrawalFailed { get; private set; }
+        public int WithdrawalNotifications { get; private set; }
         public HistoryReconstruction? Replacement { get; private set; }
         public CancelHistoricalRead(SyntheticWorkbenchViewModel vm, bool replace, ProjectSource before, ProjectSource after,
-            ProjectHistoryRevision[] records, bool throwOnNotification)
+            ProjectHistoryRevision[] records, bool throwOnNotification, bool throwOnWithdrawal)
         {
             _vm = vm; _replace = replace; _before = before; _after = after; _records = records;
             if (throwOnNotification) ObserverFailure = new InvalidOperationException("History publication observer failed.");
+            if (throwOnWithdrawal) WithdrawalFailure = new InvalidOperationException("History withdrawal observer failed.");
             vm.PropertyChanged += Changed;
         }
         public Exception? Read() => Record.Exception(ReadCore);
         private void ReadCore() => _vm.ReadSyntheticHistory(Ref(_after), _records, Token);
         private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
-            if (Fired && !_replace && _vm.History is null && ObserverFailure is not null)
+            if (Token.IsCancellationRequested)
             {
-                WithdrawalFailed = true;
-                throw new InvalidOperationException("History withdrawal observer failed.");
+                WithdrawalNotifications++;
+                if (_vm.History is null && WithdrawalFailure is { } withdrawal) throw withdrawal;
+                return;
             }
             if (Fired || _vm.History is null) return;
             Fired = true;
@@ -343,9 +346,13 @@ public sealed class SourceHistoryTests
     [Theory]
     [InlineData(false)] [InlineData(true)]
     public Task ThrowingObserverDoesNotRetainCancelledHistory(bool replace) =>
-        VerifyHistoryPublicationCancellation(replace, throwOnNotification: true);
+        VerifyHistoryPublicationCancellation(replace, throwOnNotification: true, throwOnWithdrawal: true);
 
-    private static async Task VerifyHistoryPublicationCancellation(bool replace, bool throwOnNotification)
+    [Fact]
+    public Task ThrowingHistoryWithdrawalObserverPreservesCancellation() =>
+        VerifyHistoryPublicationCancellation(replace: false, throwOnNotification: false, throwOnWithdrawal: true);
+
+    private static async Task VerifyHistoryPublicationCancellation(bool replace, bool throwOnNotification, bool throwOnWithdrawal = false)
     {
         var input = Input(); var beforeSource = Revision(50); var afterSource = Revision(51, "Changed");
         var checkpoint = ProjectHistoryRevision.Checkpoint(beforeSource, 0);
@@ -358,7 +365,7 @@ public sealed class SourceHistoryTests
         var result = view.Result!; var resultData = result.Data; var source = view.Source!; var sourceData = source.Data; var originalBefore = beforeSource.Data; var originalAfter = afterSource.Data;
         var previous = view.ReadSyntheticHistory(Ref(afterSource), records)!; Assert.Equal(HistoryReadState.Ready, previous.State); Assert.Equal(2, previous.ReconstructionPath.Count); Assert.Equal(afterSource.Data, previous.Source!.Data);
         var previousData = previous.Source!.Data;
-        using var cancellation = new CancelHistoricalRead(view, replace, beforeSource, afterSource, records, throwOnNotification); var token = cancellation.Token;
+        using var cancellation = new CancelHistoricalRead(view, replace, beforeSource, afterSource, records, throwOnNotification, throwOnWithdrawal); var token = cancellation.Token;
         var error = cancellation.Read();
         Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
         Assert.Same(result, view.Result); Assert.Equal(resultData, result.Data); Assert.Same(source, view.Source); Assert.Equal(sourceData, source.Data);
@@ -369,9 +376,14 @@ public sealed class SourceHistoryTests
             Assert.Same(cancellation.Replacement, view.History);
         }
         else Assert.Null(view.History);
-        Assert.Equal(throwOnNotification && !replace, cancellation.WithdrawalFailed);
+        Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
         if (throwOnNotification) Assert.Same(cancellation.ObserverFailure, error);
-        else Assert.IsType<OperationCanceledException>(error);
+        else
+        {
+            var cancelled = Assert.IsType<OperationCanceledException>(error);
+            Assert.Equal(token, cancelled.CancellationToken);
+            Assert.Same(cancellation.WithdrawalFailure, cancelled.InnerException);
+        }
     }
 
     private sealed class ReplaceDuringHistoryEnumeration

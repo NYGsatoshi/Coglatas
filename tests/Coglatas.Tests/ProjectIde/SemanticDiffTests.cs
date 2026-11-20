@@ -480,24 +480,27 @@ public sealed class SemanticDiffTests
         private readonly bool _replace;
         private readonly PartialSemanticModel _before;
         public Exception? ObserverFailure { get; }
+        public Exception? WithdrawalFailure { get; }
         public CancellationToken Token => _source.Token;
         public bool Fired { get; private set; }
-        public bool WithdrawalFailed { get; private set; }
+        public int WithdrawalNotifications { get; private set; }
         public ProjectSemanticDiff? Replacement { get; private set; }
-        public CancelHistoricalRead(SyntheticWorkbenchViewModel vm, bool replace, PartialSemanticModel before, bool throwOnNotification)
+        public CancelHistoricalRead(SyntheticWorkbenchViewModel vm, bool replace, PartialSemanticModel before, bool throwOnNotification, bool throwOnWithdrawal)
         {
             _vm = vm; _replace = replace; _before = before;
             if (throwOnNotification) ObserverFailure = new InvalidOperationException("Semantic diff publication observer failed.");
+            if (throwOnWithdrawal) WithdrawalFailure = new InvalidOperationException("Semantic diff withdrawal observer failed.");
             vm.PropertyChanged += Changed;
         }
         public Exception? Read() => Record.Exception(ReadCore);
         private void ReadCore() => _vm.CompareSynthetic(_before, _before.Input.InputDigest, Token);
         private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
-            if (Fired && !_replace && _vm.SemanticDiff is null && ObserverFailure is not null)
+            if (Token.IsCancellationRequested)
             {
-                WithdrawalFailed = true;
-                throw new InvalidOperationException("Semantic diff withdrawal observer failed.");
+                WithdrawalNotifications++;
+                if (_vm.SemanticDiff is null && WithdrawalFailure is { } withdrawal) throw withdrawal;
+                return;
             }
             if (Fired || _vm.SemanticDiff is null) return;
             Fired = true;
@@ -516,9 +519,13 @@ public sealed class SemanticDiffTests
     [Theory]
     [InlineData(false)] [InlineData(true)]
     public Task ThrowingObserverDoesNotRetainCancelledSemanticDiff(bool replace) =>
-        VerifyDiffPublicationCancellation(replace, throwOnNotification: true);
+        VerifyDiffPublicationCancellation(replace, throwOnNotification: true, throwOnWithdrawal: true);
 
-    private static async Task VerifyDiffPublicationCancellation(bool replace, bool throwOnNotification)
+    [Fact]
+    public Task ThrowingSemanticDiffWithdrawalObserverPreservesCancellation() =>
+        VerifyDiffPublicationCancellation(replace: false, throwOnNotification: false, throwOnWithdrawal: true);
+
+    private static async Task VerifyDiffPublicationCancellation(bool replace, bool throwOnNotification, bool throwOnWithdrawal = false)
     {
         var basis = DraftRenameTests.Draft(); var before = ProjectSemanticBinder.Bind(basis);
         var prepared = ProjectDraftRename.Preview(before, DraftRenameTests.Target(basis), basis.InputDigest, "Changed", DraftRenameTests.Next(basis));
@@ -531,7 +538,7 @@ public sealed class SemanticDiffTests
         var result = view.Result!; var resultData = result.Data; var source = view.Source!; var sourceData = source.Data; var originalBefore = basis.Data;
         var previous = view.CompareSynthetic(before, basis.InputDigest)!; Assert.Equal(SemanticDiffState.Complete, previous.State); Assert.NotEmpty(previous.Changes);
         var previousData = previous.Data;
-        using var cancellation = new CancelHistoricalRead(view, replace, before, throwOnNotification); var token = cancellation.Token;
+        using var cancellation = new CancelHistoricalRead(view, replace, before, throwOnNotification, throwOnWithdrawal); var token = cancellation.Token;
         var error = cancellation.Read();
         Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
         Assert.Same(result, view.Result); Assert.Equal(resultData, result.Data); Assert.Same(source, view.Source); Assert.Equal(sourceData, source.Data);
@@ -542,9 +549,14 @@ public sealed class SemanticDiffTests
             Assert.Same(cancellation.Replacement, view.SemanticDiff);
         }
         else Assert.Null(view.SemanticDiff);
-        Assert.Equal(throwOnNotification && !replace, cancellation.WithdrawalFailed);
+        Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
         if (throwOnNotification) Assert.Same(cancellation.ObserverFailure, error);
-        else Assert.IsType<OperationCanceledException>(error);
+        else
+        {
+            var cancelled = Assert.IsType<OperationCanceledException>(error);
+            Assert.Equal(token, cancelled.CancellationToken);
+            Assert.Same(cancellation.WithdrawalFailure, cancelled.InnerException);
+        }
     }
 
     [Theory]
