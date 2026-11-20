@@ -206,7 +206,16 @@ public sealed class SyntheticPassSourceNavigationTests
     [InlineData(false, true)]
     [InlineData(true, false)]
     [InlineData(true, true)]
-    public async Task ThrowingObserverWithdrawsOnlyItsCancelledPassView(bool readBoundary, bool replace)
+    public Task ThrowingObserverWithdrawsOnlyItsCancelledPassView(bool readBoundary, bool replace) =>
+        VerifyPassViewWithdrawal(readBoundary, replace, throwOnPublication: true);
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task ThrowingPassViewWithdrawalObserverPreservesCancellation(bool readBoundary) =>
+        VerifyPassViewWithdrawal(readBoundary, replace: false, throwOnPublication: false);
+
+    private static async Task VerifyPassViewWithdrawal(bool readBoundary, bool replace, bool throwOnPublication)
     {
         var (_, _, profile) = SyntheticOperatorRecordingTests.Input("pass");
         using var session = new LocalPassObservationCompilerRecordingSession(profile);
@@ -225,6 +234,7 @@ public sealed class SyntheticPassSourceNavigationTests
 
         using var cancellation = new CancellationTokenSource();
         var publicationError = new InvalidOperationException("Pass view publication observer failed");
+        var withdrawalError = new InvalidOperationException("Pass view withdrawal observer failed");
         var published = false;
         var withdrawalCount = 0;
         ProjectCompilerPassBoundarySnapshot? observedBoundary = null;
@@ -243,14 +253,14 @@ public sealed class SyntheticPassSourceNavigationTests
             observedTarget = Assert.Single(observedPage.Targets);
             Assert.True(view.NavigatePassBoundarySource(observedPage, observedTarget));
             cancellation.Cancel();
-            throw publicationError;
+            if (throwOnPublication) throw publicationError;
         }
 
         void ObserveWithdrawal(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
-            if (!cancellation.IsCancellationRequested || view.PassBoundarySourcePage is not null) return;
+            if (!cancellation.IsCancellationRequested) return;
             withdrawalCount++;
-            throw new InvalidOperationException("Pass view withdrawal observer failed");
+            if (view.PassBoundarySourcePage is null) throw withdrawalError;
         }
 
         view.PropertyChanged += ObservePublication;
@@ -266,7 +276,13 @@ public sealed class SyntheticPassSourceNavigationTests
         view.PropertyChanged -= ObserveWithdrawal;
         view.PropertyChanged -= ObservePublication;
 
-        Assert.Same(publicationError, error);
+        if (throwOnPublication) Assert.Same(publicationError, error);
+        else
+        {
+            var cancelled = Assert.IsType<OperationCanceledException>(error);
+            Assert.Equal(cancellation.Token, cancelled.CancellationToken);
+            Assert.Same(withdrawalError, cancelled.InnerException);
+        }
         Assert.True(published);
         Assert.True(cancellation.IsCancellationRequested);
         Assert.Same(root, view.RootSource);
