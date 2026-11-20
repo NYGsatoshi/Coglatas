@@ -7,7 +7,7 @@ import { createHash, randomUUID } from 'node:crypto';
 const args = process.argv.slice(2);
 if (args.length !== 2 || args[0] !== '--producer-dir') throw new Error('Supply --producer-dir with the complete original Core export directory.');
 const root = resolve(args[1]);
-const profiles = ["compiler-outputs-v1.json","compiler-recordings-v1.json","dependency-analysis-v1.json","diagnostic-premises-v1.json","execution-plan-v1.json","graph-closure-v1.json","operator-recordings-v1.json","pass-recordings-v1.json","predicate-recordings-v1.json","preview-v1.json","regional-operator-recordings-v1.json","root-diagnostic-premises-v1.json","scenario-v1.json","scoped-publication-v2.json","scoped-sources-v1.json","semantic-index-large-v1.json","semantic-index-v1.json","simulation-comparison-v1.json","simulation-debug-v1.json","simulation-profile-v1.json","simulation-v1.json","test-discovery-v1.json","test-edit-v1.json"];
+const profiles = JSON.parse(readFileSync(new URL('./projectide-test-discovery-original-profiles.json', import.meta.url), 'utf8'));
 if (JSON.stringify(readdirSync(root).filter(name => name.endsWith('.json')).sort()) !== JSON.stringify(profiles)) throw new Error('Expected all 23 original producer profiles.');
 const equalContext = (a, b) => canonical(a) === canonical(b);
 const canonical = value => JSON.stringify(order(value));

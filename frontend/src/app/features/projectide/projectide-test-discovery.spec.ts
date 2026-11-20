@@ -618,9 +618,17 @@ it('matches native JSON UTF-8 byte boundaries for Unicode, escaped and aliased D
   const cycle: any = {}; cycle.self = cycle; expect(localTestJsonWithinByteLimit(cycle)).toBe(false);
 });
 it('admits every original shipped discovery case across all 23 fixed profiles', async () => {
-  const files = readdirSync(resolve('public/assets/projectide')).filter(name => name.endsWith('.json')).sort(); expect(files).toHaveLength(23);
+  const profileDirectory = resolve('public/assets/projectide');
+  const originalProfiles: string[] = JSON.parse(readFileSync(resolve('scripts/projectide-test-discovery-original-profiles.json'), 'utf8'));
+  expect(new Set(originalProfiles).size).toBe(23);
+  const files = readdirSync(profileDirectory).filter(name => name.endsWith('.json'));
+  expect(files).toEqual(expect.arrayContaining(originalProfiles));
+  for (const file of files.filter(name => !originalProfiles.includes(name))) {
+    const { cases } = JSON.parse(readFileSync(resolve(profileDirectory, file), 'utf8'));
+    expect(cases.filter((value: object) => Object.hasOwn(value, 'localProjectTestDiscovery')), file).toEqual([]);
+  }
   let projected = 0; const states: Record<string, number> = {};
-  for (const file of files) for (const value of JSON.parse(readFileSync(resolve('public/assets/projectide', file), 'utf8')).cases) {
+  for (const file of originalProfiles) for (const value of JSON.parse(readFileSync(resolve(profileDirectory, file), 'utf8')).cases) {
     if (!value.localProjectTestDiscovery) continue;
     const admitted = (await readLocalTestDiscovery(value))!; expect(admitted).not.toBeNull();
     expect(admitted.inventory).toEqual(value.localProjectTestDiscovery.inventory); projected++;
