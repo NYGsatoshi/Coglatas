@@ -355,6 +355,7 @@ public sealed class DraftRenameTests
         private readonly CancellationTokenSource _source = new();
         private readonly bool _replace;
         private readonly InvalidOperationException? _publicationError;
+        private readonly InvalidOperationException? _withdrawalError;
         private readonly CompilerInputManifest _input;
         public CancellationToken Token => _source.Token;
         public bool Fired { get; private set; }
@@ -362,11 +363,12 @@ public sealed class DraftRenameTests
         public DraftRenamePreview? Published { get; private set; }
         public DraftRenamePreview? Replacement { get; private set; }
         public CancelDraftPreview(SyntheticWorkbenchViewModel vm, bool replace, CompilerInputManifest input,
-            InvalidOperationException? publicationError)
+            InvalidOperationException? publicationError, InvalidOperationException? withdrawalError)
         {
             _vm = vm;
             _replace = replace;
             _publicationError = publicationError;
+            _withdrawalError = withdrawalError;
             _input = input;
             vm.PropertyChanged += Changed;
         }
@@ -376,10 +378,10 @@ public sealed class DraftRenameTests
         {
             if (Fired)
             {
-                if (_publicationError is not null && Token.IsCancellationRequested && _vm.RenamePreview is null)
+                if (Token.IsCancellationRequested)
                 {
                     WithdrawalNotifications++;
-                    throw new InvalidOperationException("Draft withdrawal observer failed.");
+                    if (_vm.RenamePreview is null && _withdrawalError is not null) throw _withdrawalError;
                 }
                 return;
             }
@@ -400,9 +402,15 @@ public sealed class DraftRenameTests
     [Theory]
     [InlineData(false)] [InlineData(true)]
     public Task ThrowingDraftObserverWithdrawsOnlyItsCancelledPlan(bool replace) =>
-        VerifyDraftPublication(replace, new InvalidOperationException("Draft publication observer failed."));
+        VerifyDraftPublication(replace, new InvalidOperationException("Draft publication observer failed."),
+            new InvalidOperationException("Draft withdrawal observer failed."));
 
-    private static async Task VerifyDraftPublication(bool replace, InvalidOperationException? publicationError)
+    [Fact]
+    public Task ThrowingDraftWithdrawalObserverPreservesCancellation() =>
+        VerifyDraftPublication(false, null, new InvalidOperationException("Draft withdrawal observer failed."));
+
+    private static async Task VerifyDraftPublication(bool replace, InvalidOperationException? publicationError,
+        InvalidOperationException? withdrawalError = null)
     {
         var input = Draft();
         CompilerArtifactIdentity Artifact(string field) => new(SourceJson.Parse(input.Settings.Value.GetProperty(field).GetRawText()));
@@ -414,7 +422,7 @@ public sealed class DraftRenameTests
         var selected = view.Selected; var tests = view.TestRun;
         var previous = view.PreviewRename("Previous", Next(input))!; Assert.Equal(DraftRenameState.Ready, previous.State); Assert.NotNull(previous.Plan);
         var previousData = previous.Plan.After.Data; Assert.NotEqual(sourceData, previous.Plan.After.Source.Data);
-        using var cancellation = new CancelDraftPreview(view, replace, input, publicationError);
+        using var cancellation = new CancelDraftPreview(view, replace, input, publicationError, withdrawalError);
         var token = cancellation.Token;
         var error = cancellation.Read();
         Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
@@ -427,12 +435,13 @@ public sealed class DraftRenameTests
             Assert.NotSame(cancellation.Published, cancellation.Replacement); Assert.Same(cancellation.Replacement, view.RenamePreview);
         }
         else Assert.Null(view.RenamePreview);
+        Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
         if (publicationError is null)
-            Assert.IsType<OperationCanceledException>(error);
-        else
         {
-            Assert.Same(publicationError, error);
-            Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+            var cancelled = Assert.IsType<OperationCanceledException>(error);
+            Assert.Equal(token, cancelled.CancellationToken);
+            Assert.Same(withdrawalError, cancelled.InnerException);
         }
+        else Assert.Same(publicationError, error);
     }
 }

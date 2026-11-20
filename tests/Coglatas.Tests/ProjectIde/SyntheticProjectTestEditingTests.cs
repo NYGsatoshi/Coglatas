@@ -89,6 +89,7 @@ public sealed class SyntheticProjectTestEditingTests
         private readonly CancellationTokenSource _source = new();
         private readonly bool _replace;
         private readonly InvalidOperationException? _publicationError;
+        private readonly InvalidOperationException? _withdrawalError;
         private readonly ProjectLocation _target;
         private readonly SourceJson _definition;
         private readonly SourceRevisionContext _next;
@@ -98,11 +99,12 @@ public sealed class SyntheticProjectTestEditingTests
         public ProjectTestEditPreview? Published { get; private set; }
         public ProjectTestEditPreview? Replacement { get; private set; }
         public CancelDraftPreview(SyntheticWorkbenchViewModel vm, bool replace, ProjectLocation target, SourceJson definition, SourceRevisionContext next,
-            InvalidOperationException? publicationError)
+            InvalidOperationException? publicationError, InvalidOperationException? withdrawalError)
         {
             _vm = vm;
             _replace = replace;
             _publicationError = publicationError;
+            _withdrawalError = withdrawalError;
             _target = target;
             _definition = definition;
             _next = next;
@@ -114,10 +116,10 @@ public sealed class SyntheticProjectTestEditingTests
         {
             if (Fired)
             {
-                if (_publicationError is not null && Token.IsCancellationRequested && _vm.TestEditPreview is null)
+                if (Token.IsCancellationRequested)
                 {
                     WithdrawalNotifications++;
-                    throw new InvalidOperationException("Draft withdrawal observer failed.");
+                    if (_vm.TestEditPreview is null && _withdrawalError is not null) throw _withdrawalError;
                 }
                 return;
             }
@@ -138,9 +140,15 @@ public sealed class SyntheticProjectTestEditingTests
     [Theory]
     [InlineData(false)] [InlineData(true)]
     public Task ThrowingDraftObserverWithdrawsOnlyItsCancelledPlan(bool replace) =>
-        VerifyDraftPublication(replace, new InvalidOperationException("Draft publication observer failed."));
+        VerifyDraftPublication(replace, new InvalidOperationException("Draft publication observer failed."),
+            new InvalidOperationException("Draft withdrawal observer failed."));
 
-    private static async Task VerifyDraftPublication(bool replace, InvalidOperationException? publicationError)
+    [Fact]
+    public Task ThrowingDraftWithdrawalObserverPreservesCancellation() =>
+        VerifyDraftPublication(false, null, new InvalidOperationException("Draft withdrawal observer failed."));
+
+    private static async Task VerifyDraftPublication(bool replace, InvalidOperationException? publicationError,
+        InvalidOperationException? withdrawalError = null)
     {
         var f = await Ready();
         using var view = f.View;
@@ -149,7 +157,7 @@ public sealed class SyntheticProjectTestEditingTests
         var selected = view.Selected; var tests = view.TestRun;
         var previous = view.PreviewTestDefinition(f.Target, f.Definition, f.Next)!; Assert.Equal(ProjectTestEditState.Ready, previous.State); Assert.NotNull(previous.Plan);
         var previousData = previous.Plan.After.Data; Assert.NotEqual(sourceData, previous.Plan.After.Source.Data);
-        using var cancellation = new CancelDraftPreview(view, replace, f.Target, f.Definition, f.Next, publicationError);
+        using var cancellation = new CancelDraftPreview(view, replace, f.Target, f.Definition, f.Next, publicationError, withdrawalError);
         var token = cancellation.Token;
         var error = cancellation.Read();
         Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
@@ -162,13 +170,14 @@ public sealed class SyntheticProjectTestEditingTests
             Assert.NotSame(cancellation.Published, cancellation.Replacement); Assert.Same(cancellation.Replacement, view.TestEditPreview);
         }
         else Assert.Null(view.TestEditPreview);
+        Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
         if (publicationError is null)
-            Assert.IsType<OperationCanceledException>(error);
-        else
         {
-            Assert.Same(publicationError, error);
-            Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+            var cancelled = Assert.IsType<OperationCanceledException>(error);
+            Assert.Equal(token, cancelled.CancellationToken);
+            Assert.Same(withdrawalError, cancelled.InnerException);
         }
+        else Assert.Same(publicationError, error);
     }
     private sealed class CancelInitialDefinitionPreview : IDisposable
     {
