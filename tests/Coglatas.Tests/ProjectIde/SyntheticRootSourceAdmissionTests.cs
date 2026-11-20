@@ -82,6 +82,7 @@ public sealed class SyntheticRootSourceAdmissionTests
         private readonly ContentDigest _expectedResult;
         private readonly bool _replace;
         private readonly InvalidOperationException? _publicationFailure;
+        private readonly InvalidOperationException? _withdrawalFailure;
         public CancellationToken Token => _source.Token;
         public bool Fired { get; private set; }
         public bool ReplacementSucceeded { get; private set; }
@@ -89,12 +90,14 @@ public sealed class SyntheticRootSourceAdmissionTests
         public bool ReplacementPremisesRead { get; private set; }
         public ProjectSource? Replacement { get; private set; }
         public ProjectDiagnosticPremiseSnapshot? ReplacementPremises { get; private set; }
-        public CancelRootPublication(SyntheticWorkbenchViewModel vm, bool replace, InvalidOperationException? publicationFailure)
+        public CancelRootPublication(SyntheticWorkbenchViewModel vm, bool replace, InvalidOperationException? publicationFailure,
+            InvalidOperationException? withdrawalFailure)
         {
             _vm = vm;
             _expectedResult = vm.Result!.ResultDigest;
             _replace = replace;
             _publicationFailure = publicationFailure;
+            _withdrawalFailure = withdrawalFailure;
             vm.PropertyChanged += Changed;
         }
         public Exception? Read() => Record.Exception(ReadCore);
@@ -103,10 +106,10 @@ public sealed class SyntheticRootSourceAdmissionTests
         {
             if (Fired)
             {
-                if (_publicationFailure is not null && Token.IsCancellationRequested && _vm.RootSource is null)
+                if (Token.IsCancellationRequested)
                 {
                     WithdrawalNotifications++;
-                    throw new InvalidOperationException("Withdrawal observer failed.");
+                    if (_vm.RootSource is null && _withdrawalFailure is not null) throw _withdrawalFailure;
                 }
                 return;
             }
@@ -133,9 +136,15 @@ public sealed class SyntheticRootSourceAdmissionTests
     [Theory]
     [InlineData(false)] [InlineData(true)]
     public Task ThrowingObserverWithdrawsOnlyItsCancelledAdjacentView(bool replace) =>
-        VerifyPublicationOwnership(replace, new InvalidOperationException("Publication observer failed."));
+        VerifyPublicationOwnership(replace, new InvalidOperationException("Publication observer failed."),
+            new InvalidOperationException("Withdrawal observer failed."));
 
-    private static async Task VerifyPublicationOwnership(bool replace, InvalidOperationException? publicationFailure)
+    [Fact]
+    public Task ThrowingAdjacentViewWithdrawalObserverPreservesCancellation() =>
+        VerifyPublicationOwnership(false, null, new InvalidOperationException("Withdrawal observer failed."));
+
+    private static async Task VerifyPublicationOwnership(bool replace, InvalidOperationException? publicationFailure,
+        InvalidOperationException? withdrawalFailure = null)
     {
         var (_, request, host) = DiagnosticPremiseSnapshotTests.Prepare((string)Cases().First()[0]);
         using var vm = new SyntheticWorkbenchViewModel(); vm.BeginSynthetic(request);
@@ -144,7 +153,7 @@ public sealed class SyntheticRootSourceAdmissionTests
         Assert.True(vm.SelectDiagnostic(vm.Problems.First(d => d.Evidence.Kind == CompilerEvidenceKind.ModelProof)));
         Assert.True(vm.LoadSyntheticRootSource(result.ResultDigest));
         var previous = vm.RootSource!; var previousData = previous.Data; Assert.NotEmpty(previousData.CanonicalText);
-        using var cancellation = new CancelRootPublication(vm, replace, publicationFailure); var token = cancellation.Token;
+        using var cancellation = new CancelRootPublication(vm, replace, publicationFailure, withdrawalFailure); var token = cancellation.Token;
         var error = cancellation.Read();
         Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
         Assert.Same(result, vm.Result); Assert.Equal(resultData, result.Data); Assert.Equal(previousData, previous.Data);
@@ -156,13 +165,14 @@ public sealed class SyntheticRootSourceAdmissionTests
             Assert.Same(cancellation.ReplacementPremises, vm.DiagnosticPremises); Assert.NotEmpty(vm.DiagnosticPremises!.Bodies);
         }
         else { Assert.Null(vm.RootSource); Assert.Equal("Idle", vm.RootSourceReadState); Assert.Null(vm.DiagnosticPremises); }
+        Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
         if (publicationFailure is null)
-            Assert.IsType<OperationCanceledException>(error);
-        else
         {
-            Assert.Same(publicationFailure, error);
-            Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+            var cancelled = Assert.IsType<OperationCanceledException>(error);
+            Assert.Equal(token, cancelled.CancellationToken);
+            Assert.Same(withdrawalFailure, cancelled.InnerException);
         }
+        else Assert.Same(publicationFailure, error);
     }
 
     private sealed class CancelInitialRootRead : IDisposable
