@@ -29,13 +29,9 @@ public sealed partial class SyntheticWorkbenchViewModel
         if (!Current()) return false;
         _simulationTraceProfile = profile;
         _profiledRun = run;
-        var notificationCompleted = false;
+        Exception? withdrawalFailure = null;
         bool cancelledAtPublication;
-        try
-        {
-            Changed();
-            notificationCompleted = true;
-        }
+        try { Changed(); }
         finally
         {
             cancelledAtPublication = token.IsCancellationRequested;
@@ -44,13 +40,12 @@ public sealed partial class SyntheticWorkbenchViewModel
             {
                 ClearSimulationTraceProfile();
                 try { Changed(); }
-                catch when (!notificationCompleted)
-                {
-                    // Preserve the original observer failure after withdrawing the cancelled summary.
-                }
+                catch (Exception error) { withdrawalFailure = error; }
             }
         }
-        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Profiler read was cancelled.", withdrawalFailure, token);
         return Current() && ReferenceEquals(SimulationTraceProfile, profile) && profile.State != SimulationTraceProfileState.Refused;
     }
     /// <summary>Read the existing fixed model recording through its current owned summary.</summary>
