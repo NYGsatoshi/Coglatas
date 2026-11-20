@@ -28,13 +28,9 @@ public sealed partial class SyntheticWorkbenchViewModel
         if (!Current()) return false;
         _simulationComparison = comparison;
         _comparisonAfter = after;
-        var notificationCompleted = false;
+        Exception? withdrawalFailure = null;
         bool cancelledAtPublication;
-        try
-        {
-            Changed();
-            notificationCompleted = true;
-        }
+        try { Changed(); }
         finally
         {
             cancelledAtPublication = token.IsCancellationRequested;
@@ -43,13 +39,12 @@ public sealed partial class SyntheticWorkbenchViewModel
             {
                 ClearSimulationComparison();
                 try { Changed(); }
-                catch when (!notificationCompleted)
-                {
-                    // Preserve the original observer failure after withdrawing the cancelled comparison.
-                }
+                catch (Exception error) { withdrawalFailure = error; }
             }
         }
-        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Run comparison was cancelled.", withdrawalFailure, token);
         return Current() && ReferenceEquals(SimulationComparison, comparison) && comparison.State != SimulationRunComparisonState.Refused;
     }
     private void ClearSimulationComparison()
