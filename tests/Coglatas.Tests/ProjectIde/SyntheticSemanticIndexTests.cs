@@ -145,7 +145,16 @@ public sealed class SyntheticSemanticIndexTests
     [Theory]
     [InlineData("Loading", false)] [InlineData("Loading", true)]
     [InlineData("Ready", false)] [InlineData("Ready", true)]
-    public async Task ThrowingIndexObserverWithdrawsOnlyItsCancelledView(string boundary, bool replace)
+    public Task ThrowingIndexObserverWithdrawsOnlyItsCancelledView(string boundary, bool replace) =>
+        VerifyIndexWithdrawal(boundary, replace, throwOnPublication: true);
+
+    [Theory]
+    [InlineData("Loading")]
+    [InlineData("Ready")]
+    public Task ThrowingIndexWithdrawalObserverPreservesCancellation(string boundary) =>
+        VerifyIndexWithdrawal(boundary, replace: false, throwOnPublication: false);
+
+    private static async Task VerifyIndexWithdrawal(string boundary, bool replace, bool throwOnPublication)
     {
         using var vm = await Ready();
         var result = vm.Result;
@@ -168,7 +177,7 @@ public sealed class SyntheticSemanticIndexTests
         }
 
         using var observer = new ThrowingObserver(vm, () => vm.SemanticIndexReadState == boundary,
-            () => vm.SemanticIndexReadState == "Idle", PublishOrNavigate);
+            () => vm.SemanticIndexReadState == "Idle", PublishOrNavigate, throwOnPublication);
         var error = Record.Exception(() => { vm.LoadSyntheticSemanticIndex(observer.Token); });
 
         Assert.True(observer.Token.IsCancellationRequested);
@@ -192,13 +201,20 @@ public sealed class SyntheticSemanticIndexTests
             Assert.Null(vm.IndexedCompletion);
             Assert.Null(vm.ScopedSourceTarget);
         }
-        Assert.Same(observer.PublicationError, error);
+        AssertObserverError(observer, error, throwOnPublication);
         Assert.Equal(replace ? 0 : 1, observer.WithdrawalNotifications);
     }
 
     [Theory]
     [InlineData("withdraw")] [InlineData("ready")] [InlineData("refused")]
-    public async Task ThrowingQueryObserverWithdrawsOnlyItsCancelledPage(string outcome)
+    public Task ThrowingQueryObserverWithdrawsOnlyItsCancelledPage(string outcome) =>
+        VerifyQueryWithdrawal(outcome, throwOnPublication: true);
+
+    [Fact]
+    public Task ThrowingQueryWithdrawalObserverPreservesCancellation() =>
+        VerifyQueryWithdrawal("withdraw", throwOnPublication: false);
+
+    private static async Task VerifyQueryWithdrawal(string outcome, bool throwOnPublication)
     {
         using var vm = await Ready();
         using var other = await Ready();
@@ -223,7 +239,7 @@ public sealed class SyntheticSemanticIndexTests
         }
 
         using var observer = new ThrowingObserver(vm, () => vm.IndexedReferences is not null,
-            () => vm.IndexedReferences is null, PublishOrNavigate);
+            () => vm.IndexedReferences is null, PublishOrNavigate, throwOnPublication);
         var error = Record.Exception(() => { vm.ReadIndexedReferences(cancellationToken: observer.Token); });
 
         Assert.True(observer.Token.IsCancellationRequested);
@@ -248,8 +264,20 @@ public sealed class SyntheticSemanticIndexTests
             Assert.Null(vm.IndexedReferenceGraph);
             Assert.Null(vm.ScopedSourceTarget);
         }
-        Assert.Same(observer.PublicationError, error);
+        AssertObserverError(observer, error, throwOnPublication);
         Assert.Equal(replace ? 0 : 1, observer.WithdrawalNotifications);
+    }
+
+    private static void AssertObserverError(ThrowingObserver observer, Exception? error, bool throwOnPublication)
+    {
+        if (throwOnPublication)
+        {
+            Assert.Same(observer.PublicationError, error);
+            return;
+        }
+        var cancelled = Assert.IsType<OperationCanceledException>(error);
+        Assert.Equal(observer.Token, cancelled.CancellationToken);
+        Assert.Same(observer.WithdrawalError, cancelled.InnerException);
     }
 
     private sealed class ThrowingObserver : IDisposable
@@ -258,19 +286,23 @@ public sealed class SyntheticSemanticIndexTests
         private readonly Func<bool> _isPublished;
         private readonly Func<bool> _isWithdrawn;
         private readonly Action _published;
+        private readonly bool _throwOnPublication;
         private readonly CancellationTokenSource _source = new();
         private bool _fired;
 
         public CancellationToken Token => _source.Token;
         public InvalidOperationException PublicationError { get; } = new("Semantic publication observer failed.");
+        public InvalidOperationException WithdrawalError { get; } = new("Semantic withdrawal observer failed.");
         public int WithdrawalNotifications { get; private set; }
 
-        public ThrowingObserver(SyntheticWorkbenchViewModel view, Func<bool> isPublished, Func<bool> isWithdrawn, Action published)
+        public ThrowingObserver(SyntheticWorkbenchViewModel view, Func<bool> isPublished, Func<bool> isWithdrawn,
+            Action published, bool throwOnPublication)
         {
             _view = view;
             _isPublished = isPublished;
             _isWithdrawn = isWithdrawn;
             _published = published;
+            _throwOnPublication = throwOnPublication;
             _view.PropertyChanged += Changed;
         }
 
@@ -278,10 +310,10 @@ public sealed class SyntheticSemanticIndexTests
         {
             if (_fired)
             {
-                if (Token.IsCancellationRequested && _isWithdrawn())
+                if (Token.IsCancellationRequested)
                 {
                     WithdrawalNotifications++;
-                    throw new InvalidOperationException("Semantic withdrawal observer failed.");
+                    if (_isWithdrawn()) throw WithdrawalError;
                 }
                 return;
             }
@@ -289,7 +321,7 @@ public sealed class SyntheticSemanticIndexTests
             _fired = true;
             _published();
             _source.Cancel();
-            throw PublicationError;
+            if (_throwOnPublication) throw PublicationError;
         }
 
         public void Dispose()
