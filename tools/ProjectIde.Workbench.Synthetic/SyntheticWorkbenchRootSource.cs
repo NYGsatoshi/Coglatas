@@ -35,13 +35,28 @@ public sealed partial class SyntheticWorkbenchViewModel
         }
         if (!Current()) return false;
         _rootSourceAdmission = admission; _rootSourceRequest = request;
-        RootSourceReadState = admission is null ? "Unavailable" : "Ready"; Changed();
-        if (token.IsCancellationRequested)
+        RootSourceReadState = admission is null ? "Unavailable" : "Ready";
+        var publicationCompleted = false;
+        bool cancelledAtPublication;
+        try
         {
-            if (generation == _rootSourceGeneration && ReferenceEquals(_rootSourceAdmission, admission))
-            { ClearRootSource(); Changed(); }
-            token.ThrowIfCancellationRequested();
+            Changed();
+            publicationCompleted = true;
         }
+        finally
+        {
+            cancelledAtPublication = token.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _rootSourceGeneration && ReferenceEquals(_rootSourceAdmission, admission))
+            {
+                ClearRootSource();
+                try { Changed(); }
+                catch when (!publicationCompleted)
+                {
+                    // Preserve the original publication exception after withdrawing the cancelled view.
+                }
+            }
+        }
+        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
         return Current() && CurrentRootSource && ReferenceEquals(_rootSourceAdmission, admission);
     }
     private void ClearRootSource()
