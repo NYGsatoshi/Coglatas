@@ -87,13 +87,31 @@ public sealed partial class SyntheticWorkbenchViewModel
         }
         if (!Current()) return false;
         var page = new SyntheticPassSourcePage(offset, maximumTargets, total, targets, ir.SourceMapDigest, boundary.OriginalRecordDigest!);
-        _passSourcePage = page; _passSourcePageBoundary = boundary; _passSourcePageRoot = source; Changed();
-        if (token.IsCancellationRequested)
+        _passSourcePage = page;
+        _passSourcePageBoundary = boundary;
+        _passSourcePageRoot = source;
+        var notificationCompleted = false;
+        bool cancelledAtPublication;
+        try
         {
-            if (generation == _passSourcePageGeneration && ReferenceEquals(_passSourcePage, page))
-            { ClearPassBoundarySourcePage(); Changed(); }
-            token.ThrowIfCancellationRequested();
+            Changed();
+            notificationCompleted = true;
         }
+        finally
+        {
+            cancelledAtPublication = token.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _passSourcePageGeneration &&
+                ReferenceEquals(_passSourcePage, page))
+            {
+                ClearPassBoundarySourcePage();
+                try { Changed(); }
+                catch when (!notificationCompleted)
+                {
+                    // Preserve the publication exception after withdrawing the cancelled page and its navigation target.
+                }
+            }
+        }
+        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
         return Current() && ReferenceEquals(PassBoundarySourcePage, page);
     }
 

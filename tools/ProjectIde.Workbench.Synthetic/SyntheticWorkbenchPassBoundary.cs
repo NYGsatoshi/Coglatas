@@ -32,13 +32,30 @@ public sealed partial class SyntheticWorkbenchViewModel
         var snapshot = ProjectCompilerPassBoundarySnapshot.Read(execution, compilation!, execution.Observation,
             compilation!.Input.InputDigest, expectedResult, ordinal, mode, maximumBodyBytes, token);
         if (!Current()) return false;
-        _recordedPassBoundary = snapshot; _passBoundaryCompilation = compilation; Changed();
-        if (token.IsCancellationRequested)
+        _recordedPassBoundary = snapshot;
+        _passBoundaryCompilation = compilation;
+        var notificationCompleted = false;
+        bool cancelledAtPublication;
+        try
         {
-            if (generation == _passBoundaryGeneration && ReferenceEquals(_recordedPassBoundary, snapshot))
-            { ClearPassBoundarySnapshot(); Changed(); }
-            token.ThrowIfCancellationRequested();
+            Changed();
+            notificationCompleted = true;
         }
+        finally
+        {
+            cancelledAtPublication = token.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _passBoundaryGeneration &&
+                ReferenceEquals(_recordedPassBoundary, snapshot))
+            {
+                ClearPassBoundarySnapshot();
+                try { Changed(); }
+                catch when (!notificationCompleted)
+                {
+                    // Preserve the publication exception after withdrawing the cancelled boundary and its Source page.
+                }
+            }
+        }
+        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
         return Current() && ReferenceEquals(RecordedPassBoundary, snapshot) && snapshot.State is not
             (CompilerPassBoundarySnapshotState.RefusedInvocation or CompilerPassBoundarySnapshotState.RefusedInputBinding or
             CompilerPassBoundarySnapshotState.RefusedWrongResult or CompilerPassBoundarySnapshotState.BoundaryNotRecorded);
