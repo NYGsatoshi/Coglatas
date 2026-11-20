@@ -178,15 +178,17 @@ public sealed class ReferenceCompletionTests
         private readonly CancellationTokenSource _source = new();
         private readonly bool _replace;
         private readonly InvalidOperationException? _publicationError;
+        private readonly InvalidOperationException? _withdrawalError;
         public CancellationToken Token => _source.Token;
         public bool Fired { get; private set; }
         public int WithdrawalNotifications { get; private set; }
         public ReferenceCompletionPage? Replacement { get; private set; }
-        public CancelQueryPublication(SyntheticWorkbenchViewModel vm, bool replace, InvalidOperationException? publicationError)
+        public CancelQueryPublication(SyntheticWorkbenchViewModel vm, bool replace, InvalidOperationException? publicationError, InvalidOperationException? withdrawalError)
         {
             _vm = vm;
             _replace = replace;
             _publicationError = publicationError;
+            _withdrawalError = withdrawalError;
             vm.PropertyChanged += Changed;
         }
         public Exception? Read() => Record.Exception(ReadCore);
@@ -195,10 +197,10 @@ public sealed class ReferenceCompletionTests
         {
             if (Fired)
             {
-                if (_publicationError is not null && Token.IsCancellationRequested && _vm.ReferenceCompletion is null)
+                if (Token.IsCancellationRequested)
                 {
                     WithdrawalNotifications++;
-                    throw new InvalidOperationException("Candidate withdrawal observer failed.");
+                    if (_vm.ReferenceCompletion is null && _withdrawalError is not null) throw _withdrawalError;
                 }
                 return;
             }
@@ -219,16 +221,22 @@ public sealed class ReferenceCompletionTests
     [Theory]
     [InlineData(false)] [InlineData(true)]
     public Task ThrowingCandidateObserverWithdrawsOnlyItsCancelledPage(bool replace) =>
-        VerifyCandidatePublication(replace, new InvalidOperationException("Candidate publication observer failed."));
+        VerifyCandidatePublication(replace, new InvalidOperationException("Candidate publication observer failed."),
+            new InvalidOperationException("Candidate withdrawal observer failed."));
 
-    private static async Task VerifyCandidatePublication(bool replace, InvalidOperationException? publicationError)
+    [Fact]
+    public Task ThrowingCandidateWithdrawalObserverPreservesCancellation() =>
+        VerifyCandidatePublication(false, null, new InvalidOperationException("Candidate withdrawal observer failed."));
+
+    private static async Task VerifyCandidatePublication(bool replace, InvalidOperationException? publicationError,
+        InvalidOperationException? withdrawalError = null)
     {
         var input = CompletionInput();
         using var view = await AcceptedCompletionView(input);
         var result = view.Result!; var resultData = result.Data; var sourceData = view.Source!.Data; var inspection = view.Inspection;
         var previous = view.CompleteEntityReference(); Assert.NotNull(previous); Assert.Equal(3, previous.Candidates.Count);
         var previousCandidates = previous.Candidates.ToArray();
-        using var cancellation = new CancelQueryPublication(view, replace, publicationError); var token = cancellation.Token;
+        using var cancellation = new CancelQueryPublication(view, replace, publicationError, withdrawalError); var token = cancellation.Token;
         var error = cancellation.Read();
         Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
         Assert.Same(result, view.Result); Assert.Equal(resultData, result.Data); Assert.Equal(sourceData, view.Source!.Data); Assert.Same(inspection, view.Inspection);
@@ -239,12 +247,13 @@ public sealed class ReferenceCompletionTests
             Assert.Same(cancellation.Replacement, view.ReferenceCompletion);
         }
         else Assert.Null(view.ReferenceCompletion);
+        Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
         if (publicationError is null)
-            Assert.IsType<OperationCanceledException>(error);
-        else
         {
-            Assert.Same(publicationError, error);
-            Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+            var cancelled = Assert.IsType<OperationCanceledException>(error);
+            Assert.Equal(token, cancelled.CancellationToken);
+            Assert.Same(withdrawalError, cancelled.InnerException);
         }
+        else Assert.Same(publicationError, error);
     }
 }
