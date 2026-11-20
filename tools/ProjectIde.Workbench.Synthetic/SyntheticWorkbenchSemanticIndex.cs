@@ -37,19 +37,30 @@ public sealed partial class SyntheticWorkbenchViewModel
     {
         ObjectDisposedException.ThrowIf(_disposed, this); ClearSemanticIndex();
         var generation = _semanticIndexGeneration; var scoped = _scopedGeneration; var compilation = _compilation; var desired = _desired;
-        bool Current() => !_disposed && generation == _semanticIndexGeneration && scoped == _scopedGeneration && CurrentScopedSources &&
+        bool OwnsRead() => generation == _semanticIndexGeneration && scoped == _scopedGeneration;
+        bool Current() => !_disposed && OwnsRead() && CurrentScopedSources &&
             compilation is not null && ReferenceEquals(compilation, _compilation) && ReferenceEquals(desired, _desired);
+        bool Refuse()
+        {
+            if (OwnsRead())
+            {
+                SemanticIndexReadState = "Unavailable";
+                NotifyOwnedSemanticRead(token, OwnsRead, ClearSemanticIndex);
+            }
+            return false;
+        }
+
         SemanticIndexReadState = "Loading";
-        NotifyOwnedSemanticRead(token, () => generation == _semanticIndexGeneration && scoped == _scopedGeneration, ClearSemanticIndex);
+        NotifyOwnedSemanticRead(token, OwnsRead, ClearSemanticIndex);
         if (!Current() || compilation?.Dependencies is not { } dependencies || desired is null)
-        { if (generation == _semanticIndexGeneration) { SemanticIndexReadState = "Unavailable"; Changed(); } return false; }
+            return Refuse();
         CompilerSemanticIndex index;
         try { index = CompilerSemanticIndex.Build(dependencies.Binding, desired.Input.ExpectedInputDigest, cancellationToken: token, lookupCache: _semanticIndexLookupCache); }
         catch (OperationCanceledException)
         { if (Current()) { ClearSemanticIndex(); Changed(); } throw; }
         if (!Current()) return false;
         if (index.State != CompilerSemanticIndexState.Complete || !index.IndexCoverageComplete)
-        { SemanticIndexReadState = "Unavailable"; Changed(); return false; }
+            return Refuse();
         var owner = new SemanticIndexOwner(index, compilation, scoped);
         _semanticIndexOwner = owner;
         SemanticIndexReadState = "Ready";
