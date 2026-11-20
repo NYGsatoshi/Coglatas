@@ -25,6 +25,26 @@ function Get-OperatorInvocationIds($Fixture) {
     }
 }
 
+function Get-PassingOperatorTestRoster($Cases, [string] $RunOutcome) {
+    if ($RunOutcome -cne 'Completed' -or $Cases.Count -ne 13) {
+        return
+    }
+
+    $ids = [Collections.Generic.HashSet[guid]]::new()
+    $names = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $roster = [Collections.Generic.List[string]]::new()
+    foreach ($case in $Cases) {
+        $id = [guid]::Empty
+        if ($case.outcome -cne 'Passed' -or [string]::IsNullOrEmpty($case.testName) -or
+            ![guid]::TryParseExact($case.testId, 'D', [ref]$id) -or $id -eq [guid]::Empty -or
+            !$ids.Add($id) -or !$names.Add($case.testName)) {
+            return
+        }
+        $roster.Add("$($id.ToString('D'))|$($case.testName)")
+    }
+    return $roster
+}
+
 $evidence = (Resolve-Path -LiteralPath $EvidenceDirectory).Path
 if (Test-Path -LiteralPath $StagingDirectory) {
     throw 'Operator replay requires a fresh staging directory.'
@@ -56,9 +76,8 @@ try {
         $originalStream.Dispose()
     }
     $originalCases = @($original.TestRun.Results.UnitTestResult | Where-Object testName -Like '*WebOperatorRecordingContractTests*')
-    $originalNames = @($originalCases.testName | Sort-Object -CaseSensitive -Unique)
-    if ($original.TestRun.ResultSummary.outcome -cne 'Completed' -or $originalCases.Count -ne 13 -or
-        $originalNames.Count -ne 13 -or @($originalCases | Where-Object outcome -CNE 'Passed').Count -ne 0) {
+    $originalRoster = @(Get-PassingOperatorTestRoster $originalCases $original.TestRun.ResultSummary.outcome)
+    if ($originalRoster.Count -ne 13) {
         throw 'Operator replay requires thirteen distinct passing original contract test cases.'
     }
 
@@ -106,11 +125,8 @@ try {
 
     [xml]$replayed = Get-Content -LiteralPath $replayTrx -Raw
     $replayedCases = @($replayed.TestRun.Results.UnitTestResult)
-    $replayedNames = @($replayedCases.testName | Sort-Object -CaseSensitive -Unique)
-    if ($replayedCases.Count -ne 13 -or $replayedNames.Count -ne 13 -or
-        @($replayedCases | Where-Object outcome -ne 'Passed').Count -ne 0 -or
-        @(Compare-Object $originalNames $replayedNames -CaseSensitive).Count -ne 0 -or
-        $replayed.TestRun.ResultSummary.outcome -ne 'Completed') {
+    $replayedRoster = @(Get-PassingOperatorTestRoster $replayedCases $replayed.TestRun.ResultSummary.outcome)
+    if ($replayedRoster.Count -ne 13 -or @(Compare-Object $originalRoster $replayedRoster -CaseSensitive).Count -ne 0) {
         throw 'The fresh operator export must pass all thirteen original contract test cases.'
     }
     $head = git rev-parse HEAD
@@ -126,7 +142,7 @@ try {
         domainAssemblySha256 = $domainHash
         applicationAssemblySha256 = $applicationHash
         platform = $platform
-        passingContractCases = $replayedNames.Count
+        passingContractCases = $replayedRoster.Count
         replayedInvocations = $freshIds.Count / 2
         executionScope = 'SYNTHETIC_FIXED_SOURCE_ONLY'
     } | ConvertTo-Json | Set-Content -LiteralPath $receiptPath -Encoding utf8

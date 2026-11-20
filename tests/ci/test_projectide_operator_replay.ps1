@@ -45,11 +45,18 @@ try {
         @{ Name = 'skipped original case'; Count = 13; LastOutcome = 'NotExecuted'; RunOutcome = 'Completed' }
         @{ Name = 'truncated original roster'; Count = 12; LastOutcome = 'Passed'; RunOutcome = 'Completed' }
         @{ Name = 'incomplete original run'; Count = 13; LastOutcome = 'Passed'; RunOutcome = 'Aborted' }
+        @{ Name = 'original case without an ID'; Count = 13; LastOutcome = 'Passed'; RunOutcome = 'Completed'; LastId = '' }
+        @{ Name = 'malformed original test ID'; Count = 13; LastOutcome = 'Passed'; RunOutcome = 'Completed'; LastId = 'invalid' }
+        @{ Name = 'duplicate original test ID'; Count = 13; LastOutcome = 'Passed'; RunOutcome = 'Completed'; LastId = '00000000-0000-0000-0000-000000000001' }
     )
     foreach ($case in $invalidRosters) {
         $results = foreach ($index in 1..$case.Count) {
             $outcome = if ($index -eq $case.Count) { $case.LastOutcome } else { 'Passed' }
-            '<UnitTestResult testName="WebOperatorRecordingContractTests.Case{0}" outcome="{1}" />' -f $index, $outcome
+            $id = '00000000-0000-0000-0000-{0:d12}' -f $index
+            if ($index -eq $case.Count -and $case.ContainsKey('LastId')) {
+                $id = $case.LastId
+            }
+            '<UnitTestResult testId="{0}" testName="WebOperatorRecordingContractTests.Case{1}" outcome="{2}" />' -f $id, $index, $outcome
         }
         $original = @"
 <TestRun>
