@@ -34,13 +34,9 @@ public sealed partial class SyntheticWorkbenchViewModel
         if (!Current()) return false;
         _recordedPassBoundary = snapshot;
         _passBoundaryCompilation = compilation;
-        var notificationCompleted = false;
+        Exception? withdrawalFailure = null;
         bool cancelledAtPublication;
-        try
-        {
-            Changed();
-            notificationCompleted = true;
-        }
+        try { Changed(); }
         finally
         {
             cancelledAtPublication = token.IsCancellationRequested;
@@ -49,13 +45,12 @@ public sealed partial class SyntheticWorkbenchViewModel
             {
                 ClearPassBoundarySnapshot();
                 try { Changed(); }
-                catch when (!notificationCompleted)
-                {
-                    // Preserve the publication exception after withdrawing the cancelled boundary and its Source page.
-                }
+                catch (Exception error) { withdrawalFailure = error; }
             }
         }
-        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Pass boundary read was cancelled.", withdrawalFailure, token);
         return Current() && ReferenceEquals(RecordedPassBoundary, snapshot) && snapshot.State is not
             (CompilerPassBoundarySnapshotState.RefusedInvocation or CompilerPassBoundarySnapshotState.RefusedInputBinding or
             CompilerPassBoundarySnapshotState.RefusedWrongResult or CompilerPassBoundarySnapshotState.BoundaryNotRecorded);

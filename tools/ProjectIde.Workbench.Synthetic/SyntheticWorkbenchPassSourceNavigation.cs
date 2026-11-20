@@ -90,13 +90,9 @@ public sealed partial class SyntheticWorkbenchViewModel
         _passSourcePage = page;
         _passSourcePageBoundary = boundary;
         _passSourcePageRoot = source;
-        var notificationCompleted = false;
+        Exception? withdrawalFailure = null;
         bool cancelledAtPublication;
-        try
-        {
-            Changed();
-            notificationCompleted = true;
-        }
+        try { Changed(); }
         finally
         {
             cancelledAtPublication = token.IsCancellationRequested;
@@ -105,13 +101,12 @@ public sealed partial class SyntheticWorkbenchViewModel
             {
                 ClearPassBoundarySourcePage();
                 try { Changed(); }
-                catch when (!notificationCompleted)
-                {
-                    // Preserve the publication exception after withdrawing the cancelled page and its navigation target.
-                }
+                catch (Exception error) { withdrawalFailure = error; }
             }
         }
-        if (cancelledAtPublication) token.ThrowIfCancellationRequested();
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Pass Source page read was cancelled.", withdrawalFailure, token);
         return Current() && ReferenceEquals(PassBoundarySourcePage, page);
     }
 
