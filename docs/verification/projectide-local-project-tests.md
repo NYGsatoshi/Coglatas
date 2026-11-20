@@ -96,7 +96,9 @@ package lock, pinned dependencies and identity must match. It does not restore
 packages, rewrite a lock or treat a cache/artifact digest as permission. Source
 and envelope reads are each bounded by the existing 4 MiB default. Each command
 encodes its artifact and checks that the output path ends with a file name.
-Paths ending in a separator, `.` or `..` fail before staging. The CLI writes
+Paths ending in a separator, `.` or `..`, and Windows drive designators without
+a file name fail before staging. Windows drive-relative paths that name a file
+remain valid. The CLI writes
 and closes a temporary file in the destination directory, then publishes it
 without replacing an existing file. Unix output
 directories must support hard links. A failed write, flush or publication

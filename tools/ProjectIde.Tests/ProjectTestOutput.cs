@@ -6,7 +6,7 @@ internal static class ProjectTestOutput
     {
         var suppliedName = Path.GetFileName(path);
         var destination = Path.GetFullPath(path);
-        if (suppliedName is "." or ".." || Path.GetFileName(destination).Length == 0)
+        if (suppliedName.Length == 0 || suppliedName is "." or ".." || Path.GetFileName(destination).Length == 0)
             throw new ArgumentException("Output path must end with a file name.", nameof(path));
 
         var temporary = Path.Combine(Path.GetDirectoryName(destination)!, $".projectide-test-{Guid.NewGuid():N}.tmp");
