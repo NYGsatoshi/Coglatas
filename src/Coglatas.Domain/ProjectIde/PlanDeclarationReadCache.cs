@@ -15,6 +15,7 @@ public sealed class PlanDeclarationReadCache
     private readonly Dictionary<Key, LinkedListNode<Entry>> _entries = new();
     private readonly LinkedList<Entry> _recent = new();
     private BranchRef? _scope;
+    private object _generation = new();
     private int _canonicalBytes;
 
     public PlanDeclarationReadCache(int maximumEntries = 256, int maximumCanonicalBytes = 4_194_304)
@@ -35,30 +36,55 @@ public sealed class PlanDeclarationReadCache
 
     public IReadOnlyList<DeclarationDecodeResult> Read(ProjectSource source, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(source); cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(source);
+        return Read(source, BeginBinding(source.Context.Branch, cancellationToken), cancellationToken);
+    }
+
+    internal object BeginBinding(BranchRef owner, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
         lock (_gate)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (_scope != source.Context.Branch) { ClearEntries(); _scope = source.Context.Branch; }
-            var results = new List<DeclarationDecodeResult>();
-            foreach (var document in source.Documents)
-                results.Add(ReadOne(document.Root.Data, document.DocumentId));
-            foreach (var declaration in source.Declarations.Value.EnumerateArray())
-                results.Add(ReadOne(SourceJson.FromElement(declaration, source.Data.Limits), SourceFields.Identity<DocumentId>(declaration, "documentId")));
-            cancellationToken.ThrowIfCancellationRequested();
-            return new ImmutableListView<DeclarationDecodeResult>(results);
+            if (_scope != owner) { ClearEntries(); _scope = owner; }
+            return _generation;
+        }
+    }
 
-            DeclarationDecodeResult ReadOne(SourceJson data, DocumentId document)
+    internal IReadOnlyList<DeclarationDecodeResult> Read(ProjectSource source, object generation, CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (ReferenceEquals(generation, _generation) && _scope == source.Context.Branch)
+                return ReadCore(source, cancellationToken, retain: true);
+        }
+        return ReadCore(source, cancellationToken, retain: false);
+    }
+
+    private IReadOnlyList<DeclarationDecodeResult> ReadCore(ProjectSource source, CancellationToken cancellationToken, bool retain)
+    {
+        var results = new List<DeclarationDecodeResult>();
+        foreach (var document in source.Documents)
+            results.Add(ReadOne(document.Root.Data, document.DocumentId));
+        foreach (var declaration in source.Declarations.Value.EnumerateArray())
+            results.Add(ReadOne(SourceJson.FromElement(declaration, source.Data.Limits), SourceFields.Identity<DocumentId>(declaration, "documentId")));
+        cancellationToken.ThrowIfCancellationRequested();
+        return new ImmutableListView<DeclarationDecodeResult>(results);
+
+        DeclarationDecodeResult ReadOne(SourceJson data, DocumentId document)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var key = new Key(document, data.Limits, data);
+            if (retain && _entries.TryGetValue(key, out var existing))
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                var key = new Key(document, data.Limits, data);
-                if (_entries.TryGetValue(key, out var existing))
-                {
-                    _recent.Remove(existing); _recent.AddLast(existing);
-                    return PlanDeclarationReader.CheckTenant(existing.Value.Result, source.TenantId);
-                }
-                var result = PlanDeclarationReader.Read(data, document);
-                cancellationToken.ThrowIfCancellationRequested();
+                _recent.Remove(existing); _recent.AddLast(existing);
+                return PlanDeclarationReader.CheckTenant(existing.Value.Result, source.TenantId);
+            }
+            var result = PlanDeclarationReader.Read(data, document);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (retain)
+            {
                 var bytes = Encoding.UTF8.GetByteCount(data.CanonicalText);
                 if (bytes <= _maximumCanonicalBytes)
                 {
@@ -69,12 +95,12 @@ public sealed class PlanDeclarationReadCache
                     }
                     _entries.Add(key, _recent.AddLast(new Entry(key, result, bytes))); _canonicalBytes += bytes;
                 }
-                return PlanDeclarationReader.CheckTenant(result, source.TenantId);
             }
+            return PlanDeclarationReader.CheckTenant(result, source.TenantId);
         }
     }
 
-    private void ClearEntries() { _entries.Clear(); _recent.Clear(); _canonicalBytes = 0; }
+    private void ClearEntries() { _entries.Clear(); _recent.Clear(); _canonicalBytes = 0; _generation = new(); }
     private sealed record Key(DocumentId Document, SourceCodecLimits Limits, SourceJson Data);
     private sealed record Entry(Key Key, DeclarationDecodeResult Result, int Bytes);
 }
