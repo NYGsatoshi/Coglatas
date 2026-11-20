@@ -2,7 +2,7 @@ import type { Digest, ProjectLocation } from './projectide.contracts';
 import type { AdmittedScenario } from './projectide-scenario';
 import { readScopedSources, scopedSourcesMatch } from './projectide-scoped-sources';
 import { readSimulationComparison } from './projectide-simulation-comparison.reader';
-import { type AdmittedSimulation, readSimulationRun } from './projectide-simulation.reader';
+import { type AdmittedSimulation, readSimulationRun, simulationTaskKey } from './projectide-simulation.reader';
 import { parseLocalTestJson as parse, verifyLocalTestDigest as verify } from './projectide-tests.reader';
 import { isProjectLocationShape } from './projectide-preview.validation';
 
@@ -31,11 +31,6 @@ const equal = (a: unknown, b: unknown): boolean => a === b ||
   record(a) && record(b) && Object.keys(a).length === Object.keys(b).length && Object.keys(a).every(k => Object.hasOwn(b, k) && equal(a[k], b[k]));
 const ticks = (v: unknown): bigint =>
   typeof v === 'string' && /^(0|[1-9][0-9]{0,18})$/u.test(v) && BigInt(v) <= 9223372036854775807n ? BigInt(v) : fail();
-const slot = (context: unknown, node: unknown) => JSON.stringify([context, node]);
-function planSlot(value: unknown): string {
-  const row = obj(value);
-  return slot(row['context'], row['irNodeId']);
-}
 const freeze = <T>(v: T): T => {
   if (v && typeof v === 'object') { Object.values(v).forEach(freeze); Object.freeze(v); }
   return v;
@@ -54,17 +49,17 @@ function readSchedule(value: unknown, run: AdmittedSimulation): Schedule {
       !Array.isArray(rows) || !Array.isArray(order) || !Array.isArray(dependencies) || !Array.isArray(definitions) ||
       rows.length !== order.length || rows.length !== definitions.length || rows.length !== run.completedTasks) return fail();
 
-  const locations = new Map(definitions.map(obj).map(task => [planSlot(task), task['location']]));
+  const locations = new Map(definitions.map(obj).map(task => [simulationTaskKey(task), task['location']]));
   const starts = new Map<string, bigint>();
   const finishes = new Map<string, bigint>();
   for (const event of run.events) {
-    (event.kind === 'coglatas.task-start' ? starts : finishes).set(slot(event.context, event.irNodeId), ticks(event.ticks) - start);
+    (event.kind === 'coglatas.task-start' ? starts : finishes).set(simulationTaskKey(event), ticks(event.ticks) - start);
   }
 
   const timings = new Map<string, { start: bigint; finish: bigint; float: bigint; earliest: bigint; latest: bigint }>();
   const tasks = rows.map((raw, index): ScheduledTask => {
     const row = obj(raw);
-    const key = planSlot(order[index]);
+    const key = simulationTaskKey(order[index]);
     const location = row['location'];
     const startOffsetTicks = row['startOffsetTicks'];
     const finishOffsetTicks = row['finishOffsetTicks'];
@@ -83,8 +78,8 @@ function readSchedule(value: unknown, run: AdmittedSimulation): Schedule {
   // Check the recorded offsets and float against each dependency. No simulation runs in the browser.
   for (const raw of dependencies) {
     const edge = obj(raw);
-    const prerequisite = timings.get(planSlot(edge['prerequisite'])) ?? fail();
-    const dependent = timings.get(planSlot(edge['dependent'])) ?? fail();
+    const prerequisite = timings.get(simulationTaskKey(edge['prerequisite'])) ?? fail();
+    const dependent = timings.get(simulationTaskKey(edge['dependent'])) ?? fail();
     const lag = ticks(obj(edge['lag'])['value']);
     const earliest = prerequisite.finish + lag;
     const latest = dependent.start + dependent.float - lag;
