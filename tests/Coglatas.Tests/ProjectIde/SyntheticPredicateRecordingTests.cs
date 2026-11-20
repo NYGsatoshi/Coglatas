@@ -292,18 +292,20 @@ public sealed class SyntheticPredicateRecordingTests
         private readonly ContentDigest _expectedResult;
         private readonly bool _replace;
         private readonly InvalidOperationException? _publicationFailure;
-        private int _notifications;
+        private readonly InvalidOperationException? _withdrawalFailure;
         public CancellationToken Token => _source.Token;
         public bool Fired { get; private set; }
         public bool ReplacementSucceeded { get; private set; }
         public int WithdrawalNotifications { get; private set; }
         public ProjectRecordedPredicatePremiseSnapshot? Replacement { get; private set; }
-        public CancelPublishedRead(SyntheticWorkbenchViewModel vm, bool replace, InvalidOperationException? publicationFailure)
+        public CancelPublishedRead(SyntheticWorkbenchViewModel vm, bool replace, InvalidOperationException? publicationFailure,
+            InvalidOperationException? withdrawalFailure)
         {
             _vm = vm;
             _expectedResult = vm.Result!.ResultDigest;
             _replace = replace;
             _publicationFailure = publicationFailure;
+            _withdrawalFailure = withdrawalFailure;
             vm.PropertyChanged += Changed;
         }
         public Exception? Read() => Record.Exception(ReadCore);
@@ -312,14 +314,14 @@ public sealed class SyntheticPredicateRecordingTests
         {
             if (Fired)
             {
-                if (_publicationFailure is not null && Token.IsCancellationRequested && _vm.RecordedPredicatePremises is null)
+                if (Token.IsCancellationRequested)
                 {
                     WithdrawalNotifications++;
-                    throw new InvalidOperationException("Withdrawal observer failed.");
+                    if (_vm.RecordedPredicatePremises is null && _withdrawalFailure is not null) throw _withdrawalFailure;
                 }
                 return;
             }
-            if (++_notifications != 2) return;
+            if (_vm.RecordedPredicatePremises is null) return;
             Fired = true;
             if (_replace)
             {
@@ -340,9 +342,15 @@ public sealed class SyntheticPredicateRecordingTests
     [Theory]
     [InlineData(false)] [InlineData(true)]
     public Task ThrowingRecordingObserverWithdrawsOnlyItsCancelledView(bool replace) =>
-        VerifyRecordingOwnership(replace, new InvalidOperationException("Publication observer failed."));
+        VerifyRecordingOwnership(replace, new InvalidOperationException("Publication observer failed."),
+            new InvalidOperationException("Withdrawal observer failed."));
 
-    private static async Task VerifyRecordingOwnership(bool replace, InvalidOperationException? publicationFailure)
+    [Fact]
+    public Task ThrowingRecordingWithdrawalObserverPreservesCancellation() =>
+        VerifyRecordingOwnership(false, null, new InvalidOperationException("Withdrawal observer failed."));
+
+    private static async Task VerifyRecordingOwnership(bool replace, InvalidOperationException? publicationFailure,
+        InvalidOperationException? withdrawalFailure = null)
     {
         var (_, request, profile) = Input();
         using var session = new LocalPredicateCompilerRecordingSession(profile);
@@ -352,7 +360,7 @@ public sealed class SyntheticPredicateRecordingTests
         var receiptData = actual.Receipt.Data;
         ReadBodies(vm, actual);
         var previous = vm.RecordedPredicatePremises!; var previousData = previous.Data; Assert.NotEmpty(previous.Bodies);
-        using var cancellation = new CancelPublishedRead(vm, replace, publicationFailure); var token = cancellation.Token;
+        using var cancellation = new CancelPublishedRead(vm, replace, publicationFailure, withdrawalFailure); var token = cancellation.Token;
         var error = cancellation.Read();
         Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
         Assert.Same(result, vm.Result); Assert.Equal(resultData, result.Data); Assert.Equal(receiptData, actual.Receipt.Data);
@@ -363,13 +371,14 @@ public sealed class SyntheticPredicateRecordingTests
             Assert.Same(cancellation.Replacement, vm.RecordedPredicatePremises); Assert.NotEmpty(vm.RecordedPredicatePremises!.Bodies);
         }
         else Assert.Null(vm.RecordedPredicatePremises);
+        Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
         if (publicationFailure is null)
-            Assert.IsType<OperationCanceledException>(error);
-        else
         {
-            Assert.Same(publicationFailure, error);
-            Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+            var cancelled = Assert.IsType<OperationCanceledException>(error);
+            Assert.Equal(token, cancelled.CancellationToken);
+            Assert.Same(withdrawalFailure, cancelled.InnerException);
         }
+        else Assert.Same(publicationFailure, error);
     }
 
     private sealed class CancelInitialRecordedRead : IDisposable
