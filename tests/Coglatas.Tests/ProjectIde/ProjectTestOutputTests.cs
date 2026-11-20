@@ -41,6 +41,26 @@ public sealed class ProjectTestOutputTests
     }
 
     [Fact]
+    public async Task DirectoryFormDestinationIsRejectedAsInvalidBeforePublication()
+    {
+        var directory = Directory.CreateTempSubdirectory("projectide-test-directory-output-");
+        try
+        {
+            var path = directory.FullName + Path.DirectorySeparatorChar;
+
+            var error = await Assert.ThrowsAsync<ArgumentException>(
+                () => ProjectTestOutput.WriteNewAsync(path, "[]"u8.ToArray()));
+
+            Assert.Equal("path", error.ParamName);
+            Assert.Empty(directory.EnumerateFileSystemInfos());
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task RefusedDestinationLeavesNoStagedOutput()
     {
         var directory = Directory.CreateTempSubdirectory("projectide-test-refusal-");

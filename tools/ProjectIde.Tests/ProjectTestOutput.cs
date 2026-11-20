@@ -5,6 +5,9 @@ internal static class ProjectTestOutput
     internal static async Task WriteNewAsync(string path, ReadOnlyMemory<byte> bytes)
     {
         var destination = Path.GetFullPath(path);
+        if (Path.GetFileName(destination).Length == 0)
+            throw new ArgumentException("Output path must end with a file name.", nameof(path));
+
         var temporary = Path.Combine(Path.GetDirectoryName(destination)!, $".projectide-test-{Guid.NewGuid():N}.tmp");
         var ownsTemporary = false;
         try
