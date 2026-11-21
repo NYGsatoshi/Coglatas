@@ -1,6 +1,6 @@
+/// <reference types="node" />
 import { localTestDiscoveryMatchesCase, readLocalTestDiscovery } from './projectide-test-discovery.reader';
 import { readLocalTests } from './projectide-tests.reader';
-/// <reference types="node" />
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { webcrypto } from 'node:crypto';
