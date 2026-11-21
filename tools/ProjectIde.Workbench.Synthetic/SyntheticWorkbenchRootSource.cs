@@ -27,18 +27,25 @@ public sealed partial class SyntheticWorkbenchViewModel
             _ = NotifySourceWithdrawal();
             throw;
         }
-        bool Current() => !_disposed && generation == _rootSourceGeneration && State == "Ready" && compilation is not null && request is not null &&
-            ReferenceEquals(compilation, _compilation) && ReferenceEquals(request, _desired) && ReferenceEquals(Result, compilation.Result);
-        if (!Current())
+        bool OwnsRead() => !_disposed && generation == _rootSourceGeneration &&
+            ReferenceEquals(compilation, _compilation) && ReferenceEquals(request, _desired);
+        bool HasCurrentResult() => State == "Ready" && compilation is not null && request is not null &&
+            ReferenceEquals(Result, compilation.Result);
+        if (!OwnsRead())
         {
             token.ThrowIfCancellationRequested();
             return false;
         }
+        var hasResult = HasCurrentResult();
         ProjectRootSourceAdmission? admission;
-        try { admission = ProjectRootSourceAdmission.Read(compilation!, Result!, expectedResult, token); }
+        try
+        {
+            token.ThrowIfCancellationRequested();
+            admission = hasResult ? ProjectRootSourceAdmission.Read(compilation!, Result!, expectedResult, token) : null;
+        }
         catch (OperationCanceledException cancellation)
         {
-            if (Current())
+            if (OwnsRead())
             {
                 ClearRootSource();
                 if (NotifySourceWithdrawal() is { } notificationFailure)
@@ -46,7 +53,7 @@ public sealed partial class SyntheticWorkbenchViewModel
             }
             throw;
         }
-        if (!Current()) return false;
+        if (!OwnsRead() || (hasResult && !HasCurrentResult())) return false;
         _rootSourceAdmission = admission; _rootSourceRequest = request;
         RootSourceReadState = admission is null ? "Unavailable" : "Ready";
         Exception? withdrawalFailure = null;
@@ -64,7 +71,7 @@ public sealed partial class SyntheticWorkbenchViewModel
         // If publication threw, its original failure is already propagating.
         if (cancelledAtPublication)
             throw new OperationCanceledException("Root Source read was cancelled.", withdrawalFailure, token);
-        return Current() && CurrentRootSource && ReferenceEquals(_rootSourceAdmission, admission);
+        return OwnsRead() && CurrentRootSource && ReferenceEquals(_rootSourceAdmission, admission);
     }
 
     private Exception? NotifySourceWithdrawal()

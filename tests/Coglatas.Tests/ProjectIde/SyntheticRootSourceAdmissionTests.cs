@@ -281,4 +281,52 @@ public sealed class SyntheticRootSourceAdmissionTests
         Assert.IsType<OperationCanceledException>(error);
     }
 
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void RootReadWithoutCompilerResultFinishesItsOwnedLoadingState(bool cancelWhileLoading, bool throwOnWithdrawal)
+    {
+        using var view = new SyntheticWorkbenchViewModel();
+        using var cancellation = new CancellationTokenSource();
+        Action cancel = cancellation.Cancel;
+        var token = cancellation.Token;
+        var expected = ContentDigest.Compute("coglatas.test.missing-result/1", []);
+        var states = new List<string>();
+        var withdrawalFailure = new InvalidOperationException("withdrawal failed");
+        System.ComponentModel.PropertyChangedEventHandler observer = (sender, _) =>
+        {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            states.Add(subject.RootSourceReadState);
+            if (cancelWhileLoading && subject.RootSourceReadState == "Loading")
+                cancel();
+            if (throwOnWithdrawal && subject.RootSourceReadState == "Idle")
+                throw withdrawalFailure;
+        };
+
+        var returned = false;
+        OperationCanceledException? cancelled = null;
+        view.PropertyChanged += observer;
+        try { returned = view.LoadSyntheticRootSource(expected, token); }
+        catch (OperationCanceledException error) { cancelled = error; }
+        finally { view.PropertyChanged -= observer; }
+
+        Assert.False(returned);
+        Assert.Null(view.RootSource);
+        Assert.Null(view.Result);
+        var finalState = cancelWhileLoading ? "Idle" : "Unavailable";
+        Assert.Equal(finalState, view.RootSourceReadState);
+        Assert.Equal(new[] { "Loading", finalState }, states);
+        if (cancelWhileLoading)
+        {
+            Assert.NotNull(cancelled);
+            Assert.Equal(token, cancelled.CancellationToken);
+            Assert.Same(throwOnWithdrawal ? withdrawalFailure : null, cancelled.InnerException);
+        }
+        else
+        {
+            Assert.Null(cancelled);
+        }
+    }
 }
