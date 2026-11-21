@@ -295,7 +295,7 @@ public sealed class SyntheticRootSourceAdmissionTests
         var expected = ContentDigest.Compute("coglatas.test.missing-result/1", []);
         var states = new List<string>();
         var withdrawalFailure = new InvalidOperationException("withdrawal failed");
-        System.ComponentModel.PropertyChangedEventHandler observer = (sender, _) =>
+        PropertyChangedEventHandler observer = (sender, _) =>
         {
             var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
             states.Add(subject.RootSourceReadState);
