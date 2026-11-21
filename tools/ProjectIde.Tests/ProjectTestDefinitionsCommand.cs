@@ -55,12 +55,10 @@ internal static class ProjectTestDefinitionsCommand
             catch (UnsupportedSourceException) { artifact = Failure("Unsupported"); code = 2; }
             catch (Exception error) when (error is FormatException or ArgumentException or OverflowException or JsonException)
             { artifact = Failure("InvalidInput"); code = 3; }
-            // Encode completely before CreateNew. An invalid/oversized response never leaves a partial new file.
-            var bytes = artifact.ToCanonicalBytes();
-            await using var output = new FileStream(args[^1], FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.Asynchronous);
-            await output.WriteAsync(bytes); await output.FlushAsync(); return code;
+            await ProjectTestOutput.WriteNewAsync(args[^1], artifact.ToCanonicalBytes());
+            return code;
         }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException or FormatException or JsonException)
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or FormatException or JsonException)
         {
             Console.Error.WriteLine("Project Test definition input/output unavailable; existing files are preserved."); return 3;
         }
