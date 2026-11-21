@@ -131,6 +131,7 @@ public sealed class ProjectHistoryRevision
                 supplied.Add(iterator.Current);
             }
         Parents = new ImmutableListView<RevisionRef>(supplied); CheckpointData = checkpoint; Delta = delta;
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     public static ProjectHistoryRevision Checkpoint(ProjectSource source, long branchSequence, IEnumerable<RevisionRef>? parents = null,
