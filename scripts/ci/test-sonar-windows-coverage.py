@@ -67,7 +67,7 @@ class WindowsCoverageTests(unittest.TestCase):
         self.assertEqual(receipt["collectorVersion"], "10.1.1")
         self.assertEqual(receipt["coverage"]["conditions"], 2)
         self.assertEqual(receipt["coverage"]["coveredConditions"], 1)
-        self.assertEqual(len(receipt["executedArtifacts"]), 14)
+        self.assertEqual(len(receipt["executedArtifacts"]), 16)
         self.assertEqual(receipt, self.qualify(False))
         self.assertEqual((self.folder / "verified.cobertura.xml").read_bytes(), REPORT)
 
@@ -147,6 +147,41 @@ class WindowsCoverageTests(unittest.TestCase):
                         raw.replace(b'<TestMethod ', b'<MissingMethod ')):
             with self.subTest(mutated=mutated), self.assertRaises(ValueError):
                 MODULE.verify_trx(mutated, self.assembly_path)
+
+    def test_acceptance_tool_generated_document_is_retained_without_source_credit(self):
+        filename = (b'/_/tools/synthetic-recovery-acceptance/obj/Release/net11.0/'
+                    b'Microsoft.AspNetCore.OpenApi.SourceGenerators/'
+                    b'Microsoft.AspNetCore.OpenApi.SourceGenerators.XmlCommentGenerator/'
+                    b'OpenApiXmlCommentSupport.generated.cs')
+        generated = b'<class filename="' + filename + b'"><lines><line number="3" hits="0"/></lines></class>'
+        raw = REPORT.replace(b'</classes>', generated + b'</classes>')
+        measured = MODULE.verify_report(raw, self.sources.__getitem__)
+        self.assertEqual(measured["sources"], {"tools/Example.cs": MODULE.digest(self.sources["tools/Example.cs"])})
+        self.assertEqual(measured["lineEntries"], 2)
+        self.assertEqual(measured["coveredLines"], 1)
+        self.assertEqual(measured["unmappedGeneratedSources"][filename.decode()], [{"number": "3", "hits": "0"}])
+        for old, new in ((b'synthetic-recovery-acceptance', b'unknown-tool'),
+                         (b'OpenApiXmlCommentSupport.generated.cs', b'Handwritten.cs'),
+                         (b'/obj/', b'/../obj/')):
+            changed = raw.replace(old, new)
+            with self.subTest(new=new), self.assertRaises(ValueError):
+                MODULE.verify_report(changed, self.sources.__getitem__)
+
+    def test_acceptance_tool_binary_and_symbols_are_required_and_bound(self):
+        for extension in ("dll", "pdb"):
+            output = (self.root / "tests/Coglatas.Tests/bin/Release/net11.0"
+                      / ("Coglatas.SyntheticRecoveryAcceptance." + extension))
+            original = output.read_bytes()
+            output.unlink()
+            with tempfile.TemporaryDirectory(dir=self.root) as directory, \
+                 self.subTest(extension=extension, mutation="missing"), self.assertRaises(FileNotFoundError):
+                MODULE.assemblies(self.root, Path(directory), SHA, True)
+            output.write_bytes(b"different")
+            with tempfile.TemporaryDirectory(dir=self.root) as directory, \
+                 self.subTest(extension=extension, mutation="different"), \
+                 self.assertRaisesRegex(ValueError, "Executed assembly differs"):
+                MODULE.assemblies(self.root, Path(directory), SHA, True)
+            output.write_bytes(original)
 
     def test_manifest_publication_raw_source_and_assembly_tampering_are_rejected(self):
         self.qualify(True)

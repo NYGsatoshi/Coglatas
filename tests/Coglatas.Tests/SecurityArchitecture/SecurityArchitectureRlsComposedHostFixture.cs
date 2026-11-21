@@ -11,6 +11,7 @@ using Coglatas.SecurityArchitecture;
 using Coglatas.Ui.Core.Interaction;
 using Coglatas.Web.Controllers;
 using Microsoft.Extensions.DependencyInjection;
+using RecoveryAdmission = Coglatas.SyntheticRecoveryAcceptance.RunAdmission;
 
 namespace Coglatas.Tests.SecurityArchitecture;
 
@@ -32,7 +33,7 @@ internal sealed class SecurityArchitectureRlsComposedHostFixture : IAsyncDisposa
         string web, IReadOnlyDictionary<string, BoundProduct> products)
     {
         Directory.CreateDirectory(_directory);
-        var application = PrepareOwnedApplication(web, products);
+        var application = PrepareOwnedApplication(web, AppContext.BaseDirectory, Path.Combine(_directory, "application"), products);
         FileStorageRoot = taskStorageRoot ?? Path.Combine(_directory, "files");
         WebAssemblyDigest = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(application))).ToLowerInvariant();
         var services = new ServiceCollection();
@@ -95,7 +96,7 @@ internal sealed class SecurityArchitectureRlsComposedHostFixture : IAsyncDisposa
         };
     }
 
-    private sealed record BoundProduct(string ProducerPath, InventoryAssemblyBinding Binding);
+    internal sealed record BoundProduct(string ProducerPath, InventoryAssemblyBinding Binding);
 
     private static async Task<(string Web, Dictionary<string, BoundProduct> Products)> CaptureProductBindingsAsync()
     {
@@ -107,11 +108,16 @@ internal sealed class SecurityArchitectureRlsComposedHostFixture : IAsyncDisposa
         var products = new Dictionary<string, BoundProduct>(StringComparer.Ordinal);
         foreach (var loaded in new[] { typeof(AuthController).Assembly, typeof(IUserSessionService).Assembly,
                      typeof(AppDbContext).Assembly, typeof(CapabilityGrant).Assembly, typeof(SpecRegistryValidator).Assembly,
-                     typeof(ContextScope).Assembly })
+                     typeof(ContextScope).Assembly, typeof(RecoveryAdmission).Assembly })
         {
             var name = loaded.GetName().Name!;
-            var project = name == "Coglatas.SecurityArchitecture" ? "tools" : "src";
-            var producer = Path.Combine(root.FullName, project, name, "bin", framework.Parent!.Name, framework.Name, name + ".dll");
+            var project = name switch
+            {
+                "Coglatas.SecurityArchitecture" => Path.Combine("tools", name),
+                "Coglatas.SyntheticRecoveryAcceptance" => Path.Combine("tools", "synthetic-recovery-acceptance"),
+                _ => Path.Combine("src", name)
+            };
+            var producer = Path.Combine(root.FullName, project, "bin", framework.Parent!.Name, framework.Name, name + ".dll");
             Assert.Equal(Path.GetFullPath(Path.Combine(framework.FullName, name + ".dll")), Path.GetFullPath(loaded.Location));
             var binding = await SecurityArchitectureInventoryAssemblyBinding.CaptureAsync(loaded, producer);
             Assert.Equal("EXACT_CANONICAL_ORIGINAL_BYTES", binding.ProducerBinding);
@@ -133,11 +139,11 @@ internal sealed class SecurityArchitectureRlsComposedHostFixture : IAsyncDisposa
         return (web, products);
     }
 
-    private string PrepareOwnedApplication(string web, IReadOnlyDictionary<string, BoundProduct> products)
+    internal static string PrepareOwnedApplication(string web, string testOutput, string owned,
+        IReadOnlyDictionary<string, BoundProduct> products)
     {
-        var owned = Path.Combine(_directory, "application");
         Directory.CreateDirectory(owned);
-        foreach (var source in new[] { web, AppContext.BaseDirectory })
+        foreach (var source in new[] { web, testOutput })
         foreach (var file in Directory.EnumerateFiles(source))
         {
             if (Path.GetExtension(file) is not ".dll" and not ".json") continue;

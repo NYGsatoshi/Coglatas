@@ -120,6 +120,12 @@ CATALOG = {
         "ActualWebFileSharingRechecksCurrentManagementAndExpectedVersionWithoutEffects": 1,
         "ActualWebFileSharingRechecksCurrentRecipientAndRecordedWorkspaceOrProjectBoundary": 1,
     },
+    "SecurityArchitectureRlsComposedHostCopyTests": {
+        "BoundToolCopiesCanonicalProducerBytesInsteadOfInstrumentedTestBytes": 1,
+        "UnclassifiedProductStillCannotEnterCanonicalChild": 1,
+        "ChangedProducerOrTestModuleIsRejected": 2,
+        "ExistingWrongDestinationIsRejectedRatherThanOverwritten": 1,
+    },
     "SecurityArchitectureOutboxReplayTransportTests": {
         "ActualReplayServiceDeliversOriginalEventAndCurrentGrantRevocationHasNoTransportOrAuditEffects": 1,
     },

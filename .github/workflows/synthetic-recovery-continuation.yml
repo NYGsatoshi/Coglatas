@@ -5,6 +5,22 @@ on:
       - '.github/workflows/synthetic-recovery-continuation.yml'
       - 'scripts/ci/run-synthetic-recovery-continuation-ci.py'
       - 'tests/ci/test_synthetic_recovery_continuation_ci.py'
+      - 'tests/ci/test_synthetic_physical_recovery_http_guard.py'
+      - 'tools/synthetic-recovery-acceptance/**'
+      - 'scripts/ci/synthetic-physical-recovery-probe.py'
+      - 'scripts/ci/run-synthetic-physical-recovery-ci.py'
+      - 'scripts/ci/run-synthetic-logical-recovery-ci.py'
+      - 'src/**'
+      - 'global.json'
+      - '.config/dotnet-tools.json'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/synthetic-recovery-continuation.yml'
+      - 'scripts/ci/run-synthetic-recovery-continuation-ci.py'
+      - 'tests/ci/test_synthetic_recovery_continuation_ci.py'
+      - 'tests/ci/test_synthetic_physical_recovery_http_guard.py'
       - 'tools/synthetic-recovery-acceptance/**'
       - 'scripts/ci/synthetic-physical-recovery-probe.py'
       - 'scripts/ci/run-synthetic-physical-recovery-ci.py'
@@ -15,7 +31,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: synthetic-recovery-continuation-${{ github.event.pull_request.number }}
+  group: synthetic-recovery-continuation-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 jobs:
   bounded-synthetic-continuation:

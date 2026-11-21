@@ -2,6 +2,8 @@
 import copy
 import importlib.util
 import json
+import os
+from unittest.mock import patch
 from pathlib import Path
 import tempfile
 import unittest
@@ -302,6 +304,33 @@ class ContinuationContracts(unittest.TestCase):
         value["rawCookie"] = CANARY
         raw = json.dumps(value).encode()
         self.assertIsNone(caller.failure_projection(raw, "missing-keys", 1, caller.support.sha(raw)))
+
+    def test_main_admission_binds_receipt_and_rejects_before_preparation(self):
+        main = {"COGLATAS_RECOVERY_RUNNER_ENVIRONMENT": "github-hosted",
+                "RUNNER_OS": "Linux", "GITHUB_EVENT_NAME": "push",
+                "GITHUB_REPOSITORY": "NYGsatoshi/Coglatas", "GITHUB_REF": "refs/heads/main",
+                "GITHUB_SHA": "a" * 40, "GITHUB_RUN_ID": "1", "GITHUB_RUN_ATTEMPT": "1",
+                "RUNNER_TEMP": "/unused"}
+        for update, admitted in (({}, True), ({"GITHUB_REF": "refs/heads/other"}, False),
+                                 ({"COGLATAS_PR_HEAD_SHA": "b" * 40}, False)):
+            with self.subTest(update=update), patch.dict(os.environ, {**main, **update}, clear=True), \
+                 patch.object(caller, "PUBLIC", Path("/unused-closed-outcome")), \
+                 patch.object(caller.tempfile, "mkdtemp", return_value="/unused"), \
+                 patch.object(caller.logical, "prepare", side_effect=caller.support.Rejected("CONTROL")) as prepare, \
+                 patch.object(caller.support, "publish_once") as publish, patch("builtins.print"):
+                self.assertEqual(caller.main(), 1)
+                self.assertEqual(prepare.call_count, int(admitted))
+                receipt = publish.call_args.args[1]
+                self.assertEqual(receipt["sourceHeadSha"], "a" * 40 if admitted else None)
+                self.assertIsNone(receipt["baseSha"])
+                self.assertEqual(receipt["status"], "FAIL")
+
+    def test_compiled_tool_admission_precedes_private_configuration_io(self):
+        source = (ROOT / "tools/synthetic-recovery-acceptance/Program.cs").read_text()
+        admission = "Require(args.Length == 1 && RunAdmission.IsAllowed(Environment.GetEnvironmentVariable));"
+        self.assertEqual(source.count(admission), 1)
+        self.assertLess(source.index(admission), source.index("Path.GetFullPath(args[0])"))
+        self.assertLess(source.index(admission), source.index("File.ReadAllBytesAsync(path)"))
 
 
 if __name__ == "__main__":

@@ -2,6 +2,26 @@
 
 Status: **REVIEW ONLY / formal strategy unapproved / release NO_GO**.
 
+## Integrated Main-SHA qualification candidate (2026-11-17 UTC)
+
+The independent [integration PR #2054](https://github.com/NYGsatoshi/Coglatas/pull/2054)
+reuses #2018 and adds guarded Main-push qualification separately to the physical
+and continuation workflows. All three retain their original acceptance algorithms:
+logical uses `MAIN_PORTABLE_LOGICAL_V1` plus six strict byte comparisons and the
+original raw-catalog diagnostic; physical and continuation retain all seven strict
+comparisons. This does not adopt a production physical backup strategy.
+
+Hosted Linux PR admission is retained. A push additionally requires the exact
+repository, `refs/heads/main`, a valid SHA matching the checkout, and no PR head/base
+metadata. Other contexts fail before Docker. The original probe's private-path,
+immutable-resource and cleanup controls remain mandatory. Main physical receipts
+bind `sourceSha`; logical and continuation also bind `sourceHeadSha=sourceSha` and
+`baseSha=null`. No Main execution is credited before an actual integrated Main run.
+
+See [integration evidence and remaining holds](recovery-quality-integration-20261117.md)
+for the source inventory, tests, scanner boundary and qualification requirements.
+The older proposal and SHA-specific failures below remain historical evidence.
+
 ## Main exact-SHA logical qualification proposal (2026-11-16 UTC)
 
 The native logical recovery workflow was previously PR-triggered only, so the

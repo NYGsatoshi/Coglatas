@@ -20,6 +20,7 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[2]
 PUBLIC = ROOT / "artifacts/synthetic-logical-recovery-ci/result.json"
+COMMIT_SHA_PATTERN = r"[a-f0-9]{40}"
 
 
 def module(path: Path, name: str):
@@ -423,7 +424,7 @@ def prepare(private: Path, result: dict, environment: dict) -> tuple[Path, str, 
         support.require(process.returncode == 0)
         return process.stdout
     source = command(["git", "rev-parse", "HEAD"], "SOURCE").decode().strip()
-    support.require(re.fullmatch(r"[a-f0-9]{40}", source) is not None and source == os.environ.get("GITHUB_SHA"))
+    support.require(re.fullmatch(COMMIT_SHA_PATTERN, source) is not None and source == os.environ.get("GITHUB_SHA"))
     result["sourceSha"] = source
     source_tree = command(["git", "rev-parse", "HEAD:src"], "SOURCE_TREE").decode().strip()
     sdk = support.closed_json((ROOT / "global.json").read_bytes())["sdk"]["version"]
@@ -622,25 +623,17 @@ def execute(private: Path, ddl: Path, image: str, expected: dict, result: dict, 
 
 def admitted_run_revisions(environment: dict) -> tuple[str, str | None]:
     """Bind a hosted PR merge or a repository Main push to the exact source."""
-    support.require(environment.get("COGLATAS_RECOVERY_RUNNER_ENVIRONMENT") == "github-hosted"
-                    and environment.get("RUNNER_OS") == "Linux")
+    support.require_hosted_recovery_event(environment)
     event = environment.get("GITHUB_EVENT_NAME")
     if event == "pull_request":
         head = environment.get("COGLATAS_PR_HEAD_SHA", "")
         base = environment.get("COGLATAS_PR_BASE_SHA", "")
         support.require(isinstance(head, str) and isinstance(base, str)
-                        and re.fullmatch(r"[a-f0-9]{40}", head) is not None
-                        and re.fullmatch(r"[a-f0-9]{40}", base) is not None)
+                        and re.fullmatch(COMMIT_SHA_PATTERN, head) is not None
+                        and re.fullmatch(COMMIT_SHA_PATTERN, base) is not None)
         return head, base
-    support.require(event == "push"
-                    and environment.get("GITHUB_REPOSITORY") == "NYGsatoshi/Coglatas"
-                    and environment.get("GITHUB_REF") == "refs/heads/main"
-                    and environment.get("COGLATAS_PR_HEAD_SHA", "") == ""
-                    and environment.get("COGLATAS_PR_BASE_SHA", "") == "")
-    source = environment.get("GITHUB_SHA", "")
-    support.require(isinstance(source, str)
-                    and re.fullmatch(r"[a-f0-9]{40}", source) is not None)
-    return source, None
+    return environment["GITHUB_SHA"], None
+
 
 def main() -> int:
     os.umask(0o077)

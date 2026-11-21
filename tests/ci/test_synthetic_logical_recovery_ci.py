@@ -2,6 +2,7 @@
 import copy
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -100,9 +101,42 @@ class LogicalRecoveryContracts(unittest.TestCase):
             {"RUNNER_OS": "Windows"},
             {"COGLATAS_RECOVERY_RUNNER_ENVIRONMENT": "self-hosted"},
         ):
-            with self.subTest(update=update):
-                with self.assertRaises(caller.support.Rejected):
-                    caller.admitted_run_revisions({**base, **update})
+            with self.subTest(update=update), self.assertRaises(caller.support.Rejected):
+                caller.admitted_run_revisions({**base, **update})
+
+    def test_main_receipt_uses_exact_head_and_invalid_pr_metadata_stays_rejected(self):
+        main = {"COGLATAS_RECOVERY_RUNNER_ENVIRONMENT": "github-hosted",
+                "RUNNER_OS": "Linux", "GITHUB_EVENT_NAME": "push",
+                "GITHUB_REPOSITORY": "NYGsatoshi/Coglatas", "GITHUB_REF": "refs/heads/main",
+                "GITHUB_SHA": "a" * 40, "GITHUB_RUN_ID": "1", "GITHUB_RUN_ATTEMPT": "1",
+                "RUNNER_TEMP": "/unused"}
+        with patch.dict(os.environ, main, clear=True), \
+             patch.object(caller, "PUBLIC", Path("/unused-closed-outcome")), \
+             patch.object(caller.tempfile, "mkdtemp", return_value="/unused"), \
+             patch.object(caller, "prepare", side_effect=caller.support.Rejected("CONTROL")), \
+             patch.object(caller.support, "publish_once") as publish, patch("builtins.print"):
+            self.assertEqual(caller.main(), 1)
+            result = publish.call_args.args[1]
+            self.assertEqual(result["sourceHeadSha"], main["GITHUB_SHA"])
+            self.assertIsNone(result["baseSha"])
+            self.assertEqual(result["status"], "FAIL")
+        pr = {**main, "GITHUB_EVENT_NAME": "pull_request",
+              "COGLATAS_PR_HEAD_SHA": "b" * 40, "COGLATAS_PR_BASE_SHA": "c" * 40}
+        for change in ({"COGLATAS_PR_HEAD_SHA": None}, {"COGLATAS_PR_BASE_SHA": None},
+                       {"COGLATAS_PR_HEAD_SHA": "bad"}, {"COGLATAS_PR_BASE_SHA": "c" * 40 + "\n"}):
+            with self.subTest(change=change), self.assertRaises(caller.support.Rejected):
+                caller.admitted_run_revisions({**pr, **change})
+
+    def test_checked_out_sha_mismatch_stops_before_build_or_docker(self):
+        result = {}
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(caller.subprocess, "run", return_value=
+                 subprocess.CompletedProcess([], 0, ("b" * 40 + "\n").encode(), b"")) as command, \
+             self.assertRaises(caller.support.Rejected):
+            caller.prepare(Path(directory), result, {"GITHUB_SHA": "a" * 40})
+        self.assertEqual(command.call_count, 1)
+        self.assertEqual(command.call_args.args[0], ["git", "rev-parse", "HEAD"])
+        self.assertNotIn("sourceSha", result)
 
     def test_main_push_routes_and_retains_pr_contracts(self):
         workflow = (ROOT / ".github/workflows/synthetic-logical-recovery.yml").read_text()

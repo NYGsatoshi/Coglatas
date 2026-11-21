@@ -174,6 +174,20 @@ def publish_once(path: Path, result: dict) -> None:
         temporary.unlink()
 
 
+def require_hosted_recovery_event(environment: dict) -> None:
+    """Admit existing hosted PRs or only this repository's exact Main push."""
+    require(environment.get("COGLATAS_RECOVERY_RUNNER_ENVIRONMENT") == "github-hosted"
+            and environment.get("RUNNER_OS") == "Linux")
+    if environment.get("GITHUB_EVENT_NAME") == "pull_request":
+        return
+    require(environment.get("GITHUB_EVENT_NAME") == "push"
+            and environment.get("GITHUB_REPOSITORY") == "NYGsatoshi/Coglatas"
+            and environment.get("GITHUB_REF") == "refs/heads/main"
+            and re.fullmatch(r"[a-f0-9]{40}", environment.get("GITHUB_SHA", "")) is not None
+            and environment.get("COGLATAS_PR_HEAD_SHA", "") == ""
+            and environment.get("COGLATAS_PR_BASE_SHA", "") == "")
+
+
 def main() -> int:
     os.umask(0o077)
     result = {"schemaVersion": 1, "kind": "ADVISORY_SYNTHETIC_PHYSICAL_RECOVERY",
@@ -186,9 +200,7 @@ def main() -> int:
     private = None
     expected = None
     try:
-        require(os.environ.get("COGLATAS_RECOVERY_RUNNER_ENVIRONMENT") == "github-hosted"
-                and os.environ.get("GITHUB_EVENT_NAME") == "pull_request"
-                and os.environ.get("RUNNER_OS") == "Linux")
+        require_hosted_recovery_event(os.environ)
         require(not PUBLIC.exists() and not PUBLIC.is_symlink())
         for name, key in (("GITHUB_RUN_ID", "runId"), ("GITHUB_RUN_ATTEMPT", "runAttempt")):
             require(re.fullmatch(r"[1-9][0-9]*", os.environ.get(name, "")) is not None)
