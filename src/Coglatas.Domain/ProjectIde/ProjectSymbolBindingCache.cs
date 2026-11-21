@@ -10,6 +10,7 @@ namespace Coglatas.Domain.ProjectIde;
 public sealed class ProjectSymbolBindingCache
 {
     private readonly object _gate = new();
+    private readonly Func<SourceJson, DocumentId, DeclarationDecodeResult> _decode = PlanDeclarationReader.Read;
     private readonly int _maximumEntries;
     private readonly int _maximumCanonicalBytes;
     private readonly Dictionary<Key, LinkedListNode<Entry>> _entries = new();
@@ -24,6 +25,12 @@ public sealed class ProjectSymbolBindingCache
         if (maximumEntries is < 1 or > 10_000) throw new ArgumentOutOfRangeException(nameof(maximumEntries));
         if (maximumCanonicalBytes is < 1 or > 4_194_304) throw new ArgumentOutOfRangeException(nameof(maximumCanonicalBytes));
         _maximumEntries = maximumEntries; _maximumCanonicalBytes = maximumCanonicalBytes;
+    }
+
+    internal ProjectSymbolBindingCache(Func<SourceJson, DocumentId, DeclarationDecodeResult> decode) : this()
+    {
+        ArgumentNullException.ThrowIfNull(decode);
+        _decode = decode;
     }
 
     public int RetainedCount { get { lock (_gate) return _entries.Count; } }
@@ -75,7 +82,7 @@ public sealed class ProjectSymbolBindingCache
                     return existing;
             }
 
-            var decoded = PlanDeclarationReader.CheckTenant(PlanDeclarationReader.Read(data, document), source.TenantId);
+            var decoded = PlanDeclarationReader.CheckTenant(_decode(data, document), source.TenantId);
             var binding = new BoundProjectDeclaration(decoded,
                 new ImmutableListView<CompilerSymbol>(ProjectSemanticBinder.BindSymbols(decoded, source.Context)));
             cancellationToken.ThrowIfCancellationRequested();
