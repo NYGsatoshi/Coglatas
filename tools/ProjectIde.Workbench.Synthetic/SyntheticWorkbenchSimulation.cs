@@ -38,7 +38,7 @@ public sealed partial class SyntheticWorkbenchViewModel
             if (cancelledAtPublication && Current() && ReferenceEquals(_simulationRun, run))
             {
                 ClearSimulation();
-                withdrawalFailure = NotifySimulationRunWithdrawal();
+                withdrawalFailure = NotifySimulationWithdrawal();
             }
         }
         if (cancelledAtPublication)
@@ -46,7 +46,7 @@ public sealed partial class SyntheticWorkbenchViewModel
         return Current() && ReferenceEquals(SimulationRun, run);
     }
 
-    private Exception? NotifySimulationRunWithdrawal()
+    private Exception? NotifySimulationWithdrawal()
     {
         var subscribers = PropertyChanged;
         if (subscribers is null) return null;
@@ -82,9 +82,24 @@ public sealed partial class SyntheticWorkbenchViewModel
             Changed(); if (!Current()) return false;
             var debugger = new ProjectSimulationDebugger(manifest, request.Input.ExpectedInputDigest, debugLimits, cancellationToken);
             if (!Current()) { debugger.Dispose(); return false; }
-            _simulationDebugger = debugger; _simulationDebugSnapshot = debugger.Snapshot; _simulationRun = debugger.Snapshot.Result;
-            SimulationDebugControlReason = "coglatas.debug.prepared"; Changed();
-            return Current() && ReferenceEquals(_simulationDebugger, debugger) && ReferenceEquals(SimulationDebug, debugger.Snapshot);
+            var snapshot = debugger.Snapshot;
+            _simulationDebugger = debugger; _simulationDebugSnapshot = snapshot; _simulationRun = snapshot.Result;
+            SimulationDebugControlReason = "coglatas.debug.prepared";
+            Exception? withdrawalFailure = null;
+            bool cancelledAtPublication;
+            try { Changed(); }
+            finally
+            {
+                cancelledAtPublication = snapshot.Result?.Execution != CompilerExecutionState.Cancelled && cancellationToken.IsCancellationRequested;
+                if (cancelledAtPublication && Current() && ReferenceEquals(_simulationDebugger, debugger) && ReferenceEquals(_simulationDebugSnapshot, snapshot))
+                {
+                    ClearSimulation();
+                    withdrawalFailure = NotifySimulationWithdrawal();
+                }
+            }
+            if (cancelledAtPublication)
+                throw new OperationCanceledException("Simulation debugger publication was cancelled.", withdrawalFailure, cancellationToken);
+            return Current() && ReferenceEquals(_simulationDebugger, debugger) && ReferenceEquals(SimulationDebug, snapshot);
         }
         finally { if (generation == _simulationGeneration) _debugBusy = false; }
     }
