@@ -1,0 +1,94 @@
+name: ProjectIDE Test Discovery Web E2E
+
+on:
+  pull_request:
+    paths:
+      - tests/ui/projectide-local-tests.spec.ts
+      - tests/ui/run-angular-playwright.mjs
+      - tests/ci/projectide-test-discovery-browser-receipt.mjs
+      - tests/ci/projectide-test-discovery-browser-receipt.node-test.mjs
+      - frontend/src/app/features/projectide/**
+      - frontend/public/assets/projectide/**
+      - .github/workflows/projectide-test-discovery-web-e2e.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: projectide-web-test-discovery-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  actual-web:
+    name: Actual Web Test Discovery (ubuntu-24.04, Chromium desktop/mobile)
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (github.base_ref == 'projectide/project-test-discovery-clients-20261118' ||
+       github.base_ref == 'projectide/integration-20261031')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CI: "true"
+      PLAYWRIGHT_SKIP_BUILD: "1"
+      PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/projectide-discovery-report.json
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+      PROJECTIDE_BROWSER_RECEIPT_PATH: artifacts/projectide/browser-discovery-receipt.json
+    steps:
+      - name: Checkout exact candidate (no persisted credentials)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "26"
+
+      - name: Install repository npm without lifecycle scripts
+        run: npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
+
+      - name: Verify exact HEAD, selected test and syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -f tests/ui/projectide-local-tests.spec.ts
+          grep -Fq "'tests/ui/projectide-local-tests.spec.ts'" tests/ui/run-angular-playwright.mjs
+          node --check tests/ci/projectide-test-discovery-browser-receipt.mjs
+          node --check tests/ui/run-angular-playwright.mjs
+          node --test tests/ci/projectide-test-discovery-browser-receipt.node-test.mjs
+
+      - name: Install root dependencies using reviewed lock/lifecycle policy
+        run: bash scripts/ci/npm-ci-retry.sh .
+
+      - name: Install Angular dependencies using reviewed lock/lifecycle policy
+        run: bash scripts/ci/npm-ci-retry.sh frontend
+
+      - name: Install Chromium browser with platform dependencies
+        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
+
+      - name: Build actual source-bound Angular production bundle
+        run: npm --prefix frontend run build
+
+      - name: Run exact English/Japanese Test Discovery journeys in both browser profiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          node node_modules/@playwright/test/cli.js test \
+            tests/ui/projectide-local-tests.spec.ts \
+            --project=chromium-desktop --project=chromium-mobile \
+            --reporter=json
+          test -s "$PLAYWRIGHT_JSON_OUTPUT_NAME"
+
+      - name: Validate raw browser outcomes and emit bounded source-bound receipt
+        run: node tests/ci/projectide-test-discovery-browser-receipt.mjs
+
+      - name: Upload only sanitized passing receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: projectide-web-test-discovery-receipt
+          path: artifacts/projectide/browser-discovery-receipt.json
+          if-no-files-found: error
+          retention-days: 7
