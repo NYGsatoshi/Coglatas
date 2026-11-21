@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Coglatas.Application.ProjectIde.Core;
 using Coglatas.Domain.ProjectIde;
 
@@ -40,8 +41,7 @@ public sealed partial class SyntheticWorkbenchViewModel
             if (cancelledAtPublication && generation == _scenarioPreviewGeneration && ReferenceEquals(ScenarioPreview, preview))
             {
                 ClearScenarioPreview();
-                try { Changed(); }
-                catch (Exception error) { withdrawalFailure = error; }
+                withdrawalFailure = NotifyScenarioPreviewWithdrawal();
             }
         }
         // If publication threw, its original failure is already propagating.
@@ -89,8 +89,7 @@ public sealed partial class SyntheticWorkbenchViewModel
             if (cancelledAtPublication && generation == _scenarioPreviewGeneration && ReferenceEquals(ScenarioDraftPreview, preview))
             {
                 ClearScenarioPreview();
-                try { Changed(); }
-                catch (Exception error) { withdrawalFailure = error; }
+                withdrawalFailure = NotifyScenarioPreviewWithdrawal();
             }
         }
         // If publication threw, its original failure is already propagating.
@@ -110,6 +109,23 @@ public sealed partial class SyntheticWorkbenchViewModel
         var request = new CompilerHostRequest(new(after), clientGeneration, _desired.Snapshots, _desired.Units, _desired.Calendars);
         BeginSyntheticContext(request, null, null, cancellationToken: cancellationToken); return !_disposed && ReferenceEquals(_desired, request) ? request : null;
     }
+    private Exception? NotifyScenarioPreviewWithdrawal()
+    {
+        var subscribers = PropertyChanged;
+        if (subscribers is null) return null;
+
+        Exception? failure = null;
+        var args = new PropertyChangedEventArgs(null);
+        foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+        {
+            try { subscriber(this, args); }
+            catch (Exception error) { failure ??= error; }
+        }
+
+        return failure;
+    }
+
+
     private void ClearScenarioPreview() { _scenarioPreviewGeneration++; ScenarioPreview = null; ScenarioDraftPreview = null; }
     private void ClearScenarioContext() { ClearScenarioPreview(); _activeScenario = null; _scenarioBaselineResult = null; _scenarioBaselineTests = null; }
 }
