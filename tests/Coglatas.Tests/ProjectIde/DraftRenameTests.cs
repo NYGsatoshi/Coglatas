@@ -360,6 +360,7 @@ public sealed class DraftRenameTests
         public CancellationToken Token => _source.Token;
         public bool Fired { get; private set; }
         public int WithdrawalNotifications { get; private set; }
+        public int DeliveredWithdrawals { get; private set; }
         public DraftRenamePreview? Published { get; private set; }
         public DraftRenamePreview? Replacement { get; private set; }
         public CancelDraftPreview(SyntheticWorkbenchViewModel vm, bool replace, CompilerInputManifest input,
@@ -371,6 +372,7 @@ public sealed class DraftRenameTests
             _withdrawalError = withdrawalError;
             _input = input;
             vm.PropertyChanged += Changed;
+            vm.PropertyChanged += RecordWithdrawal;
         }
         public Exception? Read() => Record.Exception(ReadCore);
         private void ReadCore() => _vm.PreviewRename("Cancelled", Next(_input), Token);
@@ -391,7 +393,21 @@ public sealed class DraftRenameTests
             _source.Cancel();
             if (_publicationError is not null) throw _publicationError;
         }
-        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+
+        private void RecordWithdrawal(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Token.IsCancellationRequested && _vm.RenamePreview is null)
+            {
+                DeliveredWithdrawals++;
+            }
+        }
+
+        public void Dispose()
+        {
+            _vm.PropertyChanged -= Changed;
+            _vm.PropertyChanged -= RecordWithdrawal;
+            _source.Dispose();
+        }
     }
 
     [Theory]
@@ -436,6 +452,7 @@ public sealed class DraftRenameTests
         }
         else Assert.Null(view.RenamePreview);
         Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+        Assert.Equal(replace ? 0 : 1, cancellation.DeliveredWithdrawals);
         if (publicationError is null)
         {
             var cancelled = Assert.IsType<OperationCanceledException>(error);

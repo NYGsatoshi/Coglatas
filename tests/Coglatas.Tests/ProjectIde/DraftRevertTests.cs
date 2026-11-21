@@ -461,6 +461,7 @@ public sealed class DraftRevertTests
         public CancellationToken Token => _source.Token;
         public bool Fired { get; private set; }
         public int WithdrawalNotifications { get; private set; }
+        public int DeliveredWithdrawals { get; private set; }
         public DraftRevertPreview? Published { get; private set; }
         public DraftRevertPreview? Replacement { get; private set; }
         public CancelDraftPreview(SyntheticWorkbenchViewModel vm, bool replace, PartialSemanticModel parent, PartialSemanticModel reverted, ProposalContext proposal, ProjectHistoryRevision[] history,
@@ -475,6 +476,7 @@ public sealed class DraftRevertTests
             _proposal = proposal;
             _history = history;
             vm.PropertyChanged += Changed;
+            vm.PropertyChanged += RecordWithdrawal;
         }
         public Exception? Read() => Record.Exception(ReadCore);
         private void ReadCore() => _vm.PreviewRevert(_parent, _reverted, _parent.Input.InputDigest, _reverted.Input.InputDigest, _proposal, _history, Token);
@@ -495,7 +497,21 @@ public sealed class DraftRevertTests
             _source.Cancel();
             if (_publicationError is not null) throw _publicationError;
         }
-        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+
+        private void RecordWithdrawal(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Token.IsCancellationRequested && _vm.RevertPreview is null)
+            {
+                DeliveredWithdrawals++;
+            }
+        }
+
+        public void Dispose()
+        {
+            _vm.PropertyChanged -= Changed;
+            _vm.PropertyChanged -= RecordWithdrawal;
+            _source.Dispose();
+        }
     }
 
     [Theory]
@@ -542,6 +558,7 @@ public sealed class DraftRevertTests
         }
         else Assert.Null(view.RevertPreview);
         Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+        Assert.Equal(replace ? 0 : 1, cancellation.DeliveredWithdrawals);
         if (publicationError is null)
         {
             var cancelled = Assert.IsType<OperationCanceledException>(error);
