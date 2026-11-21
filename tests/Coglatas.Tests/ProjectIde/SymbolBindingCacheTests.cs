@@ -222,6 +222,31 @@ public sealed class SymbolBindingCacheTests
     }
 
     [Fact]
+    public async Task ConcurrentColdReadersReuseThePublishedBindingForEachDeclaration()
+    {
+        var source = ReferenceCompletionTests.CompletionInput(64).Source;
+        var cache = new ProjectSymbolBindingCache();
+        var scope = cache.BeginBinding(source.Context.Branch, CancellationToken.None);
+        const int readerCount = 8;
+        using var start = new Barrier(readerCount);
+        var readers = Enumerable.Range(0, readerCount).Select(_ => Task.Factory.StartNew(() =>
+        {
+            Assert.True(start.SignalAndWait(TimeSpan.FromSeconds(10)));
+            return cache.Read(source, scope, CancellationToken.None);
+        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default)).ToArray();
+
+        var results = await Task.WhenAll(readers);
+        var retained = cache.Read(source, scope, CancellationToken.None);
+        Assert.Equal(retained.Count, cache.RetainedCount);
+        foreach (var result in results)
+        {
+            Assert.Equal(retained.Count, result.Count);
+            for (var index = 0; index < retained.Count; index++)
+                Assert.Same(retained[index], result[index]);
+        }
+    }
+
+    [Fact]
     public void TenantBoundResourceStatusAndPrivateCollectionStorageCannotPoisonRetainedBindings()
     {
         var source = Source(); var resource = Obj(new { entityId = Id(70), documentId = Id(4), kind = "coglatas.resource-binding", schemaVersion = 1,
