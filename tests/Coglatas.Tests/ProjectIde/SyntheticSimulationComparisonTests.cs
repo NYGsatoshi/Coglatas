@@ -206,12 +206,13 @@ public sealed class SyntheticSimulationComparisonTests
         using var view = f.View;
         ProjectScenarioElapsedScheduleImpact? newer = null;
         var entered = false;
-        view.PropertyChanged += (_, _) =>
+        view.PropertyChanged += (sender, _) =>
         {
-            if (entered || (view.ScenarioScheduleImpact is not null) != afterPublication) return;
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (entered || (subject.ScenarioScheduleImpact is not null) != afterPublication) return;
             entered = true;
-            Assert.True(view.ReadScenarioScheduleImpact());
-            newer = view.ScenarioScheduleImpact;
+            Assert.True(subject.ReadScenarioScheduleImpact());
+            newer = subject.ScenarioScheduleImpact;
         };
         Assert.False(view.ReadScenarioScheduleImpact());
         Assert.True(entered);
@@ -227,21 +228,24 @@ public sealed class SyntheticSimulationComparisonTests
         var f = await ReadyScenarioSchedule();
         using var view = f.View;
         using var source = new CancellationTokenSource();
+        var token = source.Token;
+        Action cancel = source.Cancel;
         ProjectScenarioElapsedScheduleImpact? newer = null;
         var entered = false;
         var hypothesis = view.SimulationRun;
-        view.PropertyChanged += (_, _) =>
+        view.PropertyChanged += (sender, _) =>
         {
-            if (entered || view.ScenarioScheduleImpact is null) return;
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (entered || subject.ScenarioScheduleImpact is null) return;
             entered = true;
             if (replace)
             {
-                Assert.True(view.ReadScenarioScheduleImpact());
-                newer = view.ScenarioScheduleImpact;
+                Assert.True(subject.ReadScenarioScheduleImpact());
+                newer = subject.ScenarioScheduleImpact;
             }
-            source.Cancel();
+            cancel();
         };
-        Assert.Throws<OperationCanceledException>(() => view.ReadScenarioScheduleImpact(source.Token));
+        Assert.Throws<OperationCanceledException>(() => view.ReadScenarioScheduleImpact(token));
         Assert.True(entered);
         if (replace) Assert.NotNull(newer);
         Assert.Same(newer, view.ScenarioScheduleImpact);
@@ -257,22 +261,25 @@ public sealed class SyntheticSimulationComparisonTests
         var f = await ReadyScenarioSchedule();
         using var view = f.View;
         using var source = new CancellationTokenSource();
+        var token = source.Token;
+        Action cancel = source.Cancel;
         var error = new InvalidOperationException("Schedule observer failed.");
         var entered = false;
         ProjectScenarioElapsedScheduleImpact? newer = null;
-        view.PropertyChanged += (_, _) =>
+        view.PropertyChanged += (sender, _) =>
         {
-            if (entered || view.ScenarioScheduleImpact is null) return;
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (entered || subject.ScenarioScheduleImpact is null) return;
             entered = true;
             if (replace)
             {
-                Assert.True(view.ReadScenarioScheduleImpact());
-                newer = view.ScenarioScheduleImpact;
+                Assert.True(subject.ReadScenarioScheduleImpact());
+                newer = subject.ScenarioScheduleImpact;
             }
-            source.Cancel();
+            cancel();
             throw error;
         };
-        Assert.Same(error, Assert.Throws<InvalidOperationException>(() => view.ReadScenarioScheduleImpact(source.Token)));
+        Assert.Same(error, Assert.Throws<InvalidOperationException>(() => view.ReadScenarioScheduleImpact(token)));
         Assert.True(entered);
         if (replace) Assert.NotNull(newer);
         Assert.Same(newer, view.ScenarioScheduleImpact);
