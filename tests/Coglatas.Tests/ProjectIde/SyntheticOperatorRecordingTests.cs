@@ -247,6 +247,7 @@ public sealed class SyntheticOperatorRecordingTests
         public bool Fired { get; private set; }
         public bool ReplacementSucceeded { get; private set; }
         public int WithdrawalNotifications { get; private set; }
+        public int DeliveredWithdrawals { get; private set; }
         public ProjectCompilerPredicateObservationSnapshot? Replacement { get; private set; }
         public CancelPublishedRead(SyntheticWorkbenchViewModel vm, bool replace, InvalidOperationException? publicationFailure,
             InvalidOperationException? withdrawalFailure)
@@ -257,6 +258,7 @@ public sealed class SyntheticOperatorRecordingTests
             _publicationFailure = publicationFailure;
             _withdrawalFailure = withdrawalFailure;
             vm.PropertyChanged += Changed;
+            vm.PropertyChanged += RecordWithdrawal;
         }
         public Exception? Read() => Record.Exception(ReadCore);
         private void ReadCore() => _vm.ReadRecordedOperators(_expectedResult, CompilerPredicateObservationSnapshotMode.AvailableOperators, token: Token);
@@ -281,7 +283,21 @@ public sealed class SyntheticOperatorRecordingTests
             _source.Cancel();
             if (_publicationFailure is not null) throw _publicationFailure;
         }
-        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+
+        private void RecordWithdrawal(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Token.IsCancellationRequested && _vm.RecordedOperators is null)
+            {
+                DeliveredWithdrawals++;
+            }
+        }
+
+        public void Dispose()
+        {
+            _vm.PropertyChanged -= Changed;
+            _vm.PropertyChanged -= RecordWithdrawal;
+            _source.Dispose();
+        }
     }
 
     [Theory]
@@ -322,6 +338,7 @@ public sealed class SyntheticOperatorRecordingTests
         }
         else Assert.Null(vm.RecordedOperators);
         Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+        Assert.Equal(replace ? 0 : 1, cancellation.DeliveredWithdrawals);
         if (publicationFailure is null)
         {
             var cancelled = Assert.IsType<OperationCanceledException>(error);
