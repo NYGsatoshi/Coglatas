@@ -45,7 +45,7 @@ public sealed class HistoryCheckpointCancellationTests
         var requiredCount = nullParent ? 1 : 9;
         var observed = 0;
         var disposed = false;
-        var parents = Parents(cancellation.Cancel);
+        Action cancel = cancellation.Cancel;
 
         if (cancelOnDispose)
         {
@@ -62,8 +62,8 @@ public sealed class HistoryCheckpointCancellationTests
 
         ProjectHistoryRevision Read() => materialized
             ? ProjectHistoryRevision.MaterializedCheckpoint(source.Context.CommittedRevision!, 1, source.Digest,
-                source.Data, parents, token)
-            : ProjectHistoryRevision.Checkpoint(source, 1, parents, token);
+                source.Data, Parents(cancel), token)
+            : ProjectHistoryRevision.Checkpoint(source, 1, Parents(cancel), token);
 
         IEnumerable<RevisionRef> Parents(Action cancel)
         {

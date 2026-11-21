@@ -125,7 +125,7 @@ public sealed class ProjectHistoryRevision
         cancellationToken.ThrowIfCancellationRequested();
         var supplied = new List<RevisionRef>();
         var invalidParentRoster = false;
-        using (var iterator = parents.GetEnumerator())
+        using (IEnumerator<RevisionRef?> iterator = parents.GetEnumerator())
         {
             while (true)
             {
