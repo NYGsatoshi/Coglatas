@@ -15,6 +15,7 @@ from pathlib import Path
 from common import (
     PerformanceContractError,
     load_json,
+    performance_opener,
     repository_root,
     validate_fixture_evidence,
     validate_target,
@@ -68,7 +69,7 @@ def main() -> int:
         operator_email = identities["operatorEmail"]
 
         cookie_jar = http.cookiejar.CookieJar()
-        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookie_jar))
+        opener = performance_opener(cookie_jar)
 
         csrf_request = urllib.request.Request(
             f"{base_url}/api/security/csrf-token",

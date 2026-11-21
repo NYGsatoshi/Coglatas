@@ -3,10 +3,9 @@
 import http.cookiejar
 import os
 import time
-import urllib.request
 import uuid
 from pathlib import Path
-from common import validate_fixture_evidence, validate_target, write_json_atomic
+from common import performance_opener, validate_fixture_evidence, validate_target, write_json_atomic
 from db_probe_import import login, request
 from db_gate import validate_capture
 from local_support import LocalError, invoke, load_json, now, sha256
@@ -33,7 +32,7 @@ def main():
                 raise LocalError("VOLUME_NOT_ISOLATED", "docker-isolation")
     # Authenticate for every scope, including API-only runtime preflight.
     base = validate_target(os.environ["COGLATAS_PERFORMANCE_BASE_URL"])
-    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+    opener = performance_opener(http.cookiejar.CookieJar())
     headers = login(opener, base, fixture)
     capture_checked = False
     if os.environ.get("COGLATAS_PERFORMANCE_DB_CAPTURE_ENABLED") == "true":
