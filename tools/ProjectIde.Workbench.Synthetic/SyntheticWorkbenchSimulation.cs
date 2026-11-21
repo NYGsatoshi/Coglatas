@@ -27,8 +27,37 @@ public sealed partial class SyntheticWorkbenchViewModel
         if (!Current()) return false;
         var run = ProjectSimulation.Execute(manifest, request.Input.ExpectedInputDigest, cancellationToken);
         if (!Current()) return false;
-        _simulationRun = run; Changed();
+        _simulationRun = run;
+        Exception? withdrawalFailure = null;
+        bool cancelledAtPublication;
+        try { Changed(); }
+        finally
+        {
+            // A cancellation recorded during the simulation remains an explicit result.
+            cancelledAtPublication = run.Execution != CompilerExecutionState.Cancelled && cancellationToken.IsCancellationRequested;
+            if (cancelledAtPublication && Current() && ReferenceEquals(_simulationRun, run))
+            {
+                ClearSimulation();
+                withdrawalFailure = NotifySimulationRunWithdrawal();
+            }
+        }
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Simulation run publication was cancelled.", withdrawalFailure, cancellationToken);
         return Current() && ReferenceEquals(SimulationRun, run);
+    }
+
+    private Exception? NotifySimulationRunWithdrawal()
+    {
+        var subscribers = PropertyChanged;
+        if (subscribers is null) return null;
+        var args = new System.ComponentModel.PropertyChangedEventArgs(null);
+        Exception? firstFailure = null;
+        foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+        {
+            try { subscriber(this, args); }
+            catch (Exception error) { firstFailure ??= error; }
+        }
+        return firstFailure;
     }
 
     public bool NavigateSimulationEvent(SourceJson traceEvent)
