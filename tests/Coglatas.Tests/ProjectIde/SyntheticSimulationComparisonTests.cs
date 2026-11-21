@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using System.Text.Json.Nodes;
 using Coglatas.Application.ProjectIde.Core;
 using Coglatas.Domain.ProjectIde;
@@ -301,7 +300,7 @@ public sealed class SyntheticSimulationComparisonTests
         var withdrawalError = new InvalidOperationException("Schedule withdrawal observer failed.");
         var published = false;
         var laterWithdrawals = 0;
-        PropertyChangedEventHandler firstObserver = (sender, _) =>
+        System.ComponentModel.PropertyChangedEventHandler firstObserver = (sender, _) =>
         {
             var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
             if (published)
@@ -314,7 +313,7 @@ public sealed class SyntheticSimulationComparisonTests
             cancel();
             if (throwOnPublication) throw publicationError;
         };
-        PropertyChangedEventHandler laterObserver = (sender, _) =>
+        System.ComponentModel.PropertyChangedEventHandler laterObserver = (sender, _) =>
         {
             var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
             if (published && subject.ScenarioScheduleImpact is null) laterWithdrawals++;
@@ -322,8 +321,9 @@ public sealed class SyntheticSimulationComparisonTests
 
         view.PropertyChanged += firstObserver;
         view.PropertyChanged += laterObserver;
+        Func<CancellationToken, bool> readImpact = view.ReadScenarioScheduleImpact;
         Exception? observed;
-        try { observed = Record.Exception(() => { view.ReadScenarioScheduleImpact(token); }); }
+        try { observed = Record.Exception(() => { readImpact(token); }); }
         finally
         {
             view.PropertyChanged -= firstObserver;
