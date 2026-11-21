@@ -233,45 +233,66 @@ public sealed class SyntheticPassSourceNavigationTests
         var receiptData = actual.Receipt.Data;
 
         using var cancellation = new CancellationTokenSource();
+        var token = cancellation.Token;
+        Action cancel = cancellation.Cancel;
         var publicationError = new InvalidOperationException("Pass view publication observer failed");
         var withdrawalError = new InvalidOperationException("Pass view withdrawal observer failed");
         var published = false;
         var withdrawalCount = 0;
+        var deliveredWithdrawals = 0;
         ProjectCompilerPassBoundarySnapshot? observedBoundary = null;
         SyntheticPassSourcePage? observedPage = null;
         SyntheticPassSourceTarget? observedTarget = null;
 
         void Observe(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
-            if (cancellation.IsCancellationRequested)
+            var publishedView = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (token.IsCancellationRequested)
             {
                 withdrawalCount++;
-                if (view.PassBoundarySourcePage is null) throw withdrawalError;
+                if (publishedView.PassBoundarySourcePage is null) throw withdrawalError;
                 return;
             }
-            if (published || (readBoundary ? view.RecordedPassBoundary is null : view.PassBoundarySourcePage is null)) return;
+            if (published || (readBoundary ? publishedView.RecordedPassBoundary is null : publishedView.PassBoundarySourcePage is null)) return;
             published = true;
-            if (readBoundary && replace) Assert.True(Read(view));
-            observedBoundary = view.RecordedPassBoundary;
+            if (readBoundary && replace) Assert.True(Read(publishedView));
+            observedBoundary = publishedView.RecordedPassBoundary;
             if (readBoundary || replace)
-                Assert.True(view.ReadPassBoundarySourcePage(replace ? 1 : 0, 1));
-            observedPage = view.PassBoundarySourcePage!;
+                Assert.True(publishedView.ReadPassBoundarySourcePage(replace ? 1 : 0, 1));
+            observedPage = publishedView.PassBoundarySourcePage!;
             observedTarget = Assert.Single(observedPage.Targets);
-            Assert.True(view.NavigatePassBoundarySource(observedPage, observedTarget));
-            cancellation.Cancel();
+            Assert.True(publishedView.NavigatePassBoundarySource(observedPage, observedTarget));
+            cancel();
             if (throwOnPublication) throw publicationError;
         }
 
-        view.PropertyChanged += Observe;
-        var error = Record.Exception(() =>
+        void RecordWithdrawal(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
-            if (readBoundary)
-                view.ReadRecordedPassBoundary(result.ResultDigest, 5, CompilerPassObservationSnapshotMode.AvailableOriginalJson,
-                    token: cancellation.Token);
-            else
-                view.ReadPassBoundarySourcePage(maximumTargets: 1, token: cancellation.Token);
-        });
-        view.PropertyChanged -= Observe;
+            if (token.IsCancellationRequested && sender is SyntheticWorkbenchViewModel publishedView &&
+                publishedView.PassBoundarySourcePage is null)
+            {
+                deliveredWithdrawals++;
+            }
+        }
+
+        view.PropertyChanged += Observe;
+        view.PropertyChanged += RecordWithdrawal;
+        Exception? error;
+        try
+        {
+            error = Record.Exception(() =>
+            {
+                if (readBoundary)
+                    view.ReadRecordedPassBoundary(result.ResultDigest, 5, CompilerPassObservationSnapshotMode.AvailableOriginalJson, token: token);
+                else
+                    view.ReadPassBoundarySourcePage(maximumTargets: 1, token: token);
+            });
+        }
+        finally
+        {
+            view.PropertyChanged -= Observe;
+            view.PropertyChanged -= RecordWithdrawal;
+        }
 
         if (throwOnPublication) Assert.Same(publicationError, error);
         else
@@ -281,6 +302,7 @@ public sealed class SyntheticPassSourceNavigationTests
             Assert.Same(withdrawalError, cancelled.InnerException);
         }
         Assert.True(published);
+        Assert.Equal(replace ? 0 : 1, deliveredWithdrawals);
         Assert.True(cancellation.IsCancellationRequested);
         Assert.Same(root, view.RootSource);
         Assert.Same(result, view.Result);
