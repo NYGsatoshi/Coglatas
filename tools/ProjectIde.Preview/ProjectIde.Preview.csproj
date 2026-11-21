@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><OutputType>Exe</OutputType><RootNamespace>Coglatas.ProjectIde</RootNamespace><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
+  <PropertyGroup><OutputType>Exe</OutputType><RootNamespace>Coglatas.ProjectIde</RootNamespace><TargetFramework>net11.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
   <ItemGroup><ProjectReference Include="../../src/Coglatas.Domain/Coglatas.Domain.csproj" /><ProjectReference Include="../../src/Coglatas.Application/Coglatas.Application.csproj" /></ItemGroup>
   <ItemGroup><Compile Include="../ProjectIde.Workbench.Synthetic/SyntheticProjectTestConfiguration.cs" Link="Workbench/Synthetic/SyntheticProjectTestConfiguration.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../ProjectIde.Workbench.Synthetic/SyntheticReadOnlyList.cs" Link="Workbench/Synthetic/SyntheticReadOnlyList.cs" /></ItemGroup>
