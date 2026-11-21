@@ -114,6 +114,7 @@ public sealed class SyntheticDiagnosticPremiseTests
         public bool Fired { get; private set; }
         public bool ReplacementSucceeded { get; private set; }
         public int WithdrawalNotifications { get; private set; }
+        public List<bool> LaterWithdrawalStates { get; } = [];
         public ProjectDiagnosticPremiseSnapshot? Replacement { get; private set; }
         public CancelOnPublication(SyntheticWorkbenchViewModel vm, bool replace, InvalidOperationException? publicationFailure,
             InvalidOperationException? withdrawalFailure)
@@ -124,6 +125,7 @@ public sealed class SyntheticDiagnosticPremiseTests
             _publicationFailure = publicationFailure;
             _withdrawalFailure = withdrawalFailure;
             vm.PropertyChanged += Changed;
+            vm.PropertyChanged += RecordWithdrawal;
         }
         public Exception? Read() => Record.Exception(ReadCore);
         private void ReadCore() => _vm.ReadSyntheticDiagnosticPremises(_expectedResult, DiagnosticPremiseSnapshotMode.AvailableBodies, token: Token);
@@ -148,7 +150,17 @@ public sealed class SyntheticDiagnosticPremiseTests
             _source.Cancel();
             if (_publicationFailure is not null) throw _publicationFailure;
         }
-        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+        private void RecordWithdrawal(object? sender, PropertyChangedEventArgs args)
+        {
+            if (WithdrawalNotifications > LaterWithdrawalStates.Count)
+                LaterWithdrawalStates.Add(_vm.DiagnosticPremises is null);
+        }
+        public void Dispose()
+        {
+            _vm.PropertyChanged -= Changed;
+            _vm.PropertyChanged -= RecordWithdrawal;
+            _source.Dispose();
+        }
     }
 
     [Theory]
@@ -186,6 +198,8 @@ public sealed class SyntheticDiagnosticPremiseTests
         }
         else Assert.Null(vm.DiagnosticPremises);
         Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+        bool[] expectedWithdrawal = replace ? [] : [true];
+        Assert.Equal(expectedWithdrawal, cancellation.LaterWithdrawalStates);
         if (publicationFailure is null)
         {
             var cancelled = Assert.IsType<OperationCanceledException>(error);
