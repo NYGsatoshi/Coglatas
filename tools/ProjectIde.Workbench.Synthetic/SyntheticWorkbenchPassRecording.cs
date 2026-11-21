@@ -1,10 +1,29 @@
 using Coglatas.Application.ProjectIde.Core;
+using System.ComponentModel;
 using Coglatas.Domain.ProjectIde;
 
 namespace Coglatas.ProjectIde.Workbench.Synthetic;
 
 public sealed partial class SyntheticWorkbenchViewModel
 {
+    private Exception? NotifyRecordingWithdrawal()
+    {
+        var subscribers = PropertyChanged;
+        if (subscribers is null)
+        {
+            return null;
+        }
+
+        Exception? firstFailure = null;
+        var args = new PropertyChangedEventArgs(null);
+        foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+        {
+            try { subscriber(this, args); }
+            catch (Exception error) { firstFailure ??= error; }
+        }
+        return firstFailure;
+    }
+
     private PassObservationCompilerHostRequest? _desiredPassRequest;
     private LocalPassObservationCompilerRecordingManifest? _desiredPassManifest;
     private PassObservationCompilerRecordedInvocation? _acceptedPassInvocation;
@@ -95,8 +114,7 @@ public sealed partial class SyntheticWorkbenchViewModel
             if (cancelledAtPublication && generation == _passSnapshotGeneration && ReferenceEquals(_recordedPasses, snapshot))
             {
                 ClearPassSnapshot();
-                try { Changed(); }
-                catch (Exception error) { withdrawalFailure = error; }
+                withdrawalFailure = NotifyRecordingWithdrawal();
             }
         }
         // If publication threw, its original failure is already propagating.

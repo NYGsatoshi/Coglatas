@@ -94,8 +94,7 @@ public sealed partial class SyntheticWorkbenchViewModel
             if (cancelledAtPublication && generation == _recordedPredicateGeneration && ReferenceEquals(_recordedPredicatePremises, snapshot))
             {
                 ClearRecordedPredicatePremises();
-                try { Changed(); }
-                catch (Exception error) { withdrawalFailure = error; }
+                withdrawalFailure = NotifyRecordingWithdrawal();
             }
         }
         // If publication threw, its original failure is already propagating.

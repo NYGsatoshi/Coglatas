@@ -100,8 +100,7 @@ public sealed partial class SyntheticWorkbenchViewModel
             if (cancelledAtPublication && generation == _operatorSnapshotGeneration && ReferenceEquals(_recordedOperators, snapshot))
             {
                 ClearOperatorSnapshot();
-                try { Changed(); }
-                catch (Exception error) { withdrawalFailure = error; }
+                withdrawalFailure = NotifyRecordingWithdrawal();
             }
         }
         // If publication threw, its original failure is already propagating.
