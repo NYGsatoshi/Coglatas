@@ -166,6 +166,7 @@ void test('an old in-flight GET returning 400 after a new tab action triggers ex
   assert.equal(JSON.stringify(snapshot).includes('private-canary'), false);
 });
 
+test('one pre-action GET 400 after ACTION_STARTED cannot be mistaken for a fresh request', () => {
 for (const [finishInitial, expectedCaptures] of [[false, 1], [true, 0]]) {
   await test(`a late old response binds DOM sampling only when retained (initial finished: ${finishInitial})`, () => {
     const page = pageFixture(), observation = observeThreadRequests(page, matches);
@@ -223,6 +224,7 @@ void test('one pre-action GET 400 after ACTION_STARTED cannot be mistaken for a 
   assert.equal(page.listenerCount('response'), 0);
 });
 
+test('missing failure snapshot remains incomplete and native action text is reduced to fixed tokens', () => {
 void test('an earlier denied GET interleaving with native tab action cannot qualify a new GET or conceal detach', async () => {
   const page = pageFixture(), observation = observeThreadRequests(page, matches);
   let preActionDenials = 0;
