@@ -590,14 +590,15 @@ public sealed class SemanticDiffTests
         var result = view.Result;
         Assert.True(view.CompareSynthetic(before, input.InputDigest)!.NoChanges);
         using var cancellation = new CancellationTokenSource();
+        Action cancel = cancellation.Cancel;
         var sawClear = false;
         ProjectSemanticDiff? replacement = null;
-        System.ComponentModel.PropertyChangedEventHandler observer = (_, _) =>
+        System.ComponentModel.PropertyChangedEventHandler observer = (sender, _) =>
         {
-            if (sawClear || view.SemanticDiff is not null) return;
+            if (sawClear || sender is not SyntheticWorkbenchViewModel publishedView || publishedView.SemanticDiff is not null) return;
             sawClear = true;
-            if (replace) replacement = view.CompareSynthetic(before, input.InputDigest);
-            cancellation.Cancel();
+            if (replace) replacement = publishedView.CompareSynthetic(before, input.InputDigest);
+            cancel();
         };
         view.PropertyChanged += observer;
         try
