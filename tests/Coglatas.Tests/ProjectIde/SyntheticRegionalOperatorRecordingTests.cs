@@ -352,6 +352,7 @@ public sealed class SyntheticRegionalOperatorRecordingTests
         public InvalidOperationException PublicationError { get; } = new("Regional publication observer failed.");
         public InvalidOperationException WithdrawalError { get; } = new("Regional withdrawal observer failed.");
         public int WithdrawalNotifications { get; private set; }
+        public int DeliveredWithdrawals { get; private set; }
 
         public ThrowingPublicationObserver(SyntheticWorkbenchViewModel view, Func<bool> hasPublication, Action? replace,
             bool throwOnPublication)
@@ -361,6 +362,7 @@ public sealed class SyntheticRegionalOperatorRecordingTests
             _replace = replace;
             _throwOnPublication = throwOnPublication;
             _view.PropertyChanged += Changed;
+            _view.PropertyChanged += RecordWithdrawal;
         }
 
         private void Changed(object? sender, PropertyChangedEventArgs args)
@@ -381,9 +383,18 @@ public sealed class SyntheticRegionalOperatorRecordingTests
             if (_throwOnPublication) throw PublicationError;
         }
 
+        private void RecordWithdrawal(object? sender, PropertyChangedEventArgs args)
+        {
+            if (Token.IsCancellationRequested && !_hasPublication())
+            {
+                DeliveredWithdrawals++;
+            }
+        }
+
         public void Dispose()
         {
             _view.PropertyChanged -= Changed;
+            _view.PropertyChanged -= RecordWithdrawal;
             _source.Dispose();
         }
     }
@@ -432,6 +443,7 @@ public sealed class SyntheticRegionalOperatorRecordingTests
         }
         AssertObserverError(observer, error, throwOnPublication);
         Assert.Equal(replace ? 0 : 1, observer.WithdrawalNotifications);
+        Assert.Equal(replace ? 0 : 1, observer.DeliveredWithdrawals);
     }
 
     [Theory]
@@ -481,6 +493,7 @@ public sealed class SyntheticRegionalOperatorRecordingTests
         else Assert.Null(vm.RecordedRegionalOperators);
         AssertObserverError(observer, error, throwOnPublication);
         Assert.Equal(replace ? 0 : 1, observer.WithdrawalNotifications);
+        Assert.Equal(replace ? 0 : 1, observer.DeliveredWithdrawals);
     }
 
     private static void AssertObserverError(ThrowingPublicationObserver observer, Exception? error, bool throwOnPublication)
