@@ -121,15 +121,29 @@ public sealed class ProjectHistoryRevision
         ArgumentNullException.ThrowIfNull(revision); ArgumentNullException.ThrowIfNull(digest); ArgumentNullException.ThrowIfNull(parents);
         if (branchSequence < 0) throw new ArgumentOutOfRangeException(nameof(branchSequence));
         Revision = revision; BranchSequence = branchSequence; ExpectedSourceDigest = digest;
-        // Bound even hostile enumerators before publishing an immutable carrier.
+        // Bound the parent enumeration before publishing an immutable carrier.
+        cancellationToken.ThrowIfCancellationRequested();
         var supplied = new List<RevisionRef>();
+        var invalidParentRoster = false;
         using (var iterator = parents.GetEnumerator())
+        {
             while (true)
             {
-                cancellationToken.ThrowIfCancellationRequested(); if (!iterator.MoveNext()) break; cancellationToken.ThrowIfCancellationRequested();
-                if (iterator.Current is null || supplied.Count == 8) throw new ArgumentException("Parent roster exceeds the local bound.", nameof(parents));
-                supplied.Add(iterator.Current);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!iterator.MoveNext()) break;
+                cancellationToken.ThrowIfCancellationRequested();
+                var parent = iterator.Current;
+                cancellationToken.ThrowIfCancellationRequested();
+                if (parent is null || supplied.Count == 8)
+                {
+                    invalidParentRoster = true;
+                    break;
+                }
+                supplied.Add(parent);
             }
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        if (invalidParentRoster) throw new ArgumentException("Parent roster exceeds the local bound.", nameof(parents));
         Parents = new ImmutableListView<RevisionRef>(supplied); CheckpointData = checkpoint; Delta = delta;
         cancellationToken.ThrowIfCancellationRequested();
     }

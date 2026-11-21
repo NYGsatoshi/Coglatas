@@ -28,6 +28,63 @@ public sealed class HistoryCheckpointCancellationTests
     }
 
     [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    [InlineData(true, true, true)]
+    public void RejectedCheckpointParentDisposalPreservesCancellation(bool materialized, bool nullParent, bool cancelOnDispose)
+    {
+        var source = Source(50);
+        var parent = Source(49).Context.CommittedRevision!;
+        using var cancellation = new CancellationTokenSource();
+        var token = cancellation.Token;
+        var requiredCount = nullParent ? 1 : 9;
+        var observed = 0;
+        var disposed = false;
+        var parents = Parents(cancellation.Cancel);
+
+        if (cancelOnDispose)
+        {
+            var exception = Assert.Throws<OperationCanceledException>(Read);
+            Assert.Equal(token, exception.CancellationToken);
+        }
+        else
+        {
+            var exception = Assert.Throws<ArgumentException>(Read);
+            Assert.Equal("parents", exception.ParamName);
+        }
+        Assert.True(disposed);
+        Assert.Equal(requiredCount, observed);
+
+        ProjectHistoryRevision Read() => materialized
+            ? ProjectHistoryRevision.MaterializedCheckpoint(source.Context.CommittedRevision!, 1, source.Digest,
+                source.Data, parents, token)
+            : ProjectHistoryRevision.Checkpoint(source, 1, parents, token);
+
+        IEnumerable<RevisionRef> Parents(Action cancel)
+        {
+            try
+            {
+                for (var index = 0; index < requiredCount; index++)
+                {
+                    observed++;
+                    yield return nullParent ? null! : parent;
+                }
+                throw new InvalidOperationException("Parent enumeration continued beyond refusal.");
+            }
+            finally
+            {
+                disposed = true;
+                if (cancelOnDispose) cancel();
+            }
+        }
+    }
+
+    [Theory]
     [InlineData(HistoryReadState.Corrupt)]
     [InlineData(HistoryReadState.OutOfScope)]
     [InlineData(HistoryReadState.ResourceLimit)]
