@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Runtime.ExceptionServices;
 using Coglatas.Application.ProjectIde.Core;
 using Coglatas.Domain.ProjectIde;
@@ -101,8 +102,16 @@ public sealed partial class SyntheticWorkbenchViewModel
         if (cancelled && generation == _scenarioScheduleGeneration && ReferenceEquals(_scenarioScheduleRead, read))
         {
             ClearScenarioScheduleImpact();
-            try { Changed(); }
-            catch (Exception error) { withdrawalFailure = error; }
+            var subscribers = PropertyChanged;
+            if (subscribers is not null)
+            {
+                var args = new PropertyChangedEventArgs(null);
+                foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+                {
+                    try { subscriber(this, args); }
+                    catch (Exception error) { withdrawalFailure ??= error; }
+                }
+            }
         }
         if (publicationFailure is not null) ExceptionDispatchInfo.Capture(publicationFailure).Throw();
         if (cancelled) throw new OperationCanceledException("Scenario schedule impact was cancelled.", withdrawalFailure, cancellationToken);

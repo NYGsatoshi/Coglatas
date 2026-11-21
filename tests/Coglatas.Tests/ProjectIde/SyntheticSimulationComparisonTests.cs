@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Text.Json.Nodes;
 using Coglatas.Application.ProjectIde.Core;
 using Coglatas.Domain.ProjectIde;
@@ -284,6 +285,61 @@ public sealed class SyntheticSimulationComparisonTests
         if (replace) Assert.NotNull(newer);
         Assert.Same(newer, view.ScenarioScheduleImpact);
         Assert.Same(f.Baseline, view.ScenarioBaselineSimulation);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ScenarioScheduleImpactNotifiesLaterObserversWhenWithdrawalThrows(bool throwOnPublication)
+    {
+        var f = await ReadyScenarioSchedule();
+        using var view = f.View;
+        using var source = new CancellationTokenSource();
+        var token = source.Token;
+        Action cancel = source.Cancel;
+        var publicationError = new InvalidOperationException("Schedule publication observer failed.");
+        var withdrawalError = new InvalidOperationException("Schedule withdrawal observer failed.");
+        var published = false;
+        var laterWithdrawals = 0;
+        PropertyChangedEventHandler firstObserver = (sender, _) =>
+        {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (published)
+            {
+                if (subject.ScenarioScheduleImpact is null) throw withdrawalError;
+                return;
+            }
+            if (subject.ScenarioScheduleImpact is null) return;
+            published = true;
+            cancel();
+            if (throwOnPublication) throw publicationError;
+        };
+        PropertyChangedEventHandler laterObserver = (sender, _) =>
+        {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (published && subject.ScenarioScheduleImpact is null) laterWithdrawals++;
+        };
+
+        view.PropertyChanged += firstObserver;
+        view.PropertyChanged += laterObserver;
+        Exception? observed;
+        try { observed = Record.Exception(() => { view.ReadScenarioScheduleImpact(token); }); }
+        finally
+        {
+            view.PropertyChanged -= firstObserver;
+            view.PropertyChanged -= laterObserver;
+        }
+        if (throwOnPublication)
+            Assert.Same(publicationError, observed);
+        else
+        {
+            var cancelled = Assert.IsType<OperationCanceledException>(observed);
+            Assert.Equal(token, cancelled.CancellationToken);
+            Assert.Same(withdrawalError, cancelled.InnerException);
+        }
+        Assert.True(published);
+        Assert.Null(view.ScenarioScheduleImpact);
+        Assert.Equal(1, laterWithdrawals);
     }
 
     private static async Task<(SyntheticWorkbenchViewModel View, ProjectScenarioPlan Scenario, ProjectSimulationRun? Baseline)>
