@@ -185,7 +185,8 @@ public sealed class SyntheticSemanticIndexTests
 
         using var observer = new ThrowingObserver(vm, () => vm.SemanticIndexReadState == "Unavailable",
             () => vm.SemanticIndexReadState == "Idle", ReplaceIndex, throwOnPublication);
-        var error = Record.Exception(() => { vm.LoadSyntheticSemanticIndex(observer.Token); });
+        var token = observer.Token;
+        var error = Record.Exception(() => { vm.LoadSyntheticSemanticIndex(token); });
 
         Assert.True(observer.Token.IsCancellationRequested);
         Assert.Same(result, vm.Result);
@@ -315,7 +316,8 @@ public sealed class SyntheticSemanticIndexTests
 
         using var observer = new ThrowingObserver(vm, () => vm.SemanticIndexReadState == boundary,
             () => vm.SemanticIndexReadState == "Idle", PublishOrNavigate, throwOnPublication);
-        var error = Record.Exception(() => { vm.LoadSyntheticSemanticIndex(observer.Token); });
+        var token = observer.Token;
+        var error = Record.Exception(() => { vm.LoadSyntheticSemanticIndex(token); });
 
         Assert.True(observer.Token.IsCancellationRequested);
         Assert.Same(result, vm.Result);
@@ -378,7 +380,8 @@ public sealed class SyntheticSemanticIndexTests
 
         using var observer = new ThrowingObserver(vm, () => vm.IndexedReferences is not null,
             () => vm.IndexedReferences is null, PublishOrNavigate, throwOnPublication);
-        var error = Record.Exception(() => { vm.ReadIndexedReferences(cancellationToken: observer.Token); });
+        var token = observer.Token;
+        var error = Record.Exception(() => { vm.ReadIndexedReferences(cancellationToken: token); });
 
         Assert.True(observer.Token.IsCancellationRequested);
         Assert.Same(result, vm.Result);
