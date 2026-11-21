@@ -336,8 +336,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
             {
                 _taskSuggestionGeneration++;
                 TaskSuggestions = null;
-                try { Changed(); }
-                catch (Exception error) { withdrawalFailure = error; }
+                withdrawalFailure = NotifyCandidateWithdrawal();
             }
         }
         // If publication threw, its original failure is already propagating.
@@ -378,8 +377,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
             if (cancelledAtPublication && generation == _selectionGeneration && ReferenceEquals(ReferenceCompletion, page))
             {
                 ReferenceCompletion = null;
-                try { Changed(); }
-                catch (Exception error) { withdrawalFailure = error; }
+                withdrawalFailure = NotifyCandidateWithdrawal();
             }
         }
         // If publication threw, its original failure is already propagating.
@@ -387,6 +385,23 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
             throw new OperationCanceledException("Candidate query was cancelled.", withdrawalFailure, cancellationToken);
         return !_disposed && generation == _selectionGeneration && ReferenceEquals(ReferenceCompletion, page) ? page : null;
     }
+
+    private Exception? NotifyCandidateWithdrawal()
+    {
+        var subscribers = PropertyChanged;
+        if (subscribers is null) return null;
+
+        Exception? failure = null;
+        var args = new PropertyChangedEventArgs(null);
+        foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+        {
+            try { subscriber(this, args); }
+            catch (Exception error) { failure ??= error; }
+        }
+
+        return failure;
+    }
+
 
     /// <summary>Open a suggested declaration without inserting a reference or changing Source.</summary>
     public bool NavigateCompletion(ReferenceCompletionPage page, ReferenceCompletionCandidate candidate)
