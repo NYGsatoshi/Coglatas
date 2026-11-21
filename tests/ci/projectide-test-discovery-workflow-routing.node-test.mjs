@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const workflowPath = new URL('../../.github/workflows/projectide-test-discovery-web-e2e.yml', import.meta.url);
-const workflow = readFileSync(workflowPath, 'utf8');
+const workflow = readFileSync(workflowPath, 'utf8').replaceAll('\r\n', '\n');
 const requiredPaths = [
   '.github/workflows/projectide-test-discovery-web-e2e.yml',
   'tests/ui/projectide-local-tests.spec.ts',
@@ -19,19 +19,26 @@ const requiredPaths = [
   'frontend/scripts/projectide-test-discovery-evidence-generator.node-test.mjs'
 ];
 
-function triggerPaths(source, event) {
-  const header = "  " + event + ":\n";
-  const index = source.indexOf(header);
-  assert.notEqual(index, -1, "Missing " + event + " event");
-  const lines = source.slice(index + header.length).split(/\r?\n/);
-  const pathLine = lines.indexOf('    paths:');
-  assert.notEqual(pathLine, -1, "Missing " + event + " paths filter");
-  const paths = [];
-  for (const line of lines.slice(pathLine + 1)) {
-    if (!line.startsWith('      - ')) break;
-    paths.push(line.slice('      - '.length).trim());
+// This dependency-free guard reads the fixed block indentation of the workflow.
+function blockContents(lines, header, missingMessage) {
+  const start = lines.indexOf(header);
+  assert.notEqual(start, -1, missingMessage);
+  const childIndent = ' '.repeat(header.search(/\S/) + 2);
+  let end = start + 1;
+  while (end < lines.length) {
+    const line = lines[end];
+    if (line.trim() && !line.trimStart().startsWith('#') && !line.startsWith(childIndent)) break;
+    end++;
   }
-  return paths;
+  return lines.slice(start + 1, end);
+}
+
+function triggerPaths(source, event) {
+  const triggers = blockContents(source.split(/\r?\n/), 'on:', 'Missing workflow triggers');
+  const eventLines = blockContents(triggers, '  ' + event + ':', 'Missing ' + event + ' event');
+  return blockContents(eventLines, '    paths:', 'Missing ' + event + ' paths filter')
+    .filter(line => line.startsWith('      - '))
+    .map(line => line.slice('      - '.length).trim());
 }
 
 function verifyRequiredRoutes(source) {
@@ -48,6 +55,19 @@ function verifyRequiredRoutes(source) {
 
 test('dedicated Web E2E routes both events for Product UI, locale, fixtures and validator changes', () => {
   verifyRequiredRoutes(workflow);
+});
+
+test('a missing push filter cannot borrow the pull request paths', () => {
+  const pullRequest = workflow.indexOf('  pull_request:\n');
+  assert.notEqual(pullRequest, -1, 'Pull request trigger must exist in the fixture');
+  const push = workflow.slice(0, pullRequest);
+  const withoutPaths = push.replace(/^    paths:\n(?:      - [^\n]*\n)+/m, '');
+  assert.notEqual(withoutPaths, push, 'Push paths filter must exist in the fixture');
+  assert.throws(() => verifyRequiredRoutes(withoutPaths + workflow.slice(pullRequest)), /Missing push paths filter/);
+});
+
+test('accepts a CRLF workflow checkout', () => {
+  verifyRequiredRoutes(workflow.replaceAll('\n', '\r\n'));
 });
 
 test('missing translation trigger fails the route check', () => {
