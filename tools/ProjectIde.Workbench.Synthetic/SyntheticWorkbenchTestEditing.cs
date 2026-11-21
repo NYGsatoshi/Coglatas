@@ -39,8 +39,7 @@ public sealed partial class SyntheticWorkbenchViewModel
             if (cancelledAtPublication && generation == _testEditGeneration && ReferenceEquals(TestEditPreview, preview))
             {
                 ClearTestEdit();
-                try { Changed(); }
-                catch (Exception error) { withdrawalFailure = error; }
+                withdrawalFailure = NotifyDraftPreviewWithdrawal();
             }
         }
         // If publication threw, its original failure is already propagating.

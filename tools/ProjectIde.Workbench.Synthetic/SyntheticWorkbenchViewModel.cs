@@ -236,6 +236,23 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
 
     public bool NavigateReferenceOrigin() => NavigateTo(SelectedReference?.Origin, requireSourceMap: true);
 
+    private Exception? NotifyDraftPreviewWithdrawal()
+    {
+        var subscribers = PropertyChanged;
+        if (subscribers is null) return null;
+
+        Exception? failure = null;
+        var args = new PropertyChangedEventArgs(null);
+        foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+        {
+            try { subscriber(this, args); }
+            catch (Exception error) { failure ??= error; }
+        }
+
+        return failure;
+    }
+
+
     public DraftRenamePreview? PreviewRename(string name, SourceRevisionContext nextContext, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this); cancellationToken.ThrowIfCancellationRequested();
@@ -255,8 +272,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
             if (cancelledAtPublication && generation == _selectionGeneration && ReferenceEquals(RenamePreview, preview))
             {
                 RenamePreview = null;
-                try { Changed(); }
-                catch (Exception error) { withdrawalFailure = error; }
+                withdrawalFailure = NotifyDraftPreviewWithdrawal();
             }
         }
         // If publication threw, its original failure is already propagating.
@@ -304,8 +320,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
             {
                 _revertPreviewGeneration++;
                 RevertPreview = null;
-                try { Changed(); }
-                catch (Exception error) { withdrawalFailure = error; }
+                withdrawalFailure = NotifyDraftPreviewWithdrawal();
             }
         }
         // If publication threw, its original failure is already propagating.
