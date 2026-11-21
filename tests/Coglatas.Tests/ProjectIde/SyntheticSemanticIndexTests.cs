@@ -1,3 +1,4 @@
+using System.Reflection;
 using Coglatas.Application.ProjectIde.Core;
 using Coglatas.Domain.ProjectIde;
 using Coglatas.ProjectIde.Workbench.Synthetic;
@@ -9,13 +10,14 @@ public sealed class SyntheticSemanticIndexTests
 {
     private static CompilerIndexedSymbol RootPort(SyntheticWorkbenchViewModel vm) => Assert.Single(vm.SemanticIndex!.Symbols,
         item => item.Symbol.Context.Equals(vm.Source!.Context) && item.Symbol.EntityId == EntityId.Parse(Id(7)) && item.Symbol.PortId == PortId.Parse(Id(8)));
-    private static async Task<SyntheticWorkbenchViewModel> Ready(bool admit = true)
+    private static async Task<SyntheticWorkbenchViewModel> Ready(bool admit = true, ProjectSemanticIndexLookupCache? cache = null)
     {
         var fixture = CompilerBindingClosureTests.Graph(backToRoot: true, withRelation: true); var input = fixture.Input;
         CompilerArtifactIdentity Artifact(string field) => new(SourceJson.Parse(input.Settings.Value.GetProperty(field).GetRawText()));
         var profile = new CompilerHostProfile(input.Compiler, Artifact("schema"), Artifact("ruleset"), Artifact("semantics"), Artifact("ir"), Artifact("evaluator"),
             input.Settings.Value.GetProperty("featureSet").EnumerateArray().Select(item => item.GetString()));
-        var request = new CompilerHostRequest(new(input), 1, fixture.Snapshots); var vm = new SyntheticWorkbenchViewModel();
+        var request = new CompilerHostRequest(new(input), 1, fixture.Snapshots);
+        var vm = cache is null ? new SyntheticWorkbenchViewModel() : new SyntheticWorkbenchViewModel(cache);
         try
         {
             vm.BeginSynthetic(request); Assert.True(vm.TryAccept(await new LocalNetCompilerHost(profile).CompileAsync(request)));
@@ -24,6 +26,13 @@ public sealed class SyntheticSemanticIndexTests
         }
         catch { vm.Dispose(); throw; }
     }
+
+    private sealed class ViewLifetime(SyntheticWorkbenchViewModel view) : IDisposable
+    {
+        public SyntheticWorkbenchViewModel View { get; } = view;
+        public void Dispose() => View.Dispose();
+    }
+
     [Fact]
     public async Task FullIndexRequiresExplicitOriginalSourceAdmissionAndUsesActualCrossRegionQueriesAndNavigation()
     {
@@ -141,6 +150,347 @@ public sealed class SyntheticSemanticIndexTests
         if (ready) Assert.Same(probe.Newer, vm.IndexedReferenceGraph!.Page); else Assert.Null(vm.IndexedReferenceGraph);
         Assert.Equal(result, vm.Result.Data);
     }
+
+    [Theory]
+    [InlineData("Loading", false)] [InlineData("Loading", true)]
+    [InlineData("Ready", false)] [InlineData("Ready", true)]
+    public Task ThrowingIndexObserverWithdrawsOnlyItsCancelledView(string boundary, bool replace) =>
+        VerifyIndexWithdrawal(boundary, replace, throwOnPublication: true);
+
+    [Theory]
+    [InlineData("Loading")]
+    [InlineData("Ready")]
+    public Task ThrowingIndexWithdrawalObserverPreservesCancellation(string boundary) =>
+        VerifyIndexWithdrawal(boundary, replace: false, throwOnPublication: false);
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task CancelledIndexRefusalWithdrawsOnlyItsOwnedState(bool replace, bool throwOnPublication)
+    {
+        using var lifetime = new ViewLifetime(await Ready(admit: false));
+        var vm = lifetime.View;
+        var result = vm.Result;
+        var source = vm.Source;
+        CompilerSemanticIndex? replacement = null;
+
+        void ReplaceIndex()
+        {
+            if (!replace) return;
+            Assert.True(vm.LoadSyntheticScopedSources());
+            Assert.True(vm.LoadSyntheticSemanticIndex());
+            replacement = Assert.IsType<CompilerSemanticIndex>(vm.SemanticIndex);
+        }
+
+        using var observer = new ThrowingObserver(vm, () => vm.SemanticIndexReadState == "Unavailable",
+            () => vm.SemanticIndexReadState == "Idle", ReplaceIndex, throwOnPublication);
+        var token = observer.Token;
+        var error = Record.Exception(() => { vm.LoadSyntheticSemanticIndex(token); });
+
+        Assert.True(observer.Token.IsCancellationRequested);
+        Assert.Same(result, vm.Result);
+        Assert.Same(source, vm.Source);
+        Assert.Equal(replace ? "Ready" : "Idle", vm.SemanticIndexReadState);
+        Assert.Same(replacement, vm.SemanticIndex);
+        observer.AssertWithdrawalNotifications(expected: !replace);
+        if (!replace) AssertObserverError(observer, error, throwOnPublication);
+        else
+        {
+            Assert.NotNull(replacement);
+            var cancelled = Assert.IsType<OperationCanceledException>(error);
+            Assert.Equal(observer.Token, cancelled.CancellationToken);
+            Assert.Null(cancelled.InnerException);
+        }
+    }
+
+    [Fact]
+    public async Task IndexBuildCancellationSurvivesThrowingWithdrawalObserver()
+    {
+        var cache = new ProjectSemanticIndexLookupCache();
+        using var vm = await Ready(cache: cache);
+        var result = vm.Result;
+        var source = vm.Source;
+        var prior = Assert.IsType<CompilerSemanticIndex>(vm.SemanticIndex);
+        using var observer = new BuildCancellationObserver(vm);
+        observer.CancelWhileWaitingForCache(cache);
+
+        Assert.Same(result, vm.Result);
+        Assert.Same(source, vm.Source);
+        Assert.NotEmpty(prior.Symbols);
+        Assert.Null(vm.SemanticIndex);
+        Assert.Equal("Idle", vm.SemanticIndexReadState);
+        Assert.Equal(1, observer.WithdrawalNotifications);
+        Assert.Equal(1, observer.FollowingWithdrawalNotifications);
+        var cancellation = Assert.IsType<OperationCanceledException>(observer.Error);
+        Assert.Equal(observer.Token, cancellation.CancellationToken);
+        Assert.Same(observer.WithdrawalError, cancellation.InnerException);
+    }
+
+    private sealed class BuildCancellationObserver : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _view;
+        private readonly Thread _read;
+        private readonly ManualResetEventSlim _loading = new();
+        private readonly CancellationTokenSource _cancel = new();
+        public CancellationToken Token => _cancel.Token;
+        public Exception? Error { get; private set; }
+        public int WithdrawalNotifications { get; private set; }
+        public int FollowingWithdrawalNotifications { get; private set; }
+        public InvalidOperationException WithdrawalError { get; } = new("Semantic withdrawal observer failed.");
+
+        public BuildCancellationObserver(SyntheticWorkbenchViewModel view)
+        {
+            _view = view;
+            _view.PropertyChanged += Changed;
+            _view.PropertyChanged += FollowingChanged;
+            _read = new Thread(Read) { IsBackground = true };
+        }
+
+        public void CancelWhileWaitingForCache(ProjectSemanticIndexLookupCache cache)
+        {
+            // Hold the actual cache gate until the reader reaches Build, after its Loading notification.
+            var field = typeof(ProjectSemanticIndexLookupCache).GetField("_gate", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.NotNull(field);
+            var gate = Assert.IsType<object>(field.GetValue(cache));
+            try
+            {
+                lock (gate)
+                {
+                    _read.Start();
+                    Assert.True(_loading.Wait(TimeSpan.FromSeconds(10)));
+                    Assert.True(SpinWait.SpinUntil(() => (_read.ThreadState & ThreadState.WaitSleepJoin) != 0, TimeSpan.FromSeconds(10)));
+                    _cancel.Cancel();
+                }
+            }
+            finally { Assert.True(_read.Join(TimeSpan.FromSeconds(10))); }
+        }
+
+        private void Read() => Error = Record.Exception(() => { _view.LoadSyntheticSemanticIndex(Token); });
+
+        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (_view.SemanticIndexReadState == "Loading") _loading.Set();
+            if (_view.SemanticIndexReadState != "Idle" || !Token.IsCancellationRequested) return;
+            WithdrawalNotifications++;
+            throw WithdrawalError;
+        }
+
+        private void FollowingChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (_view.SemanticIndexReadState == "Idle" && Token.IsCancellationRequested)
+                FollowingWithdrawalNotifications++;
+        }
+
+        public void Dispose()
+        {
+            _view.PropertyChanged -= Changed;
+            _view.PropertyChanged -= FollowingChanged;
+            _loading.Dispose();
+            _cancel.Dispose();
+        }
+    }
+
+    private static async Task VerifyIndexWithdrawal(string boundary, bool replace, bool throwOnPublication)
+    {
+        using var lifetime = new ViewLifetime(await Ready());
+        var vm = lifetime.View;
+        var result = vm.Result;
+        var source = vm.Source;
+        var original = Assert.IsType<CompilerSemanticIndex>(vm.SemanticIndex);
+        CompilerSemanticIndex? replacement = null;
+        CompilerIndexCompletionPage? completion = null;
+
+        void PublishOrNavigate()
+        {
+            if (replace)
+            {
+                Assert.True(vm.LoadSyntheticSemanticIndex());
+                replacement = Assert.IsType<CompilerSemanticIndex>(vm.SemanticIndex);
+            }
+            if (!replace && boundary == "Loading") return;
+            Assert.True(vm.SelectIndexedSymbol(RootPort(vm)));
+            completion = Assert.IsType<CompilerIndexCompletionPage>(vm.ReadIndexedCompletion());
+            Assert.True(vm.NavigateIndexedSymbol(completion.Candidates[0]));
+        }
+
+        using var observer = new ThrowingObserver(vm, () => vm.SemanticIndexReadState == boundary,
+            () => vm.SemanticIndexReadState == "Idle", PublishOrNavigate, throwOnPublication);
+        var token = observer.Token;
+        var error = Record.Exception(() => { vm.LoadSyntheticSemanticIndex(token); });
+
+        Assert.True(observer.Token.IsCancellationRequested);
+        Assert.Same(result, vm.Result);
+        Assert.Same(source, vm.Source);
+        Assert.NotEmpty(original.Symbols);
+        if (replace)
+        {
+            Assert.NotNull(replacement);
+            Assert.NotSame(original, replacement);
+            Assert.Same(replacement, vm.SemanticIndex);
+            Assert.Equal("Ready", vm.SemanticIndexReadState);
+            Assert.Same(completion, vm.IndexedCompletion);
+            Assert.NotNull(vm.ScopedSourceTarget);
+        }
+        else
+        {
+            Assert.Equal("Idle", vm.SemanticIndexReadState);
+            Assert.Null(vm.SemanticIndex);
+            Assert.Null(vm.SelectedIndexedSymbol);
+            Assert.Null(vm.IndexedCompletion);
+            Assert.Null(vm.ScopedSourceTarget);
+        }
+        AssertObserverError(observer, error, throwOnPublication);
+        observer.AssertWithdrawalNotifications(expected: !replace);
+    }
+
+    [Theory]
+    [InlineData("withdraw")] [InlineData("ready")] [InlineData("refused")]
+    public Task ThrowingQueryObserverWithdrawsOnlyItsCancelledPage(string outcome) =>
+        VerifyQueryWithdrawal(outcome, throwOnPublication: true);
+
+    [Fact]
+    public Task ThrowingQueryWithdrawalObserverPreservesCancellation() =>
+        VerifyQueryWithdrawal("withdraw", throwOnPublication: false);
+
+    private static async Task VerifyQueryWithdrawal(string outcome, bool throwOnPublication)
+    {
+        using var lifetime = new ViewLifetime(await Ready());
+        var vm = lifetime.View;
+        using var other = await Ready();
+        var foreignCursor = Assert.IsType<CompilerIndexCursor>(other.ReadIndexedCompletion(1)!.NextCursor);
+        var index = vm.SemanticIndex;
+        var selected = vm.SelectedIndexedSymbol;
+        var result = vm.Result;
+        var earlier = Assert.IsType<CompilerIndexReferencePage>(vm.ReadIndexedReferences());
+        var replace = outcome != "withdraw";
+        var ready = outcome != "refused";
+        CompilerIndexReferencePage? replacement = null;
+
+        void PublishOrNavigate()
+        {
+            if (replace)
+                replacement = Assert.IsType<CompilerIndexReferencePage>(vm.ReadIndexedReferences(cursor: ready ? null : foreignCursor));
+            if (ready)
+            {
+                var page = Assert.IsType<CompilerIndexReferencePage>(vm.IndexedReferences);
+                Assert.True(vm.NavigateIndexedReference(page, page.References[0]));
+            }
+        }
+
+        using var observer = new ThrowingObserver(vm, () => vm.IndexedReferences is not null,
+            () => vm.IndexedReferences is null, PublishOrNavigate, throwOnPublication);
+        var token = observer.Token;
+        var error = Record.Exception(() => { vm.ReadIndexedReferences(cancellationToken: token); });
+
+        Assert.True(observer.Token.IsCancellationRequested);
+        Assert.Same(result, vm.Result);
+        Assert.Same(index, vm.SemanticIndex);
+        Assert.Same(selected, vm.SelectedIndexedSymbol);
+        Assert.NotEmpty(earlier.References);
+        if (replace)
+        {
+            Assert.NotNull(replacement);
+            Assert.Same(replacement, vm.IndexedReferences);
+            Assert.Equal(ready ? CompilerIndexQueryState.Ready : CompilerIndexQueryState.InvalidCursor, replacement.State);
+        }
+        else Assert.Null(vm.IndexedReferences);
+        if (replace && ready)
+        {
+            Assert.Same(replacement, vm.IndexedReferenceGraph!.Page);
+            Assert.NotNull(vm.ScopedSourceTarget);
+        }
+        else
+        {
+            Assert.Null(vm.IndexedReferenceGraph);
+            Assert.Null(vm.ScopedSourceTarget);
+        }
+        AssertObserverError(observer, error, throwOnPublication);
+        observer.AssertWithdrawalNotifications(expected: !replace);
+    }
+
+    private static void AssertObserverError(ThrowingObserver observer, Exception? error, bool throwOnPublication)
+    {
+        if (throwOnPublication)
+        {
+            Assert.Same(observer.PublicationError, error);
+            return;
+        }
+        var cancelled = Assert.IsType<OperationCanceledException>(error);
+        Assert.Equal(observer.Token, cancelled.CancellationToken);
+        Assert.Same(observer.WithdrawalError, cancelled.InnerException);
+    }
+
+    private sealed class ThrowingObserver : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _view;
+        private readonly Func<bool> _isPublished;
+        private readonly Func<bool> _isWithdrawn;
+        private readonly Action _published;
+        private readonly bool _throwOnPublication;
+        private readonly CancellationTokenSource _source = new();
+        private readonly List<bool> _firstWithdrawalStates = [];
+        private readonly List<bool> _followingWithdrawalStates = [];
+        private bool _fired;
+
+        public CancellationToken Token => _source.Token;
+        public InvalidOperationException PublicationError { get; } = new("Semantic publication observer failed.");
+        public InvalidOperationException WithdrawalError { get; } = new("Semantic withdrawal observer failed.");
+
+        public ThrowingObserver(SyntheticWorkbenchViewModel view, Func<bool> isPublished, Func<bool> isWithdrawn,
+            Action published, bool throwOnPublication)
+        {
+            _view = view;
+            _isPublished = isPublished;
+            _isWithdrawn = isWithdrawn;
+            _published = published;
+            _throwOnPublication = throwOnPublication;
+            _view.PropertyChanged += Changed;
+            _view.PropertyChanged += FollowingChanged;
+        }
+
+        public void AssertWithdrawalNotifications(bool expected)
+        {
+            bool[] states = expected ? [true] : [];
+            Assert.Equal(states, _firstWithdrawalStates);
+            Assert.Equal(states, _followingWithdrawalStates);
+        }
+
+        private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (_fired)
+            {
+                if (Token.IsCancellationRequested)
+                {
+                    var withdrawn = _isWithdrawn();
+                    _firstWithdrawalStates.Add(withdrawn);
+                    if (withdrawn) throw WithdrawalError;
+                }
+                return;
+            }
+            if (!_isPublished()) return;
+            _fired = true;
+            _published();
+            _source.Cancel();
+            if (_throwOnPublication) throw PublicationError;
+        }
+
+        private void FollowingChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (_firstWithdrawalStates.Count == 0) return;
+            var withdrawn = _isWithdrawn();
+            _followingWithdrawalStates.Add(withdrawn);
+            if (withdrawn) throw new InvalidOperationException("Later semantic withdrawal observer failed.");
+        }
+
+        public void Dispose()
+        {
+            _view.PropertyChanged -= Changed;
+            _view.PropertyChanged -= FollowingChanged;
+            _source.Dispose();
+        }
+    }
+
     private sealed class IndexReplacementProbe : IDisposable
     {
         private readonly SyntheticWorkbenchViewModel _view;
