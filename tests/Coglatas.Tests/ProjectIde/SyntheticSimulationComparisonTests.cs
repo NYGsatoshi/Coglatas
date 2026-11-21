@@ -60,6 +60,84 @@ public sealed class SyntheticSimulationComparisonTests
         Assert.Null(view.SimulationComparison); Assert.Same(after, view.SimulationRun);
     }
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task CancellationWithAThrowingComparisonObserverWithdrawsOnlyItsOwnSummary(bool replace) =>
+        VerifyComparisonWithdrawal(replace, throwOnPublication: true);
+
+    [Fact]
+    public Task ThrowingComparisonWithdrawalObserverPreservesCancellation() =>
+        VerifyComparisonWithdrawal(replace: false, throwOnPublication: false);
+
+    private static async Task VerifyComparisonWithdrawal(bool replace, bool throwOnPublication)
+    {
+        var fixture = await Ready();
+        using var view = fixture.View;
+        using var cancellation = new CancellationTokenSource();
+        var token = cancellation.Token;
+        Action cancel = cancellation.Cancel;
+        var before = fixture.Before;
+        var after = view.SimulationRun!;
+        var publicationError = new InvalidOperationException("Run comparison observer failed.");
+        var withdrawalError = new InvalidOperationException("Run comparison withdrawal observer failed.");
+        var published = false;
+        var firstWithdrawalStates = new List<bool>();
+        var laterWithdrawalStates = new List<bool>();
+        ProjectSimulationRunComparison? replacement = null;
+        System.ComponentModel.PropertyChangedEventHandler observe = (sender, _) =>
+        {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (token.IsCancellationRequested)
+            {
+                var withdrawn = subject.SimulationComparison is null;
+                firstWithdrawalStates.Add(withdrawn);
+                if (withdrawn) throw withdrawalError;
+                return;
+            }
+            if (published || subject.SimulationComparison is null) return;
+            published = true;
+            if (replace)
+            {
+                Assert.True(subject.CompareSyntheticSimulationRuns(before, before.Digest));
+                replacement = Assert.IsType<ProjectSimulationRunComparison>(subject.SimulationComparison);
+            }
+            cancel();
+            if (throwOnPublication) throw publicationError;
+        };
+        System.ComponentModel.PropertyChangedEventHandler later = (sender, _) =>
+        {
+            if (firstWithdrawalStates.Count <= laterWithdrawalStates.Count) return;
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            laterWithdrawalStates.Add(subject.SimulationComparison is null);
+        };
+        Exception? observed;
+        view.PropertyChanged += observe;
+        view.PropertyChanged += later;
+        try
+        {
+            observed = Record.Exception(() => { fixture.View.CompareSyntheticSimulationRuns(before, before.Digest, token); });
+        }
+        finally
+        {
+            view.PropertyChanged -= observe;
+            view.PropertyChanged -= later;
+        }
+        if (throwOnPublication) Assert.Same(publicationError, observed);
+        else
+        {
+            var cancelled = Assert.IsType<OperationCanceledException>(observed);
+            Assert.Equal(token, cancelled.CancellationToken);
+            Assert.Same(withdrawalError, cancelled.InnerException);
+        }
+        Assert.True(published);
+        Assert.Same(replacement, view.SimulationComparison);
+        Assert.True(token.IsCancellationRequested);
+        bool[] expected = replace ? [] : [true];
+        Assert.Equal(expected, firstWithdrawalStates);
+        Assert.Equal(expected, laterWithdrawalStates);
+        Assert.Same(after, view.SimulationRun);
+    }
+    [Theory]
     [InlineData("reset")] [InlineData("dispose")] [InlineData("begin")] [InlineData("reload")] [InlineData("run")] [InlineData("debug")]
     public async Task ReplacingTheOwnedContextWithdrawsBothComparisonSummaries(string mode)
     {
