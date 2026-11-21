@@ -103,82 +103,100 @@ public sealed class SyntheticProjectTestPanelTests
     [InlineData(true, true)]
     public async Task PublicationCancellationWithdrawsTheOwnedRunAndItsAssertion(bool throwOnPublication, bool throwOnWithdrawal)
     {
-        using var view = await Ready("tests-pass");
-        using var cancellation = new CancellationTokenSource();
-        var publicationFailure = new InvalidOperationException("publication failed");
-        var withdrawalFailure = new InvalidOperationException("withdrawal failed");
-        var published = false;
-        var withdrawalNotifications = 0;
-        System.ComponentModel.PropertyChangedEventHandler observer = (_, _) =>
+        var view = await Ready("tests-pass");
+        try
         {
-            if (!published && view.TestRun is { Execution: CompilerExecutionState.Completed } run)
+            using var cancellation = new CancellationTokenSource();
+            Action cancel = cancellation.Cancel;
+            var token = cancellation.Token;
+            var publicationFailure = new InvalidOperationException("publication failed");
+            var withdrawalFailure = new InvalidOperationException("withdrawal failed");
+            var published = false;
+            var withdrawalNotifications = 0;
+            System.ComponentModel.PropertyChangedEventHandler observer = (_, _) =>
             {
-                published = true;
-                Assert.Equal(CompilerVerdict.Pass, run.Verdict);
-                Assert.True(view.SelectTestAssertion(Assert.Single(Assert.Single(run.Tests).Assertions)));
-                Assert.True(view.Navigate());
-                cancellation.Cancel();
-                if (throwOnPublication) throw publicationFailure;
-            }
-            else if (published && view.TestRun is null && throwOnWithdrawal)
+                if (!published && view.TestRun is { Execution: CompilerExecutionState.Completed } run)
+                {
+                    published = true;
+                    Assert.Equal(CompilerVerdict.Pass, run.Verdict);
+                    Assert.True(view.SelectTestAssertion(Assert.Single(Assert.Single(run.Tests).Assertions)));
+                    Assert.True(view.Navigate());
+                    cancel();
+                    if (throwOnPublication) throw publicationFailure;
+                }
+                else if (published && view.TestRun is null && throwOnWithdrawal)
+                {
+                    throw withdrawalFailure;
+                }
+            };
+            System.ComponentModel.PropertyChangedEventHandler laterObserver = (_, _) =>
             {
-                throw withdrawalFailure;
+                if (published && view.TestRun is null) withdrawalNotifications++;
+            };
+            view.PropertyChanged += observer;
+            view.PropertyChanged += laterObserver;
+            Exception? failure;
+            try { failure = Record.Exception(() => { _ = view.RunSyntheticTests(token); }); }
+            finally
+            {
+                view.PropertyChanged -= observer;
+                view.PropertyChanged -= laterObserver;
             }
-        };
-        System.ComponentModel.PropertyChangedEventHandler laterObserver = (_, _) =>
-        {
-            if (published && view.TestRun is null) withdrawalNotifications++;
-        };
-        view.PropertyChanged += observer;
-        view.PropertyChanged += laterObserver;
-        Exception? failure;
-        try { failure = Record.Exception(() => { _ = view.RunSyntheticTests(cancellation.Token); }); }
+
+            Assert.True(published);
+            Assert.Null(view.TestRun);
+            Assert.Null(view.SelectedTestAssertion);
+            Assert.Null(view.SourceTarget);
+            Assert.Equal(1, withdrawalNotifications);
+            if (throwOnPublication)
+            {
+                Assert.Same(publicationFailure, failure);
+            }
+            else
+            {
+                var cancelled = Assert.IsType<OperationCanceledException>(failure);
+                Assert.Equal(token, cancelled.CancellationToken);
+                Assert.Same(throwOnWithdrawal ? withdrawalFailure : null, cancelled.InnerException);
+            }
+        }
         finally
         {
-            view.PropertyChanged -= observer;
-            view.PropertyChanged -= laterObserver;
-        }
-
-        Assert.True(published);
-        Assert.Null(view.TestRun);
-        Assert.Null(view.SelectedTestAssertion);
-        Assert.Null(view.SourceTarget);
-        Assert.Equal(1, withdrawalNotifications);
-        if (throwOnPublication)
-        {
-            Assert.Same(publicationFailure, failure);
-        }
-        else
-        {
-            var cancelled = Assert.IsType<OperationCanceledException>(failure);
-            Assert.Equal(cancellation.Token, cancelled.CancellationToken);
-            Assert.Same(throwOnWithdrawal ? withdrawalFailure : null, cancelled.InnerException);
+            view.Dispose();
         }
     }
 
     [Fact]
     public async Task PublicationCancellationKeepsAReentrantReplacementRun()
     {
-        using var view = await Ready("tests-pass");
-        using var cancellation = new CancellationTokenSource();
-        ProjectTestRun? replacement = null;
-        var replaced = false;
-        System.ComponentModel.PropertyChangedEventHandler observer = (_, _) =>
+        var view = await Ready("tests-pass");
+        try
         {
-            if (replaced || view.TestRun is null) return;
-            replaced = true;
-            cancellation.Cancel();
-            Assert.True(view.RunSyntheticTests());
-            replacement = view.TestRun;
-        };
-        view.PropertyChanged += observer;
-        OperationCanceledException cancelled;
-        try { cancelled = Assert.Throws<OperationCanceledException>(() => view.RunSyntheticTests(cancellation.Token)); }
-        finally { view.PropertyChanged -= observer; }
-        Assert.Equal(cancellation.Token, cancelled.CancellationToken);
-        Assert.NotNull(replacement);
-        Assert.Same(replacement, view.TestRun);
-        Assert.Equal(CompilerVerdict.Pass, replacement.Verdict);
+            using var cancellation = new CancellationTokenSource();
+            Action cancel = cancellation.Cancel;
+            var token = cancellation.Token;
+            ProjectTestRun? replacement = null;
+            var replaced = false;
+            System.ComponentModel.PropertyChangedEventHandler observer = (_, _) =>
+            {
+                if (replaced || view.TestRun is null) return;
+                replaced = true;
+                cancel();
+                Assert.True(view.RunSyntheticTests());
+                replacement = view.TestRun;
+            };
+            view.PropertyChanged += observer;
+            OperationCanceledException cancelled;
+            try { cancelled = Assert.Throws<OperationCanceledException>(() => view.RunSyntheticTests(token)); }
+            finally { view.PropertyChanged -= observer; }
+            Assert.Equal(token, cancelled.CancellationToken);
+            Assert.NotNull(replacement);
+            Assert.Same(replacement, view.TestRun);
+            Assert.Equal(CompilerVerdict.Pass, replacement.Verdict);
+        }
+        finally
+        {
+            view.Dispose();
+        }
     }
 
     [Fact]
