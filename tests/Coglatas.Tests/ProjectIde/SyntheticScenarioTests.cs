@@ -292,7 +292,7 @@ public sealed class SyntheticScenarioTests
         {
             Assert.Same(publicationError, error);
         }
-        Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+        Assert.Equal(withdrawalError is not null && !replace ? 1 : 0, cancellation.WithdrawalNotifications);
         Assert.Equal(replace ? 0 : 1, cancellation.DeliveredWithdrawals);
     }
     private sealed class CancelInitialScenarioPreview : IDisposable
