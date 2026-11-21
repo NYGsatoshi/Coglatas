@@ -325,13 +325,23 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
             Resolve(selected.Symbol.Location, requireSourceMap: true) != "ready") return null;
         var page = inspection.SuggestRequirementTasks(selected.Symbol.Location, _desired.Input.ExpectedInputDigest, pageSize, cursor, cancellationToken);
         if (_disposed || lifecycle != _lifecycle || selection != _selectionGeneration || generation != _taskSuggestionGeneration) return null;
-        TaskSuggestions = page; Changed();
-        if (cancellationToken.IsCancellationRequested)
+        TaskSuggestions = page;
+        Exception? withdrawalFailure = null;
+        bool cancelledAtPublication;
+        try { Changed(); }
+        finally
         {
-            if (generation == _taskSuggestionGeneration && ReferenceEquals(TaskSuggestions, page))
-            { _taskSuggestionGeneration++; TaskSuggestions = null; Changed(); }
-            cancellationToken.ThrowIfCancellationRequested();
+            cancelledAtPublication = cancellationToken.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _taskSuggestionGeneration && ReferenceEquals(TaskSuggestions, page))
+            {
+                _taskSuggestionGeneration++;
+                TaskSuggestions = null;
+                withdrawalFailure = NotifyCandidateWithdrawal();
+            }
         }
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Candidate query was cancelled.", withdrawalFailure, cancellationToken);
         return !_disposed && lifecycle == _lifecycle && selection == _selectionGeneration && generation == _taskSuggestionGeneration &&
             ReferenceEquals(TaskSuggestions, page) ? page : null;
     }
@@ -357,15 +367,41 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         var generation = _selectionGeneration;
         var page = inspection.CompleteEntityReference(selected.Symbol.Location, _desired.Input.ExpectedInputDigest,
             pageSize, cursor, cancellationToken);
-        ReferenceCompletion = page; Changed();
-        if (cancellationToken.IsCancellationRequested)
+        ReferenceCompletion = page;
+        Exception? withdrawalFailure = null;
+        bool cancelledAtPublication;
+        try { Changed(); }
+        finally
         {
-            if (generation == _selectionGeneration && ReferenceEquals(ReferenceCompletion, page))
-            { ReferenceCompletion = null; Changed(); }
-            cancellationToken.ThrowIfCancellationRequested();
+            cancelledAtPublication = cancellationToken.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _selectionGeneration && ReferenceEquals(ReferenceCompletion, page))
+            {
+                ReferenceCompletion = null;
+                withdrawalFailure = NotifyCandidateWithdrawal();
+            }
         }
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Candidate query was cancelled.", withdrawalFailure, cancellationToken);
         return !_disposed && generation == _selectionGeneration && ReferenceEquals(ReferenceCompletion, page) ? page : null;
     }
+
+    private Exception? NotifyCandidateWithdrawal()
+    {
+        var subscribers = PropertyChanged;
+        if (subscribers is null) return null;
+
+        Exception? failure = null;
+        var args = new PropertyChangedEventArgs(null);
+        foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+        {
+            try { subscriber(this, args); }
+            catch (Exception error) { failure ??= error; }
+        }
+
+        return failure;
+    }
+
 
     /// <summary>Open a suggested declaration without inserting a reference or changing Source.</summary>
     public bool NavigateCompletion(ReferenceCompletionPage page, ReferenceCompletionCandidate candidate)
