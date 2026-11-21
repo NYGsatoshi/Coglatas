@@ -45,8 +45,7 @@ public sealed partial class SyntheticWorkbenchViewModel
             if (cancelledAtPublication && generation == _premiseGeneration && ReferenceEquals(_diagnosticPremises, snapshot))
             {
                 ClearDiagnosticPremises();
-                try { Changed(); }
-                catch (Exception error) { withdrawalFailure = error; }
+                withdrawalFailure = NotifySourceWithdrawal();
             }
         }
         // If publication threw, its original failure is already propagating.

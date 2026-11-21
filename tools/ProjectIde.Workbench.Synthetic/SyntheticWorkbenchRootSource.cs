@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Coglatas.Application.ProjectIde.Core;
 using Coglatas.Domain.ProjectIde;
 
@@ -23,11 +24,7 @@ public sealed partial class SyntheticWorkbenchViewModel
         catch when (token.IsCancellationRequested && generation == _rootSourceGeneration)
         {
             ClearRootSource();
-            try { Changed(); }
-            catch (Exception)
-            {
-                // Preserve the original Loading notification failure.
-            }
+            _ = NotifySourceWithdrawal();
             throw;
         }
         bool Current() => !_disposed && generation == _rootSourceGeneration && State == "Ready" && compilation is not null && request is not null &&
@@ -44,11 +41,8 @@ public sealed partial class SyntheticWorkbenchViewModel
             if (Current())
             {
                 ClearRootSource();
-                try { Changed(); }
-                catch (Exception notificationFailure)
-                {
+                if (NotifySourceWithdrawal() is { } notificationFailure)
                     throw new OperationCanceledException(cancellation.Message, notificationFailure, cancellation.CancellationToken);
-                }
             }
             throw;
         }
@@ -64,8 +58,7 @@ public sealed partial class SyntheticWorkbenchViewModel
             if (cancelledAtPublication && generation == _rootSourceGeneration && ReferenceEquals(_rootSourceAdmission, admission))
             {
                 ClearRootSource();
-                try { Changed(); }
-                catch (Exception error) { withdrawalFailure = error; }
+                withdrawalFailure = NotifySourceWithdrawal();
             }
         }
         // If publication threw, its original failure is already propagating.
@@ -73,6 +66,22 @@ public sealed partial class SyntheticWorkbenchViewModel
             throw new OperationCanceledException("Root Source read was cancelled.", withdrawalFailure, token);
         return Current() && CurrentRootSource && ReferenceEquals(_rootSourceAdmission, admission);
     }
+
+    private Exception? NotifySourceWithdrawal()
+    {
+        var subscribers = PropertyChanged;
+        if (subscribers is null) return null;
+
+        var args = new PropertyChangedEventArgs(null);
+        Exception? firstFailure = null;
+        foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+        {
+            try { subscriber(this, args); }
+            catch (Exception error) { firstFailure ??= error; }
+        }
+        return firstFailure;
+    }
+
     private void ClearRootSource()
     {
         ClearReferenceSearchPage();
