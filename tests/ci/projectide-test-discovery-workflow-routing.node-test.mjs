@@ -8,6 +8,8 @@ const requiredPaths = [
   '.github/workflows/projectide-test-discovery-web-e2e.yml',
   'tests/ui/projectide-local-tests.spec.ts',
   'tests/ui/run-angular-playwright.mjs',
+  'playwright.config.ts',
+  'tests/ui/serve-static.mjs',
   'tests/ci/projectide-test-discovery-browser-receipt.mjs',
   'tests/ci/projectide-test-discovery-browser-receipt.node-test.mjs',
   'tests/ci/projectide-test-discovery-workflow-routing.node-test.mjs',
@@ -76,6 +78,20 @@ test('missing translation trigger fails the route check', () => {
   assert.notEqual(missing, workflow, 'Localization path must exist in the fixture');
   assert.throws(() => verifyRequiredRoutes(missing), /push route omits .*projectide\.messages\.ts/);
 });
+
+for (const path of ['playwright.config.ts', 'tests/ui/serve-static.mjs']) {
+  test(`omitting ${path} from either event fails the route check`, () => {
+    const selector = `      - ${path}\n`;
+    const push = workflow.indexOf(selector);
+    const pullRequest = workflow.lastIndexOf(selector);
+    assert.ok(push >= 0 && pullRequest > push, 'Both events must list the browser harness input');
+
+    for (const [event, offset] of [['push', push], ['pull_request', pullRequest]]) {
+      const missing = workflow.slice(0, offset) + workflow.slice(offset + selector.length);
+      assert.throws(() => verifyRequiredRoutes(missing), { message: `${event} route omits ${path}` });
+    }
+  });
+}
 
 test('asymmetric PR-only source routes fail the route check', () => {
   const missing = workflow.replace(
