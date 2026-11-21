@@ -179,31 +179,52 @@ public sealed class IncrementalDeclarationTests
         return ProjectSource.Create(context, source.Documents);
     }
 
-    [Fact]
-    public async Task ConcurrentColdReadersReuseThePublishedDecodeForEachDeclaration()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AColdDeclarationDecodeCompletesAgainstTheCurrentRetentionState(bool clearWhileDecoding)
     {
-        var source = ReferenceCompletionTests.CompletionInput(64).Source;
-        var cache = new PlanDeclarationReadCache();
+        var source = Source();
+        var timeout = TimeSpan.FromSeconds(20);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var decoderCalls = 0;
+        var cache = new PlanDeclarationReadCache((data, document) =>
+        {
+            if (Interlocked.Increment(ref decoderCalls) == 1)
+            {
+                started.SetResult();
+                release.Task.WaitAsync(timeout).GetAwaiter().GetResult();
+            }
+            return PlanDeclarationReader.Read(data, document);
+        });
         var generation = cache.BeginBinding(source.Context.Branch, CancellationToken.None);
-        const int readerCount = 8;
-        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var remaining = readerCount;
-        var readers = Enumerable.Range(0, readerCount).Select(_ => Task.Run(async () =>
+        var firstRead = Task.Run(() => cache.Read(source, generation, CancellationToken.None));
+        DeclarationDecodeResult? published = null;
+        try
         {
-            if (Interlocked.Decrement(ref remaining) == 0) start.SetResult();
-            await start.Task.WaitAsync(TimeSpan.FromSeconds(10));
-            return cache.Read(source, generation, CancellationToken.None);
-        })).ToArray();
-
-        var results = await Task.WhenAll(readers);
-        var retained = cache.Read(source, generation, CancellationToken.None);
-        Assert.Equal(retained.Count, cache.RetainedCount);
-        foreach (var result in results)
-        {
-            Assert.Equal(retained.Count, result.Count);
-            for (var index = 0; index < retained.Count; index++)
-                Assert.Same(retained[index], result[index]);
+            await started.Task.WaitAsync(timeout);
+            if (clearWhileDecoding)
+            {
+                await Task.Run(cache.Clear).WaitAsync(timeout);
+            }
+            else
+            {
+                var secondRead = await Task.Run(() => cache.Read(source, generation, CancellationToken.None)).WaitAsync(timeout);
+                published = Assert.Single(secondRead);
+                Assert.Equal(2, Volatile.Read(ref decoderCalls));
+            }
         }
+        finally
+        {
+            release.TrySetResult();
+        }
+
+        var original = Assert.Single(await firstRead.WaitAsync(timeout));
+        if (clearWhileDecoding)
+            Assert.Equal(0, cache.RetainedCount);
+        else
+            Assert.Same(published, original);
     }
 
     [Fact]

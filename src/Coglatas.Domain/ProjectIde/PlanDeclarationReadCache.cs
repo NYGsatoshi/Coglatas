@@ -10,6 +10,7 @@ namespace Coglatas.Domain.ProjectIde;
 public sealed class PlanDeclarationReadCache
 {
     private readonly object _gate = new();
+    private readonly Func<SourceJson, DocumentId, DeclarationDecodeResult> _decode = PlanDeclarationReader.Read;
     private readonly int _maximumEntries;
     private readonly int _maximumCanonicalBytes;
     private readonly Dictionary<Key, LinkedListNode<Entry>> _entries = new();
@@ -23,6 +24,12 @@ public sealed class PlanDeclarationReadCache
         if (maximumEntries is < 1 or > 10_000) throw new ArgumentOutOfRangeException(nameof(maximumEntries));
         if (maximumCanonicalBytes is < 1 or > 4_194_304) throw new ArgumentOutOfRangeException(nameof(maximumCanonicalBytes));
         _maximumEntries = maximumEntries; _maximumCanonicalBytes = maximumCanonicalBytes;
+    }
+
+    internal PlanDeclarationReadCache(Func<SourceJson, DocumentId, DeclarationDecodeResult> decode) : this()
+    {
+        ArgumentNullException.ThrowIfNull(decode);
+        _decode = decode;
     }
 
     public int RetainedCount { get { lock (_gate) return _entries.Count; } }
@@ -78,7 +85,7 @@ public sealed class PlanDeclarationReadCache
                     return existing;
             }
 
-            var result = PlanDeclarationReader.Read(data, document);
+            var result = _decode(data, document);
             cancellationToken.ThrowIfCancellationRequested();
             if (!retain) return result;
 
