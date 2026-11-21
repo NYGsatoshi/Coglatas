@@ -54,7 +54,7 @@ test('independent reader Unicode and ordered-array digest vectors remain distinc
   }
 });
 
-test('both checked-in vector fixtures select two-host artifact parity', () => {
+function assertArtifactParitySelects(paths) {
   const workflow = readFileSync(new URL('../../.github/workflows/projectide-artifact-candidates.yml', import.meta.url), 'utf8');
   const lines = workflow.split(/\r?\n/);
   const pullRequest = lines.indexOf('  pull_request:');
@@ -63,7 +63,19 @@ test('both checked-in vector fixtures select two-host artifact parity', () => {
   const start = pullRequest + 2;
   const end = lines.findIndex((line, index) => index >= start && line.trim() && !line.startsWith('      '));
   const selectors = lines.slice(start, end === -1 ? undefined : end);
-  for (const path of [hashFixture, compatibilityFixture]) {
+  for (const path of paths) {
     assert.ok(selectors.includes(`      - ${path}`), `Artifact parity does not select ${path}`);
   }
+}
+
+test('both checked-in vector fixtures select two-host artifact parity', () => {
+  assertArtifactParitySelects([hashFixture, compatibilityFixture]);
+});
+
+test('Preview exporter linked Workbench sources select two-host artifact parity', () => {
+  const project = readFileSync(new URL('../../tools/ProjectIde.Preview/ProjectIde.Preview.csproj', import.meta.url), 'utf8');
+  const sources = Array.from(project.matchAll(/<Compile\s+Include="\.\.\/(ProjectIde\.Workbench\.Synthetic\/[^"]+)"/g),
+    ([, source]) => 'tools/' + source);
+  assert.ok(sources.length > 0, 'Expected linked Workbench sources in the Preview project');
+  assertArtifactParitySelects(sources);
 });
