@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Coglatas.Domain.ProjectIde;
 
 namespace Coglatas.ProjectIde.Workbench.Synthetic;
@@ -66,8 +67,16 @@ public sealed partial class SyntheticWorkbenchViewModel
             if (cancelledAtPublication && query == _referencePageGeneration && ReferenceEquals(_referencePageOwner, owner))
             {
                 ClearReferenceSearchPage();
-                try { Changed(); }
-                catch (Exception error) { withdrawalFailure = error; }
+                var subscribers = PropertyChanged;
+                if (subscribers is not null)
+                {
+                    var args = new PropertyChangedEventArgs(null);
+                    foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+                    {
+                        try { subscriber(this, args); }
+                        catch (Exception error) { withdrawalFailure ??= error; }
+                    }
+                }
             }
         }
         // If publication threw, its original failure is already propagating.
