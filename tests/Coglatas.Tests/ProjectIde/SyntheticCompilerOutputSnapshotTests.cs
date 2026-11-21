@@ -236,7 +236,8 @@ public sealed class SyntheticCompilerOutputSnapshotTests
             Assert.Null(view.CompilerOutputSnapshot);
         }
         Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
-        Assert.Equal(replace ? [] : [true], cancellation.DeliveredWithdrawalNotifications);
+        bool[] expectedNotifications = publicationError is null ? [false, true] : [true];
+        Assert.Equal(replace ? [] : expectedNotifications, cancellation.DeliveredWithdrawalNotifications);
         if (publicationError is null)
         {
             var cancelled = Assert.IsType<OperationCanceledException>(error);
