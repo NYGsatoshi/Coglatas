@@ -74,52 +74,67 @@ public sealed class SyntheticSimulationComparisonTests
         var fixture = await Ready();
         using var view = fixture.View;
         using var cancellation = new CancellationTokenSource();
+        var token = cancellation.Token;
+        Action cancel = cancellation.Cancel;
         var before = fixture.Before;
         var after = view.SimulationRun!;
         var publicationError = new InvalidOperationException("Run comparison observer failed.");
         var withdrawalError = new InvalidOperationException("Run comparison withdrawal observer failed.");
         var published = false;
-        var withdrawalNotifications = 0;
+        var firstWithdrawalStates = new List<bool>();
+        var laterWithdrawalStates = new List<bool>();
         ProjectSimulationRunComparison? replacement = null;
-        System.ComponentModel.PropertyChangedEventHandler observe = (_, _) =>
+        System.ComponentModel.PropertyChangedEventHandler observe = (sender, _) =>
         {
-            if (cancellation.IsCancellationRequested)
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (token.IsCancellationRequested)
             {
-                withdrawalNotifications++;
-                if (view.SimulationComparison is null) throw withdrawalError;
+                var withdrawn = subject.SimulationComparison is null;
+                firstWithdrawalStates.Add(withdrawn);
+                if (withdrawn) throw withdrawalError;
                 return;
             }
-            if (published || view.SimulationComparison is null) return;
+            if (published || subject.SimulationComparison is null) return;
             published = true;
             if (replace)
             {
-                Assert.True(view.CompareSyntheticSimulationRuns(before, before.Digest));
-                replacement = Assert.IsType<ProjectSimulationRunComparison>(view.SimulationComparison);
+                Assert.True(subject.CompareSyntheticSimulationRuns(before, before.Digest));
+                replacement = Assert.IsType<ProjectSimulationRunComparison>(subject.SimulationComparison);
             }
-            cancellation.Cancel();
+            cancel();
             if (throwOnPublication) throw publicationError;
+        };
+        System.ComponentModel.PropertyChangedEventHandler later = (sender, _) =>
+        {
+            if (firstWithdrawalStates.Count <= laterWithdrawalStates.Count) return;
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            laterWithdrawalStates.Add(subject.SimulationComparison is null);
         };
         Exception? observed;
         view.PropertyChanged += observe;
+        view.PropertyChanged += later;
         try
         {
-            observed = Record.Exception(() => { view.CompareSyntheticSimulationRuns(before, before.Digest, cancellation.Token); });
+            observed = Record.Exception(() => { fixture.View.CompareSyntheticSimulationRuns(before, before.Digest, token); });
         }
         finally
         {
             view.PropertyChanged -= observe;
+            view.PropertyChanged -= later;
         }
         if (throwOnPublication) Assert.Same(publicationError, observed);
         else
         {
             var cancelled = Assert.IsType<OperationCanceledException>(observed);
-            Assert.Equal(cancellation.Token, cancelled.CancellationToken);
+            Assert.Equal(token, cancelled.CancellationToken);
             Assert.Same(withdrawalError, cancelled.InnerException);
         }
         Assert.True(published);
         Assert.Same(replacement, view.SimulationComparison);
-        Assert.True(cancellation.IsCancellationRequested);
-        Assert.Equal(replace ? 0 : 1, withdrawalNotifications);
+        Assert.True(token.IsCancellationRequested);
+        bool[] expected = replace ? [] : [true];
+        Assert.Equal(expected, firstWithdrawalStates);
+        Assert.Equal(expected, laterWithdrawalStates);
         Assert.Same(after, view.SimulationRun);
     }
     [Theory]
