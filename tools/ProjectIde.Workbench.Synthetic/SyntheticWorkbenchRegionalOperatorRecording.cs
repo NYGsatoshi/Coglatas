@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Coglatas.Application.ProjectIde.Core;
 using Coglatas.Domain.ProjectIde;
 
@@ -5,6 +6,24 @@ namespace Coglatas.ProjectIde.Workbench.Synthetic;
 
 public sealed partial class SyntheticWorkbenchViewModel
 {
+    private Exception? NotifyRegionalRecordingWithdrawal()
+    {
+        var subscribers = PropertyChanged;
+        if (subscribers is null)
+        {
+            return null;
+        }
+
+        Exception? firstFailure = null;
+        var args = new PropertyChangedEventArgs(null);
+        foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+        {
+            try { subscriber(this, args); }
+            catch (Exception error) { firstFailure ??= error; }
+        }
+        return firstFailure;
+    }
+
     private RegionalPredicateObservationCompilerHostRequest? _desiredRegionalOperatorRequest;
     private LocalRegionalPredicateObservationCompilerRecordingManifest? _desiredRegionalOperatorManifest;
     private RegionalPredicateObservationCompilerRecordedInvocation? _acceptedRegionalOperatorInvocation;
@@ -93,8 +112,7 @@ public sealed partial class SyntheticWorkbenchViewModel
                 _regionalOperatorReadGeneration++;
                 _regionalOperatorReceiptMetadata = null;
                 _regionalOperatorRecordMetadata = null;
-                try { Changed(); }
-                catch (Exception error) { withdrawalFailure = error; }
+                withdrawalFailure = NotifyRegionalRecordingWithdrawal();
             }
         }
         // If publication threw, its original failure is already propagating.
@@ -156,8 +174,7 @@ public sealed partial class SyntheticWorkbenchViewModel
             if (cancelledAtPublication && generation == _regionalOperatorSnapshotGeneration && ReferenceEquals(_recordedRegionalOperators, snapshot))
             {
                 ClearRegionalOperatorSnapshot();
-                try { Changed(); }
-                catch (Exception error) { withdrawalFailure = error; }
+                withdrawalFailure = NotifyRegionalRecordingWithdrawal();
             }
         }
         // If publication threw, its original failure is already propagating.
