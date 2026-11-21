@@ -180,6 +180,31 @@ public sealed class IncrementalDeclarationTests
     }
 
     [Fact]
+    public async Task ConcurrentColdReadersReuseThePublishedDecodeForEachDeclaration()
+    {
+        var source = ReferenceCompletionTests.CompletionInput(64).Source;
+        var cache = new PlanDeclarationReadCache();
+        var generation = cache.BeginBinding(source.Context.Branch, CancellationToken.None);
+        const int readerCount = 8;
+        using var start = new Barrier(readerCount);
+        var readers = Enumerable.Range(0, readerCount).Select(_ => Task.Factory.StartNew(() =>
+        {
+            Assert.True(start.SignalAndWait(TimeSpan.FromSeconds(10)));
+            return cache.Read(source, generation, CancellationToken.None);
+        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default)).ToArray();
+
+        var results = await Task.WhenAll(readers);
+        var retained = cache.Read(source, generation, CancellationToken.None);
+        Assert.Equal(retained.Count, cache.RetainedCount);
+        foreach (var result in results)
+        {
+            Assert.Equal(retained.Count, result.Count);
+            for (var index = 0; index < retained.Count; index++)
+                Assert.Same(retained[index], result[index]);
+        }
+    }
+
+    [Fact]
     public void DocumentIdentityAndCodecLimitsArePartOfDecodeReuseIdentity()
     {
         var source = Source(); var cache = new PlanDeclarationReadCache(); var initial = cache.Read(source)[0];

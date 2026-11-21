@@ -53,17 +53,8 @@ public sealed class PlanDeclarationReadCache
 
     internal IReadOnlyList<DeclarationDecodeResult> Read(ProjectSource source, object generation, CancellationToken cancellationToken)
     {
-        lock (_gate)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (ReferenceEquals(generation, _generation) && _scope == source.Context.Branch)
-                return ReadCore(source, cancellationToken, retain: true);
-        }
-        return ReadCore(source, cancellationToken, retain: false);
-    }
-
-    private IReadOnlyList<DeclarationDecodeResult> ReadCore(ProjectSource source, CancellationToken cancellationToken, bool retain)
-    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var owner = source.Context.Branch;
         var results = new List<DeclarationDecodeResult>();
         foreach (var document in source.Documents)
             results.Add(ReadOne(document.Root.Data, document.DocumentId));
@@ -72,32 +63,53 @@ public sealed class PlanDeclarationReadCache
         cancellationToken.ThrowIfCancellationRequested();
         return new ImmutableListView<DeclarationDecodeResult>(results);
 
-        DeclarationDecodeResult ReadOne(SourceJson data, DocumentId document)
+        DeclarationDecodeResult ReadOne(SourceJson data, DocumentId document) =>
+            PlanDeclarationReader.CheckTenant(ReadCached(data, document), source.TenantId);
+
+        DeclarationDecodeResult ReadCached(SourceJson data, DocumentId document)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             var key = new Key(document, data.Limits, data);
-            if (retain && _entries.TryGetValue(key, out var existing))
+            bool retain;
+            lock (_gate)
             {
-                _recent.Remove(existing); _recent.AddLast(existing);
-                return PlanDeclarationReader.CheckTenant(existing.Value.Result, source.TenantId);
+                cancellationToken.ThrowIfCancellationRequested();
+                retain = IsCurrent(owner, generation);
+                if (retain && ReadRetained(key) is { } existing)
+                    return existing;
             }
+
             var result = PlanDeclarationReader.Read(data, document);
             cancellationToken.ThrowIfCancellationRequested();
-            if (retain)
+            if (!retain) return result;
+
+            var bytes = Encoding.UTF8.GetByteCount(data.CanonicalText);
+            if (bytes > _maximumCanonicalBytes) return result;
+
+            lock (_gate)
             {
-                var bytes = Encoding.UTF8.GetByteCount(data.CanonicalText);
-                if (bytes <= _maximumCanonicalBytes)
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!IsCurrent(owner, generation)) return result;
+                if (ReadRetained(key) is { } existing) return existing;
+
+                while (_entries.Count >= _maximumEntries || _canonicalBytes > _maximumCanonicalBytes - bytes)
                 {
-                    while (_entries.Count >= _maximumEntries || _canonicalBytes > _maximumCanonicalBytes - bytes)
-                    {
-                        var oldest = _recent.First!; _recent.RemoveFirst();
-                        _entries.Remove(oldest.Value.Key); _canonicalBytes -= oldest.Value.Bytes;
-                    }
-                    _entries.Add(key, _recent.AddLast(new Entry(key, result, bytes))); _canonicalBytes += bytes;
+                    var oldest = _recent.First!; _recent.RemoveFirst();
+                    _entries.Remove(oldest.Value.Key); _canonicalBytes -= oldest.Value.Bytes;
                 }
+                _entries.Add(key, _recent.AddLast(new Entry(key, result, bytes))); _canonicalBytes += bytes;
             }
-            return PlanDeclarationReader.CheckTenant(result, source.TenantId);
+            return result;
         }
+    }
+
+    private bool IsCurrent(BranchRef owner, object generation) =>
+        _scope == owner && ReferenceEquals(_generation, generation);
+
+    private DeclarationDecodeResult? ReadRetained(Key key)
+    {
+        if (!_entries.TryGetValue(key, out var retained)) return null;
+        _recent.Remove(retained); _recent.AddLast(retained);
+        return retained.Value.Result;
     }
 
     private void ClearEntries() { _entries.Clear(); _recent.Clear(); _canonicalBytes = 0; _generation = new(); }
