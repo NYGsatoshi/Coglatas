@@ -342,8 +342,8 @@ public sealed class SyntheticRegionalOperatorRecordingTests
     private sealed class ThrowingPublicationObserver : IDisposable
     {
         private readonly SyntheticWorkbenchViewModel _view;
-        private readonly Func<bool> _hasPublication;
-        private readonly Action? _replace;
+        private readonly Func<SyntheticWorkbenchViewModel, bool> _hasPublication;
+        private readonly Action<SyntheticWorkbenchViewModel>? _replace;
         private readonly bool _throwOnPublication;
         private readonly CancellationTokenSource _source = new();
         private bool _fired;
@@ -354,7 +354,8 @@ public sealed class SyntheticRegionalOperatorRecordingTests
         public int WithdrawalNotifications { get; private set; }
         public int DeliveredWithdrawals { get; private set; }
 
-        public ThrowingPublicationObserver(SyntheticWorkbenchViewModel view, Func<bool> hasPublication, Action? replace,
+        public ThrowingPublicationObserver(SyntheticWorkbenchViewModel view, Func<SyntheticWorkbenchViewModel, bool> hasPublication,
+            Action<SyntheticWorkbenchViewModel>? replace,
             bool throwOnPublication)
         {
             _view = view;
@@ -372,20 +373,20 @@ public sealed class SyntheticRegionalOperatorRecordingTests
                 if (Token.IsCancellationRequested)
                 {
                     WithdrawalNotifications++;
-                    if (!_hasPublication()) throw WithdrawalError;
+                    if (!_hasPublication(_view)) throw WithdrawalError;
                 }
                 return;
             }
-            if (!_hasPublication()) return;
+            if (!_hasPublication(_view)) return;
             _fired = true;
-            _replace?.Invoke();
+            _replace?.Invoke(_view);
             _source.Cancel();
             if (_throwOnPublication) throw PublicationError;
         }
 
         private void RecordWithdrawal(object? sender, PropertyChangedEventArgs args)
         {
-            if (Token.IsCancellationRequested && !_hasPublication())
+            if (Token.IsCancellationRequested && !_hasPublication(_view))
             {
                 DeliveredWithdrawals++;
             }
@@ -422,10 +423,18 @@ public sealed class SyntheticRegionalOperatorRecordingTests
         var receipt = Assert.IsType<SourceJson>(vm.RegionalOperatorReceiptMetadata);
         var recording = Assert.IsType<SourceJson>(vm.RegionalOperatorRecordMetadata);
 
-        void PublishReplacement() => Assert.True(vm.ReadRegionalOperatorRecordingMetadata());
-        using var observer = new ThrowingPublicationObserver(vm, () => vm.RegionalOperatorReceiptMetadata is not null,
+        static void PublishReplacement(SyntheticWorkbenchViewModel view) => Assert.True(view.ReadRegionalOperatorRecordingMetadata());
+        using var observer = new ThrowingPublicationObserver(vm, static view => view.RegionalOperatorReceiptMetadata is not null,
             replace ? PublishReplacement : null, throwOnPublication);
-        var error = Record.Exception(() => { vm.ReadRegionalOperatorRecordingMetadata(observer.Token); });
+        Exception? error = null;
+        try
+        {
+            vm.ReadRegionalOperatorRecordingMetadata(observer.Token);
+        }
+        catch (Exception observed)
+        {
+            error = observed;
+        }
 
         Assert.True(observer.Token.IsCancellationRequested);
         Assert.Same(result, vm.Result);
@@ -470,14 +479,22 @@ public sealed class SyntheticRegionalOperatorRecordingTests
         var retained = Assert.IsType<ProjectCompilerRegionalPredicateObservationSnapshot>(vm.RecordedRegionalOperators);
         ProjectCompilerRegionalPredicateObservationSnapshot? replacement = null;
 
-        void PublishReplacement()
+        void PublishReplacement(SyntheticWorkbenchViewModel view)
         {
-            Assert.True(Read(vm, actual));
-            replacement = vm.RecordedRegionalOperators;
+            Assert.True(Read(view, actual));
+            replacement = view.RecordedRegionalOperators;
         }
-        using var observer = new ThrowingPublicationObserver(vm, () => vm.RecordedRegionalOperators is not null,
+        using var observer = new ThrowingPublicationObserver(vm, static view => view.RecordedRegionalOperators is not null,
             replace ? PublishReplacement : null, throwOnPublication);
-        var error = Record.Exception(() => { Read(vm, actual, token: observer.Token); });
+        Exception? error = null;
+        try
+        {
+            Read(vm, actual, token: observer.Token);
+        }
+        catch (Exception observed)
+        {
+            error = observed;
+        }
 
         Assert.True(observer.Token.IsCancellationRequested);
         Assert.Same(result, vm.Result);
