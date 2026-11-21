@@ -10,6 +10,11 @@ export const REQUIRED_SPEC = 'tests/ui/projectide-local-tests.spec.ts';
 // The Playwright JSON reporter emits locations relative to its configured test directory.
 const requiredReportFile = path.posix.basename(REQUIRED_SPEC);
 const servedOrigin = 'http://127.0.0.1:4173';
+const discoveryFixtures = [
+  'assets/projectide/preview-v1.json',
+  'assets/projectide/simulation-v1.json',
+  'assets/projectide/test-discovery-v1.json'
+];
 export const EXPECTED_PROJECTS = Object.freeze(['chromium-desktop', 'chromium-mobile']);
 export const EXPECTED_TITLES = Object.freeze([
   'shows local Test outcomes separately from Compiler results in en',
@@ -78,7 +83,13 @@ export async function verifyServedBuild(root, fetchFile = fetch) {
     throw new Error('The Angular build index did not declare its main bundle');
   }
   const files = new Map([['/app/projectide/preview', index]]);
-  for (const script of entryScripts) files.set('/app/' + script, await readFile(path.join(root, script)));
+  // Angular loads lazy JavaScript chunks and fixture JSON outside the HTML entry roster.
+  const scripts = new Set([...entryScripts, ...(await readdir(root, { withFileTypes: true }))
+    .filter(entry => entry.isFile() && /^[A-Za-z0-9_.-]+\.js$/.test(entry.name))
+    .map(entry => entry.name)]);
+  for (const file of [...scripts, ...discoveryFixtures]) {
+    files.set('/app/' + file, await readFile(path.join(root, file)));
+  }
 
   for (const [urlPath, expected] of files) {
     const response = await fetchFile(new URL(urlPath, servedOrigin), {

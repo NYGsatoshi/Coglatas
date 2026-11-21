@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rmdir, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rmdir, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
@@ -97,24 +97,31 @@ test('rejects skips, failures, flaky outcomes and retries', () => {
   assert.throws(() => validateBrowserReport(onlyRetry), /retried/);
 });
 
-test('requires the served document and main script to match the fresh build', async () => {
+test('requires the served document, JavaScript and Discovery fixtures to match the fresh build', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'projectide-browser-build-'));
-  const index = '<base href="/app/"><script src="main-X7.js"></script>';
-  const script = 'const candidate = "this build";';
-  const indexPath = path.join(root, 'index.html');
-  const scriptPath = path.join(root, 'main-X7.js');
-  await writeFile(indexPath, index);
-  await writeFile(scriptPath, script);
+  const output = new Map([
+    ['index.html', '<base href="/app/"><script src="main-X7.js"></script>'],
+    ['main-X7.js', 'const candidate = "this build";'],
+    ['chunk-R4.js', 'const lazy = "this build";'],
+    ['assets/projectide/preview-v1.json', '{"fixture":"preview"}'],
+    ['assets/projectide/simulation-v1.json', '{"fixture":"simulation"}'],
+    ['assets/projectide/test-discovery-v1.json', '{"fixture":"discovery"}']
+  ]);
+  const expected = new Map([...output].map(([file, content]) => [
+    file === 'index.html' ? '/app/projectide/preview' : '/app/' + file, content
+  ]));
+  await mkdir(path.join(root, 'assets/projectide'), { recursive: true });
+  for (const [file, content] of output) await writeFile(path.join(root, file), content);
   try {
-    const expected = new Map([['/app/projectide/preview', index], ['/app/main-X7.js', script]]);
-    assert.equal(await verifyServedBuild(root, url => new Response(expected.get(url.pathname))), 2);
+    assert.equal(await verifyServedBuild(root, url => new Response(expected.get(url.pathname))), expected.size);
     for (const pathname of expected.keys()) {
       const stale = url => new Response(url.pathname === pathname ? 'different build' : expected.get(url.pathname));
-      await assert.rejects(verifyServedBuild(root, stale), /Served Angular output differs/);
+      await assert.rejects(verifyServedBuild(root, stale), { message: 'Served Angular output differs from the candidate build: ' + pathname });
     }
   } finally {
-    await unlink(indexPath);
-    await unlink(scriptPath);
+    for (const file of output.keys()) await unlink(path.join(root, file));
+    await rmdir(path.join(root, 'assets/projectide'));
+    await rmdir(path.join(root, 'assets'));
     await rmdir(root);
   }
 });

@@ -87,6 +87,7 @@ jobs:
           PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/projectide-discovery-report.json
         run: |
           set -euo pipefail
+          PLAYWRIGHT_JSON_OUTPUT_NAME="$(mktemp "$PLAYWRIGHT_JSON_OUTPUT_NAME.XXXXXX")"
           PLAYWRIGHT_STATIC_ROOT=frontend/dist/coglatas-web node tests/ui/serve-static.mjs --host 127.0.0.1 --port 4173 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
