@@ -25,11 +25,25 @@ const list = (v: unknown, max = 100_000): unknown[] => Array.isArray(v) && v.len
 const fields = (v: unknown, keys: readonly string[]) => Object.getOwnPropertyNames(obj(v)).length === keys.length && keys.every(k => Object.hasOwn(obj(v), k));
 const dig = (v: unknown): v is Digest => object(v) && fields(v, ['algorithm', 'value']) && v['algorithm'] === 'sha-256' && typeof v['value'] === 'string' && /^[a-f0-9]{64}$/u.test(v['value']);
 const id = (v: unknown): v is string => typeof v === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u.test(v);
+const frameShape = (value: unknown): value is Frame => object(value) && fields(value, ['text', 'digest']) &&
+  typeof value['text'] === 'string' && dig(value['digest']);
+const enumerableMembers = (value: unknown): boolean => !object(value) || Object.getOwnPropertyNames(value).every(key =>
+  Object.prototype.propertyIsEnumerable.call(value, key) && enumerableMembers(value[key]));
 const basis = (value: PreviewCase) => {
   if (value.scopedSources != null) {
     const original = value.scopedSources; const published = original.format === 'coglatas.local-scoped-source-projection/2';
     if (!fields(original, ['format', 'inputText', 'result', 'analysis', 'binding', 'graph', 'ir', 'sourceMap', 'regions', ...(published ? ['publication'] : [])]) ||
-        published && !fields(original.publication, ['semanticModel', 'ir', 'sourceMap', ...(original.publication?.plan ? ['plan'] : [])])) return fail();
+        ![original.result, original.analysis, original.binding, original.graph, original.ir, original.sourceMap].every(frameShape) ||
+        !Array.isArray(original.regions) || original.regions.length > 33 || !original.regions.every(region =>
+          fields(region, ['context', 'ir', 'sourceMap', ...(published ? ['semanticModel'] : [])]) &&
+          isRevisionContextShape(region.context) && enumerableMembers(region.context) &&
+          frameShape(region.ir) && frameShape(region.sourceMap) && (!published || frameShape(region.semanticModel)))) return fail();
+    if (published) {
+      const publication = original.publication;
+      if (!publication || !fields(publication, ['semanticModel', 'ir', 'sourceMap', ...(publication.plan ? ['plan'] : [])]) ||
+          ![publication.semanticModel, publication.ir, publication.sourceMap].every(frameShape) ||
+          publication.plan && !frameShape(publication.plan)) return fail();
+    }
   }
   const { localProjectTestDiscovery: _discovery, ...sourceBasis } = value;
   return JSON.stringify(sourceBasis);
@@ -43,10 +57,9 @@ export function scopedSourcesMatch(value: PreviewCase, admitted: AdmittedScopedS
   } catch { return false; }
 }
 async function frame(value: unknown, domain: string): Promise<Record<string, unknown>> {
-  const v = obj(value);
-  if (!fields(v, ['text', 'digest']) || typeof v['text'] !== 'string' || new TextEncoder().encode(v['text']).length > 4_194_304 || !dig(v['digest']) ||
-      !await verify(domain, v['text'], v['digest'])) return fail();
-  return obj(parse(v['text']));
+  if (!frameShape(value) || new TextEncoder().encode(value.text).length > 4_194_304 ||
+      !await verify(domain, value.text, value.digest)) return fail();
+  return obj(parse(value.text));
 }
 async function nodeIdentity(context: RevisionContext, entity: string): Promise<{ id: string; digest: Digest }> {
   const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify([
