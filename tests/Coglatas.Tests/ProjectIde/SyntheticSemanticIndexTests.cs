@@ -184,7 +184,7 @@ public sealed class SyntheticSemanticIndexTests
         Assert.Same(source, vm.Source);
         Assert.Equal(replace ? "Ready" : "Idle", vm.SemanticIndexReadState);
         Assert.Same(replacement, vm.SemanticIndex);
-        Assert.Equal(replace ? 0 : 1, observer.WithdrawalNotifications);
+        observer.AssertWithdrawalNotifications(expected: !replace);
         if (!replace) AssertObserverError(observer, error, throwOnPublication);
         else
         {
@@ -212,6 +212,7 @@ public sealed class SyntheticSemanticIndexTests
         Assert.Null(vm.SemanticIndex);
         Assert.Equal("Idle", vm.SemanticIndexReadState);
         Assert.Equal(1, observer.WithdrawalNotifications);
+        Assert.Equal(1, observer.FollowingWithdrawalNotifications);
         var cancellation = Assert.IsType<OperationCanceledException>(observer.Error);
         Assert.Equal(observer.Token, cancellation.CancellationToken);
         Assert.Same(observer.WithdrawalError, cancellation.InnerException);
@@ -226,12 +227,14 @@ public sealed class SyntheticSemanticIndexTests
         public CancellationToken Token => _cancel.Token;
         public Exception? Error { get; private set; }
         public int WithdrawalNotifications { get; private set; }
+        public int FollowingWithdrawalNotifications { get; private set; }
         public InvalidOperationException WithdrawalError { get; } = new("Semantic withdrawal observer failed.");
 
         public BuildCancellationObserver(SyntheticWorkbenchViewModel view)
         {
             _view = view;
             _view.PropertyChanged += Changed;
+            _view.PropertyChanged += FollowingChanged;
             _read = new Thread(Read) { IsBackground = true };
         }
 
@@ -264,9 +267,16 @@ public sealed class SyntheticSemanticIndexTests
             throw WithdrawalError;
         }
 
+        private void FollowingChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (_view.SemanticIndexReadState == "Idle" && Token.IsCancellationRequested)
+                FollowingWithdrawalNotifications++;
+        }
+
         public void Dispose()
         {
             _view.PropertyChanged -= Changed;
+            _view.PropertyChanged -= FollowingChanged;
             _loading.Dispose();
             _cancel.Dispose();
         }
@@ -320,7 +330,7 @@ public sealed class SyntheticSemanticIndexTests
             Assert.Null(vm.ScopedSourceTarget);
         }
         AssertObserverError(observer, error, throwOnPublication);
-        Assert.Equal(replace ? 0 : 1, observer.WithdrawalNotifications);
+        observer.AssertWithdrawalNotifications(expected: !replace);
     }
 
     [Theory]
@@ -383,7 +393,7 @@ public sealed class SyntheticSemanticIndexTests
             Assert.Null(vm.ScopedSourceTarget);
         }
         AssertObserverError(observer, error, throwOnPublication);
-        Assert.Equal(replace ? 0 : 1, observer.WithdrawalNotifications);
+        observer.AssertWithdrawalNotifications(expected: !replace);
     }
 
     private static void AssertObserverError(ThrowingObserver observer, Exception? error, bool throwOnPublication)
@@ -406,12 +416,13 @@ public sealed class SyntheticSemanticIndexTests
         private readonly Action _published;
         private readonly bool _throwOnPublication;
         private readonly CancellationTokenSource _source = new();
+        private readonly List<bool> _firstWithdrawalStates = [];
+        private readonly List<bool> _followingWithdrawalStates = [];
         private bool _fired;
 
         public CancellationToken Token => _source.Token;
         public InvalidOperationException PublicationError { get; } = new("Semantic publication observer failed.");
         public InvalidOperationException WithdrawalError { get; } = new("Semantic withdrawal observer failed.");
-        public int WithdrawalNotifications { get; private set; }
 
         public ThrowingObserver(SyntheticWorkbenchViewModel view, Func<bool> isPublished, Func<bool> isWithdrawn,
             Action published, bool throwOnPublication)
@@ -422,6 +433,14 @@ public sealed class SyntheticSemanticIndexTests
             _published = published;
             _throwOnPublication = throwOnPublication;
             _view.PropertyChanged += Changed;
+            _view.PropertyChanged += FollowingChanged;
+        }
+
+        public void AssertWithdrawalNotifications(bool expected)
+        {
+            bool[] states = expected ? [true] : [];
+            Assert.Equal(states, _firstWithdrawalStates);
+            Assert.Equal(states, _followingWithdrawalStates);
         }
 
         private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
@@ -430,8 +449,9 @@ public sealed class SyntheticSemanticIndexTests
             {
                 if (Token.IsCancellationRequested)
                 {
-                    WithdrawalNotifications++;
-                    if (_isWithdrawn()) throw WithdrawalError;
+                    var withdrawn = _isWithdrawn();
+                    _firstWithdrawalStates.Add(withdrawn);
+                    if (withdrawn) throw WithdrawalError;
                 }
                 return;
             }
@@ -442,9 +462,18 @@ public sealed class SyntheticSemanticIndexTests
             if (_throwOnPublication) throw PublicationError;
         }
 
+        private void FollowingChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (_firstWithdrawalStates.Count == 0) return;
+            var withdrawn = _isWithdrawn();
+            _followingWithdrawalStates.Add(withdrawn);
+            if (withdrawn) throw new InvalidOperationException("Later semantic withdrawal observer failed.");
+        }
+
         public void Dispose()
         {
             _view.PropertyChanged -= Changed;
+            _view.PropertyChanged -= FollowingChanged;
             _source.Dispose();
         }
     }
