@@ -208,6 +208,50 @@ class PythonProcessCoverageTests(unittest.TestCase):
             self.assertEqual(sorted(map(int, executed)), list(range(26)))
             self.assertEqual(len(list(folder.glob('data.*'))), 1)
 
+    def test_exact_realtime_candidate_source_uses_native_executed_coverage(self):
+        tracked = (ROOT / 'scripts/security/sec17_realtime_finding_candidate.py').resolve()
+        subject = (ROOT / 'tests/ci/test_sec17_realtime_finding_candidate.py').resolve()
+        workflow = (ROOT / '.github/workflows/sonarcloud-ci.yml').read_text(encoding='utf-8')
+        controls = workflow.split('for control in \\\n', 1)[1].split('; do', 1)[0]
+        self.assertEqual(controls.count('tests/ci/test_sec17_realtime_finding_candidate.py'), 1)
+        with tempfile.TemporaryDirectory() as directory:
+            data_file = Path(directory) / 'native'
+            env = self.environment()
+            env['SONAR_PYTHON_SOURCE_ROOT'] = str(ROOT)
+            env['COVERAGE_RCFILE'] = str(CONFIG)
+            env['COVERAGE_FILE'] = str(data_file)
+            executed = self.run_python(['-m', 'coverage', 'run', str(subject)], ROOT, env)
+            self.assertIn('Ran 9 tests', executed.stderr)
+            self.assertIn('OK', executed.stderr)
+            self.run_python(['-m', 'coverage', 'combine'], ROOT, env)
+            data = coverage.CoverageData(basename=str(data_file))
+            data.read()
+            measured = {Path(name).resolve(): name for name in data.measured_files()}
+            self.assertIn(tracked, measured)
+            self.assertNotIn(subject, measured)
+            self.assertTrue(data.has_arcs())
+            run_lines = set(data.lines(measured[tracked]) or ())
+            self.assertGreater(len(run_lines), 0)
+            report = coverage.Coverage(data_file=str(data_file), config_file=str(CONFIG))
+            report.load()
+            statements = set(report.analysis2(str(tracked))[1])
+            self.assertTrue(statements)
+            self.assertGreaterEqual(len(statements & run_lines) / len(statements), 0.80)
+
+    def test_logical_main_push_admission_is_measured_by_existing_python_cohort(self):
+        """The native logical suite must be selected; no coverage exclusion or bypass."""
+        workflow = (ROOT / '.github/workflows/sonarcloud-ci.yml').read_text(encoding='utf-8')
+        cohort = workflow.split('for control in \\\n', 1)[1].split('; do', 1)[0]
+        self.assertEqual(cohort.count('tests/ci/test_synthetic_logical_recovery_ci.py'), 1)
+        self.assertIn('python3 -B -m coverage run "$control"', workflow)
+        subject = (ROOT / 'scripts/ci/run-synthetic-logical-recovery-ci.py').resolve()
+        with mock.patch.dict(os.environ, {'SONAR_PYTHON_SOURCE_ROOT': ROOT.as_posix()}):
+            config = coverage.Coverage(config_file=str(CONFIG))
+        self.assertEqual(config.get_option('run:include').count(str(subject)), 1)
+        cases = unittest.TestLoader().discover(str(ROOT / 'tests/ci'),
+                                               pattern='test_synthetic_logical_recovery_ci.py')
+        self.assertGreater(cases.countTestCases(), 10)
+
     def test_subject_scope_branch_and_parallel_configuration_are_explicit(self):
         with mock.patch.dict(os.environ, {'SONAR_PYTHON_SOURCE_ROOT': ROOT.as_posix()}):
             config = coverage.Coverage(config_file=str(CONFIG))
@@ -215,6 +259,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
         self.assertTrue(config.get_option('run:parallel'))
         self.assertEqual(set(config.get_option('run:include')), {
             ROOT.as_posix() + '/scripts/ci/verify-sonar-dotnet-coverage.py',
+            ROOT.as_posix() + '/scripts/ci/verify-sonar-windows-coverage.py',
             ROOT.as_posix() + '/scripts/ci/required_check_contract.py',
             ROOT.as_posix() + '/scripts/ci/check-publication-readiness.py',
             ROOT.as_posix() + '/scripts/ci/check-coglatas-rename.py',
@@ -223,10 +268,12 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/scripts/ci/verify_sbom.py',
             ROOT.as_posix() + '/scripts/ci/verify_grype_sbom_source.py',
             ROOT.as_posix() + '/scripts/security/finding_policy.py',
+            ROOT.as_posix() + '/scripts/security/sec17_realtime_finding_candidate.py',
             ROOT.as_posix() + '/scripts/security/schemathesis_policy.py',
             ROOT.as_posix() + '/scripts/ci/run-sec04-deep-ci.py',
             ROOT.as_posix() + '/scripts/ci/sec17_deep_execution.py',
             ROOT.as_posix() + '/scripts/ci/sec17_file_policy_execution.py',
+            ROOT.as_posix() + '/scripts/ci/sec_arch_evidence.py',
             ROOT.as_posix() + '/scripts/ci/runtime_image_identity.py',
             ROOT.as_posix() + '/scripts/ci/verify-acceptance-image-reuse.py',
             ROOT.as_posix() + '/scripts/ci/release_image_graph.py',
@@ -252,6 +299,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/scripts/performance/db-ci.py',
             ROOT.as_posix() + '/scripts/ci/thread_probe_diagnostics.py',
             ROOT.as_posix() + '/scripts/ci/sonar-python-coverage-bootstrap/sitecustomize.py',
+            ROOT.as_posix() + '/scripts/ci/run-synthetic-logical-recovery-ci.py',
             ROOT.as_posix() + '/scripts/ci/specification_contract.py',
             ROOT.as_posix() + '/scripts/ci/specification_contract_check.py',
             ROOT.as_posix() + '/scripts/ci/sec_arch_http_accounting.py',
@@ -276,20 +324,32 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/scripts/performance/api_diagnostics.py',
             ROOT.as_posix() + '/scripts/performance/common.py',
             ROOT.as_posix() + '/scripts/performance/environment_class.py',
-            ROOT.as_posix() + '/scripts/ci/verify_av_mig_contract_boundary.py',
-            ROOT.as_posix() + '/scripts/ci/verify_av_mig_contract_boundary_base.py',
+            ROOT.as_posix() + '/scripts/performance/announcement-diagnostic.py',
             ROOT.as_posix() + '/scripts/performance/assurance_policy.py',
+            ROOT.as_posix() + '/scripts/performance/collect-environment.py',
+            ROOT.as_posix() + '/scripts/performance/db-compare.py',
             ROOT.as_posix() + '/scripts/performance/db-probe.py',
+            ROOT.as_posix() + '/scripts/performance/db_class_baselines.py',
             ROOT.as_posix() + '/scripts/performance/db_gate.py',
             ROOT.as_posix() + '/scripts/performance/db_probe_import.py',
             ROOT.as_posix() + '/scripts/performance/diagnostic_json.py',
+            ROOT.as_posix() + '/scripts/performance/diagnostic_recovery.py',
+            ROOT.as_posix() + '/scripts/performance/local-announcement-diagnostic.py',
             ROOT.as_posix() + '/scripts/performance/local-fetch-evidence.py',
+            ROOT.as_posix() + '/scripts/performance/local-github-preflight.py',
+            ROOT.as_posix() + '/scripts/ci/verify_av_mig_contract_boundary.py',
+            ROOT.as_posix() + '/scripts/ci/verify_av_mig_contract_boundary_base.py',
+            ROOT.as_posix() + '/scripts/performance/assurance_policy.py',
+            ROOT.as_posix() + '/scripts/performance/db_probe_import.py',
             ROOT.as_posix() + '/scripts/performance/local-runtime-preflight.py',
             ROOT.as_posix() + '/scripts/performance/local_api_samples.py',
             ROOT.as_posix() + '/scripts/performance/local_evidence.py',
             ROOT.as_posix() + '/scripts/performance/local_runner.py',
             ROOT.as_posix() + '/scripts/performance/local_support.py',
             ROOT.as_posix() + '/scripts/performance/performance-local.py',
+            ROOT.as_posix() + '/scripts/performance/preflight.py',
+            ROOT.as_posix() + '/scripts/performance/verify-samples.py',
+            ROOT.as_posix() + '/scripts/performance/warmup.py',
             ROOT.as_posix() + '/scripts/performance/db-compare.py',
             ROOT.as_posix() + '/scripts/performance/db_class_baselines.py',
             ROOT.as_posix() + '/scripts/performance/collect-environment.py',
@@ -297,6 +357,45 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/scripts/performance/announcement-diagnostic.py',
         })
 
+
+    def test_execution_reader_controls_measure_exact_source_and_preserve_uncalled_cli(self):
+        tracked = ROOT / 'scripts/ci/sec_arch_evidence.py'
+        functions = {node.name: node for node in ast.parse(tracked.read_text(encoding='utf-8')).body
+                     if isinstance(node, ast.FunctionDef)}
+        covered = next(node.lineno for node in ast.walk(functions['read_execution_trx'])
+                       if isinstance(node, ast.Return) and isinstance(node.value, ast.Name)
+                       and node.value.id == 'data')
+        container = next(node for node in functions['main'].body
+                         if isinstance(node, ast.If) and isinstance(node.test, ast.Name)
+                         and node.test.id == 'container')
+        uncalled = container.body[0].lineno
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            env = self.environment()
+            env.pop('SEC_ARCH_POSTGRES_CONTAINER', None)
+            env['SONAR_PYTHON_SOURCE_ROOT'] = ROOT.as_posix()
+            env['COVERAGE_PROCESS_START'] = str(CONFIG)
+            env['COVERAGE_FILE'] = str(folder / 'data')
+            self.run_python([str(ROOT / 'scripts/ci/test_sec_arch_evidence.py')], folder, env)
+            env.pop('COVERAGE_PROCESS_START')
+            self.run_python(['-m', 'coverage', 'combine', '--keep', '--rcfile=' + str(CONFIG)], folder, env)
+            data = coverage.CoverageData(basename=str(folder / 'data'))
+            data.read()
+            sources = [name for name in data.measured_files() if Path(name).resolve() == tracked.resolve()]
+            self.assertEqual(len(sources), 1)
+            self.assertIn(covered, data.lines(sources[0]))
+            self.assertNotIn(uncalled, data.lines(sources[0]))
+            report = folder / 'coverage.xml'
+            self.run_python(['-m', 'coverage', 'xml', '--rcfile=' + str(CONFIG), '-o', str(report)], folder, env)
+            xml = ET.parse(report).getroot()
+            roots = [Path(node.text or '.') for node in xml.findall('./sources/source')]
+            classes = [node for node in xml.findall('.//class')
+                       if tracked.resolve() in {(root / node.attrib['filename']).resolve() for root in roots}]
+            self.assertEqual(len(classes), 1)
+            hits = {int(node.attrib['number']): int(node.attrib['hits'])
+                    for node in classes[0].findall('./lines/line')}
+            self.assertGreater(hits[covered], 0)
+            self.assertEqual(hits[uncalled], 0)
 
     def test_existing_receipt_cli_controls_measure_tracked_source_and_preserve_zero_branch(self):
         tracked = ROOT / 'scripts/ci/verify-acceptance-image-reuse.py'
@@ -520,7 +619,7 @@ class ExistingDatabaseCoverageDiscoveryTests(unittest.TestCase):
         ('test_performance_db_approval_history.py', 4),
         ('test_performance_environment_class.py', 9),
         ('test_performance_public_digest.py', 3),
-        ('test_performance_runtime_compatibility.py', 10),
+        ('test_performance_runtime_compatibility.py', 11),
         ('test_performance_diagnostic_recovery.py', 10),
     )
 
@@ -552,6 +651,12 @@ class ExistingDatabaseCoverageDiscoveryTests(unittest.TestCase):
                     if isinstance(value, type) and issubclass(value, unittest.TestCase) and value.__module__ == name:
                         declared.extend(cases(loader.loadTestsFromTestCase(value)))
                 selected = list(cases(loader.loadTestsFromModule(module)))
+                if filename == 'test_performance_runtime_compatibility.py':
+                    # The new runtime-image APT integrity guard must stay in the measured cohort.
+                    self.assertIn(
+                        name + '.RuntimeCompatibilityTests.test_both_runtime_recipes_fail_closed_on_partial_ubuntu_package_indexes',
+                        selected,
+                    )
                 self.assertEqual(len(declared), count)
                 self.assertEqual(len(selected), len(set(selected)))
                 self.assertEqual(sorted(selected), sorted(declared))
@@ -591,7 +696,7 @@ class ExistingDatabaseCoverageDiscoveryTests(unittest.TestCase):
                 self.assertIn('OK', result.stderr)
             executed = (folder / 'executed.txt').read_text(encoding='utf-8').splitlines()
             self.assertEqual(sorted(executed), sorted(expected))
-            self.assertEqual(len(executed), 99)
+            self.assertEqual(len(executed), 100)
             shards = list(folder.glob('data.*'))
             self.assertEqual(len(shards), len(self.SUITES))
             for shard in shards:

@@ -1,15 +1,19 @@
 """False-green controls for observed SEC-ARCH execution capture."""
 
 import copy
+from contextlib import redirect_stdout
 from datetime import datetime, timezone
+import io
 import json
 import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 import xml.etree.ElementTree as ET
@@ -53,6 +57,358 @@ def observe(root: ET.Element) -> dict:
     return evidence.observed_trx(ET.tostring(root), NOW)
 
 
+def assert_unavailable_capture_is_closed(test, capture_module, root, candidate, now):
+    invalid_input = root / "artifacts/directory.trx"
+    invalid_input.mkdir()
+    with test.assertRaises(ValueError):
+        capture_module.capture(root, invalid_input, candidate, now)
+    summary = capture_module.failure_summary(candidate, invalid_input)
+    test.assertIsNone(summary["executionDigest"])
+
+
+
+def assert_closed_cli_error_receipt(test, capture_module, receipt_marker, summary_label):
+    """The original failed-CLI assertions apply to both independent SEC-17 owners."""
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory).resolve()
+        trx = root / "private.trx"
+        trx.write_text("sensitive-native-output-marker")
+        output = root / "execution.json"
+        arguments = ["capture", "--trx", str(trx), "--candidate-sha", "a" * 40, "--output", str(output)]
+        captured = io.StringIO()
+        with redirect_stdout(captured), patch.object(sys, "argv", arguments), patch.object(
+                capture_module, "capture", side_effect=ValueError("sensitive-exception-marker")):
+            test.assertEqual(1, capture_module.main())
+        saved = output.read_text()
+        stdout = captured.getvalue()
+        test.assertEqual(stdout, f"{receipt_marker}\n{summary_label}: ERROR; contract completion UNVERIFIED.\n")
+        test.assertNotIn(saved, stdout, "The full failure receipt must not enter action logs.")
+        test.assertNotIn("sensitive-native-output-marker", stdout)
+        test.assertNotIn("sensitive-exception-marker", stdout)
+        test.assertNotIn(str(root), stdout)
+        test.assertNotIn("sensitive-native-output-marker", saved)
+        test.assertNotIn("sensitive-exception-marker", saved)
+        result = json.loads(saved)
+        test.assertEqual("ERROR", result["outcome"])
+        test.assertEqual("NO_VALID_NATIVE_EXECUTION", result["selectionStatus"])
+        test.assertIsNone(result["executionDigest"], "A noncanonical CLI file must not be read or hashed.")
+        test.assertEqual(1, result["requiredCaseCount"])
+        test.assertIsNone(result["observedCaseCount"])
+        test.assertIsNone(result["ownerApproval"])
+        retained = output.read_bytes()
+        with patch.object(sys, "argv", arguments), patch.object(capture_module, "capture", return_value=result):
+            with test.assertRaises(FileExistsError):
+                capture_module.main()
+        test.assertEqual(retained, output.read_bytes())
+
+
+def assert_native_capture_identity_and_mutations(
+        test, capture_module, root, trx, candidate, now, stamp, receipt, output,
+        public_log, receipt_marker, summary_label):
+    """Preserve both owners' exact receipt schema and fail-closed mutation assertions."""
+    saved = output.read_text()
+    test.assertEqual(receipt, json.loads(saved))
+    test.assertEqual(public_log, f"{receipt_marker}\n{summary_label}: PASS; contract completion UNVERIFIED.\n")
+    test.assertNotIn(saved, public_log, "The full successful receipt must not enter action logs.")
+    test.assertNotIn(str(root), public_log)
+    test.assertEqual({
+        "schemaVersion", "verifierId", "outcome", "selectionStatus", "candidateSha",
+        "sourcePath", "sourceDigest", "executionDigest", "observedExecution",
+        "assemblyBindingScope", "assemblyDigests", "runId", "runAttempt",
+        "qualification", "contractCompletion", "trustedAttestation", "ownerApproval", "limits"
+    }, set(json.loads(saved)))
+    test.assertEqual({"startedAtUtc", "completedAtUtc", "outcome", "requiredCaseCount",
+                      "observedCaseCount", "missingMethods", "cases"}, set(receipt["observedExecution"]))
+    test.assertEqual({"method", "caseDigest", "outcome"}, set(receipt["observedExecution"]["cases"][0]))
+    for invalid in ("0" * 40, "invalid"):
+        with test.subTest(candidate=invalid), test.assertRaises(ValueError):
+            capture_module.capture(root, trx, invalid, now)
+    stamp.write_text("0" * 40)
+    with test.assertRaises(ValueError):
+        capture_module.capture(root, trx, candidate, now)
+    stamp.unlink()
+    with test.assertRaises(ValueError):
+        capture_module.capture(root, trx, candidate, now)
+    stamp.write_text(candidate)
+    # The caller mutates only its own, locally constructed fixture source.
+    assemblies.loaded_assembly_path(root, "Coglatas.Web").write_bytes(b"mismatched-loaded-copy")
+    with test.assertRaises(ValueError):
+        capture_module.capture(root, trx, candidate, now)
+
+
+def assert_owned_source_mutation_is_rejected(test, capture_module, root, trx, candidate, now, source):
+    """Exercise a real tracked source edit via Git's path-checked patch, not arbitrary file writes."""
+    registered = {
+        "tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalRDeepChurnTests.cs",
+        "tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureFilePolicyTransportTests.cs",
+    }
+    relative = capture_module.SOURCE
+    if relative not in registered:
+        raise ValueError("Unregistered native source mutation fixture.")
+    test.assertEqual(source, root / relative)
+    original = source.read_text(encoding="utf-8")
+    test.assertTrue(original.startswith("public Task "))
+    test.assertNotIn("\n", original)
+    marker = "\\ No newline at end of file\n"
+    patch = ("--- a/" + relative + "\n+++ b/" + relative + "\n@@ -1 +1 @@\n"
+             + "-" + original + "\n" + marker
+             + "+" + original + " changed\n" + marker)
+    # Git apply denies patch paths escaping this synthetic repo; no real source,
+    # arbitrary CLI path, or raw test data is used as a filesystem write target.
+    # Use bytes on stdin: text-mode pipes translate LF to CRLF on Windows.
+    patch_bytes = patch.encode("utf-8")
+    subprocess.run(["git", "-C", str(root), "apply", "--check"], input=patch_bytes,
+                   check=True, capture_output=True, timeout=20)
+    subprocess.run(["git", "-C", str(root), "apply"], input=patch_bytes,
+                   check=True, capture_output=True, timeout=20)
+    try:
+        test.assertEqual(source.read_text(encoding="utf-8"), original + " changed")
+        with test.assertRaises(ValueError):
+            capture_module.capture(root, trx, candidate, now)
+    finally:
+        subprocess.run(["git", "-C", str(root), "restore", "--", relative],
+                       check=True, capture_output=True, timeout=20)
+    test.assertEqual(source.read_text(encoding="utf-8"), original)
+
+
+def assert_non_posix_trusted_capture_is_closed(test, capture_module, root, trx, candidate, now):
+    """Reject native capture and digest admission without pinned directory handles."""
+    with test.assertRaisesRegex(ValueError, "directory handles are unavailable"):
+        capture_module.capture(root, trx, candidate, now)
+    summary = capture_module.failure_summary(candidate, trx, root)
+    test.assertEqual("ERROR", summary["outcome"])
+    test.assertEqual("NO_VALID_NATIVE_EXECUTION", summary["selectionStatus"])
+    test.assertIsNone(summary["executionDigest"])
+
+
+def assert_canonical_failure_summary(test, capture_module, producer_path):
+    """Both SEC-17 captures admit their own producer and reject other reports."""
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory).resolve()
+        trusted = root / producer_path
+        trusted.parent.mkdir(parents=True, exist_ok=True)
+        trusted.write_bytes(b"synthetic owned report")
+        alternate = root / "artifacts/other.trx"
+        alternate.write_bytes(b"synthetic unrelated report")
+        actual = capture_module.failure_summary("a" * 40, trusted, root)["executionDigest"]
+        if os.name == "posix":
+            test.assertEqual(evidence.digest(trusted.read_bytes()), actual)
+        else:
+            test.assertIsNone(actual, "An unpinned platform cannot hash even canonical reports.")
+        test.assertIsNone(capture_module.failure_summary("a" * 40, alternate, root)["executionDigest"])
+
+
+def assert_cyclic_symlink_closed_receipt(test, capture_module):
+    """Exercise the actual CLI failure receipt without leaking the requested path."""
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory).resolve()
+        loop = root / "loop.trx"
+        try:
+            loop.symlink_to(loop)
+        except (OSError, NotImplementedError):
+            test.skipTest("Creating a synthetic symlink is unavailable on this platform.")
+        output = root / "closed.json"
+        argv = ["capture", "--trx", str(loop), "--candidate-sha", "a" * 40, "--output", str(output)]
+        captured = io.StringIO()
+        with patch.object(sys, "argv", argv), patch.object(
+                capture_module, "capture", side_effect=ValueError("private input failure")), redirect_stdout(captured):
+            test.assertEqual(1, capture_module.main())
+        receipt = json.loads(output.read_text(encoding="utf-8"))
+        test.assertEqual("ERROR", receipt["outcome"])
+        test.assertEqual("NO_VALID_NATIVE_EXECUTION", receipt["selectionStatus"])
+        test.assertIsNone(receipt["executionDigest"])
+        combined = captured.getvalue() + output.read_text(encoding="utf-8")
+        test.assertNotIn(str(loop), combined)
+        test.assertNotIn("private input failure", combined)
+
+
+def assert_capture_snapshot_and_mutations(
+        test, capture_module, root, trx, candidate, now, stamp, source,
+        receipt_marker, summary_label):
+    """Retain both native owners' independent source, assembly and receipt controls."""
+    if os.name != "posix":
+        assert_non_posix_trusted_capture_is_closed(
+            test, capture_module, root, trx, candidate, now)
+        return
+    receipt = capture_module.capture(root, trx, candidate, now)
+    assert_unavailable_capture_is_closed(test, capture_module, root, candidate, now)
+    test.assertEqual(set(assemblies.ASSEMBLIES), set(receipt["assemblyDigests"]))
+    test.assertEqual("UNVERIFIED", receipt["contractCompletion"])
+    test.assertIsNone(receipt["ownerApproval"])
+    output = root / "artifacts/execution.json"
+    arguments = ["capture", "--trx", str(trx), "--candidate-sha", candidate, "--output", str(output)]
+    captured = io.StringIO()
+    with redirect_stdout(captured), patch.object(sys, "argv", arguments), patch.object(
+            capture_module, "capture", return_value=receipt):
+        test.assertEqual(0, capture_module.main())
+    public_log = captured.getvalue()
+    assert_owned_source_mutation_is_rejected(test, capture_module, root, trx, candidate, now, source)
+    assert_native_capture_identity_and_mutations(
+        test, capture_module, root, trx, candidate, now, stamp, receipt, output,
+        public_log, receipt_marker, summary_label)
+
+
+class ExecutionInputTests(unittest.TestCase):
+    def test_regular_input_retains_exact_original_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "execution.trx"
+            data = ET.tostring(fixture())
+            path.write_bytes(data)
+            self.assertEqual(data, evidence.read_execution_trx(path))
+            self.assertEqual("PASS", evidence.observed_trx(evidence.read_execution_trx(path), NOW)["outcome"])
+
+    def test_capture_rejects_outside_paths_even_when_they_are_regular(self):
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as outside:
+            root = Path(directory).resolve()
+            canonical = root / evidence.TRUSTED_TRX_RELATIVE
+            canonical.parent.mkdir(parents=True, exist_ok=True)
+            canonical.write_bytes(b"canonical synthetic TRX")
+            foreign = Path(outside) / "foreign.trx"
+            foreign.write_bytes(b"foreign synthetic data")
+            alternate = root / "artifacts/another.trx"
+            alternate.write_bytes(b"another synthetic TRX")
+            self.assertEqual(canonical, evidence.trusted_execution_trx(root, canonical))
+            for rejected in (foreign, alternate, root / "artifacts/test-results/backend/../../another.trx"):
+                with self.subTest(path_type="external-or-alternate"), self.assertRaises(ValueError):
+                    evidence.trusted_execution_trx(root, rejected)
+            sha = "a" * 40
+            with patch.dict(os.environ, {"GITHUB_ACTIONS": "false"}), \
+                    patch.object(evidence.subprocess, "check_output", side_effect=[sha, ""]), \
+                    patch.object(evidence, "capture_assemblies", return_value={}), \
+                    patch.object(evidence, "read_execution_trx") as reader:
+                with self.assertRaises(ValueError):
+                    evidence.capture(root, foreign, sha, NOW, {"fixture": "synthetic"})
+                reader.assert_not_called()
+            canonical.unlink()
+            try:
+                canonical.symlink_to(foreign)
+            except (OSError, NotImplementedError):
+                self.skipTest("Creating a test-only symlink is unavailable on this platform.")
+            with self.assertRaises(ValueError):
+                evidence.trusted_execution_trx(root, canonical)
+
+    def test_unrelated_cli_path_is_rejected_before_filesystem_resolution(self):
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as outside:
+            root = Path(directory).resolve()
+            trusted = root / evidence.TRUSTED_TRX_RELATIVE
+            trusted.parent.mkdir(parents=True)
+            trusted.write_bytes(b"canonical fixture")
+            unrelated = Path(outside) / "external.trx"
+            unrelated.write_bytes(b"external fixture")
+            original_resolve = Path.resolve
+
+            def protected_resolve(path, *args, **kwargs):
+                if path == unrelated:
+                    raise AssertionError("An untrusted CLI path was resolved before lexical admission.")
+                return original_resolve(path, *args, **kwargs)
+
+            with patch.object(Path, "resolve", protected_resolve):
+                with self.assertRaisesRegex(ValueError, "does not match"):
+                    evidence.trusted_execution_trx(root, unrelated)
+            self.assertEqual(trusted, evidence.trusted_execution_trx(root, trusted))
+
+    def test_cyclic_symlink_resolution_is_a_sanitized_input_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            requested = root / "artifacts/loop.trx"
+            with patch.object(Path, "resolve", side_effect=RuntimeError("private path diagnostic")):
+                with self.assertRaisesRegex(ValueError, "path resolution failed") as failure:
+                    evidence.trusted_execution_trx(root, requested)
+            self.assertNotIn("private path diagnostic", str(failure.exception))
+
+
+    def test_non_posix_reader_denies_all_registered_producers_before_file_open(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            expected_paths = (evidence.TRUSTED_TRX_RELATIVE, evidence.SEC17_DEEP_TRX_RELATIVE,
+                              evidence.SEC17_FILE_TRX_RELATIVE)
+            for expected in expected_paths:
+                candidate = root / expected
+                candidate.parent.mkdir(parents=True, exist_ok=True)
+                candidate.write_bytes(b"synthetic report content")
+            with patch.object(evidence.os, "name", "nt"), patch.object(evidence.os, "open") as opened, \
+                    patch.object(evidence, "read_execution_trx") as direct_reader:
+                for expected in expected_paths:
+                    with self.subTest(producer=expected), self.assertRaisesRegex(
+                            ValueError, "directory handles are unavailable"):
+                        evidence.read_trusted_execution_trx(root, expected)
+                opened.assert_not_called()
+                direct_reader.assert_not_called()
+
+    @unittest.skipUnless(os.name == "posix", "Pinned openat traversal requires POSIX.")
+    def test_replaced_producer_directory_cannot_redirect_trusted_read(self):
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as external:
+            root = Path(directory).resolve()
+            producer = root / evidence.TRUSTED_TRX_RELATIVE
+            producer.parent.mkdir(parents=True)
+            producer.write_bytes(b"owned report")
+            test_external = Path(external).resolve()
+            (test_external / producer.name).write_bytes(b"foreign report")
+            self.assertEqual(producer, evidence.trusted_execution_trx(root, producer))
+            self.assertEqual(b"owned report",
+                             evidence.read_trusted_execution_trx(root, evidence.TRUSTED_TRX_RELATIVE))
+            producer.parent.rename(producer.parent.with_name("backend-original"))
+            producer.parent.symlink_to(test_external, target_is_directory=True)
+            with self.assertRaises((OSError, ValueError)):
+                evidence.read_trusted_execution_trx(root, evidence.TRUSTED_TRX_RELATIVE)
+
+
+    def test_oversized_input_is_rejected_before_open(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "execution.trx"
+            with path.open("wb") as output:
+                output.truncate(evidence.MAX_TRX_BYTES + 1)
+            with patch.object(evidence.os, "open") as opened, self.assertRaises(ValueError):
+                evidence.read_execution_trx(path)
+            opened.assert_not_called()
+
+    def test_directory_symlink_and_special_file_metadata_is_rejected_before_open(self):
+        for mode in (stat.S_IFDIR, stat.S_IFLNK, stat.S_IFIFO, stat.S_IFCHR, stat.S_IFSOCK):
+            with self.subTest(mode=mode), patch.object(Path, "lstat", return_value=SimpleNamespace(
+                    st_mode=mode, st_size=0)), patch.object(evidence.os, "open") as opened:
+                with self.assertRaises(ValueError):
+                    evidence.read_execution_trx(Path("synthetic-execution.trx"))
+                opened.assert_not_called()
+
+    def test_replaced_regular_file_is_rejected_before_read(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path, replacement = Path(directory) / "execution.trx", Path(directory) / "replacement.trx"
+            path.write_bytes(b"original")
+            replacement.write_bytes(b"replaced")
+            actual_open = evidence.os.open
+
+            def replace_before_open(*args, **kwargs):
+                replacement.replace(path)
+                return actual_open(*args, **kwargs)
+
+            with patch.object(evidence.os, "open", side_effect=replace_before_open), self.assertRaises(ValueError):
+                evidence.read_execution_trx(path)
+
+    def test_changed_open_descriptor_metadata_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "execution.trx"
+            path.write_bytes(b"original")
+            original = path.stat()
+            names = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns", "st_mode")
+            for field in ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns"):
+                changed = {name: getattr(original, name) for name in names}
+                changed[field] += 1
+                with self.subTest(field=field), patch.object(evidence.os, "fstat", side_effect=(
+                        original, SimpleNamespace(**changed))), self.assertRaises(ValueError):
+                    evidence.read_execution_trx(path)
+
+    def test_input_size_limit_is_shared_with_the_xml_parser(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "execution.trx"
+            path.write_bytes(b"123456789")
+            data = path.read_bytes()
+            with patch.object(evidence, "MAX_TRX_BYTES", 8):
+                with self.assertRaises(ValueError):
+                    evidence.read_execution_trx(path)
+                with self.assertRaisesRegex(ValueError, "Unbounded or unsupported XML input"):
+                    evidence.observed_trx(data, NOW)
+
+
 @unittest.skipUnless(shutil.which("git"), "Actual capture subprocess controls require Git.")
 class CaptureInvocationProcessTests(unittest.TestCase):
     """Actual imports and Git guards; synthetic bytes grant no runtime coverage."""
@@ -78,7 +434,9 @@ class CaptureInvocationProcessTests(unittest.TestCase):
         stamp = root / "artifacts/ci/dotnet-build-sha"
         stamp.parent.mkdir(parents=True)
         stamp.write_text(sha, encoding="utf-8")
-        (root / "artifacts/execution.trx").write_bytes(ET.tostring(fixture()))
+        canonical = root / evidence.TRUSTED_TRX_RELATIVE
+        canonical.parent.mkdir(parents=True, exist_ok=True)
+        canonical.write_bytes(ET.tostring(fixture()))
         return sha
 
     @staticmethod
@@ -93,7 +451,7 @@ root = Path(sys.argv[1])
 sys.path.insert(0, str(root / 'scripts/ci'))
 import sec_arch_evidence as evidence
 try:
-    report = evidence.capture(root, root / 'artifacts/execution.trx', sys.argv[2],
+    report = evidence.capture(root, root / 'artifacts/test-results/backend/backend-tests.trx', sys.argv[2],
         datetime(2026, 10, 9, 13, tzinfo=timezone.utc), {'fixture': 'SYNTHETIC_INVOCATION_ONLY'})
 except ValueError as error:
     print(str(error))
@@ -110,7 +468,7 @@ print(json.dumps({'candidateSha': report['candidateSha'],
 
     def test_default_import_reproduces_untracked_bytecode_and_exact_clean_rejection(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             sha = self.prepare(root)
             result = self.run_capture(root, sha, [])
             self.assertEqual(1, result.returncode, result.stderr)
@@ -128,11 +486,17 @@ print(json.dumps({'candidateSha': report['candidateSha'],
                          if "run: python3" in line and "scripts/ci/sec_arch_evidence.py" in line]
                 self.assertEqual(1, len(calls))
                 self.assertEqual(["python3", "-B", "scripts/ci/sec_arch_evidence.py"], calls[0][:3])
-                root = Path(directory)
+                root = Path(directory).resolve()
                 sha = self.prepare(root)
                 result = self.run_capture(root, sha, calls[0][1:2])
-                self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-                self.assertEqual({"candidateSha": sha, "assemblyCount": 6, "outcome": "PASS"}, json.loads(result.stdout))
+                if os.name == "posix":
+                    self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+                    self.assertEqual({"candidateSha": sha, "assemblyCount": 6, "outcome": "PASS"},
+                                     json.loads(result.stdout))
+                else:
+                    self.assertEqual(1, result.returncode, result.stderr)
+                    self.assertEqual("Trusted execution evidence directory handles are unavailable.",
+                                     result.stdout.strip())
                 self.assertFalse((root / "scripts/ci/__pycache__").exists())
                 self.assertEqual("", subprocess.check_output(
                     ["git", "-C", str(root), "status", "--porcelain"], text=True).strip())
@@ -140,7 +504,7 @@ print(json.dumps({'candidateSha': report['candidateSha'],
     def test_bytecode_disabled_process_still_rejects_candidate_source_and_loaded_assembly_changes(self):
         for mutation in ("wrong_sha", "tracked_source", "untracked_source", "loaded_assembly"):
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
-                root = Path(directory)
+                root = Path(directory).resolve()
                 sha = self.prepare(root)
                 if mutation == "wrong_sha": sha = "a" * 40
                 elif mutation == "tracked_source":
@@ -160,7 +524,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
     def test_current_capture_binds_copied_verifier_and_rejects_changed_loaded_dll(self):
         sha = "a" * 40
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             for name in assemblies.ASSEMBLIES:
                 for path in {assemblies.assembly_path(root, name), assemblies.loaded_assembly_path(root, name)}:
                     path.parent.mkdir(parents=True, exist_ok=True)
@@ -168,8 +532,16 @@ class ExecutionEvidenceTests(unittest.TestCase):
             stamp = root / "artifacts/ci/dotnet-build-sha"
             stamp.parent.mkdir(parents=True)
             stamp.write_text(sha)
-            trx = root / "execution.trx"
+            trx = root / evidence.TRUSTED_TRX_RELATIVE
+            trx.parent.mkdir(parents=True, exist_ok=True)
             trx.write_bytes(ET.tostring(fixture()))
+            if os.name != "posix":
+                with patch.object(evidence.subprocess, "check_output", side_effect=[sha, ""]):
+                    with self.assertRaisesRegex(ValueError, "directory handles are unavailable"):
+                        evidence.capture(root, trx, sha, NOW, {"fixture": "synthetic"})
+                self.assertIsNone(evidence.optional_trusted_execution_digest(
+                    root, trx, evidence.TRUSTED_TRX_RELATIVE))
+                return
             with patch.object(evidence.subprocess, "check_output", side_effect=[sha, "", sha, ""]):
                 report = evidence.capture(root, trx, sha, NOW, {"fixture": "synthetic"})
             self.assertEqual(2, report["schemaVersion"])

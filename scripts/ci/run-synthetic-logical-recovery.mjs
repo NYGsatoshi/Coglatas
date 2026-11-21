@@ -10,7 +10,7 @@ import { writeRecoveryReceipt } from './synthetic-logical-recovery-receipt.mjs';
 const ROOT = realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), '../..'));
 const DOCKER = '/usr/bin/docker', GIT = '/usr/bin/git', SOCKET = '/var/run/docker.sock';
 const NODE_IMAGE = 'node@sha256:e7add2a490bb17d97b485b8641bd88455fff7839ade0f5eba493c3508124d413';
-const SDK_IMAGE = 'mcr.microsoft.com/dotnet/sdk:10.0.404@sha256:fe0fd4e93bd2fbb47c883b7a6369e5c8d3db8bf01cdc5981f6ee35fbdf3ff4fb';
+const SDK_IMAGE = 'mcr.microsoft.com/dotnet/sdk:11.0.100@sha256:65f3c7c6a25a239ab3e6719f2896147e7b68242ff2d8818dd70498bde6ef8bea';
 const BASE = 'infra/compose/test/real-backend-smoke.yml';
 const OVERLAY = 'infra/compose/test/acceptance/logical-recovery-source.yml';
 const TARGET = 'infra/compose/test/logical-recovery-target.yml';
@@ -235,7 +235,7 @@ DO $capture$ DECLARE item record; value_count bigint; value_digest text; BEGIN
 SELECT coalesce(json_agg(json_build_array(schema_name,table_name,row_count,data_digest) ORDER BY schema_name COLLATE "C",table_name COLLATE "C"),'[]') FROM recovery_rows;
 COMMIT;`;
 
-const CATALOG_SQL = String.raw`
+export const CATALOG_SQL = String.raw`
 SELECT json_build_object(
  'relations',(SELECT coalesce(json_agg(json_build_array(n.nspname,c.relname,c.relkind,c.relrowsecurity,c.relforcerowsecurity,c.relreplident,c.reloptions,c.relacl::text,pg_get_userbyid(c.relowner)) ORDER BY n.nspname COLLATE "C",c.relname COLLATE "C"),'[]')
  FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema'),

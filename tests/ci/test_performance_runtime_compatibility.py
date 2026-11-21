@@ -128,6 +128,44 @@ class RuntimeCompatibilityTests(unittest.TestCase):
         prebuilt = (ROOT / 'infra/docker/runtime-prebuilt.Dockerfile').read_text(encoding='utf-8')
         self.assertEqual(collector.production_runtime_identity(self.image, self.dockerfile, self.packages),
                          collector.production_runtime_identity(self.image, prebuilt, self.packages))
+        for relative_path in ('Dockerfile', 'infra/docker/runtime-prebuilt.Dockerfile'):
+            with self.subTest(recipe=relative_path):
+                dockerfile = (ROOT / relative_path).read_text(encoding='utf-8')
+                instructions = [line.strip() for line in dockerfile.replace('\\\n', ' ').splitlines()
+                                if line.strip() and not line.lstrip().startswith('#')]
+                starts = [index for index, line in enumerate(instructions) if line.endswith(' AS runtime')]
+                self.assertEqual(1, len(starts))
+                stage = instructions[starts[0]:]
+                copies = [index for index, line in enumerate(stage) if line.startswith('COPY ')]
+                self.assertTrue(copies)
+                self.assertEqual(['USER $APP_UID'], [line for line in stage if line.startswith('USER ')])
+                self.assertGreater(stage.index('USER $APP_UID'), copies[-1])
+                self.assertTrue(any(
+                    'install -d -m 0700 -o "$APP_UID" /app/storage/uploads /app/data/protection-keys' in line
+                    for line in stage[:copies[0]]))
+                self.assertFalse(any('chown -R' in line for line in stage))
+
+
+    def test_both_runtime_recipes_fail_closed_on_partial_ubuntu_package_indexes(self):
+        # APT may otherwise return success after a transient pocket fetch failure,
+        # leaving curl's transitive dependencies absent from the incomplete index.
+        for relative_path in ('Dockerfile', 'infra/docker/runtime-prebuilt.Dockerfile'):
+            with self.subTest(recipe=relative_path):
+                recipe = (ROOT / relative_path).read_text(encoding='utf-8')
+                runtime = recipe.split(' AS runtime', 1)[1].split('COPY ', 1)[0]
+                self.assertIn('test -f /etc/apt/sources.list.d/ubuntu.sources', runtime)
+                self.assertIn('http://archive.ubuntu.com/ubuntu/|https://archive.ubuntu.com/ubuntu/', runtime)
+                self.assertIn('http://security.ubuntu.com/ubuntu/|https://security.ubuntu.com/ubuntu/', runtime)
+                self.assertIn('grep -Fq "https://archive.ubuntu.com/ubuntu/"', runtime)
+                self.assertIn('grep -Fq "https://security.ubuntu.com/ubuntu/"', runtime)
+                self.assertIn('apt-get -o Acquire::Retries=3 --error-on=any update', runtime)
+                self.assertIn('apt-get -o Acquire::Retries=3 install -y --no-install-recommends --only-upgrade', runtime)
+                self.assertIn('apt libapt-pkg7.0', runtime)
+                self.assertIn('dpkg --compare-versions', runtime)
+                self.assertIn('apt-get -o Acquire::Retries=3 install -y --no-install-recommends', runtime)
+                self.assertNotIn('Acquire::Retries=0', runtime)
+                self.assertNotIn('allow-unauthenticated', runtime)
+                self.assertNotIn('allow-insecure-repositories', runtime)
 
     def test_baseline_preparation_remains_main_only_while_duration_assurance_is_suspended(self):
         capture = (ROOT / '.github/workflows/performance-db-baseline-capture.yml').read_text()

@@ -271,7 +271,7 @@ public sealed class CanonicalRedactionServiceTests
             "LookupFailed",
             "Sensitive internal failure for student@example.invalid",
             "body.studentEmail",
-            new object[] { "database detail" },
+            ["database detail"],
             RedactionSensitivity.Sensitive);
 
         var result = service.Redact(
@@ -296,7 +296,7 @@ public sealed class CanonicalRedactionServiceTests
             "LookupFailed",
             "Authorized diagnostic",
             "body.value",
-            new object[] { "detail" },
+            ["detail"],
             RedactionSensitivity.Sensitive);
 
         var result = service.Redact(

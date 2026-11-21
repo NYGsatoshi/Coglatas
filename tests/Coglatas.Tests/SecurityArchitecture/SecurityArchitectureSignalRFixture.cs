@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
-using System.Net.Http.Json;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -113,7 +112,7 @@ internal sealed class SecurityArchitectureSignalRFixture : IAsyncDisposable
             var line = args.Data;
             var index = line?.IndexOf(marker, StringComparison.Ordinal) ?? -1;
             if (index >= 0 && Uri.TryCreate(line![(index + marker.Length)..].Trim(), UriKind.Absolute, out var address) &&
-                address.Scheme == "http" && address.Host == "127.0.0.1" && address.Port > 0)
+                address is { Scheme: "http", Host: "127.0.0.1", Port: > 0 })
                 _listening.TrySetResult(address);
         };
         // Drain stderr without printing synthetic credentials, request data or exception text.
