@@ -49,13 +49,13 @@ public sealed class ReferenceBindingCacheTests
         var otherOwner = new BranchRef(owner.TenantId, owner.ProjectId, BranchId.Parse(Id(99)));
         var earlier = cache.BeginBinding(owner, CancellationToken.None);
         var paused = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var resume = new ManualResetEventSlim();
+        var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var timeout = TimeSpan.FromSeconds(10);
 
         void Pause()
         {
             paused.SetResult();
-            if (!resume.Wait(TimeSpan.FromSeconds(30)))
+            if (!resume.Task.Wait(TimeSpan.FromSeconds(30)))
                 throw new TimeoutException("Reference preparation did not resume.");
         }
 
@@ -85,7 +85,7 @@ public sealed class ReferenceBindingCacheTests
         }
         finally
         {
-            resume.Set();
+            resume.SetResult();
             await resolving;
             if (invalidate is not null) await invalidate;
         }
@@ -130,12 +130,12 @@ public sealed class ReferenceBindingCacheTests
         var scope = cache.BeginBinding(fixture.Input.Source.Context.Branch, CancellationToken.None);
         string[] dependencies = ["exact-reference-dependencies"];
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var resume = new ManualResetEventSlim();
+        var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var timeout = TimeSpan.FromSeconds(10);
         var earlier = Task.Run(() => cache.Resolve(scope, dependencies, () =>
         {
             started.SetResult();
-            if (!resume.Wait(TimeSpan.FromSeconds(30)))
+            if (!resume.Task.Wait(TimeSpan.FromSeconds(30)))
                 throw new TimeoutException("Reference resolution did not resume.");
             return first;
         }, CancellationToken.None));
@@ -149,7 +149,7 @@ public sealed class ReferenceBindingCacheTests
         }
         finally
         {
-            resume.Set();
+            resume.SetResult();
             await earlier;
             if (later is not null) await later;
         }
