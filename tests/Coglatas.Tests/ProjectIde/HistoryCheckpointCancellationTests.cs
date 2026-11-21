@@ -26,4 +26,54 @@ public sealed class HistoryCheckpointCancellationTests
             cancellation.Cancel();
         }
     }
+
+    [Theory]
+    [InlineData(HistoryReadState.Corrupt)]
+    [InlineData(HistoryReadState.OutOfScope)]
+    [InlineData(HistoryReadState.ResourceLimit)]
+    public void CancellationDuringDisposalOfRejectedHistorySupplyReachesTheCaller(HistoryReadState expectedState)
+    {
+        var source = Source(50);
+        var target = source.Context.CommittedRevision!;
+        var baseline = ProjectSourceHistory.Read(target, Supply(static () => { }));
+        Assert.Equal(expectedState, baseline.State);
+        Assert.Null(baseline.Source);
+        Assert.Empty(baseline.ReconstructionPath);
+
+        using var cancellation = new CancellationTokenSource();
+        var token = cancellation.Token;
+        Action cancel = cancellation.Cancel;
+        var error = Assert.Throws<OperationCanceledException>(() => ProjectSourceHistory.Read(target, Supply(cancel), token));
+        Assert.Equal(token, error.CancellationToken);
+
+        IEnumerable<ProjectHistoryRevision?> Supply(Action finish)
+        {
+            try
+            {
+                if (expectedState == HistoryReadState.Corrupt)
+                {
+                    yield return null;
+                    yield break;
+                }
+
+                if (expectedState == HistoryReadState.OutOfScope)
+                {
+                    var foreign = new RevisionRef(new(TenantId.Parse(Id(1)), ProjectId.Parse(Id(99)), BranchId.Parse(Id(3))),
+                        RevisionId.Parse(Id(50)));
+                    yield return ProjectHistoryRevision.Unavailable(foreign, 0, source.Digest);
+                    yield break;
+                }
+
+                for (var index = 0; index <= ProjectSourceHistory.MaximumRecords; index++)
+                {
+                    var revision = new RevisionRef(target.Branch, RevisionId.Parse(Id(index + 200)));
+                    yield return ProjectHistoryRevision.Unavailable(revision, index, source.Digest);
+                }
+            }
+            finally
+            {
+                finish();
+            }
+        }
+    }
 }

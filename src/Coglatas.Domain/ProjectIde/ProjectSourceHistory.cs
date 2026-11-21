@@ -180,32 +180,41 @@ public static class ProjectSourceHistory
     {
         ArgumentNullException.ThrowIfNull(target); ArgumentNullException.ThrowIfNull(records); cancellationToken.ThrowIfCancellationRequested();
         var index = new Dictionary<RevisionRef, ProjectHistoryRevision>(); var storedBytes = 0; var remainingNodes = MaximumJsonNodes;
-        using (var iterator = records.GetEnumerator())
+        HistoryReadState? ReadSuppliedRecords()
         {
+            using var iterator = records.GetEnumerator();
             while (true)
             {
-                cancellationToken.ThrowIfCancellationRequested(); if (!iterator.MoveNext()) break; cancellationToken.ThrowIfCancellationRequested();
+                cancellationToken.ThrowIfCancellationRequested();
+                var hasNext = iterator.MoveNext();
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!hasNext) break;
                 var record = iterator.Current;
-                if (record is null) return new(HistoryReadState.Corrupt);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (record is null) return HistoryReadState.Corrupt;
                 if (record.Revision.Branch.TenantId != target.Branch.TenantId || record.Revision.Branch.ProjectId != target.Branch.ProjectId)
-                    return new(HistoryReadState.OutOfScope);
+                    return HistoryReadState.OutOfScope;
                 if (index.Count == MaximumRecords || record.RetainedCanonicalBytes > MaximumStoredBytes - storedBytes)
-                    return new(HistoryReadState.ResourceLimit);
+                    return HistoryReadState.ResourceLimit;
                 storedBytes += record.RetainedCanonicalBytes;
                 if (record.Delta is { } suppliedDelta)
                 {
                     remainingNodes -= suppliedDelta.ProcessingNodeCharge;
-                    if (remainingNodes < 0) return new(HistoryReadState.ResourceLimit);
+                    if (remainingNodes < 0) return HistoryReadState.ResourceLimit;
                 }
                 if (record.CheckpointData is { } suppliedBody &&
                     (ProjectSourceDelta.Bytes(suppliedBody) > 4_194_304 || !WithinJsonBounds(suppliedBody.Value, 0, ref remainingNodes, cancellationToken)))
-                    return new(HistoryReadState.ResourceLimit);
+                    return HistoryReadState.ResourceLimit;
                 if (!index.TryAdd(record.Revision, record) || record.Parents.Distinct().Count() != record.Parents.Count || record.Parents.Contains(record.Revision))
-                    return new(HistoryReadState.Corrupt);
+                    return HistoryReadState.Corrupt;
                 if (record.Parents.Any(parent => parent.Branch.TenantId != target.Branch.TenantId || parent.Branch.ProjectId != target.Branch.ProjectId))
-                    return new(HistoryReadState.OutOfScope);
+                    return HistoryReadState.OutOfScope;
             }
+            return null;
         }
+        var refusal = ReadSuppliedRecords();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (refusal is { } state) return new(state);
         // Validate known parent metadata, including cross-Branch cycles. Missing parents of a checkpoint
         // may have been compacted; reconstruction does not pretend to recover that older ancestry.
         var incoming = index.ToDictionary(item => item.Key, _ => 0);
