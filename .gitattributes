@@ -4,3 +4,4 @@
 /scripts/security/run-sec14-browser-fixture.mjs text eol=lf
 /scripts/ci/sec14_browser_evidence.py text eol=lf
 /tests/ui/actor-replacement-real.mjs -text whitespace=cr-at-eol
+/frontend/src/app/features/projectide/projectide-test-discovery.evidence.ts text eol=lf
