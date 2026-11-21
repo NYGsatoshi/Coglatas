@@ -77,10 +77,10 @@ public sealed class ScenarioElapsedScheduleImpactTests
         var (_, _, earlier) = Pair(plan, 9, revision: 802);
         var (_, unrelated, _) = Pair(ProjectSimulationTests.Plan(first: 6), 8);
 
-        AssertRefusal(Compare(scenario, before, earlier), "coglatas.schedule-impact.wrong-scenario-input");
-        AssertRefusal(Compare(scenario, unrelated, after), "coglatas.schedule-impact.wrong-scenario-input");
-        AssertRefusal(ProjectScenarioElapsedScheduleImpact.Compare(scenario, before, before.Digest, after, after.Manifest.Digest),
-            "coglatas.comparison.wrong-run");
+        Assert.Equal("coglatas.schedule-impact.wrong-scenario-input", AssertRefusal(Compare(scenario, before, earlier)));
+        Assert.Equal("coglatas.schedule-impact.wrong-scenario-input", AssertRefusal(Compare(scenario, unrelated, after)));
+        Assert.Equal("coglatas.comparison.wrong-run", AssertRefusal(
+            ProjectScenarioElapsedScheduleImpact.Compare(scenario, before, before.Digest, after, after.Manifest.Digest)));
     }
 
     [Fact]
@@ -90,8 +90,8 @@ public sealed class ScenarioElapsedScheduleImpactTests
         var differentClock = Run(after.Manifest.Plan, 823, start: 200);
         var differentBound = Run(after.Manifest.Plan, 824, limits: new(MaximumEvents: 100));
 
-        AssertRefusal(Compare(scenario, before, differentClock), "coglatas.schedule-impact.different-run-conditions");
-        AssertRefusal(Compare(scenario, before, differentBound), "coglatas.schedule-impact.different-run-conditions");
+        Assert.Equal("coglatas.schedule-impact.different-run-conditions", AssertRefusal(Compare(scenario, before, differentClock)));
+        Assert.Equal("coglatas.schedule-impact.different-run-conditions", AssertRefusal(Compare(scenario, before, differentBound)));
     }
 
     [Fact]
@@ -162,11 +162,11 @@ public sealed class ScenarioElapsedScheduleImpactTests
     private static ElapsedTaskSchedule Task(ElapsedRunSchedule run, int entityId) =>
         Assert.Single(run.Tasks, row => row.Task.EntityId == EntityId.Parse(Id(entityId)));
 
-    private static void AssertRefusal(ProjectScenarioElapsedScheduleImpact impact, string reason)
+    private static string AssertRefusal(ProjectScenarioElapsedScheduleImpact impact)
     {
         Assert.Equal(ScenarioElapsedScheduleImpactState.Refused, impact.State);
-        Assert.Equal(reason, impact.Reason);
         AssertNoProjection(impact);
+        return Assert.IsType<string>(impact.Reason);
     }
 
     private static void AssertNoProjection(ProjectScenarioElapsedScheduleImpact impact)
