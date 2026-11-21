@@ -139,3 +139,27 @@ it.each(['publication-plan', 'projection-member', 'publication-hidden-plan', 'pr
   expect(scopedSourcesMatch(value, original)).toBe(false);
   await expect(readScopedSources(value)).rejects.toThrow();
 });
+
+it.each(['result-frame', 'result-digest', 'publication-frame', 'region', 'region-context', 'region-branch', 'regional-ir'] as const)(
+  'rejects own undefined nested Source members before snapshotting: %s', async target => {
+    const value = readPreviewBundle(JSON.parse(readFileSync(resolve('public/assets/projectide/scoped-publication-v2.json'), 'utf8'))).cases[0];
+    const original = (await readScopedSources(value))!;
+    expect(original.publicationVerified).toBe(true);
+    expect(scopedSourcesMatch(value, original)).toBe(true);
+    const projection = value.scopedSources!;
+    const targets = {
+      'result-frame': projection.result,
+      'result-digest': projection.result.digest,
+      'publication-frame': projection.publication!.semanticModel,
+      'region': projection.regions[0],
+      'region-context': projection.regions[0].context,
+      'region-branch': projection.regions[0].context.branch,
+      'regional-ir': projection.regions[0].ir,
+    };
+    Object.defineProperty(targets[target], 'unrequested', {
+      value: undefined, enumerable: target !== 'result-digest' && target !== 'region-branch',
+    });
+    expect(scopedSourcesMatch(value, original)).toBe(false);
+    await expect(readScopedSources(value)).rejects.toThrow('unsupported-scoped-sources');
+  }
+);

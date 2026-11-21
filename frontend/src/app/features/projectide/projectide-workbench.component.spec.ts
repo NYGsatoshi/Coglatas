@@ -843,10 +843,12 @@ it('marks a withdrawn discovery inventory unavailable after its original Ready r
   expect(await c.store.loadLocalTestDiscovery()).toBe(true); fixture.detectChanges();
   const summary = root.querySelector('[data-testid="ide-test-discovery-summary"]')!;
   expect(summary.getAttribute('data-admission')).toBe('admitted'); expect(summary.getAttribute('data-discovery-state')).toBe('Ready');
+  const rows = () => root.querySelectorAll('[data-testid="ide-test-discovery-rows"] > li');
+  expect(rows().length).toBeGreaterThan(0);
   Object.assign(c.store.context()!.localProjectTestDiscovery!.inventory.tests[0], { displayName: 'changed live definition' });
   c.open('overview'); fixture.detectChanges(); c.open('tests'); fixture.detectChanges();
   const withdrawn = root.querySelector('[data-testid="ide-test-discovery-summary"]')!;
   expect(c.store.testDiscoveryReadState()).toBe('ready'); expect(c.store.localTestDiscovery()).toBeNull();
   expect(withdrawn.getAttribute('data-admission')).toBe('not-admitted'); expect(withdrawn.getAttribute('data-discovery-state')).toBe('unavailable');
-  expect(root.querySelectorAll('[data-testid="ide-test-discovery-row"]')).toHaveLength(0);
+  expect(rows()).toHaveLength(0);
 });
