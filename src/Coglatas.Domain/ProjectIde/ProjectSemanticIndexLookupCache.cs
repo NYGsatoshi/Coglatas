@@ -16,7 +16,7 @@ public sealed class ProjectSemanticIndexLookupCache
     private readonly Dictionary<string, LinkedListNode<Entry>> _entries = new(StringComparer.Ordinal);
     private readonly LinkedList<Entry> _recent = new();
     private BranchRef? _ownerScope;
-    private object _generation = new();
+    private volatile object _generation = new();
     private int _canonicalBytes;
     private long _lookupReuseCount;
 
@@ -53,26 +53,45 @@ public sealed class ProjectSemanticIndexLookupCache
         Func<SemanticIndexLookupTables> create, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        lock (_gate)
+        var key = FrameKey(scope.Generation, dependencies, token, out var bytes);
+        if (key is not null)
         {
-            token.ThrowIfCancellationRequested();
-            if (_ownerScope != scope.Owner || !ReferenceEquals(_generation, scope.Generation))
-                return new(scope.Owner, scope.Generation, null, 0, create(), false);
-            var text = new StringBuilder(); var bytes = 0;
-            foreach (var part in dependencies)
+            lock (_gate)
             {
                 token.ThrowIfCancellationRequested();
-                var length = part.Length.ToString(CultureInfo.InvariantCulture);
-                var partBytes = Encoding.UTF8.GetByteCount(part);
-                if (partBytes > _maximumCanonicalBytes - bytes - length.Length - 1)
-                    return new(scope.Owner, scope.Generation, null, 0, create(), false);
-                text.Append(length).Append(':').Append(part); bytes += partBytes + length.Length + 1;
+                if (_ownerScope != scope.Owner || !ReferenceEquals(_generation, scope.Generation))
+                    key = null;
+                else if (_entries.TryGetValue(key, out var retained))
+                    return new(scope.Owner, scope.Generation, key, bytes, retained.Value.Tables, true);
             }
-            var key = text.ToString();
-            return _entries.TryGetValue(key, out var retained)
-                ? new(scope.Owner, scope.Generation, key, bytes, retained.Value.Tables, true)
-                : new(scope.Owner, scope.Generation, key, bytes, create(), false);
         }
+
+        token.ThrowIfCancellationRequested();
+        return new(scope.Owner, scope.Generation, key, key is null ? 0 : bytes, create(), false);
+    }
+
+    private string? FrameKey(object generation, IEnumerable<string> dependencies, CancellationToken token, out int bytes)
+    {
+        bytes = 0;
+        if (!ReferenceEquals(_generation, generation)) return null;
+
+        var text = new StringBuilder();
+        using var parts = dependencies.GetEnumerator();
+        while (ReferenceEquals(_generation, generation) && parts.MoveNext())
+        {
+            token.ThrowIfCancellationRequested();
+            // An invalidation can occur while the iterator produces this part.
+            if (!ReferenceEquals(_generation, generation)) return null;
+            var part = parts.Current;
+            var length = part.Length.ToString(CultureInfo.InvariantCulture);
+            var partBytes = Encoding.UTF8.GetByteCount(part);
+            if (partBytes > _maximumCanonicalBytes - bytes - length.Length - 1) return null;
+
+            text.Append(length).Append(':').Append(part);
+            bytes += partBytes + length.Length + 1;
+        }
+
+        return ReferenceEquals(_generation, generation) ? text.ToString() : null;
     }
 
     // A refused/cancelled build never commits its prepared table. Explicit Clear or
@@ -115,24 +134,48 @@ internal sealed record SemanticIndexLookupLease(BranchRef Owner, object Generati
 
 internal sealed class SemanticIndexLookupTables
 {
-    private readonly Dictionary<string, int> _keys;
-    private readonly Dictionary<string, int> _locations;
-    private readonly Dictionary<string, int> _origins;
-    internal int KeyCount => _keys.Count;
-    internal int LocationCount => _locations.Count;
+    private const int AmbiguousPosition = -1;
+    private readonly Dictionary<string, int> _keys = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _locations = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _origins = new(StringComparer.Ordinal);
+    internal int KeyCount { get; }
+    internal int LocationCount { get; }
 
-    internal SemanticIndexLookupTables(IReadOnlyList<CompilerIndexedSymbol> symbols, IReadOnlyList<CompilerBoundReference> references)
+    internal SemanticIndexLookupTables(IReadOnlyList<CompilerIndexedSymbol> symbols, IReadOnlyList<CompilerBoundReference> references, CancellationToken token)
     {
-        _keys = symbols.Select((item, index) => (item.Symbol.Key, Index: index)).GroupBy(item => item.Key, StringComparer.Ordinal)
-            .Where(group => group.Count() == 1).ToDictionary(group => group.Key, group => group.Single().Index, StringComparer.Ordinal);
-        _locations = symbols.Select((item, index) => (Location: item.Symbol.Location.Data.CanonicalText, Index: index)).GroupBy(item => item.Location, StringComparer.Ordinal)
-            .Where(group => group.Count() == 1).ToDictionary(group => group.Key, group => group.Single().Index, StringComparer.Ordinal);
-        _origins = references.Select((item, index) => (Origin: item.Origin.Data.CanonicalText, Index: index)).GroupBy(item => item.Origin, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.Count() == 1 ? group.Single().Index : -1, StringComparer.Ordinal);
+        for (var index = 0; index < symbols.Count; index++)
+        {
+            token.ThrowIfCancellationRequested();
+            var symbol = symbols[index].Symbol;
+            KeyCount += RegisterPosition(_keys, symbol.Key, index);
+            LocationCount += RegisterPosition(_locations, symbol.Location.Data.CanonicalText, index);
+        }
+        for (var index = 0; index < references.Count; index++)
+        {
+            token.ThrowIfCancellationRequested();
+            RegisterPosition(_origins, references[index].Origin.Data.CanonicalText, index);
+        }
+        token.ThrowIfCancellationRequested();
     }
 
-    internal bool HasKey(string key) => _keys.ContainsKey(key);
-    internal bool TryKey(string key, out int index) => _keys.TryGetValue(key, out index);
-    internal bool TryLocation(string location, out int index) => _locations.TryGetValue(location, out index);
-    internal bool TryOrigin(string origin, out int index) => _origins.TryGetValue(origin, out index) && index >= 0;
+    // Return the change in unique positions. Later occurrences keep an ambiguous key ambiguous.
+    private static int RegisterPosition(Dictionary<string, int> positions, string key, int index)
+    {
+        if (!positions.TryGetValue(key, out var previous))
+        {
+            positions.Add(key, index);
+            return 1;
+        }
+        if (previous == AmbiguousPosition) return 0;
+        positions[key] = AmbiguousPosition;
+        return -1;
+    }
+
+    internal bool HasKey(string key) => TryKey(key, out _);
+    internal bool TryKey(string key, out int index) => TryUniquePosition(_keys, key, out index);
+    internal bool TryLocation(string location, out int index) => TryUniquePosition(_locations, location, out index);
+    internal bool TryOrigin(string origin, out int index) => TryUniquePosition(_origins, origin, out index);
+
+    private static bool TryUniquePosition(Dictionary<string, int> positions, string key, out int index) =>
+        positions.TryGetValue(key, out index) && index != AmbiguousPosition;
 }
