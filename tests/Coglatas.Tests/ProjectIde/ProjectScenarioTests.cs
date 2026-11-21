@@ -135,6 +135,32 @@ public sealed class ProjectScenarioTests
         Assert.Equal(ProjectScenarioState.InvalidContext, ProjectScenarios.Prepare(ProjectSemanticBinder.Bind(plan.Input), plan.Input.InputDigest, Scenario, Revision(602), [change]).State);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CancellationWhenTheOverrideIteratorFinishesPrecedesEmptyAndDuplicateResults(bool duplicate)
+    {
+        var basis = Fixture();
+        var model = ProjectSemanticBinder.Bind(basis);
+        using var cancellation = new CancellationTokenSource();
+        var token = cancellation.Token;
+        var overrides = ReadOverrides(Override(basis), duplicate, cancellation.Cancel);
+
+        var error = Assert.Throws<OperationCanceledException>(() =>
+            ProjectScenarios.Prepare(model, basis.InputDigest, Scenario, Revision(), overrides, token));
+        Assert.Equal(token, error.CancellationToken);
+
+        static IEnumerable<ProjectScenarioOverride> ReadOverrides(ProjectScenarioOverride value, bool duplicate, Action cancel)
+        {
+            if (duplicate)
+            {
+                yield return value;
+                yield return value;
+            }
+            cancel();
+        }
+    }
+
     [Fact]
     public void RevisionsAreExplicitAndDoNotReuseEarlierRunIdentities()
     {
