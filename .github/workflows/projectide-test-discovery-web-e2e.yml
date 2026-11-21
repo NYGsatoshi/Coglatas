@@ -8,6 +8,7 @@ on:
       - tests/ui/run-angular-playwright.mjs
       - playwright.config.ts
       - tests/ui/serve-static.mjs
+      - tests/ui/a11y.ts
       - tests/ci/projectide-test-discovery-browser-receipt.mjs
       - tests/ci/projectide-test-discovery-browser-receipt.node-test.mjs
       - tests/ci/projectide-test-discovery-workflow-routing.node-test.mjs
@@ -24,6 +25,7 @@ on:
       - tests/ui/run-angular-playwright.mjs
       - playwright.config.ts
       - tests/ui/serve-static.mjs
+      - tests/ui/a11y.ts
       - tests/ci/projectide-test-discovery-browser-receipt.mjs
       - tests/ci/projectide-test-discovery-browser-receipt.node-test.mjs
       - tests/ci/projectide-test-discovery-workflow-routing.node-test.mjs

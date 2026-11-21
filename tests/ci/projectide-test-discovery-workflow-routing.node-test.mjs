@@ -10,6 +10,7 @@ const requiredPaths = [
   'tests/ui/run-angular-playwright.mjs',
   'playwright.config.ts',
   'tests/ui/serve-static.mjs',
+  'tests/ui/a11y.ts',
   'tests/ci/projectide-test-discovery-browser-receipt.mjs',
   'tests/ci/projectide-test-discovery-browser-receipt.node-test.mjs',
   'tests/ci/projectide-test-discovery-workflow-routing.node-test.mjs',
@@ -79,7 +80,7 @@ test('missing translation trigger fails the route check', () => {
   assert.throws(() => verifyRequiredRoutes(missing), /push route omits .*projectide\.messages\.ts/);
 });
 
-for (const path of ['playwright.config.ts', 'tests/ui/serve-static.mjs']) {
+for (const path of ['playwright.config.ts', 'tests/ui/serve-static.mjs', 'tests/ui/a11y.ts']) {
   test(`omitting ${path} from either event fails the route check`, () => {
     const selector = `      - ${path}\n`;
     const push = workflow.indexOf(selector);
