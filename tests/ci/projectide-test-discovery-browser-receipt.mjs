@@ -2,10 +2,14 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { createReadStream } from 'node:fs';
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
+import { release } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const REQUIRED_SPEC = 'tests/ui/projectide-local-tests.spec.ts';
+// The Playwright JSON reporter emits locations relative to its configured test directory.
+const requiredReportFile = path.posix.basename(REQUIRED_SPEC);
+const servedOrigin = 'http://127.0.0.1:4173';
 export const EXPECTED_PROJECTS = Object.freeze(['chromium-desktop', 'chromium-mobile']);
 export const EXPECTED_TITLES = Object.freeze([
   'shows local Test outcomes separately from Compiler results in en',
@@ -23,16 +27,17 @@ export function validateBrowserReport(report) {
       const file = String(suite.file || inheritedFile).replace(/\\/g, '/');
       for (const spec of (suite.specs || [])) {
         const location = String(spec.file || file).replace(/\\/g, '/');
-        if (location !== REQUIRED_SPEC && !location.endsWith('/' + REQUIRED_SPEC)) {
+        if (location !== requiredReportFile) {
           throw new Error('Unexpected or unpinned browser spec selected: ' + location);
         }
         for (const test of (spec.tests || [])) {
           rows.push({
+            id: spec.id,
             title: spec.title,
             project: test.projectName,
             expectedStatus: test.expectedStatus,
             outcome: test.status,
-            attempts: Array.isArray(test.results) ? test.results.map(r => r.status) : []
+            attempts: Array.isArray(test.results) ? test.results.map(({ retry, status }) => ({ retry, status })) : []
           });
         }
       }
@@ -43,12 +48,15 @@ export function validateBrowserReport(report) {
   const expected = new Set(EXPECTED_PROJECTS.flatMap(p => EXPECTED_TITLES.map(t => p + '\0' + t)));
   if (rows.length !== expected.size) throw new Error('Browser roster count mismatch: ' + rows.length);
   const observed = new Set();
+  const ids = new Set();
   for (const row of rows) {
     const key = row.project + '\0' + row.title;
     if (!expected.has(key) || observed.has(key)) throw new Error('Missing, duplicate or unexpected browser test identity');
+    if (typeof row.id !== 'string' || !row.id || ids.has(row.id)) throw new Error('Missing or duplicate Playwright test ID');
     observed.add(key);
+    ids.add(row.id);
     if (row.expectedStatus !== 'passed' || row.outcome !== 'expected' ||
-        row.attempts.length !== 1 || row.attempts[0] !== 'passed') {
+        row.attempts.length !== 1 || row.attempts[0].retry !== 0 || row.attempts[0].status !== 'passed') {
       throw new Error('Skipped, failed, flaky, retried or inconclusive browser test: ' + key);
     }
   }
@@ -58,6 +66,30 @@ export function validateBrowserReport(report) {
     throw new Error('Missing or non-passing Playwright global outcome counters');
   }
   return rows.sort((a, b) => (a.project + a.title).localeCompare(b.project + b.title));
+}
+
+export async function verifyServedBuild(root, fetchFile = fetch) {
+  const index = await readFile(path.join(root, 'index.html'));
+  const entryScripts = new Set(Array.from(
+    index.toString('utf8').matchAll(/<script\b[^>]*\bsrc="([A-Za-z0-9_.-]+\.js)"/g),
+    ([, script]) => script
+  ));
+  if (![...entryScripts].some(script => /^main-[A-Za-z0-9_-]+\.js$/.test(script))) {
+    throw new Error('The Angular build index did not declare its main bundle');
+  }
+  const files = new Map([['/app/projectide/preview', index]]);
+  for (const script of entryScripts) files.set('/app/' + script, await readFile(path.join(root, script)));
+
+  for (const [urlPath, expected] of files) {
+    const response = await fetchFile(new URL(urlPath, servedOrigin), {
+      redirect: 'error',
+      signal: AbortSignal.timeout(10_000)
+    });
+    if (!response.ok || !expected.equals(Buffer.from(await response.arrayBuffer()))) {
+      throw new Error('Served Angular output differs from the candidate build: ' + urlPath);
+    }
+  }
+  return files.size;
 }
 
 async function buildDigest(root) {
@@ -91,7 +123,7 @@ function git(...args) {
 async function main() {
   const head = git('rev-parse', 'HEAD');
   if (!/^[0-9a-f]{40}$/.test(head) || head !== process.env.EXPECTED_HEAD) {
-    throw new Error('Actual source HEAD does not match the PR event HEAD');
+    throw new Error('Actual source HEAD does not match the workflow event source');
   }
   if (process.env.PLAYWRIGHT_BASE_URL) throw new Error('External Playwright server must not substitute served source');
   const specBlob = git('rev-parse', 'HEAD:' + REQUIRED_SPEC);
@@ -105,15 +137,19 @@ async function main() {
   if (!raw) throw new Error('Missing raw Playwright report path');
   const report = JSON.parse(await readFile(raw, 'utf8'));
   const rows = validateBrowserReport(report);
-  const bundle = await buildDigest('frontend/dist/coglatas-web');
+  if (!report.config?.version) throw new Error('Missing Playwright version in the browser report');
+  const buildRoot = 'frontend/dist/coglatas-web';
+  const verifiedHttpResponses = await verifyServedBuild(buildRoot);
+  const bundle = await buildDigest(buildRoot);
   const receipt = {
     schema: 'coglatas.projectide.web-test-discovery-e2e.v1',
     candidateHeadSha: head,
     browserSpecBlob: specBlob,
     runnerBlob,
-    servedBuild: bundle,
-    environment: 'ubuntu-24.04 / Chromium desktop + mobile / en + ja',
-    completedCases: rows.map(({ title, project, attempts }) => ({ title, project, attempts: attempts.length, passed: true })),
+    servedBuild: { ...bundle, verifiedHttpResponses },
+    environment: `${process.platform} ${release()} / Chromium desktop + mobile / en + ja`,
+    playwrightVersion: report.config.version,
+    completedCases: rows.map(({ id, title, project, attempts }) => ({ id, title, project, attempts, passed: true })),
     result: 'PASS',
     nativeWindowsUiQualified: false,
     runtimeAuthorityQualified: false,
