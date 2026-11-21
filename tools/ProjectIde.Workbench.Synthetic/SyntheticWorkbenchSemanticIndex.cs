@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Coglatas.Domain.ProjectIde;
 
 namespace Coglatas.ProjectIde.Workbench.Synthetic;
@@ -61,11 +62,8 @@ public sealed partial class SyntheticWorkbenchViewModel
             if (Current())
             {
                 ClearSemanticIndex();
-                try { Changed(); }
-                catch (Exception notificationFailure)
-                {
+                if (NotifySemanticWithdrawal() is { } notificationFailure)
                     throw new OperationCanceledException(cancellation.Message, notificationFailure, cancellation.CancellationToken);
-                }
             }
             throw;
         }
@@ -112,13 +110,27 @@ public sealed partial class SyntheticWorkbenchViewModel
             if (cancelledAtNotification && ownsView())
             {
                 withdraw();
-                try { Changed(); }
-                catch (Exception error) { withdrawalFailure = error; }
+                withdrawalFailure = NotifySemanticWithdrawal();
             }
         }
         // If publication threw, its original failure is already propagating.
         if (cancelledAtNotification)
             throw new OperationCanceledException("Semantic Index read was cancelled.", withdrawalFailure, token);
+    }
+
+    private Exception? NotifySemanticWithdrawal()
+    {
+        var subscribers = PropertyChanged;
+        if (subscribers is null) return null;
+
+        var args = new PropertyChangedEventArgs(null);
+        Exception? firstFailure = null;
+        foreach (PropertyChangedEventHandler subscriber in subscribers.GetInvocationList())
+        {
+            try { subscriber(this, args); }
+            catch (Exception error) { firstFailure ??= error; }
+        }
+        return firstFailure;
     }
 
     public CompilerIndexCompletionPage? ReadIndexedCompletion(int pageSize = CompilerSemanticIndex.MaximumPageSize,
