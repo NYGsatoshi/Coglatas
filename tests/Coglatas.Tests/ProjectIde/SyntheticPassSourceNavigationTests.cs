@@ -279,16 +279,17 @@ public sealed class SyntheticPassSourceNavigationTests
 
         view.PropertyChanged += Observe;
         view.PropertyChanged += RecordWithdrawal;
-        Exception? error;
+        Exception? error = null;
         try
         {
-            error = Record.Exception(() =>
-            {
-                if (readBoundary)
-                    view.ReadRecordedPassBoundary(result.ResultDigest, 5, CompilerPassObservationSnapshotMode.AvailableOriginalJson, token: token);
-                else
-                    view.ReadPassBoundarySourcePage(maximumTargets: 1, token: token);
-            });
+            if (readBoundary)
+                view.ReadRecordedPassBoundary(result.ResultDigest, 5, CompilerPassObservationSnapshotMode.AvailableOriginalJson, token: token);
+            else
+                view.ReadPassBoundarySourcePage(maximumTargets: 1, token: token);
+        }
+        catch (Exception observed)
+        {
+            error = observed;
         }
         finally
         {
