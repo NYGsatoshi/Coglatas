@@ -125,7 +125,7 @@ public sealed partial class SyntheticWorkbenchViewModel
 
         var args = new PropertyChangedEventArgs(null);
         Exception? firstFailure = null;
-        foreach (PropertyChangedEventHandler subscriber in subscribers.GetInvocationList())
+        foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
         {
             try { subscriber(this, args); }
             catch (Exception error) { firstFailure ??= error; }
