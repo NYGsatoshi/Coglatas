@@ -119,6 +119,7 @@ public sealed class SyntheticCompilerOutputSnapshotTests
         public bool Fired { get; private set; }
         public bool ReplacementSucceeded { get; private set; }
         public int WithdrawalNotifications { get; private set; }
+        public List<bool> DeliveredWithdrawalNotifications { get; } = [];
         public ProjectCompilerOutputSnapshot? Replacement { get; private set; }
         public CancelPublishedRead(SyntheticWorkbenchViewModel vm, bool replace, Exception? publicationException = null,
             Exception? withdrawalException = null)
@@ -129,6 +130,7 @@ public sealed class SyntheticCompilerOutputSnapshotTests
             _publicationException = publicationException;
             _withdrawalException = withdrawalException;
             vm.PropertyChanged += Changed;
+            vm.PropertyChanged += RecordWithdrawal;
         }
         public Exception? Read() => Record.Exception(ReadCore);
         private void ReadCore() => _vm.ReadSyntheticCompilerOutputs(_expectedResult, CompilerOutputSnapshotMode.AvailableOutputs, ProjectCompilerOutputSnapshot.MaximumBodyBudgetBytes, token: Token);
@@ -153,7 +155,21 @@ public sealed class SyntheticCompilerOutputSnapshotTests
             _source.Cancel();
             if (_publicationException is not null) throw _publicationException;
         }
-        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+
+        private void RecordWithdrawal(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Token.IsCancellationRequested)
+            {
+                DeliveredWithdrawalNotifications.Add(_vm.CompilerOutputSnapshot is null);
+            }
+        }
+
+        public void Dispose()
+        {
+            _vm.PropertyChanged -= Changed;
+            _vm.PropertyChanged -= RecordWithdrawal;
+            _source.Dispose();
+        }
     }
 
     [Theory]
@@ -220,6 +236,7 @@ public sealed class SyntheticCompilerOutputSnapshotTests
             Assert.Null(view.CompilerOutputSnapshot);
         }
         Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+        Assert.Equal(replace ? [] : [true], cancellation.DeliveredWithdrawalNotifications);
         if (publicationError is null)
         {
             var cancelled = Assert.IsType<OperationCanceledException>(error);
