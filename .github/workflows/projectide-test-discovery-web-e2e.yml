@@ -6,6 +6,8 @@ on:
     paths:
       - tests/ui/projectide-local-tests.spec.ts
       - tests/ui/run-angular-playwright.mjs
+      - playwright.config.ts
+      - tests/ui/serve-static.mjs
       - tests/ci/projectide-test-discovery-browser-receipt.mjs
       - tests/ci/projectide-test-discovery-browser-receipt.node-test.mjs
       - tests/ci/projectide-test-discovery-workflow-routing.node-test.mjs
@@ -20,6 +22,8 @@ on:
     paths:
       - tests/ui/projectide-local-tests.spec.ts
       - tests/ui/run-angular-playwright.mjs
+      - playwright.config.ts
+      - tests/ui/serve-static.mjs
       - tests/ci/projectide-test-discovery-browser-receipt.mjs
       - tests/ci/projectide-test-discovery-browser-receipt.node-test.mjs
       - tests/ci/projectide-test-discovery-workflow-routing.node-test.mjs
