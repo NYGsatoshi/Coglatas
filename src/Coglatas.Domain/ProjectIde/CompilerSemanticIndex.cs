@@ -60,8 +60,8 @@ public sealed class CompilerSemanticIndex
             .ThenBy(item => item.State).ThenBy(item => item.SymbolKey, StringComparer.Ordinal));
         _contexts = Regions.Select(region => region.Source.Context).ToHashSet();
         var preparedLookups = lookupScope is null ? null : lookupCache!.Prepare(lookupScope, LookupDependencies(Symbols, References),
-            () => new SemanticIndexLookupTables(Symbols, References), token);
-        _lookups = preparedLookups?.Tables ?? new SemanticIndexLookupTables(Symbols, References);
+            () => new SemanticIndexLookupTables(Symbols, References, token), token);
+        _lookups = preparedLookups?.Tables ?? new SemanticIndexLookupTables(Symbols, References, token);
         IndexCoverageComplete = state == CompilerSemanticIndexState.Complete && IncludesDeclaredSnapshots &&
             _lookups.KeyCount == Symbols.Count && _lookups.LocationCount == Symbols.Count && Symbols.All(item => item.Symbol.Status == ValueDecodeStatus.Decoded);
         Data = SourceJson.FromObject(new {
