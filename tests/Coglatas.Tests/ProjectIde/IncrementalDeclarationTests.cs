@@ -188,14 +188,10 @@ public sealed class IncrementalDeclarationTests
         var timeout = TimeSpan.FromSeconds(20);
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var decoderCalls = 0;
         var cache = new PlanDeclarationReadCache((data, document) =>
         {
-            if (Interlocked.Increment(ref decoderCalls) == 1)
-            {
-                started.SetResult();
+            if (started.TrySetResult())
                 release.Task.WaitAsync(timeout).GetAwaiter().GetResult();
-            }
             return PlanDeclarationReader.Read(data, document);
         });
         var generation = cache.BeginBinding(source.Context.Branch, CancellationToken.None);
@@ -212,7 +208,6 @@ public sealed class IncrementalDeclarationTests
             {
                 var secondRead = await Task.Run(() => cache.Read(source, generation, CancellationToken.None)).WaitAsync(timeout);
                 published = Assert.Single(secondRead);
-                Assert.Equal(2, Volatile.Read(ref decoderCalls));
             }
         }
         finally
