@@ -44,6 +44,7 @@ function triggerPaths(source, event) {
 function verifyRequiredRoutes(source) {
   const pathsByEvent = ['push', 'pull_request'].map(event => {
     const paths = triggerPaths(source, event);
+    assert.ok(paths.every(path => !/^['"]?!/.test(path)), event + ' paths must use only inclusion patterns');
     assert.equal(new Set(paths).size, paths.length, "Duplicate " + event + " paths");
     for (const path of requiredPaths) {
       assert.ok(paths.includes(path), event + " route omits " + path);
@@ -83,4 +84,11 @@ test('asymmetric PR-only source routes fail the route check', () => {
   );
   assert.notEqual(missing, workflow, 'PR path list must exist in the fixture');
   assert.throws(() => verifyRequiredRoutes(missing), /Push and PR path selectors must match/);
+});
+
+test('matching exclusions cannot disable required routes', () => {
+  const lastSelector = '      - .github/workflows/projectide-test-discovery-web-e2e.yml\n';
+  assert.equal(workflow.split(lastSelector).length - 1, 2, 'Both path lists must contain the workflow path');
+  const excluded = workflow.replaceAll(lastSelector, lastSelector + "      - '!frontend/**'\n");
+  assert.throws(() => verifyRequiredRoutes(excluded), /push paths must use only inclusion patterns/);
 });
