@@ -7,6 +7,7 @@ import type { MESSAGING_ENGLISH_MESSAGES } from './messages/messaging.messages';
 import type { PROJECT_EXECUTION_ENGLISH_MESSAGES } from './messages/project-execution.messages';
 import type { PROJECT_FEEDBACK_ENGLISH_MESSAGES } from './messages/project-feedback.messages';
 import type { FILES_ENGLISH_MESSAGES } from './messages/files.messages';
+import type { PROJECTIDE_ENGLISH_MESSAGES } from './messages/projectide.messages';
 
 import type { WorkStatus } from '../../shared/ui/work-status/work-status';
 
@@ -462,7 +463,8 @@ export type TranslationKey = BaseTranslationKey
   | keyof typeof MESSAGING_ENGLISH_MESSAGES
   | keyof typeof PROJECT_EXECUTION_ENGLISH_MESSAGES
   | keyof typeof PROJECT_FEEDBACK_ENGLISH_MESSAGES
-  | keyof typeof FILES_ENGLISH_MESSAGES;
+  | keyof typeof FILES_ENGLISH_MESSAGES
+  | keyof typeof PROJECTIDE_ENGLISH_MESSAGES;
 
 const JAPANESE_TRANSLATIONS: Record<BaseTranslationKey, string> = {
   ...SHELL_JAPANESE_MESSAGES,

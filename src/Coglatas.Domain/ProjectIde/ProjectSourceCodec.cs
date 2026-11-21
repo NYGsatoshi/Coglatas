@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace Coglatas.Domain.ProjectIde;
 
-public enum SourceDecodeStatus { StructurallyDecoded, Unsupported, Invalid }
+public enum SourceDecodeStatus { StructurallyDecoded, Unsupported, Invalid, Cancelled }
 
 /// <summary>A structural decode is never a Compiler verdict or authorization PASS.</summary>
 public sealed class SourceDecodeResult
@@ -21,9 +21,12 @@ public sealed class SourceDecodeResult
 
 public static class ProjectSourceCodec
 {
-    public static SourceDecodeResult Decode(ReadOnlySpan<byte> bytes, SourceCodecLimits? limits = null)
+    public static SourceDecodeResult Decode(ReadOnlySpan<byte> bytes, SourceCodecLimits? limits = null,
+        CancellationToken cancellationToken = default)
     {
         var original = bytes.ToArray();
+        if (cancellationToken.IsCancellationRequested)
+            return new(SourceDecodeStatus.Cancelled, null, "Source decoding cancelled; original bytes retained.", original);
         try
         {
             var parsed = SourceJson.Parse(bytes, limits);
@@ -36,6 +39,8 @@ public static class ProjectSourceCodec
             var canonical = NormalizeSets(parsed, limits ?? new());
             var source = new ProjectSource(canonical);
             var opaque = HasUnsupportedData(source);
+            if (cancellationToken.IsCancellationRequested)
+                return new(SourceDecodeStatus.Cancelled, null, "Source decoding cancelled; original bytes retained.", original);
             return new(opaque ? SourceDecodeStatus.Unsupported : SourceDecodeStatus.StructurallyDecoded, source,
                 opaque ? "Opaque data retained; semantic compatibility/coverage has not been established." : null, original);
         }

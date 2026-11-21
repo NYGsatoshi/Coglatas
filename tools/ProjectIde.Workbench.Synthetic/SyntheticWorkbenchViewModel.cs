@@ -1,0 +1,480 @@
+using System.ComponentModel;
+using Coglatas.Application.ProjectIde.Core;
+using Coglatas.Domain.ProjectIde;
+
+namespace Coglatas.ProjectIde.Workbench.Synthetic;
+
+/// <summary>Pure .NET synthetic ViewModel preparation for Windows. No Avalonia activation, real data or access grant.</summary>
+public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged, IDisposable
+{
+    private const int ReferenceScanLimit = 4096;
+    private const int ReferenceResultLimit = 32;
+    private const int ReferenceOriginCheckLimit = 64;
+    public sealed record ReferenceSearchResult(IReadOnlyList<CompilerBoundReference> References, bool CoverageComplete, bool Truncated);
+
+    private CompilerHostRequest? _desired;
+    private bool _disposed;
+    private long _lastGeneration = -1;
+    private long _lifecycle;
+    private long _selectionGeneration;
+    private long _revertPreviewGeneration;
+    private long _historyReadGeneration;
+    private long _taskSuggestionGeneration;
+    private CoreCompilation? _compilation;
+    public string State { get; private set; } = "Empty";
+    public ProjectSource? Source { get; private set; }
+    public CompilerResult? Result { get; private set; }
+    public CompilerSemanticInspection? Inspection { get; private set; }
+    public CompilerInspectedSymbol? Selected { get; private set; }
+    public ReferenceCompletionPage? ReferenceCompletion { get; private set; }
+    public RequirementTaskSuggestionPage? TaskSuggestions { get; private set; }
+    public DraftRenamePreview? RenamePreview { get; private set; }
+    public DraftRevertPreview? RevertPreview { get; private set; }
+    public ProjectSemanticDiff? SemanticDiff { get; private set; }
+    public HistoryReconstruction? History { get; private set; }
+    public CompilerDiagnostic? SelectedDiagnostic { get; private set; }
+    public CompilerBoundReference? SelectedReference { get; private set; }
+    public CompilerInspectedSymbol? ReferenceSymbol { get; private set; }
+    public string NavigationState { get; private set; } = "";
+    public ProjectLocation? SourceTarget { get; private set; }
+    public CompilerInspectedSymbol? DiagnosticSymbol =>
+        _compilation?.Validation?.StructuralClosureValidated == true &&
+        SelectedDiagnostic is { } diagnostic &&
+        Inspection?.Inspect(diagnostic.Location) is { } symbol &&
+        Resolve(symbol.Symbol.Location) == "ready" ? symbol : null;
+    public IReadOnlyList<CompilerDiagnostic> Problems => Result?.Diagnostics ?? Array.Empty<CompilerDiagnostic>();
+
+    /// <summary>Accepted findings for the exact document and typed record selected in the Inspector.</summary>
+    public IReadOnlyList<CompilerDiagnostic> RelatedProblems
+    {
+        get
+        {
+            var location = SelectedDiagnostic?.Location ?? Selected?.Symbol.Location ?? SelectedReference?.Origin;
+            if (location is null || Resolve(location) != "ready") return Array.Empty<CompilerDiagnostic>();
+            return Problems.Where(diagnostic => diagnostic.Location.Context.Equals(location.Context) &&
+                diagnostic.Location.DocumentId == location.DocumentId &&
+                diagnostic.Location.EntityId == location.EntityId &&
+                diagnostic.Location.RelationId == location.RelationId).ToArray();
+        }
+    }
+
+    /// <summary>
+    /// Local compiler evidence display only. A complete PASS is never Producer trust,
+    /// current authorization, Evidence Eligibility or an operational approval.
+    /// </summary>
+    public string LocalEvidenceState
+    {
+        get
+        {
+            if (_disposed || State != "Ready" || Result is not { } result ||
+                _desired is null || Source is null) return "not-loaded";
+            if (!result.Input.InputDigest.Equals(_desired.Input.ExpectedInputDigest) ||
+                !result.Input.Source.Data.Equals(Source.Data)) return "stale";
+            if (result.Execution != CompilerExecutionState.Completed) return "not-executed";
+            if (result.Coverage != CompilerCoverage.Complete ||
+                Inspection is { } inspection && (!inspection.BindingComplete ||
+                    inspection.Symbols.Any(symbol => symbol.Symbol.Status != ValueDecodeStatus.Decoded) ||
+                    inspection.References.Any(reference => reference.State != ReferenceResolutionState.Resolved))) return "partial-coverage";
+            if (!result.EvidenceComplete) return "missing-evidence";
+            return result.Verdict == CompilerVerdict.Pass ? "complete-local-pass" : "not-passed";
+        }
+    }
+    public bool HasCompleteLocalPass => LocalEvidenceState == "complete-local-pass";
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public void BeginSynthetic(CompilerHostRequest desired) => BeginSyntheticContext(desired, null, null);
+
+    private void BeginSyntheticContext(CompilerHostRequest desired, PredicateCompilerHostRequest? predicateRequest,
+        LocalPredicateCompilerRecordingManifest? predicateManifest, PredicateObservationCompilerHostRequest? operatorRequest = null,
+        LocalPredicateObservationCompilerRecordingManifest? operatorManifest = null,
+        PassObservationCompilerHostRequest? passRequest = null, LocalPassObservationCompilerRecordingManifest? passManifest = null, CancellationToken cancellationToken = default,
+        RegionalPredicateObservationCompilerHostRequest? regionalOperatorRequest = null, LocalRegionalPredicateObservationCompilerRecordingManifest? regionalOperatorManifest = null)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(desired);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (desired.ClientGeneration <= _lastGeneration) throw new ArgumentException("A new lifecycle needs a strictly newer generation.", nameof(desired));
+        var lifecycle = ++_lifecycle;
+        _lastGeneration = desired.ClientGeneration;
+        ClearContext(); Changed();
+        cancellationToken.ThrowIfCancellationRequested();
+        // A synchronous notification may reset, dispose or begin a newer context.
+        if (_disposed || lifecycle != _lifecycle) return;
+        // Materialize before publishing context, so malformed input cannot leave a partial selection.
+        var source = desired.Input.Materialize().Source;
+        cancellationToken.ThrowIfCancellationRequested();
+        _desired = desired; _desiredPredicateRequest = predicateRequest; _desiredPredicateManifest = predicateManifest;
+        _desiredOperatorRequest = operatorRequest; _desiredOperatorManifest = operatorManifest;
+        _desiredPassRequest = passRequest; _desiredPassManifest = passManifest;
+        _desiredRegionalOperatorRequest = regionalOperatorRequest; _desiredRegionalOperatorManifest = regionalOperatorManifest;
+        Source = source; State = "Waiting"; Changed();
+    }
+
+    public bool TryAccept(CompilerHostResponse response)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+        if (_disposed || _desired is null || _desiredPredicateRequest is not null || _desiredOperatorRequest is not null || _desiredPassRequest is not null || _desiredRegionalOperatorRequest is not null || State != "Waiting") return false;
+        if (response.ClientGeneration != _desired.ClientGeneration || !response.RequestedInputDigest.Equals(_desired.Input.ExpectedInputDigest)) return false;
+        if (response.Status != CompilerHostStatus.Completed)
+        {
+            if (!Enum.IsDefined(response.Status)) return false;
+            ClearResult(); State = response.Status.ToString(); Changed(); return false;
+        }
+        if (response.Compilation is not { Model: { } model } compilation ||
+            response.Execution is not { } execution ||
+            CompilerHostFreshnessAssessment.Assess(response, _desired).State != CompilerFreshness.Current ||
+            !execution.InputBindingDigest.Equals(_desired.ExecutionInputDigest) ||
+            !compilation.Input.Data.Equals(compilation.Result.Input.Data) || !compilation.Input.Source.Data.Equals(Source?.Data))
+        {
+            return false;
+        }
+        if (!TryPrepareInspection(model, out var inspection)) return false;
+        var lifecycle = _lifecycle;
+        ClearResult(); _compilation = compilation; Result = compilation.Result; Inspection = inspection; State = "Ready"; Changed();
+        return !_disposed && lifecycle == _lifecycle && ReferenceEquals(Result, compilation.Result);
+    }
+
+    private bool TryPrepareInspection(PartialSemanticModel? model, out CompilerSemanticInspection? inspection)
+    {
+        try
+        {
+            inspection = model is null ? null : new CompilerSemanticInspection(model);
+            return true;
+        }
+        catch (FormatException)
+        {
+            // Refuse this display projection without changing the actual Compiler outcome.
+            inspection = null; ClearResult(); State = "InspectionUnavailable"; Changed();
+            return false;
+        }
+    }
+
+    public bool Select(ProjectLocation location)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(location);
+        var generation = ClearSelection();
+        NavigationState = Resolve(location);
+        if (NavigationState == "ready") Selected = Inspection?.Inspect(location);
+        if (Selected is null && NavigationState == "ready") NavigationState = "unavailable";
+        Changed(); return !_disposed && generation == _selectionGeneration && Selected is not null;
+    }
+
+    public bool SelectDiagnostic(CompilerDiagnostic diagnostic)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(diagnostic);
+        var generation = ClearSelection();
+        var matches = Problems.Where(item => item.DiagnosticId == diagnostic.DiagnosticId).Take(2).ToArray();
+        if (matches.Length == 1 && ReferenceEquals(matches[0], diagnostic))
+        {
+            SelectedDiagnostic = matches[0];
+            NavigationState = Resolve(matches[0].Location);
+        }
+        else NavigationState = "unavailable";
+        Changed(); return !_disposed && generation == _selectionGeneration && SelectedDiagnostic is not null;
+    }
+
+    public bool SelectReference(CompilerBoundReference reference)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(reference);
+        var generation = ClearSelection();
+        if (Inspection is { } inspection && reference.State == ReferenceResolutionState.Resolved &&
+            reference.SymbolKey is { } key && inspection.References.Any(item => ReferenceEquals(item, reference)))
+        {
+            var matches = inspection.Symbols.Where(item => StringComparer.Ordinal.Equals(item.Symbol.Key, key)).Take(2).ToArray();
+            if (matches.Length == 1 && matches[0].Symbol.Status == ValueDecodeStatus.Decoded)
+            {
+                NavigationState = Resolve(reference.Origin, requireSourceMap: true);
+                if (NavigationState == "ready") NavigationState = Resolve(matches[0].Symbol.Location, requireSourceMap: true);
+                if (NavigationState == "ready")
+                {
+                    SelectedReference = reference;
+                    ReferenceSymbol = matches[0];
+                }
+            }
+        }
+        if (NavigationState.Length == 0) NavigationState = "unavailable";
+        Changed(); return !_disposed && generation == _selectionGeneration && ReferenceEquals(SelectedReference, reference);
+    }
+
+    public ReferenceSearchResult? FindReferences(CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (Inspection is not { } inspection || (Selected ?? ReferenceSymbol ?? DiagnosticSymbol) is not { } selected ||
+            selected.Symbol.Status != ValueDecodeStatus.Decoded ||
+            inspection.Symbols.Where(item => StringComparer.Ordinal.Equals(item.Symbol.Key, selected.Symbol.Key)).Take(2).Count() != 1 ||
+            Resolve(selected.Symbol.Location, requireSourceMap: true) != "ready") return null;
+
+        // Core orders References by canonical origin. Stream that projection to bound the scan
+        // and check cancellation, while applying the same exact-key predicate as FindReferences.
+        var references = new List<CompilerBoundReference>();
+        var coverageComplete = inspection.BindingComplete && Result!.Coverage == CompilerCoverage.Complete;
+        var truncated = inspection.References.Count > ReferenceScanLimit;
+        var originChecks = 0;
+        foreach (var reference in inspection.References.Take(ReferenceScanLimit))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (reference.State != ReferenceResolutionState.Resolved ||
+                !StringComparer.Ordinal.Equals(reference.SymbolKey, selected.Symbol.Key)) continue;
+            if (references.Count == ReferenceResultLimit || originChecks == ReferenceOriginCheckLimit)
+            {
+                truncated = true;
+                break;
+            }
+            originChecks++;
+            if (Resolve(reference.Origin, requireSourceMap: true) != "ready")
+            {
+                coverageComplete = false;
+                continue;
+            }
+            references.Add(reference);
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return new(new SyntheticReadOnlyList<CompilerBoundReference>(references), coverageComplete && !truncated, truncated);
+    }
+
+    public bool NavigateReferenceOrigin() => NavigateTo(SelectedReference?.Origin, requireSourceMap: true);
+
+    public DraftRenamePreview? PreviewRename(string name, SourceRevisionContext nextContext, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this); cancellationToken.ThrowIfCancellationRequested();
+        RenamePreview = null;
+        if (_compilation?.Model is not { } model || _desired is null || Selected is not { } selected ||
+            Resolve(selected.Symbol.Location, requireSourceMap: true) != "ready") return null;
+        var generation = _selectionGeneration;
+        var preview = ProjectDraftRename.Preview(model, selected.Symbol.Location, _desired.Input.ExpectedInputDigest,
+            name, nextContext, cancellationToken);
+        RenamePreview = preview; Changed();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (generation == _selectionGeneration && ReferenceEquals(RenamePreview, preview))
+            {
+                RenamePreview = null; Changed();
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        return !_disposed && generation == _selectionGeneration && ReferenceEquals(RenamePreview, preview) ? preview : null;
+    }
+
+    /// <summary>Replace only this local synthetic Draft and request a fresh compile. No server save or shared Merge.</summary>
+    public CompilerHostRequest? ApplyPreviewedRename(ProjectDraftRenamePlan plan, long clientGeneration, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(plan); cancellationToken.ThrowIfCancellationRequested();
+        if (!ReferenceEquals(RenamePreview?.Plan, plan) || _compilation is null || _desired is null || Selected is null ||
+            !plan.Target.Data.Equals(Selected.Symbol.Location.Data) || Resolve(plan.Target, requireSourceMap: true) != "ready" ||
+            clientGeneration <= _lastGeneration || plan.ApplyToDraft(_compilation.Input, cancellationToken) is not { } after) return null;
+        var request = new CompilerHostRequest(new(after), clientGeneration, _desired.Snapshots, _desired.Units, _desired.Calendars);
+        BeginSyntheticContext(request, null, null, cancellationToken: cancellationToken);
+        return !_disposed && ReferenceEquals(_desired, request) ? request : null;
+    }
+
+    /// <summary>Prepare an inverse Draft from already-authorized historical bodies, against the accepted current input.</summary>
+    public DraftRevertPreview? PreviewRevert(PartialSemanticModel parent, PartialSemanticModel reverted, ContentDigest expectedParent,
+        ContentDigest expectedReverted, ProposalContext proposal, IEnumerable<ProjectHistoryRevision?> history, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var lifecycle = _lifecycle; var generation = ++_revertPreviewGeneration;
+        if (RevertPreview is not null) { RevertPreview = null; Changed(); }
+        if (_disposed || lifecycle != _lifecycle || generation != _revertPreviewGeneration || RevertPreview is not null || State != "Ready" ||
+            _compilation?.Model is not { } model || _desired is null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return null;
+        }
+        var preview = ProjectDraftRevert.Preview(parent, reverted, model, expectedParent, expectedReverted,
+            _desired.Input.ExpectedInputDigest, proposal, history, cancellationToken);
+        if (_disposed || lifecycle != _lifecycle || generation != _revertPreviewGeneration) return null;
+        RevertPreview = preview; Changed();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (generation == _revertPreviewGeneration && ReferenceEquals(RevertPreview, preview))
+            {
+                _revertPreviewGeneration++; RevertPreview = null; Changed();
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        return !_disposed && lifecycle == _lifecycle && generation == _revertPreviewGeneration && ReferenceEquals(RevertPreview, preview) ? preview : null;
+    }
+
+    /// <summary>Replace this synthetic local context with its exact prepared new Draft; no shared mutation or effect replay.</summary>
+    public CompilerHostRequest? ApplyPreviewedRevert(ProjectDraftRevertPlan plan, long clientGeneration, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(plan); cancellationToken.ThrowIfCancellationRequested();
+        if (!ReferenceEquals(RevertPreview?.Plan, plan) || _compilation is null || _desired is null ||
+            clientGeneration <= _lastGeneration || plan.ApplyToDraft(_compilation.Input, cancellationToken) is not { } after) return null;
+        var request = new CompilerHostRequest(new(after), clientGeneration, _desired.Snapshots, _desired.Units, _desired.Calendars);
+        BeginSyntheticContext(request, null, null, cancellationToken: cancellationToken);
+        return !_disposed && ReferenceEquals(_desired, request) ? request : null;
+    }
+
+    /// <summary>Prepare read-only candidates for the selected Requirement; no evidence or Source change.</summary>
+    public RequirementTaskSuggestionPage? SuggestRequirementTasks(int pageSize = 16, RequirementTaskSuggestionCursor? cursor = null,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var lifecycle = _lifecycle; var selection = _selectionGeneration; var generation = ++_taskSuggestionGeneration;
+        if (TaskSuggestions is not null) { TaskSuggestions = null; Changed(); }
+        if (_disposed || lifecycle != _lifecycle || selection != _selectionGeneration || generation != _taskSuggestionGeneration)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return null;
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        if (Inspection is not { } inspection || Selected is not { } selected || _desired is null ||
+            Resolve(selected.Symbol.Location, requireSourceMap: true) != "ready") return null;
+        var page = inspection.SuggestRequirementTasks(selected.Symbol.Location, _desired.Input.ExpectedInputDigest, pageSize, cursor, cancellationToken);
+        if (_disposed || lifecycle != _lifecycle || selection != _selectionGeneration || generation != _taskSuggestionGeneration) return null;
+        TaskSuggestions = page; Changed();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (generation == _taskSuggestionGeneration && ReferenceEquals(TaskSuggestions, page))
+            { _taskSuggestionGeneration++; TaskSuggestions = null; Changed(); }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        return !_disposed && lifecycle == _lifecycle && selection == _selectionGeneration && generation == _taskSuggestionGeneration &&
+            ReferenceEquals(TaskSuggestions, page) ? page : null;
+    }
+
+    public bool NavigateTaskSuggestion(RequirementTaskSuggestionPage page, RequirementTaskSuggestion candidate)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(page); ArgumentNullException.ThrowIfNull(candidate);
+        if (!ReferenceEquals(TaskSuggestions, page) || page.State != RequirementTaskSuggestionState.Ready ||
+            !page.Candidates.Any(item => ReferenceEquals(item, candidate)) || Selected is null || _desired is null ||
+            !page.Origin.Data.Equals(Selected.Symbol.Location.Data) || !page.InputDigest.Equals(_desired.Input.ExpectedInputDigest) ||
+            Resolve(page.Origin, requireSourceMap: true) != "ready")
+        { SourceTarget = null; NavigationState = "unavailable"; Changed(); return false; }
+        return NavigateTo(candidate.Symbol.Symbol.Location, requireSourceMap: true);
+    }
+
+    public ReferenceCompletionPage? CompleteEntityReference(int pageSize = 16, ReferenceCompletionCursor? cursor = null,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this); cancellationToken.ThrowIfCancellationRequested();
+        ReferenceCompletion = null;
+        if (Inspection is not { } inspection || Selected is not { } selected || _desired is null ||
+            Resolve(selected.Symbol.Location, requireSourceMap: true) != "ready") return null;
+        var generation = _selectionGeneration;
+        var page = inspection.CompleteEntityReference(selected.Symbol.Location, _desired.Input.ExpectedInputDigest,
+            pageSize, cursor, cancellationToken);
+        ReferenceCompletion = page; Changed();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (generation == _selectionGeneration && ReferenceEquals(ReferenceCompletion, page))
+            { ReferenceCompletion = null; Changed(); }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        return !_disposed && generation == _selectionGeneration && ReferenceEquals(ReferenceCompletion, page) ? page : null;
+    }
+
+    /// <summary>Open a suggested declaration without inserting a reference or changing Source.</summary>
+    public bool NavigateCompletion(ReferenceCompletionPage page, ReferenceCompletionCandidate candidate)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(page); ArgumentNullException.ThrowIfNull(candidate);
+        if (!ReferenceEquals(ReferenceCompletion, page) || page.State != ReferenceCompletionState.Ready ||
+            !page.Candidates.Any(item => ReferenceEquals(item, candidate)) || Selected is null ||
+            !page.Origin.Data.Equals(Selected.Symbol.Location.Data) || _desired is null ||
+            !page.InputDigest.Equals(_desired.Input.ExpectedInputDigest) ||
+            Resolve(page.Origin, requireSourceMap: true) != "ready")
+        {
+            SourceTarget = null; NavigationState = "unavailable"; Changed(); return false;
+        }
+        return NavigateTo(candidate.Symbol.Symbol.Location, requireSourceMap: true);
+    }
+
+    public bool NavigateReferenceDefinition() => NavigateTo(ReferenceSymbol?.Symbol.Location, requireSourceMap: true);
+
+    public bool Navigate() => NavigateTo(SelectedTestAssertion?.Location ?? SelectedDiagnostic?.Location ?? Selected?.Symbol.Location);
+
+    public bool NavigateDiagnosticSymbol() => NavigateTo(DiagnosticSymbol?.Symbol.Location);
+
+    private bool NavigateTo(ProjectLocation? location, bool requireSourceMap = false)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var generation = ++_selectionGeneration;
+        SourceTarget = null; ClearScopedSelection();
+        NavigationState = location is null ? "unavailable" : Resolve(location, requireSourceMap);
+        if (NavigationState == "ready") SourceTarget = location;
+        Changed(); return !_disposed && generation == _selectionGeneration && SourceTarget is not null;
+    }
+
+    /// <summary>Local paired-model display preparation; the caller owns historical authorization/materialization.</summary>
+    public ProjectSemanticDiff? CompareSynthetic(PartialSemanticModel before, ContentDigest expectedBefore,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        SemanticDiff = null;
+        if (_compilation?.Model is not { } after || _desired is null || State != "Ready") return null;
+        var lifecycle = _lifecycle;
+        var diff = ProjectSemanticDiff.Compare(before, after, expectedBefore, _desired.Input.ExpectedInputDigest,
+            cancellationToken: cancellationToken);
+        SemanticDiff = diff; Changed();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (lifecycle == _lifecycle && ReferenceEquals(SemanticDiff, diff))
+            {
+                SemanticDiff = null; Changed();
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        return !_disposed && lifecycle == _lifecycle && ReferenceEquals(SemanticDiff, diff) ? diff : null;
+    }
+
+    /// <summary>Reconstruct only caller-authorized synthetic history in the accepted Project scope.</summary>
+    public HistoryReconstruction? ReadSyntheticHistory(RevisionRef revision, IEnumerable<ProjectHistoryRevision?> records,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(revision); ArgumentNullException.ThrowIfNull(records);
+        var lifecycle = _lifecycle; var generation = ++_historyReadGeneration;
+        if (History is not null) { History = null; Changed(); }
+        if (_disposed || lifecycle != _lifecycle || generation != _historyReadGeneration || History is not null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return null;
+        }
+        if (_desired is null || Source is null || State != "Ready" ||
+            revision.Branch.TenantId != Source.TenantId || revision.Branch.ProjectId != Source.ProjectId) return null;
+        var result = ProjectSourceHistory.Read(revision, records, cancellationToken);
+        if (_disposed || lifecycle != _lifecycle || generation != _historyReadGeneration) return null;
+        History = result; Changed();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            if (generation == _historyReadGeneration && ReferenceEquals(History, result))
+            {
+                _historyReadGeneration++; History = null; Changed();
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        return !_disposed && lifecycle == _lifecycle && generation == _historyReadGeneration && ReferenceEquals(History, result) ? result : null;
+    }
+
+    public void Reset()
+    {
+        _lifecycle++; ClearContext(); Changed();
+    }
+    private void ClearContext() { ClearRegionalOperatorContext(); ClearPassContext(); ClearOperatorContext(); ClearPredicateContext(); ClearScenarioContext(); _desired = null; Source = null; ClearResult(); State = "Empty"; }
+    private long ClearSelection()
+    {
+        ClearSemanticIndexSelection();
+        ClearReferenceSearchPage();
+        ClearDiagnosticPremises(); ClearRecordedPredicatePremises(); ClearOperatorSnapshot(); ClearRegionalOperatorSelection();
+        ClearTestEdit(); ClearScenarioPreview(); ClearScopedSelection();
+        SelectedTestAssertion = null; Selected = null; SelectedDiagnostic = null; SelectedReference = null; ReferenceSymbol = null;
+        ReferenceCompletion = null;
+        TaskSuggestions = null; _taskSuggestionGeneration++;
+        RenamePreview = null;
+        SourceTarget = null; NavigationState = "";
+        return ++_selectionGeneration;
+    }
+    private void ClearResult() { _acceptedRegionalOperatorInvocation = null; _acceptedPassInvocation = null; _acceptedOperatorInvocation = null; _acceptedPredicateInvocation = null; ClearScopedSources(); ClearTests(); _revertPreviewGeneration++; _historyReadGeneration++; _compilation = null; Result = null; Inspection = null; SemanticDiff = null; History = null; RevertPreview = null; ClearSelection(); }
+    private string Resolve(ProjectLocation location, bool requireSourceMap = false) =>
+        SyntheticSourceNavigation.Resolve(_desired, Source, _compilation, location, requireSourceMap);
+    private void Changed() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        Reset();
+    }
+}
