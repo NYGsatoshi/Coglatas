@@ -147,7 +147,14 @@ for (const locale of ['en', 'ja'] as const) {
       for (const item of bundle.cases) delete item.localProjectTestDiscovery;
       await route.fulfill({ response, json: bundle });
     });
-    await page.getByTestId('ide-test-discovery-example').click(); await choose('tests-discovery-unavailable');
+    // The selected fixture is replaced asynchronously; wait for the intercepted response
+    // and the newly rendered Ready workbench before choosing a context.
+    const reloadedDiscovery = page.waitForResponse(response =>
+      response.url().endsWith('/assets/projectide/test-discovery-v1.json') && response.ok());
+    await page.getByTestId('ide-test-discovery-example').click();
+    await reloadedDiscovery;
+    await expect(page.getByTestId('ide-test-discovery-example')).toBeVisible();
+    await choose('tests-discovery-unavailable');
     await page.getByRole('button', { name: list, exact: true }).click();
     await expect(page.getByTestId('ide-test-discovery-summary')).toHaveAttribute('data-admission', 'not-admitted');
     await expect(page.getByTestId('ide-test-discovery-summary')).toHaveAttribute('data-discovery-state', 'unavailable');
