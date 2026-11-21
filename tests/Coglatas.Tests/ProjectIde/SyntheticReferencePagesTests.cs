@@ -170,6 +170,7 @@ public sealed class SyntheticReferencePagesTests
         var root = vm.Selected!.Symbol.Location; var result = vm.Result;
         Assert.Throws<OperationCanceledException>(() => vm.ReadReferenceSearchPage(cancellationToken: cancellation.Token));
         Assert.True(cancellation.Fired); Assert.Same(result, vm.Result);
+        Assert.Equal(1, cancellation.DeliveredWithdrawals);
         Assert.Null(vm.ReferencePage);
         if (action == "ordinary") Assert.Same(root, vm.SourceTarget);
         else Assert.Null(vm.SourceTarget);
@@ -191,6 +192,7 @@ public sealed class SyntheticReferencePagesTests
             vm.ReadReferenceSearchPage(cancellationToken: cancellation.Token));
 
         Assert.Same(cancellation.PublicationError, failure);
+        Assert.Equal(action == "replacement" ? 0 : 1, cancellation.DeliveredWithdrawals);
         Assert.True(cancellation.Token.IsCancellationRequested);
         var cancelled = Assert.IsType<ReferenceSearchPage>(cancellation.CancelledPage);
         Assert.Same(references[0], cancelled.References[0]);
@@ -231,6 +233,7 @@ public sealed class SyntheticReferencePagesTests
         Assert.Equal(cancellation.Token, error.CancellationToken);
         Assert.Same(cancellation.WithdrawalError, error.InnerException);
         Assert.Equal(1, cancellation.NotificationsAfterCancellation);
+        Assert.Equal(1, cancellation.DeliveredWithdrawals);
         Assert.True(cancellation.WithdrawalNotified);
         Assert.NotNull(cancellation.CancelledPage);
         Assert.Null(vm.ReferencePage);
@@ -250,6 +253,7 @@ public sealed class SyntheticReferencePagesTests
         public bool Fired { get; private set; }
         public bool WithdrawalNotified { get; private set; }
         public int NotificationsAfterCancellation { get; private set; }
+        public int DeliveredWithdrawals { get; private set; }
         public ReferenceSearchPage? CancelledPage { get; private set; }
         public ReferenceSearchPage? ReplacementPage { get; private set; }
         public InvalidOperationException PublicationError { get; } = new("Reference page publication failed.");
@@ -263,6 +267,7 @@ public sealed class SyntheticReferencePagesTests
             _throwDuringPublication = throwDuringPublication;
             _throwDuringWithdrawal = throwDuringWithdrawal;
             _viewModel.PropertyChanged += Changed;
+            _viewModel.PropertyChanged += RecordWithdrawal;
         }
         private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
@@ -293,9 +298,19 @@ public sealed class SyntheticReferencePagesTests
             _source.Cancel();
             if (_throwDuringPublication) throw PublicationError;
         }
+
+        private void RecordWithdrawal(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Token.IsCancellationRequested && _viewModel.ReferencePage is null)
+            {
+                DeliveredWithdrawals++;
+            }
+        }
+
         public void Dispose()
         {
             _viewModel.PropertyChanged -= Changed;
+            _viewModel.PropertyChanged -= RecordWithdrawal;
             _source.Dispose();
         }
     }
