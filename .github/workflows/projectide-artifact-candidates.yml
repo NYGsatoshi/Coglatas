@@ -11,6 +11,7 @@ on:
       - src/Coglatas.Application/ProjectIde/DependencyAcquisition/**
       - tests/Coglatas.Tests/ProjectIde/SyntheticDependencyAcquisitionTests.cs
       - tests/Coglatas.Tests/ProjectIde/Fixtures/artifact-hash-vectors-v1.json
+      - tests/Coglatas.Tests/ProjectIde/Fixtures/artifact-reader-compat-vectors-v1.json
       - tests/ci/projectide-artifact-vectors.test.mjs
       - tests/ci/projectide_artifact_inventory.py
       - tests/ci/projectide_core_isolated.py
