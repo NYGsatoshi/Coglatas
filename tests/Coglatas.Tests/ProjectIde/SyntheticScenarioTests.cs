@@ -156,6 +156,7 @@ public sealed class SyntheticScenarioTests
         public CancellationToken Token => _source.Token;
         public bool Fired { get; private set; }
         public int WithdrawalNotifications { get; private set; }
+        public int DeliveredWithdrawals { get; private set; }
         public object? Replacement { get; private set; }
         public CancelScenarioPreview(SyntheticWorkbenchViewModel vm, CompilerInputManifest input,
             ProjectScenarioOverride change, bool draft, bool replace, InvalidOperationException? publicationError,
@@ -164,6 +165,7 @@ public sealed class SyntheticScenarioTests
             _vm = vm; _input = input; _change = change; _basis = ProjectSemanticBinder.Bind(input);
             _draft = draft; _replace = replace; _publicationError = publicationError;
             _withdrawalError = withdrawalError; vm.PropertyChanged += Changed;
+            vm.PropertyChanged += RecordWithdrawal;
         }
         public Exception? Read() => Record.Exception(ReadCore);
         private void ReadCore() => ReadPreview(704, Token);
@@ -192,7 +194,21 @@ public sealed class SyntheticScenarioTests
             _source.Cancel();
             if (_publicationError is not null) throw _publicationError;
         }
-        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+
+        private void RecordWithdrawal(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Token.IsCancellationRequested && (_draft ? _vm.ScenarioDraftPreview is null : _vm.ScenarioPreview is null))
+            {
+                DeliveredWithdrawals++;
+            }
+        }
+
+        public void Dispose()
+        {
+            _vm.PropertyChanged -= Changed;
+            _vm.PropertyChanged -= RecordWithdrawal;
+            _source.Dispose();
+        }
     }
 
     [Theory]
@@ -276,7 +292,8 @@ public sealed class SyntheticScenarioTests
         {
             Assert.Same(publicationError, error);
         }
-        Assert.Equal(withdrawalError is not null && !replace ? 1 : 0, cancellation.WithdrawalNotifications);
+        Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+        Assert.Equal(replace ? 0 : 1, cancellation.DeliveredWithdrawals);
     }
     private sealed class CancelInitialScenarioPreview : IDisposable
     {
