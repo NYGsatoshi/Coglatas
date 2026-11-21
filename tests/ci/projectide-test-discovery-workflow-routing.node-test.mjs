@@ -4,12 +4,30 @@ import test from 'node:test';
 
 const workflowPath = new URL('../../.github/workflows/projectide-test-discovery-web-e2e.yml', import.meta.url);
 const workflow = readFileSync(workflowPath, 'utf8').replaceAll('\r\n', '\n');
+// These files configure the exact dependency install and Angular production build.
+const buildInputPaths = [
+  '.npmrc',
+  'package.json',
+  'package-lock.json',
+  'frontend/.npmrc',
+  'frontend/package.json',
+  'frontend/package-lock.json',
+  'scripts/ci/npm-ci-retry.sh',
+  'scripts/ci/verify-npm-lockfile.mjs',
+  'frontend/angular.json',
+  'frontend/tsconfig.json',
+  'frontend/tsconfig.app.json',
+  'frontend/scripts/sanitize-syncfusion-theme-css.mjs'
+];
+
 const requiredPaths = [
   '.github/workflows/projectide-test-discovery-web-e2e.yml',
   'tests/ui/projectide-local-tests.spec.ts',
   'tests/ui/run-angular-playwright.mjs',
   'playwright.config.ts',
   'tests/ui/serve-static.mjs',
+  'tests/ui/a11y.ts',
+  ...buildInputPaths,
   'tests/ci/projectide-test-discovery-browser-receipt.mjs',
   'tests/ci/projectide-test-discovery-browser-receipt.node-test.mjs',
   'tests/ci/projectide-test-discovery-workflow-routing.node-test.mjs',
@@ -79,12 +97,12 @@ test('missing translation trigger fails the route check', () => {
   assert.throws(() => verifyRequiredRoutes(missing), /push route omits .*projectide\.messages\.ts/);
 });
 
-for (const path of ['playwright.config.ts', 'tests/ui/serve-static.mjs']) {
+for (const path of ['playwright.config.ts', 'tests/ui/serve-static.mjs', 'tests/ui/a11y.ts', ...buildInputPaths]) {
   test(`omitting ${path} from either event fails the route check`, () => {
     const selector = `      - ${path}\n`;
     const push = workflow.indexOf(selector);
     const pullRequest = workflow.lastIndexOf(selector);
-    assert.ok(push >= 0 && pullRequest > push, 'Both events must list the browser harness input');
+    assert.ok(push >= 0 && pullRequest > push, 'Both events must list the browser or build input');
 
     for (const [event, offset] of [['push', push], ['pull_request', pullRequest]]) {
       const missing = workflow.slice(0, offset) + workflow.slice(offset + selector.length);
