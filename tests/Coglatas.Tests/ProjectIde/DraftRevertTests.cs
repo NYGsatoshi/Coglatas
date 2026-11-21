@@ -639,4 +639,43 @@ public sealed class DraftRevertTests
         Assert.IsType<OperationCanceledException>(error);
     }
 
+
+    [Fact]
+    public void CancellationDuringDisposalOfOverLimitHistoryPreventsDraftPreview()
+    {
+        var before = Revision(60);
+        var after = Revision(61, "Changed");
+        var current = Revision(62, "Changed", "Later");
+        var first = Input(source: before);
+        var selected = Input(source: after);
+        var head = Input(source: current);
+        var checkpoint = ProjectHistoryRevision.Checkpoint(before, 0);
+        using var cancellation = new CancellationTokenSource();
+        var token = cancellation.Token;
+        Action cancel = cancellation.Cancel;
+        var supplied = 0;
+
+        var error = Assert.Throws<OperationCanceledException>(() => ProjectDraftRevert.Preview(
+            ProjectSemanticBinder.Bind(first), ProjectSemanticBinder.Bind(selected), ProjectSemanticBinder.Bind(head),
+            first.InputDigest, selected.InputDigest, head.InputDigest, DraftRenameTests.Proposal(head, 80), HistorySupply(), token));
+
+        Assert.Equal(token, error.CancellationToken);
+        Assert.Equal(ProjectSourceHistory.MaximumRecords + 1, supplied);
+
+        IEnumerable<ProjectHistoryRevision> HistorySupply()
+        {
+            try
+            {
+                while (true)
+                {
+                    supplied++;
+                    yield return checkpoint;
+                }
+            }
+            finally
+            {
+                cancel();
+            }
+        }
+    }
 }
