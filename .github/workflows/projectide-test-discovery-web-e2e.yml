@@ -9,6 +9,18 @@ on:
       - playwright.config.ts
       - tests/ui/serve-static.mjs
       - tests/ui/a11y.ts
+      - .npmrc
+      - package.json
+      - package-lock.json
+      - frontend/.npmrc
+      - frontend/package.json
+      - frontend/package-lock.json
+      - scripts/ci/npm-ci-retry.sh
+      - scripts/ci/verify-npm-lockfile.mjs
+      - frontend/angular.json
+      - frontend/tsconfig.json
+      - frontend/tsconfig.app.json
+      - frontend/scripts/sanitize-syncfusion-theme-css.mjs
       - tests/ci/projectide-test-discovery-browser-receipt.mjs
       - tests/ci/projectide-test-discovery-browser-receipt.node-test.mjs
       - tests/ci/projectide-test-discovery-workflow-routing.node-test.mjs
@@ -26,6 +38,18 @@ on:
       - playwright.config.ts
       - tests/ui/serve-static.mjs
       - tests/ui/a11y.ts
+      - .npmrc
+      - package.json
+      - package-lock.json
+      - frontend/.npmrc
+      - frontend/package.json
+      - frontend/package-lock.json
+      - scripts/ci/npm-ci-retry.sh
+      - scripts/ci/verify-npm-lockfile.mjs
+      - frontend/angular.json
+      - frontend/tsconfig.json
+      - frontend/tsconfig.app.json
+      - frontend/scripts/sanitize-syncfusion-theme-css.mjs
       - tests/ci/projectide-test-discovery-browser-receipt.mjs
       - tests/ci/projectide-test-discovery-browser-receipt.node-test.mjs
       - tests/ci/projectide-test-discovery-workflow-routing.node-test.mjs
