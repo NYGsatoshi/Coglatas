@@ -8,8 +8,13 @@ on:
       - tests/ui/run-angular-playwright.mjs
       - tests/ci/projectide-test-discovery-browser-receipt.mjs
       - tests/ci/projectide-test-discovery-browser-receipt.node-test.mjs
+      - tests/ci/projectide-test-discovery-workflow-routing.node-test.mjs
       - frontend/src/app/features/projectide/**
+      - frontend/src/app/core/i18n/messages/projectide.messages.ts
       - frontend/public/assets/projectide/**
+      - frontend/scripts/generate-projectide-test-discovery-evidence.mjs
+      - frontend/scripts/projectide-test-discovery-original-profiles.json
+      - frontend/scripts/projectide-test-discovery-evidence-generator.node-test.mjs
       - .github/workflows/projectide-test-discovery-web-e2e.yml
   pull_request:
     paths:
@@ -17,8 +22,13 @@ on:
       - tests/ui/run-angular-playwright.mjs
       - tests/ci/projectide-test-discovery-browser-receipt.mjs
       - tests/ci/projectide-test-discovery-browser-receipt.node-test.mjs
+      - tests/ci/projectide-test-discovery-workflow-routing.node-test.mjs
       - frontend/src/app/features/projectide/**
+      - frontend/src/app/core/i18n/messages/projectide.messages.ts
       - frontend/public/assets/projectide/**
+      - frontend/scripts/generate-projectide-test-discovery-evidence.mjs
+      - frontend/scripts/projectide-test-discovery-original-profiles.json
+      - frontend/scripts/projectide-test-discovery-evidence-generator.node-test.mjs
       - .github/workflows/projectide-test-discovery-web-e2e.yml
 
 permissions:
@@ -67,7 +77,7 @@ jobs:
           grep -Fq "'tests/ui/projectide-local-tests.spec.ts'" tests/ui/run-angular-playwright.mjs
           node --check tests/ci/projectide-test-discovery-browser-receipt.mjs
           node --check tests/ui/run-angular-playwright.mjs
-          node --test tests/ci/projectide-test-discovery-browser-receipt.node-test.mjs
+          node --test tests/ci/projectide-test-discovery-browser-receipt.node-test.mjs tests/ci/projectide-test-discovery-workflow-routing.node-test.mjs
 
       - name: Install root dependencies using reviewed lock/lifecycle policy
         run: bash scripts/ci/npm-ci-retry.sh .
