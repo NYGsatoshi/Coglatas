@@ -228,12 +228,14 @@ public sealed class SymbolBindingCacheTests
         var cache = new ProjectSymbolBindingCache();
         var scope = cache.BeginBinding(source.Context.Branch, CancellationToken.None);
         const int readerCount = 8;
-        using var start = new Barrier(readerCount);
-        var readers = Enumerable.Range(0, readerCount).Select(_ => Task.Factory.StartNew(() =>
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var remaining = readerCount;
+        var readers = Enumerable.Range(0, readerCount).Select(_ => Task.Run(async () =>
         {
-            Assert.True(start.SignalAndWait(TimeSpan.FromSeconds(10)));
+            if (Interlocked.Decrement(ref remaining) == 0) start.SetResult();
+            await start.Task.WaitAsync(TimeSpan.FromSeconds(10));
             return cache.Read(source, scope, CancellationToken.None);
-        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default)).ToArray();
+        })).ToArray();
 
         var results = await Task.WhenAll(readers);
         var retained = cache.Read(source, scope, CancellationToken.None);
