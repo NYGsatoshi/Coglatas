@@ -42,10 +42,10 @@ public sealed class ScenarioTraceProfileComparisonTests
         var (_, _, older) = Pair(8, revision: 7101);
         var foreign = Run(ProjectSimulationTests.Plan(first: 6), 7130);
 
-        AssertRefused(Compare(scenario, before, older), "coglatas.profile-comparison.wrong-scenario-input");
-        AssertRefused(Compare(scenario, foreign, after), "coglatas.profile-comparison.wrong-scenario-input");
-        AssertRefused(ProjectScenarioTraceProfileComparison.Compare(scenario, before, before.Digest, after, after.Manifest.Digest),
-            "coglatas.comparison.wrong-run");
+        Assert.Equal("coglatas.profile-comparison.wrong-scenario-input", AssertRefused(Compare(scenario, before, older)));
+        Assert.Equal("coglatas.profile-comparison.wrong-scenario-input", AssertRefused(Compare(scenario, foreign, after)));
+        Assert.Equal("coglatas.comparison.wrong-run", AssertRefused(
+            ProjectScenarioTraceProfileComparison.Compare(scenario, before, before.Digest, after, after.Manifest.Digest)));
     }
 
     [Fact]
@@ -55,8 +55,8 @@ public sealed class ScenarioTraceProfileComparisonTests
         var shifted = Run(after.Manifest.Plan, 7130, start: 200);
         var otherBudget = Run(after.Manifest.Plan, 7131, limits: new(MaximumEvents: 5));
 
-        AssertRefused(Compare(scenario, before, shifted), "coglatas.profile-comparison.different-run-conditions");
-        AssertRefused(Compare(scenario, before, otherBudget), "coglatas.profile-comparison.different-run-conditions");
+        Assert.Equal("coglatas.profile-comparison.different-run-conditions", AssertRefused(Compare(scenario, before, shifted)));
+        Assert.Equal("coglatas.profile-comparison.different-run-conditions", AssertRefused(Compare(scenario, before, otherBudget)));
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public sealed class ScenarioTraceProfileComparisonTests
         var beforeData = before.Data;
         var afterData = after.Data;
 
-        AssertRefused(Compare(scenario, before, after, maximumEvents: 5), "coglatas.profile.event-bound");
+        Assert.Equal("coglatas.profile.event-bound", AssertRefused(Compare(scenario, before, after, maximumEvents: 5)));
         Assert.Equal(SimulationTraceProfileState.Complete, Compare(scenario, before, after, maximumEvents: 6).State);
         using var cancelled = new CancellationTokenSource();
         cancelled.Cancel();
@@ -119,12 +119,12 @@ public sealed class ScenarioTraceProfileComparisonTests
         ProjectSimulationRun after, int maximumEvents = ProjectSimulationTraceProfile.MaximumRecordedEvents) =>
         ProjectScenarioTraceProfileComparison.Compare(scenario, before, before.Digest, after, after.Digest, maximumEvents);
 
-    private static void AssertRefused(ProjectScenarioTraceProfileComparison result, string reason)
+    private static string AssertRefused(ProjectScenarioTraceProfileComparison result)
     {
         Assert.Equal(SimulationTraceProfileState.Refused, result.State);
-        Assert.Equal(reason, result.Reason);
         Assert.Equal(JsonValueKind.Null, result.Data.Value.GetProperty("recordings").ValueKind);
         AssertNoMetrics(result);
+        return Assert.IsType<string>(result.Reason);
     }
 
     private static void AssertNoMetrics(ProjectScenarioTraceProfileComparison result)
