@@ -75,15 +75,25 @@ public static class ProjectScenarios
         _ = scenarioId.ToString(); _ = revision.ToString();
         if (Reserved(basis, scenarioId, revision, cancellationToken)) return Refuse(ProjectScenarioState.ContextConflict);
         var requests = new List<ProjectScenarioOverride>(); var overrideBytes = 0L;
+        ProjectScenarioState? requestRefusal = null;
         foreach (var item in overrides)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (item is null || item.Target is null || item.Value is null) return Refuse(ProjectScenarioState.InvalidOverride);
+            if (item is null || item.Target is null || item.Value is null)
+            {
+                requestRefusal = ProjectScenarioState.InvalidOverride;
+                break;
+            }
             overrideBytes += Encoding.UTF8.GetByteCount(item.Value.CanonicalText) + (long)Encoding.UTF8.GetByteCount(item.Target.Data.CanonicalText);
-            if (requests.Count == MaximumOverrides || overrideBytes > MaximumOverrideBytes) return Refuse(ProjectScenarioState.ResourceLimit);
+            if (requests.Count == MaximumOverrides || overrideBytes > MaximumOverrideBytes)
+            {
+                requestRefusal = ProjectScenarioState.ResourceLimit;
+                break;
+            }
             requests.Add(item);
         }
         cancellationToken.ThrowIfCancellationRequested();
+        if (requestRefusal is { } refusal) return Refuse(refusal);
         if (requests.Count == 0) return Refuse(ProjectScenarioState.NoChange);
         requests.Sort((a, b) => StringComparer.Ordinal.Compare(Key(a), Key(b)));
         if (requests.Select(Key).Distinct(StringComparer.Ordinal).Count() != requests.Count) return Refuse(ProjectScenarioState.Conflict);

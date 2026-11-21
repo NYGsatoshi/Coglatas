@@ -161,6 +161,66 @@ public sealed class ProjectScenarioTests
         }
     }
 
+    [Theory]
+    [InlineData("invalid", false)]
+    [InlineData("invalid", true)]
+    [InlineData("count", false)]
+    [InlineData("count", true)]
+    [InlineData("bytes", false)]
+    [InlineData("bytes", true)]
+    public void OverrideDisposalCancellationPrecedesRefusal(string input, bool cancelOnDispose)
+    {
+        var basis = Fixture();
+        var model = ProjectSemanticBinder.Bind(basis);
+        var row = Override(basis);
+        ProjectScenarioOverride? supplied = input switch
+        {
+            "invalid" => null,
+            "bytes" => row with { Value = SourceJson.FromObject(new string('x', ProjectScenarios.MaximumOverrideBytes)) },
+            _ => row
+        };
+        var count = input == "count" ? ProjectScenarios.MaximumOverrides + 1 : 1;
+        using var cancellation = new CancellationTokenSource();
+        var token = cancellation.Token;
+        var observed = 0;
+        var disposed = false;
+        var overrides = ReadOverrides(cancellation.Cancel);
+
+        if (cancelOnDispose)
+        {
+            var error = Assert.Throws<OperationCanceledException>(() =>
+                ProjectScenarios.Prepare(model, basis.InputDigest, Scenario, Revision(), overrides, token));
+            Assert.Equal(token, error.CancellationToken);
+        }
+        else
+        {
+            var result = ProjectScenarios.Prepare(model, basis.InputDigest, Scenario, Revision(), overrides, token);
+            Assert.Equal(input == "invalid" ? ProjectScenarioState.InvalidOverride : ProjectScenarioState.ResourceLimit,
+                result.State);
+            Assert.Null(result.Plan);
+        }
+        Assert.True(disposed);
+        Assert.Equal(count, observed);
+
+        IEnumerable<ProjectScenarioOverride?> ReadOverrides(Action cancel)
+        {
+            try
+            {
+                for (var i = 0; i < count; i++)
+                {
+                    observed++;
+                    yield return supplied;
+                }
+                throw new InvalidOperationException("Override enumeration continued after refusal.");
+            }
+            finally
+            {
+                disposed = true;
+                if (cancelOnDispose) cancel();
+            }
+        }
+    }
+
     [Fact]
     public void RevisionsAreExplicitAndDoNotReuseEarlierRunIdentities()
     {
