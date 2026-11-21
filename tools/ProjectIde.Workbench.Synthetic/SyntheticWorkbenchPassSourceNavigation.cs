@@ -100,8 +100,7 @@ public sealed partial class SyntheticWorkbenchViewModel
                 ReferenceEquals(_passSourcePage, page))
             {
                 ClearPassBoundarySourcePage();
-                try { Changed(); }
-                catch (Exception error) { withdrawalFailure = error; }
+                withdrawalFailure = NotifyPassViewWithdrawal();
             }
         }
         // If publication threw, its original failure is already propagating.

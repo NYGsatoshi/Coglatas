@@ -1,9 +1,28 @@
+using System.ComponentModel;
 using Coglatas.Domain.ProjectIde;
 
 namespace Coglatas.ProjectIde.Workbench.Synthetic;
 
 public sealed partial class SyntheticWorkbenchViewModel
 {
+    private Exception? NotifyPassViewWithdrawal()
+    {
+        var subscribers = PropertyChanged;
+        if (subscribers is null)
+        {
+            return null;
+        }
+
+        Exception? firstFailure = null;
+        var args = new PropertyChangedEventArgs(null);
+        foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+        {
+            try { subscriber(this, args); }
+            catch (Exception error) { firstFailure ??= error; }
+        }
+        return firstFailure;
+    }
+
     private long _passBoundaryGeneration;
     private CoreCompilation? _passBoundaryCompilation;
     private ProjectCompilerPassBoundarySnapshot? _recordedPassBoundary;
@@ -44,8 +63,7 @@ public sealed partial class SyntheticWorkbenchViewModel
                 ReferenceEquals(_recordedPassBoundary, snapshot))
             {
                 ClearPassBoundarySnapshot();
-                try { Changed(); }
-                catch (Exception error) { withdrawalFailure = error; }
+                withdrawalFailure = NotifyPassViewWithdrawal();
             }
         }
         // If publication threw, its original failure is already propagating.
