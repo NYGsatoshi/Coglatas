@@ -310,6 +310,7 @@ public sealed class SourceHistoryTests
         public CancellationToken Token => _source.Token;
         public bool Fired { get; private set; }
         public int WithdrawalNotifications { get; private set; }
+        public List<bool> LaterWithdrawalStates { get; } = [];
         public HistoryReconstruction? Replacement { get; private set; }
         public CancelHistoricalRead(SyntheticWorkbenchViewModel vm, bool replace, ProjectSource before, ProjectSource after,
             ProjectHistoryRevision[] records, bool throwOnNotification, bool throwOnWithdrawal)
@@ -318,6 +319,7 @@ public sealed class SourceHistoryTests
             if (throwOnNotification) ObserverFailure = new InvalidOperationException("History publication observer failed.");
             if (throwOnWithdrawal) WithdrawalFailure = new InvalidOperationException("History withdrawal observer failed.");
             vm.PropertyChanged += Changed;
+            vm.PropertyChanged += RecordWithdrawal;
         }
         public Exception? Read() => Record.Exception(ReadCore);
         private void ReadCore() => _vm.ReadSyntheticHistory(Ref(_after), _records, Token);
@@ -335,7 +337,17 @@ public sealed class SourceHistoryTests
             _source.Cancel();
             if (ObserverFailure is { } failure) throw failure;
         }
-        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+        private void RecordWithdrawal(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (WithdrawalNotifications > LaterWithdrawalStates.Count)
+                LaterWithdrawalStates.Add(_vm.History is null);
+        }
+        public void Dispose()
+        {
+            _vm.PropertyChanged -= Changed;
+            _vm.PropertyChanged -= RecordWithdrawal;
+            _source.Dispose();
+        }
     }
 
     [Theory]
@@ -377,6 +389,8 @@ public sealed class SourceHistoryTests
         }
         else Assert.Null(view.History);
         Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+        bool[] expectedWithdrawal = replace ? [] : [true];
+        Assert.Equal(expectedWithdrawal, cancellation.LaterWithdrawalStates);
         if (throwOnNotification) Assert.Same(cancellation.ObserverFailure, error);
         else
         {

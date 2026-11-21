@@ -484,6 +484,7 @@ public sealed class SemanticDiffTests
         public CancellationToken Token => _source.Token;
         public bool Fired { get; private set; }
         public int WithdrawalNotifications { get; private set; }
+        public List<bool> LaterWithdrawalStates { get; } = [];
         public ProjectSemanticDiff? Replacement { get; private set; }
         public CancelHistoricalRead(SyntheticWorkbenchViewModel vm, bool replace, PartialSemanticModel before, bool throwOnNotification, bool throwOnWithdrawal)
         {
@@ -491,6 +492,7 @@ public sealed class SemanticDiffTests
             if (throwOnNotification) ObserverFailure = new InvalidOperationException("Semantic diff publication observer failed.");
             if (throwOnWithdrawal) WithdrawalFailure = new InvalidOperationException("Semantic diff withdrawal observer failed.");
             vm.PropertyChanged += Changed;
+            vm.PropertyChanged += RecordWithdrawal;
         }
         public Exception? Read() => Record.Exception(ReadCore);
         private void ReadCore() => _vm.CompareSynthetic(_before, _before.Input.InputDigest, Token);
@@ -508,7 +510,17 @@ public sealed class SemanticDiffTests
             _source.Cancel();
             if (ObserverFailure is { } failure) throw failure;
         }
-        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+        private void RecordWithdrawal(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (WithdrawalNotifications > LaterWithdrawalStates.Count)
+                LaterWithdrawalStates.Add(_vm.SemanticDiff is null);
+        }
+        public void Dispose()
+        {
+            _vm.PropertyChanged -= Changed;
+            _vm.PropertyChanged -= RecordWithdrawal;
+            _source.Dispose();
+        }
     }
 
     [Theory]
@@ -550,6 +562,8 @@ public sealed class SemanticDiffTests
         }
         else Assert.Null(view.SemanticDiff);
         Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+        bool[] expectedWithdrawal = replace ? [] : [true];
+        Assert.Equal(expectedWithdrawal, cancellation.LaterWithdrawalStates);
         if (throwOnNotification) Assert.Same(cancellation.ObserverFailure, error);
         else
         {
