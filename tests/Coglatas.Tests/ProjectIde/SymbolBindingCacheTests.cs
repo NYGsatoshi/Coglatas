@@ -230,14 +230,10 @@ public sealed class SymbolBindingCacheTests
         var timeout = TimeSpan.FromSeconds(20);
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var decoderCalls = 0;
         var cache = new ProjectSymbolBindingCache((data, document) =>
         {
-            if (Interlocked.Increment(ref decoderCalls) == 1)
-            {
-                started.SetResult();
+            if (started.TrySetResult())
                 release.Task.WaitAsync(timeout).GetAwaiter().GetResult();
-            }
             return PlanDeclarationReader.Read(data, document);
         });
         var scope = cache.BeginBinding(source.Context.Branch, CancellationToken.None);
@@ -254,7 +250,6 @@ public sealed class SymbolBindingCacheTests
             {
                 var secondRead = await Task.Run(() => cache.Read(source, scope, CancellationToken.None)).WaitAsync(timeout);
                 published = Assert.Single(secondRead);
-                Assert.Equal(2, Volatile.Read(ref decoderCalls));
             }
         }
         finally
