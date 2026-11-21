@@ -26,6 +26,13 @@ public sealed class SyntheticSemanticIndexTests
         }
         catch { vm.Dispose(); throw; }
     }
+
+    private sealed class ViewLifetime(SyntheticWorkbenchViewModel view) : IDisposable
+    {
+        public SyntheticWorkbenchViewModel View { get; } = view;
+        public void Dispose() => View.Dispose();
+    }
+
     [Fact]
     public async Task FullIndexRequiresExplicitOriginalSourceAdmissionAndUsesActualCrossRegionQueriesAndNavigation()
     {
@@ -162,7 +169,8 @@ public sealed class SyntheticSemanticIndexTests
     [InlineData(true, false)]
     public async Task CancelledIndexRefusalWithdrawsOnlyItsOwnedState(bool replace, bool throwOnPublication)
     {
-        using var vm = await Ready(admit: false);
+        using var lifetime = new ViewLifetime(await Ready(admit: false));
+        var vm = lifetime.View;
         var result = vm.Result;
         var source = vm.Source;
         CompilerSemanticIndex? replacement = null;
@@ -284,7 +292,8 @@ public sealed class SyntheticSemanticIndexTests
 
     private static async Task VerifyIndexWithdrawal(string boundary, bool replace, bool throwOnPublication)
     {
-        using var vm = await Ready();
+        using var lifetime = new ViewLifetime(await Ready());
+        var vm = lifetime.View;
         var result = vm.Result;
         var source = vm.Source;
         var original = Assert.IsType<CompilerSemanticIndex>(vm.SemanticIndex);
@@ -344,7 +353,8 @@ public sealed class SyntheticSemanticIndexTests
 
     private static async Task VerifyQueryWithdrawal(string outcome, bool throwOnPublication)
     {
-        using var vm = await Ready();
+        using var lifetime = new ViewLifetime(await Ready());
+        var vm = lifetime.View;
         using var other = await Ready();
         var foreignCursor = Assert.IsType<CompilerIndexCursor>(other.ReadIndexedCompletion(1)!.NextCursor);
         var index = vm.SemanticIndex;
