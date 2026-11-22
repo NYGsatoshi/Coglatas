@@ -19,14 +19,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
-      EXPECTED_SOURCE_HEAD: 3a3bf5872dcee35000af2c919e642c99ed17a3bc
+      EXPECTED_SOURCE_HEAD: 42b50b6ebad736874d8cf13b93dd2696ade69e8d
       DOTNET_CLI_UI_LANGUAGE: en-US
       FORCE_COLOR: '0'
     steps:
       - name: Checkout exact original PR source, not diagnostic workflow commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: 3a3bf5872dcee35000af2c919e642c99ed17a3bc
+          ref: 42b50b6ebad736874d8cf13b93dd2696ade69e8d
           fetch-depth: 0
           persist-credentials: false
       - name: Set up pinned Node
