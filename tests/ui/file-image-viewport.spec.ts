@@ -162,11 +162,72 @@ test.describe('Authorized Files image viewport', () => {
         await expect(preview).toHaveCSS('height', `${image.height}px`);
         await expect(page.getByTestId('files-image-actual')).toHaveAttribute('aria-pressed', 'true');
         const viewport = page.getByTestId('files-image-viewport');
+        // P0 #1980 diagnostic-only observer; preserve input, assertions and original retry policy.
+        if (width === 1536) {
+          await viewport.evaluate((element) => {
+            const events: Array<{ kind: string; ms: number; top: number; left: number; target: string }> = [];
+            const view = element as HTMLElement;
+            const record = (kind: string, target: string) => {
+              events.push({ kind, ms: performance.now(), top: view.scrollTop, left: view.scrollLeft, target });
+            };
+            view.addEventListener('scroll', () => record('scroll', 'viewport'), { passive: true });
+            window.addEventListener('keydown', (event) => {
+              record('keydown:' + event.key, event.target instanceof HTMLElement ? event.target.tagName : 'unknown');
+            }, true);
+            const observer = new ResizeObserver((entries) => {
+              for (const entry of entries) {
+                record('resize', entry.target === view ? 'viewport' : 'image');
+              }
+            });
+            observer.observe(view);
+            const imageElement = view.querySelector('img');
+            if (imageElement) observer.observe(imageElement);
+            Reflect.set(window, '__batch6ViewportEvents', events);
+            Reflect.set(window, '__batch6ResizeObserver', observer);
+          });
+        }
+        const recordViewportSnapshot = async (phase: string) => {
+          if (width !== 1536) return;
+          const state = await viewport.evaluate((element) => {
+            const imageElement = element.querySelector('img') as HTMLImageElement | null;
+            const css = getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            const focused = document.activeElement;
+            return {
+              clientWidth: element.clientWidth, clientHeight: element.clientHeight,
+              scrollWidth: element.scrollWidth, scrollHeight: element.scrollHeight,
+              scrollLeft: element.scrollLeft, scrollTop: element.scrollTop,
+              viewportWidth: innerWidth, viewportHeight: innerHeight,
+              rect: { width: rect.width, height: rect.height },
+              overflowX: css.overflowX, overflowY: css.overflowY,
+              image: imageElement ? {
+                naturalWidth: imageElement.naturalWidth, naturalHeight: imageElement.naturalHeight,
+                width: imageElement.getBoundingClientRect().width,
+                height: imageElement.getBoundingClientRect().height,
+                complete: imageElement.complete
+              } : null,
+              focusedTag: focused?.tagName ?? null,
+              focusedTestId: focused instanceof HTMLElement ? focused.dataset['testid'] ?? null : null,
+              events: (Reflect.get(window, '__batch6ViewportEvents') as unknown[] | undefined) ?? []
+            };
+          });
+          const receipt = { phase, width, image: image.name, source: 'batch6-test-only', state };
+          console.log('BATCH6_FILES_VIEWPORT_DIAGNOSTIC ' + JSON.stringify(receipt));
+          await testInfo.attach('batch6-' + image.name + '-' + phase + '.json', {
+            body: JSON.stringify(receipt), contentType: 'application/json'
+          });
+        };
         await viewport.focus();
+        await recordViewportSnapshot('before-arrow-keys');
         await page.keyboard.press('ArrowRight');
         await page.keyboard.press('ArrowDown');
+        await recordViewportSnapshot('after-arrow-keys');
         await expect.poll(() => viewport.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
-        await expect.poll(() => viewport.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+        try {
+          await expect.poll(() => viewport.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+        } finally {
+          await recordViewportSnapshot('after-scroll-assertion');
+        }
 
         for (const angle of [90, 180, 270]) {
           await page.getByTestId('files-image-rotate').click();
