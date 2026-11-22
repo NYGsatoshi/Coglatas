@@ -1,0 +1,83 @@
+# D5=A read-only, isolated NO-MERGE proof of the original Scenario schedule browser spec.
+# This file is absent from the original PR and every canonical/product/security branch.
+name: ProjectIDE Scenario schedule browser diagnostic (NO-MERGE)
+
+on:
+  push:
+    branches:
+      - diagnostic/batch7-2171-schedule-web-20261122
+    paths:
+      - .github/workflows/projectide-batch7-schedule-browser-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  scenario-schedule-browser:
+    name: Scenario schedule 8 first-attempt browser cases
+    if: github.repository == 'NYGsatoshi/Coglatas' && github.ref == 'refs/heads/diagnostic/batch7-2171-schedule-web-20261122'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      EXPECTED_SOURCE_HEAD: 3a3bf5872dcee35000af2c919e642c99ed17a3bc
+      DOTNET_CLI_UI_LANGUAGE: en-US
+      FORCE_COLOR: '0'
+    steps:
+      - name: Checkout exact original PR source, not diagnostic workflow commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: 3a3bf5872dcee35000af2c919e642c99ed17a3bc
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '26'
+      - name: Install pinned npm
+        run: npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
+      - name: Restore existing locked browser and Angular dependencies
+        run: |
+          bash scripts/ci/npm-ci-retry.sh .
+          bash scripts/ci/npm-ci-retry.sh frontend
+      - name: Install Chromium using existing pinned Playwright
+        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
+      - name: Run only authored en/ja desktop/mobile Scenario schedule browser cases
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_HEAD"
+          test "$(git rev-parse HEAD:frontend/public/assets/projectide/scenario-schedule-v1.json)" = '90e56bf5ad997a2e9385736907a9e89cd00c8576'
+          node node_modules/@playwright/test/cli.js test \
+            --config=playwright.config.ts \
+            --project=chromium-desktop \
+            --project=chromium-mobile \
+            --retries=0 \
+            tests/ui/projectide-scenario-schedule.spec.ts 2>&1 | tee scenario-schedule-browser-once.log
+      - name: Fail closed on absent/skipped/failing or extra browser cases
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import pathlib
+          import xml.etree.ElementTree as ET
+          p=pathlib.Path("test-results/playwright-results.xml")
+          data=p.read_bytes()
+          root=ET.fromstring(data)
+          cases=root.findall(".//testcase")
+          assert len(cases)==8, f"Expected eight exact-source Chromium cases; observed {len(cases)}"
+          assert all(not any(e.tag in ("failure","error","skipped") for e in case) for case in cases), "Test failures, errors or skips must fail"
+          assert all("projectide-scenario-schedule.spec.ts" in (case.attrib.get("classname","")+" "+case.attrib.get("name","")) for case in cases), "Unrelated case selected"
+          print("BATCH7_SCHEDULE_WEB_VERIFIED cases=8 pass=8 failure=0 skipped=0 retries=0")
+          print("BATCH7_SCHEDULE_WEB_JUNIT_SHA256="+hashlib.sha256(data).hexdigest())
+          PY
+          echo "BATCH7_SCHEDULE_WEB_SOURCE_HEAD=$(git rev-parse HEAD)"
+          echo "BATCH7_SCHEDULE_WEB_SOURCE_TREE=$(git rev-parse HEAD^{tree})"
+      - name: Upload bounded synthetic browser evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: projectide-batch7-schedule-web-once-${{ github.run_id }}
+          path: |
+            scenario-schedule-browser-once.log
+            test-results/playwright-results.xml
+          if-no-files-found: warn
+          retention-days: 14
