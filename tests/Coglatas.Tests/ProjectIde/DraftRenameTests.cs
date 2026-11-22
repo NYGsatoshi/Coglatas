@@ -354,28 +354,79 @@ public sealed class DraftRenameTests
         private readonly SyntheticWorkbenchViewModel _vm;
         private readonly CancellationTokenSource _source = new();
         private readonly bool _replace;
+        private readonly InvalidOperationException? _publicationError;
+        private readonly InvalidOperationException? _withdrawalError;
         private readonly CompilerInputManifest _input;
         public CancellationToken Token => _source.Token;
         public bool Fired { get; private set; }
+        public int WithdrawalNotifications { get; private set; }
+        public int DeliveredWithdrawals { get; private set; }
         public DraftRenamePreview? Published { get; private set; }
         public DraftRenamePreview? Replacement { get; private set; }
-        public CancelDraftPreview(SyntheticWorkbenchViewModel vm, bool replace, CompilerInputManifest input)
-        { _vm = vm; _replace = replace; _input = input; vm.PropertyChanged += Changed; }
+        public CancelDraftPreview(SyntheticWorkbenchViewModel vm, bool replace, CompilerInputManifest input,
+            InvalidOperationException? publicationError, InvalidOperationException? withdrawalError)
+        {
+            _vm = vm;
+            _replace = replace;
+            _publicationError = publicationError;
+            _withdrawalError = withdrawalError;
+            _input = input;
+            vm.PropertyChanged += Changed;
+            vm.PropertyChanged += RecordWithdrawal;
+        }
         public Exception? Read() => Record.Exception(ReadCore);
         private void ReadCore() => _vm.PreviewRename("Cancelled", Next(_input), Token);
         private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
-            if (Fired || _vm.RenamePreview is not { } published) return;
+            if (Fired)
+            {
+                if (Token.IsCancellationRequested)
+                {
+                    WithdrawalNotifications++;
+                    if (_vm.RenamePreview is null && _withdrawalError is not null) throw _withdrawalError;
+                }
+                return;
+            }
+            if (_vm.RenamePreview is not { } published) return;
             Fired = true; Published = published;
             if (_replace) Replacement = _vm.PreviewRename("Replacement", Next(_input, 53));
             _source.Cancel();
+            if (_publicationError is not null) throw _publicationError;
         }
-        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+
+        private void RecordWithdrawal(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Token.IsCancellationRequested && _vm.RenamePreview is null)
+            {
+                DeliveredWithdrawals++;
+            }
+        }
+
+        public void Dispose()
+        {
+            _vm.PropertyChanged -= Changed;
+            _vm.PropertyChanged -= RecordWithdrawal;
+            _source.Dispose();
+        }
     }
 
     [Theory]
     [InlineData(false)] [InlineData(true)]
-    public async Task CancellationAtDraftPreviewPublicationWithdrawsOnlyItsOwnedPlan(bool replace)
+    public Task CancellationAtDraftPreviewPublicationWithdrawsOnlyItsOwnedPlan(bool replace) =>
+        VerifyDraftPublication(replace, null);
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public Task ThrowingDraftObserverWithdrawsOnlyItsCancelledPlan(bool replace) =>
+        VerifyDraftPublication(replace, new InvalidOperationException("Draft publication observer failed."),
+            new InvalidOperationException("Draft withdrawal observer failed."));
+
+    [Fact]
+    public Task ThrowingDraftWithdrawalObserverPreservesCancellation() =>
+        VerifyDraftPublication(false, null, new InvalidOperationException("Draft withdrawal observer failed."));
+
+    private static async Task VerifyDraftPublication(bool replace, InvalidOperationException? publicationError,
+        InvalidOperationException? withdrawalError = null)
     {
         var input = Draft();
         CompilerArtifactIdentity Artifact(string field) => new(SourceJson.Parse(input.Settings.Value.GetProperty(field).GetRawText()));
@@ -387,7 +438,8 @@ public sealed class DraftRenameTests
         var selected = view.Selected; var tests = view.TestRun;
         var previous = view.PreviewRename("Previous", Next(input))!; Assert.Equal(DraftRenameState.Ready, previous.State); Assert.NotNull(previous.Plan);
         var previousData = previous.Plan.After.Data; Assert.NotEqual(sourceData, previous.Plan.After.Source.Data);
-        using var cancellation = new CancelDraftPreview(view, replace, input); var token = cancellation.Token;
+        using var cancellation = new CancelDraftPreview(view, replace, input, publicationError, withdrawalError);
+        var token = cancellation.Token;
         var error = cancellation.Read();
         Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
         Assert.NotNull(cancellation.Published); Assert.Equal(DraftRenameState.Ready, cancellation.Published.State); Assert.NotNull(cancellation.Published.Plan);
@@ -399,6 +451,14 @@ public sealed class DraftRenameTests
             Assert.NotSame(cancellation.Published, cancellation.Replacement); Assert.Same(cancellation.Replacement, view.RenamePreview);
         }
         else Assert.Null(view.RenamePreview);
-        Assert.IsType<OperationCanceledException>(error);
+        Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+        Assert.Equal(replace ? 0 : 1, cancellation.DeliveredWithdrawals);
+        if (publicationError is null)
+        {
+            var cancelled = Assert.IsType<OperationCanceledException>(error);
+            Assert.Equal(token, cancelled.CancellationToken);
+            Assert.Same(withdrawalError, cancelled.InnerException);
+        }
+        else Assert.Same(publicationError, error);
     }
 }

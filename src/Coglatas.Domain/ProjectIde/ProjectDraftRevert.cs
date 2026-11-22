@@ -66,13 +66,23 @@ public static class ProjectDraftRevert
                 model.Relations.Count != model.Input.Source.Relations.Value.GetArrayLength()) return Refuse(DraftRevertState.Unavailable);
         }
         var supplied = new List<ProjectHistoryRevision?>();
+        var supplyExceededLimit = false;
         using (var iterator = history.GetEnumerator())
             while (true)
             {
-                cancellationToken.ThrowIfCancellationRequested(); if (!iterator.MoveNext()) break; cancellationToken.ThrowIfCancellationRequested();
-                if (supplied.Count == ProjectSourceHistory.MaximumRecords) return Refuse(DraftRevertState.ResourceLimit);
+                cancellationToken.ThrowIfCancellationRequested();
+                var hasNext = iterator.MoveNext();
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!hasNext) break;
+                if (supplied.Count == ProjectSourceHistory.MaximumRecords)
+                {
+                    supplyExceededLimit = true;
+                    break;
+                }
                 supplied.Add(iterator.Current);
             }
+        cancellationToken.ThrowIfCancellationRequested();
+        if (supplyExceededLimit) return Refuse(DraftRevertState.ResourceLimit);
         // Reconstruct all three bindings; an ancestry label cannot substitute for exact supplied bodies.
         foreach (var source in new[] { old, changed, now })
         {
