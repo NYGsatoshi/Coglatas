@@ -121,6 +121,10 @@ pre {
 
 .scenario-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 1rem; }
 .scenario-results section { min-width: 0; overflow-wrap: anywhere; }
+.scenario-schedule-table { max-width: 100%; overflow-x: auto; }
+.scenario-schedule-table table { width: 100%; border-collapse: collapse; }
+.scenario-schedule-table th, .scenario-schedule-table td { padding: .25rem .5rem; text-align: start; }
+.scenario-schedule-table th small { display: block; font-weight: normal; overflow-wrap: anywhere; }
 
 .simulation-comparison { min-width: 0; overflow-wrap: anywhere; }
 
