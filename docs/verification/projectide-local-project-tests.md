@@ -94,8 +94,15 @@ pin using the existing CompilerInputManifest.ToEnvelope() API. Then run:
 The CLI reconstructs CompilerInputManifest.ReadEnvelope; Source, settings,
 package lock, pinned dependencies and identity must match. It does not restore
 packages, rewrite a lock or treat a cache/artifact digest as permission. Source
-and envelope reads are each bounded by the existing 4 MiB default. Output uses
-CreateNew: no existing file, Source or manifest is overwritten. Exit codes are
+and envelope reads are each bounded by the existing 4 MiB default. Each command
+encodes its artifact and checks that the output path ends with a file name.
+Paths ending in a separator, `.` or `..`, and Windows drive designators without
+a file name fail before staging. Windows drive-relative paths that name a file
+remain valid. The CLI writes
+and closes a temporary file in the destination directory, then publishes it
+without replacing an existing file. Unix output
+directories must support hard links. A failed write, flush or publication
+leaves the requested output path untouched. Exit codes are
 0 Pass, 1 Fail, 2 Inconclusive/NotRun, 3 Error or input/output failure. Early
 failures have a distinct CLI-failure envelope and cannot impersonate a bound
 Test run. Unsupported input settings (including future scheduler, solver,
@@ -108,7 +115,7 @@ Both use exit 2; malformed Source remains an invalid-input error/exit 3. Opaque
 Source that is still structurally admitted retains its existing binding and Test
 coverage behavior; no new semantic support is inferred.
 This does not establish manifest integrity or evaluator support. Existing output
-paths still fail CreateNew with exit 3 and retain their original bytes.
+paths still fail with exit 3 and retain their original bytes.
 Cancellation is explicit. The console subscription owns its cancellation
 source and defers cleanup until in-flight callbacks return, including reentrant
 and concurrent disposal. These host lifecycle controls are tested separately
