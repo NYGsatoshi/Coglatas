@@ -83,7 +83,8 @@ public sealed partial class SyntheticWorkbenchViewModel
         bool Current() => !_disposed && generation == _scenarioScheduleGeneration && ReferenceEquals(ActiveScenario, scenario) &&
             ReferenceEquals(ScenarioBaselineSimulation, baseline) && ReferenceEquals(SimulationRun, hypothesis);
 
-        Changed();
+        var clearFailure = NotifyScenarioScheduleObservers();
+        if (clearFailure is not null) ExceptionDispatchInfo.Capture(clearFailure).Throw();
         cancellationToken.ThrowIfCancellationRequested();
         if (scenario is null || baseline is null || hypothesis is null || !Current()) return false;
 
@@ -102,16 +103,7 @@ public sealed partial class SyntheticWorkbenchViewModel
         if (cancelled && generation == _scenarioScheduleGeneration && ReferenceEquals(_scenarioScheduleRead, read))
         {
             ClearScenarioScheduleImpact();
-            var subscribers = PropertyChanged;
-            if (subscribers is not null)
-            {
-                var args = new PropertyChangedEventArgs(null);
-                foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
-                {
-                    try { subscriber(this, args); }
-                    catch (Exception error) { withdrawalFailure ??= error; }
-                }
-            }
+            withdrawalFailure = NotifyScenarioScheduleObservers();
         }
         if (publicationFailure is not null) ExceptionDispatchInfo.Capture(publicationFailure).Throw();
         if (cancelled) throw new OperationCanceledException("Scenario schedule impact was cancelled.", withdrawalFailure, cancellationToken);
@@ -155,6 +147,20 @@ public sealed partial class SyntheticWorkbenchViewModel
         var request = new CompilerHostRequest(new(after), clientGeneration, _desired.Snapshots, _desired.Units, _desired.Calendars);
         BeginSyntheticContext(request, null, null, cancellationToken: cancellationToken); return !_disposed && ReferenceEquals(_desired, request) ? request : null;
     }
+    private Exception? NotifyScenarioScheduleObservers()
+    {
+        var subscribers = PropertyChanged;
+        if (subscribers is null) return null;
+        Exception? failure = null;
+        var args = new PropertyChangedEventArgs(null);
+        foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+        {
+            try { subscriber(this, args); }
+            catch (Exception error) { failure ??= error; }
+        }
+        return failure;
+    }
+
     private void ClearScenarioScheduleImpact() { _scenarioScheduleGeneration++; _scenarioScheduleRead = null; }
     private void ClearScenarioPreview() { _scenarioPreviewGeneration++; ScenarioPreview = null; ScenarioDraftPreview = null; }
     private void ClearScenarioContext()

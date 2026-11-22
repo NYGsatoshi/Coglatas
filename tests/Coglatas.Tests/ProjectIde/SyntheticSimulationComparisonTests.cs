@@ -286,6 +286,46 @@ public sealed class SyntheticSimulationComparisonTests
         Assert.Same(f.Baseline, view.ScenarioBaselineSimulation);
     }
 
+    [Fact]
+    public async Task ScenarioScheduleImpactClearingNotifiesLaterObserversWhenTheFirstThrows()
+    {
+        var f = await ReadyScenarioSchedule();
+        using var view = f.View;
+        Assert.True(view.ReadScenarioScheduleImpact());
+        var previous = Assert.IsType<ProjectScenarioElapsedScheduleImpact>(view.ScenarioScheduleImpact);
+        var baseline = view.ScenarioBaselineSimulation;
+        var hypothesis = view.SimulationRun;
+        var error = new InvalidOperationException("Schedule clear observer failed.");
+        var firstNotifications = 0;
+        var laterNotifications = 0;
+        System.ComponentModel.PropertyChangedEventHandler first = (sender, _) =>
+        {
+            Assert.Null(Assert.IsType<SyntheticWorkbenchViewModel>(sender).ScenarioScheduleImpact);
+            firstNotifications++;
+            throw error;
+        };
+        System.ComponentModel.PropertyChangedEventHandler later = (sender, _) =>
+        {
+            Assert.Null(Assert.IsType<SyntheticWorkbenchViewModel>(sender).ScenarioScheduleImpact);
+            laterNotifications++;
+        };
+        view.PropertyChanged += first;
+        view.PropertyChanged += later;
+        try { Assert.Same(error, Assert.Throws<InvalidOperationException>(() => view.ReadScenarioScheduleImpact())); }
+        finally
+        {
+            view.PropertyChanged -= first;
+            view.PropertyChanged -= later;
+        }
+        Assert.Equal(1, firstNotifications);
+        Assert.Equal(1, laterNotifications);
+        Assert.Null(view.ScenarioScheduleImpact);
+        Assert.Same(baseline, view.ScenarioBaselineSimulation);
+        Assert.Same(hypothesis, view.SimulationRun);
+        Assert.True(view.ReadScenarioScheduleImpact());
+        Assert.NotSame(previous, view.ScenarioScheduleImpact);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
