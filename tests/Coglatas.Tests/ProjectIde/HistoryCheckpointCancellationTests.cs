@@ -65,7 +65,7 @@ public sealed class HistoryCheckpointCancellationTests
                 source.Data, Parents(cancel), token)
             : ProjectHistoryRevision.Checkpoint(source, 1, Parents(cancel), token);
 
-        IEnumerable<RevisionRef> Parents(Action cancel)
+        IEnumerable<RevisionRef> Parents(Action requestCancellation)
         {
             try
             {
@@ -79,7 +79,7 @@ public sealed class HistoryCheckpointCancellationTests
             finally
             {
                 disposed = true;
-                if (cancelOnDispose) cancel();
+                if (cancelOnDispose) requestCancellation();
             }
         }
     }
