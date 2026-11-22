@@ -136,6 +136,6 @@ internal sealed class SimulationCursor
         catch (BoundExceeded error) { Finish(CompilerExecutionState.ResourceExhausted, error.Reason); }
         catch (OverflowException) { Finish(CompilerExecutionState.InternalError, "coglatas.simulation.tick-overflow"); }
     }
-    private static string TaskIdentityKey(JsonElement task) => SourceJson.FromElement(task.GetProperty("context")).CanonicalText + "|" + task.GetProperty("irNodeId").GetString();
+    internal static string TaskIdentityKey(JsonElement task) => SourceJson.FromElement(task.GetProperty("context")).CanonicalText + "|" + task.GetProperty("irNodeId").GetString();
     private static string LocationKey(ProjectLocation location) => location.Context.Data.CanonicalText + "|" + location.DocumentId + "|" + location.EntityId + "|" + location.RelationId + "|" + location.PropertyPath;
 }
