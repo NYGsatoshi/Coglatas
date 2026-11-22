@@ -53,7 +53,9 @@ public sealed class ScenarioScheduleGeneratorReproDiagnostics
             foreach (var row in scheduled)
             {
                 var schedule = row.GetProperty("scenarioScheduleImpact");
-                Assert.False(string.IsNullOrWhiteSpace(schedule.GetProperty("digest").GetString()));
+                var digest = schedule.GetProperty("digest");
+                Assert.Equal("sha-256", digest.GetProperty("algorithm").GetString());
+                Assert.Matches("^[0-9a-f]{64}$", digest.GetProperty("value").GetString()!);
                 using var frameDocument = JsonDocument.Parse(schedule.GetProperty("text").GetString()!);
                 var frame = frameDocument.RootElement;
                 Assert.Equal("coglatas.local-scenario-elapsed-schedule/1", frame.GetProperty("format").GetString());
