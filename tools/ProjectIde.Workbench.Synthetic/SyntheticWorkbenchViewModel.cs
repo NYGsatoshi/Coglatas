@@ -237,6 +237,23 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
 
     public bool NavigateReferenceOrigin() => NavigateTo(SelectedReference?.Origin, requireSourceMap: true);
 
+    private Exception? NotifyDraftPreviewWithdrawal()
+    {
+        var subscribers = PropertyChanged;
+        if (subscribers is null) return null;
+
+        Exception? failure = null;
+        var args = new PropertyChangedEventArgs(null);
+        foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+        {
+            try { subscriber(this, args); }
+            catch (Exception error) { failure ??= error; }
+        }
+
+        return failure;
+    }
+
+
     public DraftRenamePreview? PreviewRename(string name, SourceRevisionContext nextContext, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this); cancellationToken.ThrowIfCancellationRequested();
@@ -246,15 +263,22 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         var generation = _selectionGeneration;
         var preview = ProjectDraftRename.Preview(model, selected.Symbol.Location, _desired.Input.ExpectedInputDigest,
             name, nextContext, cancellationToken);
-        RenamePreview = preview; Changed();
-        if (cancellationToken.IsCancellationRequested)
+        RenamePreview = preview;
+        Exception? withdrawalFailure = null;
+        bool cancelledAtPublication;
+        try { Changed(); }
+        finally
         {
-            if (generation == _selectionGeneration && ReferenceEquals(RenamePreview, preview))
+            cancelledAtPublication = cancellationToken.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _selectionGeneration && ReferenceEquals(RenamePreview, preview))
             {
-                RenamePreview = null; Changed();
+                RenamePreview = null;
+                withdrawalFailure = NotifyDraftPreviewWithdrawal();
             }
-            cancellationToken.ThrowIfCancellationRequested();
         }
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Draft preview was cancelled.", withdrawalFailure, cancellationToken);
         return !_disposed && generation == _selectionGeneration && ReferenceEquals(RenamePreview, preview) ? preview : null;
     }
 
@@ -286,15 +310,23 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         var preview = ProjectDraftRevert.Preview(parent, reverted, model, expectedParent, expectedReverted,
             _desired.Input.ExpectedInputDigest, proposal, history, cancellationToken);
         if (_disposed || lifecycle != _lifecycle || generation != _revertPreviewGeneration) return null;
-        RevertPreview = preview; Changed();
-        if (cancellationToken.IsCancellationRequested)
+        RevertPreview = preview;
+        Exception? withdrawalFailure = null;
+        bool cancelledAtPublication;
+        try { Changed(); }
+        finally
         {
-            if (generation == _revertPreviewGeneration && ReferenceEquals(RevertPreview, preview))
+            cancelledAtPublication = cancellationToken.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _revertPreviewGeneration && ReferenceEquals(RevertPreview, preview))
             {
-                _revertPreviewGeneration++; RevertPreview = null; Changed();
+                _revertPreviewGeneration++;
+                RevertPreview = null;
+                withdrawalFailure = NotifyDraftPreviewWithdrawal();
             }
-            cancellationToken.ThrowIfCancellationRequested();
         }
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Draft preview was cancelled.", withdrawalFailure, cancellationToken);
         return !_disposed && lifecycle == _lifecycle && generation == _revertPreviewGeneration && ReferenceEquals(RevertPreview, preview) ? preview : null;
     }
 
