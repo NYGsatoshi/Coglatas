@@ -87,15 +87,15 @@ class NugetLockPolicyTests(unittest.TestCase):
         self.assert_violation("missing or invalid lockfile")
 
     def test_manifest_version_drift_fails(self):
-        project = "src/Coglatas.Application/Coglatas.Application.csproj"
-        reference = self.manifest_reference(project, "Microsoft.Extensions.Logging.Abstractions")
+        project = "src/Coglatas.Infrastructure/Coglatas.Infrastructure.csproj"
+        reference = self.manifest_reference(project, "Microsoft.EntityFrameworkCore")
         self.edit(project, reference, reference.replace(' Version="', ' Version="0.', 1))
         self.assert_violation("requested range differs from project")
 
     def test_tampered_hash_fails(self):
-        file = self.root / "src/Coglatas.Application/packages.lock.json"
+        file = self.root / "src/Coglatas.Infrastructure/packages.lock.json"
         data = json.loads(file.read_text())
-        entry = data["dependencies"]["net11.0"]["Microsoft.Extensions.Logging.Abstractions"]
+        entry = data["dependencies"]["net11.0"]["Microsoft.EntityFrameworkCore"]
         entry["contentHash"] = "invalid"
         file.write_text(json.dumps(data))
         self.assert_violation("invalid SHA512 contentHash")
@@ -137,7 +137,7 @@ class NugetLockPolicyTests(unittest.TestCase):
 
 
     def test_malformed_project_xml_fails_closed(self):
-        self.edit("src/Coglatas.Application/Coglatas.Application.csproj",
+        self.edit("src/Coglatas.Infrastructure/Coglatas.Infrastructure.csproj",
                   "</Project>", "</Broken>")
         self.assert_violation("invalid project XML")
 
@@ -158,70 +158,70 @@ class NugetLockPolicyTests(unittest.TestCase):
         self.assert_violation("RestorePackagesWithLockFile must be true")
 
     def test_invalid_lockfile_dependency_container_is_rejected(self):
-        file = self.root / "src/Coglatas.Application/packages.lock.json"
+        file = self.root / "src/Coglatas.Infrastructure/packages.lock.json"
         data = json.loads(file.read_text(encoding="utf-8"))
         data["dependencies"] = []
         file.write_text(json.dumps(data), encoding="utf-8")
         self.assert_violation("lockfile dependencies must be an object")
 
     def test_invalid_lockfile_version_is_rejected(self):
-        file = self.root / "src/Coglatas.Application/packages.lock.json"
+        file = self.root / "src/Coglatas.Infrastructure/packages.lock.json"
         data = json.loads(file.read_text(encoding="utf-8"))
         data["version"] = "1"
         file.write_text(json.dumps(data), encoding="utf-8")
         self.assert_violation("lockfile version must be numeric")
 
     def test_missing_project_framework_is_rejected(self):
-        self.edit("src/Coglatas.Application/Coglatas.Application.csproj",
+        self.edit("src/Coglatas.Infrastructure/Coglatas.Infrastructure.csproj",
                   "<TargetFramework>net11.0</TargetFramework>",
                   "<TargetFramework></TargetFramework>")
         self.assert_violation("TargetFramework(s) missing")
 
     def test_missing_lockfile_framework_is_rejected(self):
-        file = self.root / "src/Coglatas.Application/packages.lock.json"
+        file = self.root / "src/Coglatas.Infrastructure/packages.lock.json"
         data = json.loads(file.read_text(encoding="utf-8"))
         data["dependencies"]["net9.0"] = data["dependencies"].pop("net11.0")
         file.write_text(json.dumps(data), encoding="utf-8")
         self.assert_violation("missing target framework net11.0")
 
     def test_multitarget_frameworks_are_checked_individually(self):
-        project = "src/Coglatas.Application/Coglatas.Application.csproj"
+        project = "src/Coglatas.Infrastructure/Coglatas.Infrastructure.csproj"
         self.edit(project,
                   "<TargetFramework>net11.0</TargetFramework>",
                   "<TargetFrameworks>net11.0;net9.0</TargetFrameworks>")
         self.assert_violation("missing target framework net9.0")
 
     def test_malformed_dependency_entry_is_rejected(self):
-        file = self.root / "src/Coglatas.Application/packages.lock.json"
+        file = self.root / "src/Coglatas.Infrastructure/packages.lock.json"
         data = json.loads(file.read_text(encoding="utf-8"))
-        data["dependencies"]["net11.0"]["Microsoft.Extensions.Logging.Abstractions"] = None
+        data["dependencies"]["net11.0"]["Microsoft.EntityFrameworkCore"] = None
         file.write_text(json.dumps(data), encoding="utf-8")
         self.assert_violation("malformed dependency")
 
     def test_missing_direct_reference_is_rejected(self):
-        file = self.root / "src/Coglatas.Application/packages.lock.json"
+        file = self.root / "src/Coglatas.Infrastructure/packages.lock.json"
         data = json.loads(file.read_text(encoding="utf-8"))
-        data["dependencies"]["net11.0"].pop("Microsoft.Extensions.Logging.Abstractions")
+        data["dependencies"]["net11.0"].pop("Microsoft.EntityFrameworkCore")
         file.write_text(json.dumps(data), encoding="utf-8")
-        self.assert_violation("direct package microsoft.extensions.logging.abstractions missing")
+        self.assert_violation("direct package microsoft.entityframeworkcore missing")
 
     def test_extra_direct_reference_is_rejected(self):
-        file = self.root / "src/Coglatas.Application/packages.lock.json"
+        file = self.root / "src/Coglatas.Infrastructure/packages.lock.json"
         data = json.loads(file.read_text(encoding="utf-8"))
-        example = dict(data["dependencies"]["net11.0"]["Microsoft.Extensions.Logging.Abstractions"])
+        example = dict(data["dependencies"]["net11.0"]["Microsoft.EntityFrameworkCore"])
         data["dependencies"]["net11.0"]["Unexpected.Package"] = example
         file.write_text(json.dumps(data), encoding="utf-8")
         self.assert_violation("unexpected direct package(s)")
 
     def test_duplicate_manifest_package_is_rejected(self):
-        project = "src/Coglatas.Application/Coglatas.Application.csproj"
-        reference = self.manifest_reference(project, "Microsoft.Extensions.Logging.Abstractions")
+        project = "src/Coglatas.Infrastructure/Coglatas.Infrastructure.csproj"
+        reference = self.manifest_reference(project, "Microsoft.EntityFrameworkCore")
         self.edit(project, reference, reference + reference)
         self.assert_violation("duplicate PackageReference")
 
     def test_missing_manifest_package_version_is_rejected(self):
-        project = "src/Coglatas.Application/Coglatas.Application.csproj"
-        reference = self.manifest_reference(project, "Microsoft.Extensions.Logging.Abstractions")
+        project = "src/Coglatas.Infrastructure/Coglatas.Infrastructure.csproj"
+        reference = self.manifest_reference(project, "Microsoft.EntityFrameworkCore")
         unversioned = reference.split(' Version="', 1)[0] + " />"
         self.edit(project, reference, unversioned)
         self.assert_violation("PackageReference must have a concrete Include and Version")
