@@ -127,6 +127,28 @@ public sealed class ProjectTestRunnerTests
     }
 
     [Fact]
+    public void Cancellation_during_result_materialization_prevents_a_completed_pass()
+    {
+        var input = Fixture();
+        var plan = ProjectTestPlan.Compile(ProjectSemanticBinder.Bind(input), Evaluator);
+        var completed = plan.Execute(input.InputDigest);
+        Assert.Equal(CompilerVerdict.Pass, completed.Verdict);
+        var result = Assert.Single(completed.Tests);
+        using var cancellation = new CancellationTokenSource();
+
+        var exception = Assert.Throws<OperationCanceledException>(() => new ProjectTestRun(plan,
+            CompilerExecutionState.Completed, CompilerCoverage.Complete, CompilerFreshness.Current,
+            CancelAfterReadingResult(), completed.Reason, cancellation.Token));
+        Assert.Equal(cancellation.Token, exception.CancellationToken);
+
+        IEnumerable<ProjectTestCaseResult> CancelAfterReadingResult()
+        {
+            yield return result;
+            cancellation.Cancel();
+        }
+    }
+
+    [Fact]
     public void Empty_discovery_and_empty_test_do_not_pass()
     {
         var noTests = Fixture(mutate: (_, _, test) => test["kind"] = "example.not-a-test"); var result = Run(noTests);
