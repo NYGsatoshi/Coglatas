@@ -134,31 +134,78 @@ class InspectionEvidenceTests(unittest.TestCase):
         self.assertNotIn("scopeProbe", json.loads((self.root / "composition.json").read_text()))
 
 
-    def test_resharper_workflow_edit_inspects_entry_probe_source(self):
+    def test_resharper_scope_covers_entry_witnesses_and_preserves_existing_routes(self):
         # Exercise the actual embedded runner routing rather than a copy of its condition.
         workflow = (ROOT / ".github/workflows/resharper_pr.yml").read_text(encoding="utf-8")
-        marker = """          python3 - <<'PY' >> "$GITHUB_OUTPUT"\n"""
+        marker = """          python3 -B - <<'PY' >> "$GITHUB_OUTPUT"\n"""
         self.assertEqual(1, workflow.count(marker))
         fragment = workflow.split(marker, 1)[1].split("\n          PY", 1)[0]
-        self.assertIn("full_solution =", fragment)
         script = textwrap.dedent(fragment)
         changed = self.root / "changed.nul"
         projects = self.root / "projects.txt"
-        environment = {**os.environ, "CHANGED_FILES_PATH": str(changed), "PROJECTS_FILE": str(projects)}
+        environment = {**os.environ, "CHANGED_FILES_PATH": str(changed), "PROJECTS_FILE": str(projects),
+                       "PYTHONPATH": str(ROOT / "scripts/quality")}
 
-        def classify(paths: bytes) -> str:
-            changed.write_bytes(paths)
-            result = subprocess.run([sys.executable, "-c", script], cwd=self.root,
+        entry = "Coglatas.ProjectIde.Entry.Tests"
+        domain = "Coglatas.Domain"
+        entry_project = f"tests/{entry}/{entry}.csproj"
+        domain_project = f"src/{domain}/{domain}.csproj"
+        entry_source = f"tests/{entry}/EntryContractTests.cs"
+        entry_lock = f"tests/{entry}/packages.lock.json"
+        entry_roster = f"tests/{entry}/retained-test-identities.v1.json"
+        domain_source = f"src/{domain}/ProjectIde/History.cs"
+        unrelated_source = "tests/Coglatas.Tests/ProjectIde/OtherTests.cs"
+        tests_project = "tests/Coglatas.Tests/Coglatas.Tests.csproj"
+        sarif_gate = "scripts/quality/check-resharper-pr-sarif.py"
+        entry_helper = "scripts/quality/projectide_entry_resharper.py"
+        workflow_path = ".github/workflows/resharper_pr.yml"
+        witnesses = [entry_source, f"tests/{entry}/SourceAndRunEntryTests.cs"]
+
+        for file in (entry_project, domain_project, tests_project):
+            project = self.root / file
+            project.parent.mkdir(parents=True)
+            project.touch()
+
+        def classify(paths, integrated=True):
+            solution = self.root / "Coglatas.slnx"
+            project_entry = f'<Project Path="{entry_project}" />' if integrated else ""
+            solution.write_text(f'<Solution><Project Path="{domain_project}" />{project_entry}</Solution>',
+                                encoding="utf-8")
+            changed.write_bytes(b"".join(path.encode() + b"\0" for path in paths))
+            result = subprocess.run([sys.executable, "-B", "-c", script], cwd=self.root,
                                     env=environment, text=True, capture_output=True, check=True)
-            return result.stdout
+            outputs = dict(line.split("=", 1) for line in result.stdout.splitlines())
+            return outputs["full_solution"], projects.read_text(encoding="utf-8").splitlines()
 
-        # A ReSharper control-plane edit must inspect the entire solution: the
-        # verifier mutates Entry test sources, which are absent from Domain-only scans.
-        self.assertIn("full_solution=true", classify(b".github/workflows/resharper_pr.yml\0"))
-        self.assertEqual("", projects.read_text(encoding="utf-8"))
-        # Unrelated workflow-only changes keep the original bounded representative.
-        self.assertIn("full_solution=false", classify(b".github/workflows/documentation-integrity.yml\0"))
-        self.assertEqual("Coglatas.Domain\n", projects.read_text(encoding="utf-8"))
+        cases = (
+            ((sarif_gate,), [entry], witnesses),
+            ((entry_helper,), [entry], witnesses),
+            ((entry_lock,), [entry], witnesses),
+            ((entry_roster,), [entry], witnesses),
+            ((entry_lock, domain_source), [domain, entry], witnesses),
+            ((entry_roster, domain_source), [domain, entry], witnesses),
+            ((entry_project,), [entry], witnesses),
+            ((entry_source,), [entry], [entry_source]),
+            ((entry_source, domain_source), [domain, entry], [entry_source]),
+            ((domain_source,), [domain], []),
+            ((unrelated_source,), ["Coglatas.Tests"], []),
+            ((".github/workflows/documentation-integrity.yml",), [domain], []),
+            (("tests/ci/test_projectide_entry_resharper.py",), [domain], []),
+            ((workflow_path,), [], witnesses),
+            (("Coglatas.slnx",), [], witnesses),
+            (("global.json",), [], []),
+            (("src/Unknown.cs", entry_lock), [], witnesses),
+        )
+        for paths, expected_projects, expected_witnesses in cases:
+            with self.subTest(paths=paths):
+                self.assertEqual(("false" if expected_projects else "true", expected_projects),
+                                 classify(paths))
+                self.assertEqual(expected_witnesses, quality.entry_source_witnesses(paths))
+
+        # Verifier inputs on the historical solution must keep the bounded representative.
+        self.assertEqual(("false", [domain]), classify((sarif_gate,), integrated=False))
+        self.assertEqual(("false", [domain]), classify((entry_helper,), integrated=False))
+        self.assertEqual(("true", []), classify((workflow_path,), integrated=False))
 
 
 if __name__ == "__main__":
