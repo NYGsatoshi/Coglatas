@@ -11,15 +11,31 @@ on:
       - src/Coglatas.Application/ProjectIde/DependencyAcquisition/**
       - tests/Coglatas.Tests/ProjectIde/SyntheticDependencyAcquisitionTests.cs
       - tests/Coglatas.Tests/ProjectIde/Fixtures/artifact-hash-vectors-v1.json
+      - tests/Coglatas.Tests/ProjectIde/Fixtures/artifact-reader-compat-vectors-v1.json
       - tests/ci/projectide-artifact-vectors.test.mjs
       - tests/ci/projectide_artifact_inventory.py
       - tests/ci/projectide_core_isolated.py
       - tests/ci/projectide_integration_inventory.json
+      - tools/ProjectIde.Tests/**
+      - tests/Coglatas.Tests/ProjectIde/ProjectTestCli*Tests.cs
+      - tests/Coglatas.Tests/ProjectIde/ProjectTestOutputTests.cs
       # Recorded debugger producer, replay tests, and immutable fixture are all
       # independent changes that must activate the full two-host artifact suite.
       - tools/ProjectIde.Preview/**
+      - tools/ProjectIde.Workbench.Synthetic/SyntheticProjectTestConfiguration.cs
+      - tools/ProjectIde.Workbench.Synthetic/SyntheticReadOnlyList.cs
+      - tools/ProjectIde.Workbench.Synthetic/SyntheticSnapshotMaterialization.cs
+      - tools/ProjectIde.Workbench.Synthetic/SyntheticScopedSourceProjection.cs
+      - tools/ProjectIde.Workbench.Synthetic/SyntheticSemanticIndexProjection.cs
       - tests/Coglatas.Tests/ProjectIde/WebSimulationDebugContractTests.cs
       - frontend/public/assets/projectide/simulation-debug-v1.json
+      - src/Coglatas.Application/ProjectIde/Core/CompilerHostContracts.cs
+      - src/Coglatas.Application/ProjectIde/Core/*PredicateObservationCompiler*
+      - tests/Coglatas.Tests/ProjectIde/SyntheticOperatorRecordingTests.cs
+      - tests/Coglatas.Tests/ProjectIde/WebOperatorRecordingContractTests.cs
+      - frontend/public/assets/projectide/operator-recordings-v1.json
+      - tests/ci/projectide_operator_replay.ps1
+      - tests/ci/test_projectide_operator_replay.ps1
       - frontend/public/assets/projectide/.gitattributes
       - .github/workflows/projectide-artifact-candidates.yml
 
@@ -155,6 +171,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Unable to read retained base inventory' }
           python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json --require-receipt-proof --require-acquisition
           if ($LASTEXITCODE -ne 0) { throw 'Incomplete retained test identities' }
+      - name: Verify operator replay preflight controls
+        run: ./tests/ci/test_projectide_operator_replay.ps1
+      - name: Replay fresh operator export against the retained contract cases
+        run: >-
+          ./tests/ci/projectide_operator_replay.ps1
+          -EvidenceDirectory candidate-evidence
+          -StagingDirectory (Join-Path $env:RUNNER_TEMP 'projectide-operator-replay')
       - name: Upload actual candidate results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -287,6 +310,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Unable to read retained base inventory' }
           python -B tests/ci/projectide_artifact_inventory.py --results candidate-evidence --baseline candidate-evidence/baseline.json --require-receipt-proof --require-acquisition
           if ($LASTEXITCODE -ne 0) { throw 'Incomplete retained test identities' }
+      - name: Verify operator replay preflight controls
+        run: ./tests/ci/test_projectide_operator_replay.ps1
+      - name: Replay fresh operator export against the retained contract cases
+        run: >-
+          ./tests/ci/projectide_operator_replay.ps1
+          -EvidenceDirectory candidate-evidence
+          -StagingDirectory (Join-Path $env:RUNNER_TEMP 'projectide-operator-replay')
       - name: Upload actual candidate results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
