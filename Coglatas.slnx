@@ -15,8 +15,12 @@
   <Folder Name="/tests/">
     <Project Path="tests/Coglatas.Architecture.Tests/Coglatas.Architecture.Tests.csproj" />
     <Project Path="tests/Coglatas.Tests/Coglatas.Tests.csproj" />
+    <Project Path="tests/Coglatas.ProjectIde.Entry.Tests/Coglatas.ProjectIde.Entry.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
+    <Project Path="tools/ProjectIde.Preview/ProjectIde.Preview.csproj" />
+    <Project Path="tools/ProjectIde.Tests/ProjectIde.Tests.csproj" />
+    <Project Path="tools/ProjectIde.Workbench.Synthetic/ProjectIde.Workbench.Synthetic.csproj" />
     <Project Path="tools/AvMig.SourceInspector/AvMig.SourceInspector.csproj" />
     <Project Path="tools/Coglatas.SecurityArchitecture/Coglatas.SecurityArchitecture.csproj" />
     <Project Path="tools/synthetic-recovery-acceptance/Coglatas.SyntheticRecoveryAcceptance.csproj" />

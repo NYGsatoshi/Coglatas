@@ -1,0 +1,151 @@
+:host {
+  display: block;
+}
+.workbench {
+  max-width: 90rem;
+  margin: auto;
+  padding: 1.5rem;
+  color: var(--coglatas-color-text-primary);
+}
+.eyebrow {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.context,
+.analysis,
+.panel {
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin-block: 1rem;
+}
+dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 23rem), 1fr));
+  gap: 0.75rem;
+}
+dt {
+  font-weight: 700;
+}
+dd {
+  margin: 0.25rem 0;
+  overflow-wrap: anywhere;
+}
+button,
+select,
+input {
+  font: inherit;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: 0.375rem;
+  color: inherit;
+  background: var(--coglatas-color-bg-control);
+  min-height: 2.75rem;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+button[aria-pressed='true'] {
+  font-weight: 700;
+  outline: 2px solid currentColor;
+}
+:focus-visible {
+  outline: 3px solid var(--coglatas-color-focus);
+  outline-offset: 3px;
+}
+.panels,
+.filters {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+label {
+  display: grid;
+  gap: 0.4rem;
+}
+.context-picker {
+  margin-block: 1rem;
+}
+select {
+  max-width: 100%;
+}
+.diagnostics {
+  padding-left: 1.5rem;
+}
+.diagnostics li {
+  border-bottom: 1px solid var(--coglatas-color-border-default);
+  padding-block: 0.75rem;
+  overflow-wrap: anywhere;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--coglatas-color-bg-surface);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  max-height: 30rem;
+  overflow: auto;
+}
+.elements {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+}
+.elements button {
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  text-align: start;
+}
+.notice {
+  border-inline-start: 0.25rem solid currentColor;
+  padding-inline-start: 0.75rem;
+}
+@media (max-width: 40rem) {
+  .workbench {
+    padding: 0.75rem;
+  }
+  .filters > label {
+    width: 100%;
+  }
+}
+
+.local-tests li,
+.local-tests-summary code { overflow-wrap: anywhere; }
+.local-tests button { max-width: 100%; overflow-wrap: anywhere; text-align: start; }
+
+.scenario-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 1rem; }
+.scenario-results section { min-width: 0; overflow-wrap: anywhere; }
+.scenario-schedule-table { max-width: 100%; overflow-x: auto; }
+.scenario-schedule-table table { width: 100%; border-collapse: collapse; }
+.scenario-schedule-table th, .scenario-schedule-table td { padding: .25rem .5rem; text-align: start; }
+.scenario-schedule-table th small { display: block; font-weight: normal; overflow-wrap: anywhere; }
+
+.simulation-comparison { min-width: 0; overflow-wrap: anywhere; }
+
+.simulation-trace-profile { overflow-wrap: anywhere; }
+.simulation-trace-profile dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 1rem; }
+.simulation-trace-profile dd { margin-inline-start: 0; }
+.simulation-trace-profile:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+
+.pass-recordings { min-width: 0; overflow-wrap: anywhere; }
+
+.reference-graph { margin-inline: 0; min-width: 0; overflow-wrap: anywhere; }
+.reference-graph figcaption { font-weight: 700; }
+.reference-graph figcaption p { font-weight: 400; }
+.reference-graph-nodes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); row-gap: 0.75rem; }
+.reference-graph-origin { grid-column: 1; display: flex; align-items: center; min-width: 0; }
+.reference-graph-origin button, .reference-graph-target button { max-width: 100%; min-width: 0; overflow-wrap: anywhere; text-align: start; }
+.reference-graph-edge { flex: 1 0 2rem; text-align: end; border-block-end: 1px solid currentColor; }
+.reference-graph-target { grid-column: 2; display: flex; align-items: center; padding-inline-start: 1rem; border-inline-start: 1px solid currentColor; }
+@media (max-width: 40rem) {
+  .reference-graph-nodes { display: flex; flex-direction: column; }
+  .reference-graph-origin { padding-inline-start: 0.5rem; border-inline-start: 1px solid currentColor; }
+  .reference-graph-edge { display: none; }
+  .reference-graph-target { padding: 0.75rem; border: 1px solid currentColor; border-radius: 0.375rem; }
+}

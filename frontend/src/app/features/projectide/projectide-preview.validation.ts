@@ -1,0 +1,325 @@
+import type { PreviewBundle, PreviewCase, ProjectLocation, RevisionContext } from './projectide.contracts';
+
+const record = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+const text = (value: unknown): value is string => typeof value === 'string';
+const token = (value: unknown): value is string => text(value) && value.length > 0;
+const positive = (value: unknown): boolean =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+const nonnegative = (value: unknown): boolean =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+const oneOf = (value: unknown, values: readonly string[]): boolean =>
+  text(value) && values.includes(value);
+const list = (value: unknown, check: (item: unknown) => boolean, maximum: number): boolean =>
+  Array.isArray(value) && value.length <= maximum && value.every(check);
+const digest = (value: unknown): boolean =>
+  record(value) &&
+  value['algorithm'] === 'sha-256' &&
+  text(value['value']) &&
+  /^[a-f0-9]{64}$/u.test(value['value']);
+const committedContext = (value: unknown): boolean => record(value) && value['kind'] === 'coglatas.committed' &&
+  Object.keys(value).length === 3 && token(value['revisionId']) && branch(value['branch']) &&
+  !['proposalId', 'candidateRevisionId', 'scenarioId', 'scenarioRevisionId', 'baseContext', 'baseRevision', 'capturedTargetHead', 'overlayDigest'].some(key => Object.hasOwn(value, key));
+const branch = (value: unknown): boolean => record(value) && Object.keys(value).length === 3 && token(value['tenantId']) && token(value['projectId']) && token(value['branchId']);
+const baseContext = (value: unknown): boolean => {
+  if (committedContext(value)) return true;
+  if (!record(value) || value['kind'] !== 'coglatas.candidate' || Object.keys(value).length !== 6 || !branch(value['branch']) ||
+      !token(value['proposalId']) || !token(value['candidateRevisionId']) || !committedContext(value['baseRevision']) ||
+      !committedContext(value['capturedTargetHead']) ||
+      ['revisionId', 'scenarioId', 'scenarioRevisionId', 'baseContext', 'overlayDigest'].some(key => Object.hasOwn(value, key))) return false;
+  const scope = value['branch'];
+  const base = value['baseRevision']; const head = value['capturedTargetHead'];
+  if (!record(scope) || !record(base) || !record(head) || !record(base['branch']) || !record(head['branch'])) return false;
+  return scope['tenantId'] === base['branch']['tenantId'] && scope['projectId'] === base['branch']['projectId'] &&
+    ['tenantId', 'projectId', 'branchId'].every(key => scope[key] === head['branch'][key]);
+};
+const context = (value: unknown): boolean => {
+  if (baseContext(value)) return true;
+  if (!record(value) || value['kind'] !== 'coglatas.scenario' || Object.keys(value).length !== 6 || !branch(value['branch']) ||
+      !token(value['scenarioId']) || !token(value['scenarioRevisionId']) || !baseContext(value['baseContext']) ||
+      !digest(value['overlayDigest']) || !record(value['overlayDigest']) || Object.keys(value['overlayDigest']).length !== 2) return false;
+  const scope = value['branch']; const base = value['baseContext'];
+  return record(scope) && record(base) && record(base['branch']) &&
+    ['tenantId', 'projectId', 'branchId'].every(key => scope[key] === base['branch'][key]);
+};
+export const isRevisionContextShape = (value: unknown): value is RevisionContext => context(value);
+
+export function isProjectLocationShape(value: unknown): value is ProjectLocation {
+  if (
+    !record(value) ||
+    value['format'] !== 'coglatas.project-location/1' ||
+    value['schemaId'] !== 'coglatas.project-location' ||
+    value['schemaVersion'] !== 1 ||
+    value['canonicalEncodingVersion'] !== 1 ||
+    !token(value['documentId']) ||
+    !text(value['propertyPath']) ||
+    !context(value['context'])
+  ) {
+    return false;
+  }
+  if (
+    (value['entityId'] !== undefined && !token(value['entityId'])) ||
+    (value['relationId'] !== undefined && !token(value['relationId'])) ||
+    (value['entityId'] !== undefined && value['relationId'] !== undefined)
+  ) {
+    return false;
+  }
+  const span = value['textSpan'];
+  return (
+    span === undefined ||
+    span === null ||
+    (record(span) && nonnegative(span['start']) && nonnegative(span['length']))
+  );
+}
+
+const execution = (value: unknown): boolean =>
+  oneOf(value, [
+    'coglatas.completed',
+    'coglatas.not-run',
+    'coglatas.cancelled',
+    'coglatas.timed-out',
+    'coglatas.resource-exhausted',
+    'coglatas.internal-error',
+  ]);
+const coverage = (value: unknown): boolean =>
+  oneOf(value, ['coglatas.complete', 'coglatas.partial', 'coglatas.none']);
+const verdict = (value: unknown): boolean =>
+  oneOf(value, [
+    'coglatas.pass',
+    'coglatas.fail',
+    'coglatas.inconclusive',
+    'coglatas.error',
+    'coglatas.not-run',
+  ]);
+const evidence = (value: unknown): boolean =>
+  record(value) &&
+  oneOf(value['kind'], [
+    'coglatas.model-proof',
+    'coglatas.observation',
+    'coglatas.human-approval',
+    'coglatas.heuristic',
+    'coglatas.missing',
+  ]) &&
+  list(value['premises'], digest, 1024) &&
+  (value['kind'] === 'coglatas.missing'
+    ? (value['premises'] as unknown[]).length === 0 && token(value['missingReason'])
+    : (value['premises'] as unknown[]).length > 0 && value['missingReason'] === null);
+const diagnostic = (value: unknown): boolean =>
+  record(value) &&
+  token(value['diagnosticId']) &&
+  token(value['ruleId']) &&
+  positive(value['ruleVersion']) &&
+  token(value['code']) &&
+  nonnegative(value['stageOrdinal']) &&
+  oneOf(value['severity'], [
+    'coglatas.error',
+    'coglatas.warning',
+    'coglatas.suggestion',
+    'coglatas.info',
+  ]) &&
+  isProjectLocationShape(value['primaryLocation']) &&
+  evidence(value['evidence']);
+const sourceRecord = (value: unknown): boolean =>
+  record(value) &&
+  oneOf(value['recordType'], ['entity', 'relation']) &&
+  token(value['identity']) &&
+  token(value['kind']) &&
+  oneOf(value['status'], ['Decoded', 'Unsupported', 'Invalid']) &&
+  record(value['data']) &&
+  isProjectLocationShape(value['location']);
+const rule = (value: unknown): boolean =>
+  record(value) &&
+  token(value['ruleId']) &&
+  positive(value['version']) &&
+  execution(value['execution']) &&
+  coverage(value['coverage']) &&
+  verdict(value['verdict']) &&
+  evidence(value['evidence']);
+const artifact = (value: unknown): boolean =>
+  record(value) && token(value['role']) && digest(value['digest']) && digest(value['inputDigest']);
+const result = (value: unknown): boolean => {
+  if (
+    !record(value) ||
+    value['format'] !== 'coglatas.compiler-result/1' ||
+    value['resultFormatVersion'] !== 1 ||
+    !token(value['compilerInputId']) ||
+    !digest(value['inputDigest']) ||
+    !execution(value['execution']) ||
+    !coverage(value['coverage']) ||
+    !verdict(value['verdict']) ||
+    typeof value['evidenceComplete'] !== 'boolean' ||
+    !list(value['diagnostics'], diagnostic, 20000) ||
+    !list(value['rules'], rule, 1024) ||
+    !list(value['artifacts'], artifact, 32)
+  ) {
+    return false;
+  }
+  const stamp = value['boundInputStamp'];
+  return (
+    record(stamp) &&
+    context(stamp['sourceContext']) &&
+    digest(stamp['sourceDigest']) &&
+    digest(stamp['inputDigest'])
+  );
+};
+const source = (value: unknown): boolean =>
+  record(value) &&
+  list(
+    value['documents'],
+    (document) =>
+      record(document) && token(document['documentId']) && text(document['logicalName']),
+    100000,
+  );
+const sourceMap = (value: unknown): boolean =>
+  value === null ||
+  (record(value) &&
+    value['format'] === 'coglatas.semantic-source-map/1' &&
+    token(value['compilerInputId']) &&
+    list(
+      value['nodes'],
+      (entry) => record(entry) && isProjectLocationShape(entry['location']),
+      100000,
+    ) &&
+    list(
+      value['relations'],
+      (entry) => record(entry) && isProjectLocationShape(entry['location']),
+      100000,
+    ));
+
+const inspection = (value: unknown): boolean => value === undefined || value === null || (
+  record(value) && value['format'] === 'coglatas.semantic-inspection/1' &&
+  token(value['compilerInputId']) && digest(value['inputDigest']) && digest(value['sourceDigest']) &&
+  context(value['context']) && typeof value['bindingComplete'] === 'boolean' &&
+  list(value['symbols'], (item) => record(item) && token(item['key']) && token(item['kind']) &&
+    oneOf(item['status'], ['Decoded', 'Unsupported', 'Invalid']) && isProjectLocationShape(item['location']) &&
+    (item['declaredType'] === null || record(item['declaredType'])), 100000) &&
+  list(value['references'], (item) => record(item) && isProjectLocationShape(item['origin']) &&
+    oneOf(item['state'], ['Resolved', 'MissingWithinCompleteScope', 'UnknownDueToCoverage', 'Ambiguous', 'Unsupported', 'OutOfScope']) &&
+    (item['symbolKey'] === null || token(item['symbolKey'])), 100000)
+);
+
+/** Structural profile only. Core owns meaning, identities and canonical digest derivation. */
+const completions = (value: unknown): boolean => value === undefined || value === null || list(value, (page) =>
+  record(page) && token(page['originKey']) && digest(page['inputDigest']) &&
+  oneOf(page['state'], ['Ready', 'StaleInput', 'OutOfScope', 'Unavailable', 'Unsupported', 'InvalidCursor']) &&
+  (page['expectedKind'] === null || token(page['expectedKind'])) && typeof page['coverageComplete'] === 'boolean' &&
+  typeof page['truncated'] === 'boolean' && list(page['candidates'], (candidate) => record(candidate) &&
+    token(candidate['symbolKey']) && (candidate['displayName'] === null || text(candidate['displayName'])), 32), 100000);
+const taskSuggestions = (value: unknown): boolean => value === undefined || value === null || list(value, page =>
+  record(page) && token(page['originKey']) && digest(page['inputDigest']) && page['candidateOnly'] === true &&
+  oneOf(page['state'], ['Ready', 'StaleInput', 'OutOfScope', 'Unavailable', 'InvalidCursor']) &&
+  typeof page['coverageComplete'] === 'boolean' && typeof page['truncated'] === 'boolean' &&
+  list(page['candidates'], candidate => record(candidate) && token(candidate['symbolKey']) && candidate['reason'] === 'DeclaredTaskInSnapshot' &&
+    (candidate['displayName'] === null || text(candidate['displayName'])), 32), 100000);
+const preparedRename = (value: unknown): boolean => {
+  if (value === undefined || value === null) return true;
+  if (!record(value) || !token(value['afterCaseKey']) || !record(value['plan'])) return false;
+  const plan = value['plan'];
+  return digest(plan['beforeInputDigest']) && digest(plan['afterInputDigest']) &&
+    context(plan['beforeContext']) && record(plan['beforeContext']) && plan['beforeContext']['kind'] === 'coglatas.candidate' &&
+    context(plan['afterContext']) && record(plan['afterContext']) && plan['afterContext']['kind'] === 'coglatas.candidate' &&
+    isProjectLocationShape(plan['target']) && (plan['previousName'] === null || text(plan['previousName'])) &&
+    text(plan['newName']) && !/[\uD800-\uDFFF]/u.test(plan['newName']) && new TextEncoder().encode(plan['newName']).length <= 4096 &&
+    typeof plan['referenceCoverageComplete'] === 'boolean' && list(plan['referenceOrigins'], isProjectLocationShape, 4096);
+};
+
+export function isPreviewCaseShape(value: unknown): value is PreviewCase {
+  return (
+    record(value) &&
+    token(value['key']) &&
+    text(value['projectName']) &&
+    text(value['workspaceName']) &&
+    token(value['workspaceId']) &&
+    text(value['branchName']) &&
+    context(value['context']) &&
+    context(value['desiredContext']) &&
+    source(value['source']) &&
+    text(value['sourceText']) &&
+    digest(value['sourceDigest']) &&
+    digest(value['inputDigest']) &&
+    token(value['inputId']) &&
+    record(value['manifest']) &&
+    result(value['result']) &&
+    token(value['resultId']) &&
+    digest(value['resultDigest']) &&
+    oneOf(value['freshness'], ['Current', 'Stale', 'Undetermined']) &&
+    list(value['changedDimensions'], text, 1024) &&
+    list(value['declarations'], sourceRecord, 100000) &&
+    list(value['relations'], sourceRecord, 100000) &&
+    inspection(value['semanticInspection']) &&
+    completions(value['referenceCompletions']) &&
+    taskSuggestions(value['requirementTaskSuggestions']) &&
+    preparedRename(value['preparedRename']) &&
+    preparedRevert(value['preparedRevert']) &&
+    preparedDiff(value['preparedDiff']) &&
+    preparedHistory(value['preparedHistory']) &&
+    sourceMap(value['sourceMap']) &&
+    (value['sourceMapDigest'] === null || digest(value['sourceMapDigest']))
+  );
+}
+
+const preparedRevert = (value: unknown): boolean => {
+  if (value === undefined || value === null) return true;
+  if (!record(value) || !token(value['parentCaseKey']) || !token(value['revertedCaseKey']) || !token(value['candidateCaseKey']) || !record(value['plan'])) return false;
+  const plan = value['plan'];
+  return ['currentInputDigest', 'candidateInputDigest', 'parentInputDigest', 'revertedInputDigest'].every(key => digest(plan[key])) &&
+    ['currentContext', 'parentContext', 'revertedContext'].every(key => committedContext(plan[key])) &&
+    context(plan['candidateContext']) && record(plan['candidateContext']) && plan['candidateContext']['kind'] === 'coglatas.candidate' &&
+    nonnegative(plan['changedRecordCount']) && (plan['changedRecordCount'] as number) > 0 && (plan['changedRecordCount'] as number) <= 4096;
+};
+
+const preparedDiff = (value: unknown): boolean => {
+  if (value === undefined || value === null) return true;
+  if (!record(value) || !token(value['afterCaseKey']) || !record(value['comparison'])) return false;
+  const diff = value['comparison'];
+  return diff['format'] === 'coglatas.synthetic-semantic-diff/1' &&
+    oneOf(diff['state'], ['Complete', 'Incomplete']) && typeof diff['noChanges'] === 'boolean' &&
+    digest(diff['beforeInputDigest']) && digest(diff['afterInputDigest']) && context(diff['beforeContext']) && context(diff['afterContext']) &&
+    JSON.stringify(diff).length <= 600000 && list(diff['changes'], change => record(change) &&
+      oneOf(change['recordType'], ['entity', 'relation', 'document', 'source']) && text(change['identity']) &&
+      text(change['path']) && change['path'].length <= 4096 && (change['path'] === '' || (change['path'].startsWith('/') && !/~(?![01])/u.test(change['path']))) &&
+      oneOf(change['kind'], ['Added', 'Removed', 'DisplayName', 'Property', 'Reference', 'Uninterpreted']) &&
+      typeof change['beforePresent'] === 'boolean' && typeof change['afterPresent'] === 'boolean' &&
+      Object.hasOwn(change, 'before') && Object.hasOwn(change, 'after') &&
+      (change['beforeLocation'] === null || isProjectLocationShape(change['beforeLocation'])) &&
+      (change['afterLocation'] === null || isProjectLocationShape(change['afterLocation'])), 1024);
+};
+
+const preparedHistory = (value: unknown): boolean => {
+  if (value === undefined || value === null) return true;
+  if (!record(value) || !record(value['deltaRecordCounts'])) return false;
+  const counts = value['deltaRecordCounts'];
+  return token(value['headCaseKey']) && value['state'] === 'Ready' &&
+    oneOf(value['sourceAdmissionStatus'], ['StructurallyDecoded', 'Unsupported']) && value['missingAnchorState'] === 'Unavailable' &&
+    value['compactedCheckpointVerified'] === true && list(value['reconstructionPath'], committedContext, 32) &&
+    list(value['revisions'], row => record(row) && token(row['caseKey']) && committedContext(row['context']) &&
+      nonnegative(row['branchSequence']) && digest(row['sourceDigest']) && oneOf(row['storage'], ['Checkpoint', 'TypedDelta']) &&
+      list(row['parents'], committedContext, 8), 256) &&
+    ['documents', 'declarations', 'relations'].every(key => nonnegative(counts[key]) && (counts[key] as number) <= 100000);
+};
+
+export function isPreviewBundleShape(value: unknown): value is PreviewBundle {
+  return (
+    record(value) &&
+    value['format'] === 'coglatas.web-preview/1' &&
+    value['mode'] === 'synthetic-fixture' &&
+    token(value['coreProduct']) &&
+    list(value['cases'], isPreviewCaseShape, 32)
+  );
+}
+
+/** Ambiguous identities cannot be used as Angular tracking keys or semantic targets. */
+export function hasUniquePreviewIdentities(value: PreviewCase): boolean {
+  const unique = <T>(items: readonly T[], key: (item: T) => string) =>
+    new Set(items.map(key)).size === items.length;
+  return (
+    unique(value.source.documents, (item) => item.documentId) &&
+    unique(value.declarations, (item) => item.identity) &&
+    unique(value.relations, (item) => item.identity) &&
+    value.declarations.every((item) => item.recordType === 'entity') &&
+    value.relations.every((item) => item.recordType === 'relation') &&
+    unique(value.result.diagnostics, (item) => item.diagnosticId) &&
+    unique(value.result.rules, (item) => item.ruleId) &&
+    unique(value.result.artifacts, (item) => item.role)
+  );
+}
