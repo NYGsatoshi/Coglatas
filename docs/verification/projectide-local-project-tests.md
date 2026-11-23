@@ -116,6 +116,11 @@ Source that is still structurally admitted retains its existing binding and Test
 coverage behavior; no new semantic support is inferred.
 This does not establish manifest integrity or evaluator support. Existing output
 paths still fail with exit 3 and retain their original bytes.
+A successful CLI result respects cancellation while its output is staged and
+before atomic publication begins. The CLI publishes its existing cancellation
+receipt with exit code 2 when cancellation interrupts that successful result.
+An occupied destination retains its original bytes.
+
 Cancellation is explicit. The console subscription owns its cancellation
 source and defers cleanup until in-flight callbacks return, including reentrant
 and concurrent disposal. These host lifecycle controls are tested separately
