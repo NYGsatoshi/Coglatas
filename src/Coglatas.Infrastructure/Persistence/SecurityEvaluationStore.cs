@@ -4,6 +4,7 @@ using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.ProjectIde.Evaluations;
 using Coglatas.Application.Projects;
 using Coglatas.Domain.Entities;
+using Coglatas.Domain.Enums;
 using Coglatas.Domain.ProjectIde;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,7 +12,8 @@ namespace Coglatas.Infrastructure.Persistence;
 
 /// <summary>Owns a narrow transaction; never flushes another use case's pending changes.</summary>
 public sealed class SecurityEvaluationStore(AppDbContext context, ICurrentTenant currentTenant,
-    ICurrentUser currentUser, IProjectAuthorizationService authorization, IClock clock) : ISecurityEvaluationStore
+    ICurrentUser currentUser, IProjectAuthorizationService authorization, ISessionRepository sessions, IClock clock)
+    : ISecurityEvaluationStore
 {
     private static readonly JsonSerializerOptions IdentityJsonOptions = new()
     {
@@ -92,7 +94,8 @@ public sealed class SecurityEvaluationStore(AppDbContext context, ICurrentTenant
         CancellationToken cancellationToken = default)
     {
         var scope = CaptureScope();
-        if (scope is null || !await CanReadAsync(scope.Value, projectId, cancellationToken)) return null;
+        if (scope is null || currentUser.SessionId is not { } sessionId || sessionId == Guid.Empty ||
+            !await CanReadAsync(scope.Value, sessionId, projectId, cancellationToken)) return null;
         var run = await context.SecurityEvaluationRuns.AsNoTracking()
             .Where(run => run.Id == evaluationId && run.TenantId == scope.Value.TenantId && run.ProjectId == projectId)
             .Select(run => new
@@ -105,7 +108,7 @@ public sealed class SecurityEvaluationStore(AppDbContext context, ICurrentTenant
             .Where(rule => rule.EvaluationId == evaluationId && rule.TenantId == scope.Value.TenantId && rule.ProjectId == projectId)
             .OrderBy(rule => rule.Sequence)
             .Select(rule => new SecurityRuleResult(rule.RuleId, rule.Status, rule.Outcome, rule.ReasonCode)).ToArrayAsync(cancellationToken);
-        if (!await CanReadAsync(scope.Value, projectId, cancellationToken)) return null;
+        if (!await CanReadAsync(scope.Value, sessionId, projectId, cancellationToken)) return null;
         var identity = JsonSerializer.Deserialize<SecurityEvaluationIdentitySnapshot>(run.IdentityJson, IdentityJsonOptions)
             ?? throw new InvalidOperationException("Stored Security identity is invalid.");
         if (identity.Resource.TenantId != run.TenantId || identity.Resource.ProjectId != run.ProjectId)
@@ -133,12 +136,21 @@ public sealed class SecurityEvaluationStore(AppDbContext context, ICurrentTenant
             .AnyAsync(project => project.Id == projectId && project.TenantId == scope.TenantId && project.DeletedAt == null, token) &&
         ScopeIsCurrent(scope);
 
-    private async Task<bool> CanReadAsync((Guid TenantId, Guid UserId) scope, Guid projectId, CancellationToken token) =>
-        ScopeIsCurrent(scope) && await authorization.CanViewProject(scope.UserId, projectId, token) &&
-        await AuthorizationStateIsCurrentAsync(scope, projectId, token) && ScopeIsCurrent(scope) &&
-        await context.Projects.AsNoTracking()
-            .AnyAsync(project => project.Id == projectId && project.TenantId == scope.TenantId && project.DeletedAt == null, token) &&
-        ScopeIsCurrent(scope);
+    private async Task<bool> CanReadAsync((Guid TenantId, Guid UserId) scope, Guid sessionId, Guid projectId,
+        CancellationToken token)
+    {
+        if (!ScopeIsCurrent(scope) || currentUser.SessionId != sessionId ||
+            !await authorization.CanViewProject(scope.UserId, projectId, token) ||
+            !await AuthorizationStateIsCurrentAsync(scope, projectId, token) ||
+            !await context.Projects.AsNoTracking()
+                .AnyAsync(project => project.Id == projectId && project.TenantId == scope.TenantId && project.DeletedAt == null, token))
+            return false;
+
+        var session = await sessions.GetCurrentByIdWithUserAsync(sessionId, token);
+        return ScopeIsCurrent(scope) && currentUser.SessionId == sessionId && session is
+            { RevokedAt: null, User: { Status: UserStatus.Active, DeletedAt: null } } &&
+            session.UserId == scope.UserId && session.ExpiresAt > clock.UtcNow;
+    }
 
     private async Task<bool> AuthorizationStateIsCurrentAsync((Guid TenantId, Guid UserId) scope, Guid projectId, CancellationToken token)
     {

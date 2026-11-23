@@ -54,7 +54,7 @@ public sealed class SecurityEvaluationPersistencePostgreSqlTests
         Assert.Null(await reader.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
         Assert.Null(await reader.FindAsync(fixture.Seed.ForeignProjectId, binding.Request.EvaluationId));
         fixture.Tenant.SetTenant(fixture.Seed.TenantId, "security");
-        fixture.Actor.Set(fixture.Seed.ReaderId);
+        fixture.Actor.Set(fixture.Seed.ReaderId, fixture.Seed.ReaderSessionId);
         Assert.Null(await reader.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
         fixture.Actor.Set(null);
         Assert.Null(await reader.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
@@ -78,6 +78,51 @@ public sealed class SecurityEvaluationPersistencePostgreSqlTests
     });
 
     [PostgreSqlFact]
+    public Task HistoricalReadRequiresACurrentPersistedSessionOfTheViewer() => WithFixtureAsync(async fixture =>
+    {
+        var binding = fixture.Binding();
+        Assert.True(await fixture.Store.CreatePendingAsync(binding));
+        Assert.NotNull(await fixture.Store.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
+        var provider = new CurrentContextProvider(binding);
+        var reader = new SecurityEvaluationReader(fixture.Store, provider, new());
+
+        foreach (var sessionId in new Guid?[] { null, Guid.Empty, Guid.NewGuid(), fixture.Seed.ReaderSessionId })
+        {
+            fixture.Actor.Set(fixture.Seed.UserId, sessionId);
+            Assert.Null(await reader.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
+        }
+
+        fixture.Actor.Set(fixture.Seed.UserId, fixture.Seed.UserSessionId);
+        var tracked = Assert.IsType<Session>(await fixture.Context.Sessions.FindAsync(fixture.Seed.UserSessionId));
+        Assert.True(tracked.ExpiresAt > DateTimeOffset.UtcNow);
+        await PostgreSqlMigrationTestDatabase.ExecuteAsync(fixture.Database,
+            "UPDATE sessions SET \"ExpiresAt\" = @expiry WHERE \"Id\" = @session",
+            ("expiry", DateTimeOffset.UtcNow.AddMinutes(-1)), ("session", fixture.Seed.UserSessionId));
+        Assert.Null(await reader.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
+        Assert.Equal(0, provider.Calls);
+        Assert.True(tracked.ExpiresAt > DateTimeOffset.UtcNow);
+    });
+
+    [PostgreSqlFact]
+    public Task HistoricalReadRechecksSessionRevocationAfterAwaitingCurrentContext() => WithFixtureAsync(async fixture =>
+    {
+        var binding = fixture.Binding();
+        Assert.True(await fixture.Store.CreatePendingAsync(binding));
+        var tracked = Assert.IsType<Session>(await fixture.Context.Sessions.FindAsync(fixture.Seed.UserSessionId));
+        var provider = new CurrentContextProvider(binding, async () =>
+            await PostgreSqlMigrationTestDatabase.ExecuteAsync(fixture.Database,
+                "UPDATE sessions SET \"RevokedAt\" = @now WHERE \"Id\" = @session",
+                ("now", DateTimeOffset.UtcNow), ("session", fixture.Seed.UserSessionId)));
+        var reader = new SecurityEvaluationReader(fixture.Store, provider, new());
+
+        Assert.Null(await reader.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
+        Assert.Equal(1, provider.Calls);
+        Assert.Null(tracked.RevokedAt);
+        Assert.Null(await reader.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
+        Assert.Equal(1, provider.Calls);
+    });
+
+    [PostgreSqlFact]
     public Task CurrentnessDoesNotRequireTheHistoricalEvaluationActorToBeTheAuthorizedViewer() => WithFixtureAsync(async fixture =>
     {
         var binding = fixture.Binding();
@@ -90,7 +135,7 @@ public sealed class SecurityEvaluationPersistencePostgreSqlTests
                 UserId = fixture.Seed.ReaderId, Role = ProjectRole.Viewer });
             await context.SaveChangesAsync();
         }
-        fixture.Actor.Set(fixture.Seed.ReaderId);
+        fixture.Actor.Set(fixture.Seed.ReaderId, fixture.Seed.ReaderSessionId);
         var request = binding.Request;
         var current = SecurityBinding.Create(new(Guid.NewGuid(), new(request.Subject.TenantId, fixture.Seed.ReaderId),
             request.Operation, request.Resource, request.EnforcementMode, request.Source, request.Policy, request.Compiler), binding.Evidence);
@@ -293,12 +338,12 @@ public sealed class SecurityEvaluationPersistencePostgreSqlTests
         Assert.False(await fixture.Store.CreatePendingAsync(binding));
         Assert.Equal(SecurityTerminalizationResult.Unavailable, await fixture.Store.TerminalizeAsync(binding, Decision()));
         fixture.Tenant.SetTenant(fixture.Seed.TenantId, "security");
-        fixture.Actor.Set(fixture.Seed.ReaderId);
+        fixture.Actor.Set(fixture.Seed.ReaderId, fixture.Seed.ReaderSessionId);
         Assert.Null(await fixture.Store.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
         Assert.False(await fixture.Store.CreatePendingAsync(binding));
         fixture.Actor.Set(null);
         Assert.Null(await fixture.Store.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
-        fixture.Actor.Set(fixture.Seed.UserId);
+        fixture.Actor.Set(fixture.Seed.UserId, fixture.Seed.UserSessionId);
         fixture.Tenant.SetPlatformScope();
         Assert.Null(await fixture.Store.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
     });
@@ -545,6 +590,9 @@ public sealed class SecurityEvaluationPersistencePostgreSqlTests
         var reader = new User { Email = "reader@example.test", NormalizedEmail = "READER@EXAMPLE.TEST", DisplayName = "Reader", PasswordHash = "test-hash" };
         context.Tenants.AddRange(tenant, foreign);
         context.Users.AddRange(user, reader);
+        var session = new Session { UserId = user.Id, SessionKeyHash = "fixture-owner", ExpiresAt = DateTimeOffset.UtcNow.AddHours(1) };
+        var readerSession = new Session { UserId = reader.Id, SessionKeyHash = "fixture-reader", ExpiresAt = session.ExpiresAt };
+        context.Sessions.AddRange(session, readerSession);
         await context.SaveChangesAsync();
         var workspace = new Workspace { TenantId = tenant.Id, Name = "Security", Slug = "security", CreatedByUserId = user.Id };
         var foreignWorkspace = new Workspace { TenantId = foreign.Id, Name = "Foreign", Slug = "foreign", CreatedByUserId = user.Id };
@@ -562,7 +610,7 @@ public sealed class SecurityEvaluationPersistencePostgreSqlTests
         foreach (var item in new[] { project, other, foreignProject })
             context.ProjectMembers.Add(new ProjectMember { TenantId = item.TenantId, ProjectId = item.Id, UserId = user.Id, Role = ProjectRole.Owner });
         await context.SaveChangesAsync();
-        return new(tenant.Id, foreign.Id, project.Id, other.Id, foreignProject.Id, workspace.Id, user.Id, reader.Id);
+        return new(tenant.Id, foreign.Id, project.Id, other.Id, foreignProject.Id, workspace.Id, user.Id, reader.Id, session.Id, readerSession.Id);
     }
 
     private static Project Project(Workspace workspace, User user, string name) => new()
@@ -573,7 +621,7 @@ public sealed class SecurityEvaluationPersistencePostgreSqlTests
     };
 
     private sealed record Seed(Guid TenantId, Guid ForeignTenantId, Guid ProjectId, Guid OtherProjectId,
-        Guid ForeignProjectId, Guid WorkspaceId, Guid UserId, Guid ReaderId);
+        Guid ForeignProjectId, Guid WorkspaceId, Guid UserId, Guid ReaderId, Guid UserSessionId, Guid ReaderSessionId);
 
     private sealed class Fixture : IAsyncDisposable
     {
@@ -586,7 +634,7 @@ public sealed class SecurityEvaluationPersistencePostgreSqlTests
 
         public Fixture(string database, Seed seed)
         {
-            Database = database; Seed = seed; Actor = new(seed.UserId);
+            Database = database; Seed = seed; Actor = new(seed.UserId, seed.UserSessionId);
             Tenant.SetTenant(seed.TenantId, "security");
             Context = NewContext(); Store = CreateStore(Context);
         }
@@ -601,7 +649,7 @@ public sealed class SecurityEvaluationPersistencePostgreSqlTests
                 new TenantAuthorizationService(new TenantRepository(context)));
             var projectAuthorization = new ProjectAuthorizationService(new ProjectRepository(context), workspaceAuthorization,
                 new GroupAuthorizationService(groups, workspaces, workspaceAuthorization), groups);
-            return new SecurityEvaluationStore(context, Tenant, Actor, projectAuthorization, new Clock());
+            return new SecurityEvaluationStore(context, Tenant, Actor, projectAuthorization, new SessionRepository(context), new Clock());
         }
 
         public SecurityBinding Binding(SourceRevisionContext? context = null)
@@ -622,14 +670,18 @@ public sealed class SecurityEvaluationPersistencePostgreSqlTests
         public ValueTask DisposeAsync() => Context.DisposeAsync();
     }
 
-    private sealed class Actor(Guid userId) : ICurrentUser
+    private sealed class Actor(Guid userId, Guid sessionId) : ICurrentUser
     {
         public Guid? UserId { get; private set; } = userId;
-        public Guid? SessionId => null;
+        public Guid? SessionId { get; private set; } = sessionId;
         public string? Email => null;
         public SystemRole? SystemRole => Domain.Enums.SystemRole.User;
         public bool IsAuthenticated => UserId.HasValue;
-        public void Set(Guid? value) => UserId = value;
+        public void Set(Guid? user, Guid? session = null)
+        {
+            UserId = user;
+            SessionId = session;
+        }
     }
 
     private sealed class ThrowingRule : ISecurityRuleEvaluator
