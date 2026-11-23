@@ -250,6 +250,29 @@ def verify_case_coverage(rows):
         raise ValueError(f"Test coverage has non-passing outcomes: {dict(unresolved)}")
 
 
+def verify_junit_coverage(xml, selected):
+    if (xml.tag != "testsuites" or xml.get("tests") != str(len(selected))
+            or any(xml.get(key) != "0" for key in ("errors", "failures", "skipped"))):
+        raise ValueError("JUnit shows incomplete or non-passing test execution")
+
+    # Playwright's JUnit report omits raw IDs and line numbers.
+    expected = {(row["project"], row["file"], row["title"]) for row in selected.values()}
+    if len(expected) != len(selected):
+        raise ValueError("Selected tests do not have distinct JUnit identities")
+
+    actual = []
+    for suite in xml.findall("testsuite"):
+        for case in suite.findall("testcase"):
+            if case.get("classname") != suite.get("name"):
+                raise ValueError("JUnit testcase class differs from its suite file")
+            if any(case.find(tag) is not None for tag in ("failure", "error", "skipped")):
+                raise ValueError("JUnit contains a non-passing testcase outcome")
+            actual.append((suite.get("hostname"), case.get("classname"), case.get("name")))
+    if (len(actual) != len(expected) or set(actual) != expected
+            or len(xml.findall(".//testcase")) != len(actual)):
+        raise ValueError("JUnit testcase identities differ from the selected tests")
+
+
 def report(out):
     expected = by_id(read_json(out / "shard-identities.json"))
     raw = read_json(out / "browser.json")
@@ -319,9 +342,7 @@ def reconcile(root):
         actual = attempts_for_shard(selected, inventory(raw))
         if receipt["cases"] != actual or raw["errors"]:
             raise ValueError(f"Raw Playwright report differs from the receipt or has runner errors: {name}")
-        xml = ET.fromstring(reports["junit"])
-        if xml.get("tests") != str(len(selected)) or any(xml.get(key) != "0" for key in ("errors", "failures", "skipped")):
-            raise ValueError(f"JUnit shows incomplete or non-passing test execution: {name}")
+        verify_junit_coverage(ET.fromstring(reports["junit"]), selected)
         rows.extend(actual)
         shard_evidence[name] = {kind: sha256(data) for kind, data in reports.items()}
     verify_partition(set(canonical), shared, shard_ids)

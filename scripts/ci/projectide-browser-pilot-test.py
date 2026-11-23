@@ -3,6 +3,8 @@
 import importlib.util
 import re
 import unittest
+import xml.etree.ElementTree as ET
+from copy import deepcopy
 from pathlib import Path
 
 spec = importlib.util.spec_from_file_location(
@@ -17,6 +19,14 @@ def sample(test_id, status=None, expected="passed"):
     return {"id": test_id, "project": "chromium-desktop", "file": "projectide-sample.spec.ts",
             "line": 3, "title": "reads a fixture in en", "expected": expected,
             "status": "expected", "attempts": attempts}
+
+
+def junit_report(selected):
+    report = ET.Element("testsuites", tests=str(len(selected)), errors="0", failures="0", skipped="0")
+    suite = ET.SubElement(report, "testsuite", name="projectide-sample.spec.ts", hostname="chromium-desktop")
+    for row in selected.values():
+        ET.SubElement(suite, "testcase", classname=row["file"], name=row["title"])
+    return report, suite
 
 
 class BrowserPilotControls(unittest.TestCase):
@@ -67,6 +77,42 @@ class BrowserPilotControls(unittest.TestCase):
                        {"selected": {**sample("selected", "passed"), "line": 4}}):
             with self.subTest(actual=actual), self.assertRaises(ValueError):
                 pilot.attempts_for_shard({"selected": sample("selected")}, actual)
+
+    def test_complete_junit_preserves_passing_retry_evidence(self):
+        selected = {"retry": sample("retry")}
+        report, suite = junit_report(selected)
+        ET.SubElement(suite.find("testcase"), "flakyFailure")
+        pilot.verify_junit_coverage(report, selected)
+
+    def test_junit_rejects_missing_duplicate_and_different_identities(self):
+        selected = {"one": sample("one"), "two": {**sample("two"), "title": "reads a fixture in ja"}}
+        report, suite = junit_report(selected)
+        case = suite[-1]
+        suite.remove(case)
+        with self.assertRaisesRegex(ValueError, "testcase identities"):
+            pilot.verify_junit_coverage(report, selected)
+        suite.append(deepcopy(suite[0]))
+        with self.assertRaisesRegex(ValueError, "testcase identities"):
+            pilot.verify_junit_coverage(report, selected)
+        suite.remove(suite[-1])
+        suite.append(case)
+        suite.set("hostname", "chromium-mobile")
+        with self.assertRaisesRegex(ValueError, "testcase identities"):
+            pilot.verify_junit_coverage(report, selected)
+
+    def test_junit_rejects_ambiguous_selected_identities(self):
+        selected = {"one": sample("one"), "two": {**sample("two"), "line": 8}}
+        report, _ = junit_report(selected)
+        with self.assertRaisesRegex(ValueError, "distinct JUnit identities"):
+            pilot.verify_junit_coverage(report, selected)
+
+    def test_junit_rejects_non_passing_case_even_with_passing_summary(self):
+        selected = {"one": sample("one")}
+        for outcome in ("failure", "error", "skipped"):
+            report, suite = junit_report(selected)
+            ET.SubElement(suite.find("testcase"), outcome)
+            with self.subTest(outcome=outcome), self.assertRaisesRegex(ValueError, "non-passing testcase"):
+                pilot.verify_junit_coverage(report, selected)
 
 
 if __name__ == "__main__":
