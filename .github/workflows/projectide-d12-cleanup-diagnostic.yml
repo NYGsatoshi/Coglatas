@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  D12_GENERATION: obsolete
+  D12_GENERATION: successor
   SECURITY_SOURCE: a10bb88921b14b47c61e24c12b9977b0798cd800
   CLEANUP_BLOB: 6d5d6f6bee890cd80c50f273ee5e8cd1b1c45df5
 
