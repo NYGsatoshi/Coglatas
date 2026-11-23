@@ -112,6 +112,84 @@ public sealed class SyntheticSimulationTraceProfileTests
         Assert.Throws<ArgumentOutOfRangeException>(() => view.ProfileSyntheticSimulation(run.Digest, maximumEvents: 0));
         Assert.Null(view.SimulationTraceProfile); Assert.Same(run, view.SimulationRun);
     }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task CancellationWithAThrowingProfileObserverWithdrawsOnlyItsOwnSummary(bool replace) =>
+        VerifyProfileWithdrawal(replace, throwOnPublication: true);
+
+    [Fact]
+    public Task ThrowingProfileWithdrawalObserverPreservesCancellation() =>
+        VerifyProfileWithdrawal(replace: false, throwOnPublication: false);
+
+    private static async Task VerifyProfileWithdrawal(bool replace, bool throwOnPublication)
+    {
+        var fixture = await Ready();
+        using var view = fixture.View;
+        var run = view.SimulationRun!;
+        using var cancellation = new CancellationTokenSource();
+        var token = cancellation.Token;
+        Action cancel = cancellation.Cancel;
+        var publicationFailure = new InvalidOperationException("Profile publication observer failed.");
+        var withdrawalFailure = new InvalidOperationException("Profile withdrawal observer failed.");
+        var entered = false;
+        var firstWithdrawalStates = new List<bool>();
+        var laterWithdrawalStates = new List<bool>();
+        ProjectSimulationTraceProfile? replacement = null;
+        System.ComponentModel.PropertyChangedEventHandler observer = (sender, _) =>
+        {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (token.IsCancellationRequested)
+            {
+                var withdrawn = subject.SimulationTraceProfile is null;
+                firstWithdrawalStates.Add(withdrawn);
+                if (withdrawn) throw withdrawalFailure;
+                return;
+            }
+            if (entered || subject.SimulationTraceProfile is null) return;
+            entered = true;
+            if (replace)
+            {
+                Assert.True(subject.ProfileSyntheticSimulation(run.Digest, maximumEvents: 6));
+                replacement = Assert.IsType<ProjectSimulationTraceProfile>(subject.SimulationTraceProfile);
+            }
+            cancel();
+            if (throwOnPublication) throw publicationFailure;
+        };
+        System.ComponentModel.PropertyChangedEventHandler later = (sender, _) =>
+        {
+            if (firstWithdrawalStates.Count <= laterWithdrawalStates.Count) return;
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            laterWithdrawalStates.Add(subject.SimulationTraceProfile is null);
+        };
+
+        Exception? observed;
+        view.PropertyChanged += observer;
+        view.PropertyChanged += later;
+        try
+        {
+            observed = Record.Exception(() => { fixture.View.ProfileSyntheticSimulation(run.Digest, token: token); });
+        }
+        finally
+        {
+            view.PropertyChanged -= observer;
+            view.PropertyChanged -= later;
+        }
+        if (throwOnPublication) Assert.Same(publicationFailure, observed);
+        else
+        {
+            var cancelled = Assert.IsType<OperationCanceledException>(observed);
+            Assert.Equal(token, cancelled.CancellationToken);
+            Assert.Same(withdrawalFailure, cancelled.InnerException);
+        }
+        Assert.True(entered);
+        Assert.Same(replacement, view.SimulationTraceProfile);
+        Assert.True(token.IsCancellationRequested);
+        bool[] expected = replace ? [] : [true];
+        Assert.Equal(expected, firstWithdrawalStates);
+        Assert.Equal(expected, laterWithdrawalStates);
+        Assert.Same(run, view.SimulationRun);
+    }
     private static void Change(SyntheticWorkbenchViewModel view, CompilerHostRequest request, string mode)
     {
         if (mode == "reset") view.Reset(); if (mode == "dispose") view.Dispose();
