@@ -148,20 +148,40 @@ public sealed class CompilerSemanticValidation
             var items = new List<T>(); values = [];
             cancellationToken.ThrowIfCancellationRequested();
             if (remaining <= 0) { supplyBudgetExhausted = true; return false; }
-            using var iterator = (supply ?? []).GetEnumerator();
-            while (true)
+            var readComplete = false;
+            using (var iterator = (supply ?? []).GetEnumerator())
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (remaining <= 0) { supplyBudgetExhausted = true; return false; }
-                var hasNext = iterator.MoveNext();
-                cancellationToken.ThrowIfCancellationRequested();
-                if (!hasNext) break;
-                if (items.Count == maximum || iterator.Current is not { } item) return false;
-                if (!ProjectSemanticBinder.WithinBudget(data(item).Value, ref remaining, cancellationToken))
-                { supplyBudgetExhausted = true; return false; }
-                items.Add(item);
+                while (true)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (remaining <= 0)
+                    {
+                        supplyBudgetExhausted = true;
+                        break;
+                    }
+                    var hasNext = iterator.MoveNext();
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!hasNext)
+                    {
+                        readComplete = true;
+                        break;
+                    }
+                    if (items.Count == maximum) break;
+                    var item = iterator.Current;
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (item is null) break;
+                    if (!ProjectSemanticBinder.WithinBudget(data(item).Value, ref remaining, cancellationToken))
+                    {
+                        supplyBudgetExhausted = true;
+                        break;
+                    }
+                    items.Add(item);
+                }
             }
-            values = items.ToArray(); return true;
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!readComplete) return false;
+            values = items.ToArray();
+            return true;
         }
 
         void CheckQuantityType(TypeReference type, ProjectLocation location)

@@ -119,6 +119,7 @@ public static class ProjectSemanticBinder
         var pins = SourceFields.Array(input.Settings.Value, "authorizedExternalSnapshots").EnumerateArray().ToArray();
         var supplied = new List<CompilerMaterializedSnapshot>();
         var suppliedCount = 0;
+        var supplyRefused = false;
         // Supply is caller code. Check cancellation around MoveNext, charge each
         // entry/body to the same logical budget, and always dispose the enumerator.
         using (var iterator = (materialized ?? []).GetEnumerator())
@@ -126,12 +127,15 @@ public static class ProjectSemanticBinder
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (!iterator.MoveNext()) break;
+                var hasNext = iterator.MoveNext();
                 cancellationToken.ThrowIfCancellationRequested();
+                if (!hasNext) break;
                 var item = iterator.Current;
+                cancellationToken.ThrowIfCancellationRequested();
                 if (--remainingOperations < 0 || ++suppliedCount > 32 || item is null)
                 {
-                    Add(CoreCompilerRules.Schema, "coglatas.binding.snapshot-budget", RelationFindingState.Unknown, root); return Empty();
+                    supplyRefused = true;
+                    break;
                 }
                 if (!item.Snapshot.IsAuthorized)
                 {
@@ -146,11 +150,17 @@ public static class ProjectSemanticBinder
                     !WithinBudget(item.Snapshot.Source.Data.Value, ref remainingOperations, cancellationToken) ||
                     !WithinNumericProfile(item.Snapshot.Source.Data.Value, input.ExecutionProfile.Numbers))
                 {
-                    Add(CoreCompilerRules.Schema, "coglatas.binding.snapshot-budget", RelationFindingState.Unknown, root); return Empty();
+                    supplyRefused = true;
+                    break;
                 }
                 supplied.Add(item);
             }
-            cancellationToken.ThrowIfCancellationRequested();
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        if (supplyRefused)
+        {
+            Add(CoreCompilerRules.Schema, "coglatas.binding.snapshot-budget", RelationFindingState.Unknown, root);
+            return Empty();
         }
         // Only publish supply-derived findings after bounded enumeration. An
         // exhausted prefix must not reveal whether a denied entry arrived first.
