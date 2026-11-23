@@ -1,0 +1,68 @@
+name: ProjectIDE D12 cleanup diagnostic (NO-MERGE)
+
+on:
+  pull_request:
+    branches: [projectide/integration-20261031]
+    types: [opened, synchronize]
+    paths:
+      - '.github/workflows/projectide-d12-cleanup-diagnostic.yml'
+      - 'scripts/ci/projectide-d12-cleanup-diagnostic.sh'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: projectide-d12-cleanup-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  D12_GENERATION: obsolete
+  SECURITY_SOURCE: a10bb88921b14b47c61e24c12b9977b0798cd800
+  CLEANUP_BLOB: 6d5d6f6bee890cd80c50f273ee5e8cd1b1c45df5
+
+jobs:
+  frontend-test:
+    name: Bounded frontend Docker cleanup diagnostic
+    if: >-
+      always() &&
+      github.repository == 'NYGsatoshi/Coglatas' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'diagnostic/projectide-obsolete-cleanup-d12-1974' &&
+      github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    env:
+      D12_SOURCE: ${{ github.event.pull_request.head.sha }}
+      D12_EVIDENCE: ${{ runner.temp }}/d12-evidence
+    steps:
+      - name: Check out the exact diagnostic source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Check out the immutable Security cleanup helper
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ env.SECURITY_SOURCE }}
+          path: .d12/security-source
+          sparse-checkout: scripts/ci/cleanup-pr-ci-resources.sh
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Prepare disposable Docker objects
+        id: fixtures
+        run: bash scripts/ci/projectide-d12-cleanup-diagnostic.sh prepare
+      - name: Hold the obsolete generation for natural supersession
+        if: env.D12_GENERATION == 'obsolete'
+        run: sleep 300
+      - name: Run the unchanged Security helper and verify its scope
+        if: always() && steps.fixtures.outcome == 'success'
+        timeout-minutes: 2
+        run: bash scripts/ci/projectide-d12-cleanup-diagnostic.sh verify
+      - name: Retain the diagnostic receipts
+        if: always() && steps.fixtures.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: d12-cleanup-${{ env.D12_GENERATION }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/d12-evidence
+          if-no-files-found: error
+          retention-days: 14
