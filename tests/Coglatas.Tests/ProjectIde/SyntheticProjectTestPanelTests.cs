@@ -96,6 +96,111 @@ public sealed class SyntheticProjectTestPanelTests
         finally { view.Dispose(); }
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task PublicationCancellationWithdrawsTheOwnedRunAndItsAssertion(bool throwOnPublication, bool throwOnWithdrawal)
+    {
+        using var view = await Ready("tests-pass");
+        using var cancellation = new CancellationTokenSource();
+        Action cancel = cancellation.Cancel;
+        var token = cancellation.Token;
+        var publicationFailure = new InvalidOperationException("publication failed");
+        var withdrawalFailure = new InvalidOperationException("withdrawal failed");
+        var published = false;
+        var withdrawalNotifications = 0;
+        System.ComponentModel.PropertyChangedEventHandler observer = (sender, _) =>
+        {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (!published && subject.TestRun is { Execution: CompilerExecutionState.Completed } run)
+            {
+                published = true;
+                Assert.Equal(CompilerVerdict.Pass, run.Verdict);
+                Assert.True(subject.SelectTestAssertion(Assert.Single(Assert.Single(run.Tests).Assertions)));
+                Assert.True(subject.Navigate());
+                cancel();
+                if (throwOnPublication) throw publicationFailure;
+            }
+            else if (published && subject.TestRun is null && throwOnWithdrawal)
+            {
+                throw withdrawalFailure;
+            }
+        };
+        System.ComponentModel.PropertyChangedEventHandler laterObserver = (sender, _) =>
+        {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (published && subject.TestRun is null) withdrawalNotifications++;
+        };
+        view.PropertyChanged += observer;
+        view.PropertyChanged += laterObserver;
+        Exception? failure;
+        try { failure = RunAndCapturePublicationError(view, token); }
+        finally
+        {
+            view.PropertyChanged -= observer;
+            view.PropertyChanged -= laterObserver;
+        }
+
+        Assert.True(published);
+        Assert.Null(view.TestRun);
+        Assert.Null(view.SelectedTestAssertion);
+        Assert.Null(view.SourceTarget);
+        Assert.Equal(1, withdrawalNotifications);
+        if (throwOnPublication)
+        {
+            Assert.Same(publicationFailure, failure);
+        }
+        else
+        {
+            var cancelled = Assert.IsType<OperationCanceledException>(failure);
+            Assert.Equal(token, cancelled.CancellationToken);
+            Assert.Same(throwOnWithdrawal ? withdrawalFailure : null, cancelled.InnerException);
+        }
+    }
+
+    [Fact]
+    public async Task PublicationCancellationKeepsAReentrantReplacementRun()
+    {
+        using var view = await Ready("tests-pass");
+        using var cancellation = new CancellationTokenSource();
+        Action cancel = cancellation.Cancel;
+        var token = cancellation.Token;
+        ProjectTestRun? replacement = null;
+        var replaced = false;
+        System.ComponentModel.PropertyChangedEventHandler observer = (sender, _) =>
+        {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (replaced || subject.TestRun is null) return;
+            replaced = true;
+            cancel();
+            Assert.True(subject.RunSyntheticTests());
+            replacement = subject.TestRun;
+        };
+        view.PropertyChanged += observer;
+        OperationCanceledException cancelled;
+        try { cancelled = Assert.IsType<OperationCanceledException>(RunAndCapturePublicationError(view, token)); }
+        finally { view.PropertyChanged -= observer; }
+        Assert.Equal(token, cancelled.CancellationToken);
+        Assert.NotNull(replacement);
+        Assert.Same(replacement, view.TestRun);
+        Assert.Equal(CompilerVerdict.Pass, replacement.Verdict);
+    }
+
+    private static Exception? RunAndCapturePublicationError(SyntheticWorkbenchViewModel view, CancellationToken token)
+    {
+        try
+        {
+            _ = view.RunSyntheticTests(token);
+            return null;
+        }
+        catch (Exception error)
+        {
+            return error;
+        }
+    }
+
     [Fact]
     public async Task SelectionNotificationCannotPreserveAnAssertionAfterReset()
     {
