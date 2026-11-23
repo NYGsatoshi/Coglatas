@@ -39,9 +39,9 @@
     "@ngrx/entity": "22.0.1",
     "@ngrx/store": "22.0.1",
     "@syncfusion/ej2-angular-gantt": "34.2.8",
-    "@syncfusion/ej2-angular-grids": "35.1.42",
-    "@syncfusion/ej2-angular-inputs": "35.1.43",
-    "@syncfusion/ej2-angular-popups": "35.1.42",
+    "@syncfusion/ej2-angular-grids": "35.2.12",
+    "@syncfusion/ej2-angular-inputs": "35.2.12",
+    "@syncfusion/ej2-angular-popups": "35.2.12",
     "ag-grid-angular": "36.3.0",
     "ag-grid-community": "36.3.0",
     "rxjs": "7.8.2",
@@ -73,11 +73,11 @@
     "@syncfusion/ej2-angular-base": false
   },
   "overrides": {
-    "undici": "8.12.4",
+    "undici": "8.13.1",
     "fast-uri": "4.2.3",
     "nanoid": "6.0.2",
     "qs": "6.17.1",
-    "@babel/core": "8.1.2",
+    "@babel/core": "8.1.3",
     "http-proxy-middleware": "4.2.2",
     "esbuild": "0.28.2",
     "ajv": "8.20.0",
@@ -85,12 +85,12 @@
     "http-auth": "4.2.1",
     "uuid": "14.0.3",
     "body-parser": "2.4.0",
-    "hono": "4.13.19",
+    "hono": "4.13.20",
     "postcss": "8.5.33",
     "webpack-dev-server": "6.1.0",
     "less": "4.9.1",
     "@storybook/builder-webpack5": {
-      "webpack-dev-middleware": "8.6.1"
+      "webpack-dev-middleware": "8.6.3"
     },
     "vite@<8.3.5": "^8.3.5"
   },
