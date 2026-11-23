@@ -3,8 +3,10 @@
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
-from projectide_slice2_isolated import (ISOLATED_ARCHITECTURE_EXPECTED, ISOLATED_PROJECTIDE_EXPECTED, changes, counters, git, sha)
+from projectide_slice2_isolated import (ISOLATED_ARCHITECTURE_EXPECTED, ISOLATED_PROJECTIDE_EXPECTED,
+                                       changes, composition_paths, counters, git, scratch_path, sha)
 
 
 class IsolatedEvidenceTests(unittest.TestCase):
@@ -67,9 +69,33 @@ class IsolatedEvidenceTests(unittest.TestCase):
                 changes(root, base, git(root, "rev-parse", "HEAD"), ("tests/",))
 
     def test_branch_names_and_shell_text_are_not_candidate_shas(self):
-        for invalid in ("main", "HEAD", "a" * 39, "A" * 40, "a" * 40 + ";echo secret", "a" * 40 + "\n"):
+        for invalid in (None, 42, "main", "HEAD", "a" * 39, "A" * 40, "a" * 40 + ";echo secret", "a" * 40 + "\n"):
             with self.subTest(value=invalid), self.assertRaises(ValueError):
                 sha(invalid)
+
+    def test_hosted_outputs_must_belong_to_runner_scratch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            outer = Path(directory).resolve()
+            scratch = outer / "runner"
+            scratch.mkdir()
+            checkout = scratch / "checkout"
+            checkout.mkdir()
+            with patch.dict("os.environ", {"GITHUB_ACTIONS": "true", "RUNNER_TEMP": str(scratch)}):
+                worktree, evidence = composition_paths(checkout, scratch / "worktree", scratch / "results")
+                self.assertEqual((scratch / "worktree", scratch / "results"), (worktree, evidence))
+                for outside in (outer / "different-root", scratch, checkout / "untracked"):
+                    with self.subTest(outside=outside), self.assertRaisesRegex(ValueError, "outside the checkout"):
+                        scratch_path(outside, checkout)
+                with self.assertRaisesRegex(ValueError, "must be separate"):
+                    composition_paths(checkout, worktree, worktree / "results")
+                evidence.mkdir()
+                with self.assertRaisesRegex(ValueError, "Fresh"):
+                    composition_paths(checkout, worktree, evidence)
+
+    def test_hosted_missing_runner_root_fails_closed(self):
+        with patch.dict("os.environ", {"GITHUB_ACTIONS": "true", "RUNNER_TEMP": ""}):
+            with self.assertRaisesRegex(ValueError, "absolute runner scratch root"):
+                scratch_path(Path("results"), Path.cwd())
 
 
 if __name__ == "__main__":

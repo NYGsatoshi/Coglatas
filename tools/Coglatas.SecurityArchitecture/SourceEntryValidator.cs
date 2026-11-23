@@ -43,10 +43,12 @@ public static class SourceEntryValidator
         if (bytes.Length > RepositoryArtifactReader.MaximumBlobBytes) return new(SourceEntryState.Invalid);
         // Freeze the supplied snapshot so blob, digest, declaration and range refer to the same bytes.
         var snapshot = (byte[])bytes.Clone();
+        if (SpecDigest.Bytes(snapshot) != verifier.Source.Digest)
+            return new(SourceEntryState.Stale);
         var header = Encoding.ASCII.GetBytes("blob " + snapshot.Length.ToString(CultureInfo.InvariantCulture) + "\0");
         // SHA-1 is used only for the existing Git object identity, never as a security/trust digest.
         var gitBlob = Convert.ToHexStringLower(SHA1.HashData([.. header, .. snapshot]));
-        if (gitBlob != expectedGitBlobSha || SpecDigest.Bytes(snapshot) != verifier.Source.Digest)
+        if (gitBlob != expectedGitBlobSha)
             return new(SourceEntryState.Stale);
         string text;
         try { text = new UTF8Encoding(false, true).GetString(snapshot); }

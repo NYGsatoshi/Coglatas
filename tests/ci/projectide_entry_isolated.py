@@ -69,6 +69,8 @@ def owned_commits(repo: Path, base: str, head: str, paths: tuple[str, ...]) -> l
 
 
 def main() -> None:
+    from projectide_slice2_isolated import composition_paths, sha
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--product-head")
     parser.add_argument("--test-head")
@@ -78,9 +80,7 @@ def main() -> None:
     parser.add_argument("--integrated", action="store_true", help="Qualify the actual ProjectIDE PR tree")
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[2]
-    target, output = args.worktree.resolve(), args.evidence.resolve()
-    if target.exists() or output.exists():
-        raise ValueError("Fresh verification and evidence paths required")
+    target, output = composition_paths(repo, args.worktree, args.evidence)
     if args.integrated:
         if args.product_head or args.test_head:
             raise ValueError("Integrated qualification takes only the checked-out exact HEAD")
@@ -106,16 +106,16 @@ def main() -> None:
         receipt = dict(productHead=args.product_head, productBase=PRODUCT_BASE,
                        testHead=args.test_head, testBase=TEST_BASE, reusedTestHead=REUSED_HEAD,
                        verification={}, executionScope="PURE_CORE_ONLY", adoptionCredit=False)
-    output.mkdir(parents=True)
+    output.mkdir(mode=0o700, parents=True)
     try:
-        git(repo, "worktree", "add", "--detach", str(target), args.product_head)
+        git(repo, "worktree", "add", "--detach", "--", str(target), sha(args.product_head))
         if args.integrated:
             receipt.update(integratedTree=git(target, "rev-parse", "HEAD^{tree}"),
                            verificationCommit=git(target, "rev-parse", "HEAD"))
         else:
             for commit in tests + reused:
                 git(target, "-c", "commit.gpgsign=false", "-c", "user.name=Pure Core isolated verification",
-                    "-c", "user.email=isolated-verification@example.invalid", "cherry-pick", commit)
+                    "-c", "user.email=isolated-verification@example.invalid", "cherry-pick", "--", sha(commit))
             if git(target, "diff", args.product_head, "HEAD", "--", "src", "tools"):
                 raise ValueError("Test composition changed product source")
             receipt.update(combinedCommit=git(target, "rev-parse", "HEAD"),

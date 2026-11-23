@@ -5,10 +5,9 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
-import subprocess
 import xml.etree.ElementTree as ET
 
-from projectide_slice2_isolated import changes, git, run, sha
+from projectide_slice2_isolated import changes, composition_paths, git, run, sha, verification_paths
 
 
 def inventory(path: Path) -> list[str]:
@@ -40,9 +39,9 @@ def inventory(path: Path) -> list[str]:
 
 
 def compose(repository: Path, target: Path, receipt: Path, product: str, test: str) -> dict:
-    sha(product); sha(test)
-    if target.exists() or receipt.exists():
-        raise ValueError("Fresh worktree and receipt paths required")
+    product, test = sha(product), sha(test)
+    target, evidence = composition_paths(repository, target, receipt.parent)
+    receipt = evidence / receipt.name
     test_base = "b18939f9104d52ae33e32a7f9b15a6e1b52892f1"
     prior_test = "15ae613d8db1397eb105a6753798afb948ea7758"
     product_base = "da112be55ea35794fe4416ba856ba35628a9fe53"
@@ -51,21 +50,23 @@ def compose(repository: Path, target: Path, receipt: Path, product: str, test: s
                               ("src/Coglatas.Domain/ProjectIde/", "src/Coglatas.Application/ProjectIde/", "docs/verification/"))
     test_changes = changes(repository, test_base, test, ("tests/", ".github/workflows/projectide-slice2-isolated.yml",
                                                        ".github/workflows/projectide-core-isolated.yml"))
-    git(repository, "worktree", "add", "--detach", str(target), product)
+    git(repository, "worktree", "add", "--detach", "--", str(target), product)
     for commit in test_changes:
-        git(target, "cherry-pick", commit)
+        git(target, "cherry-pick", "--", sha(commit))
     value = dict(schemaVersion=1, productHead=product, productBase=product_base, productChanges=product_changes,
                  productTree=git(repository, "rev-parse", product + "^{tree}"), testHead=test, testBase=test_base,
                  testChanges=test_changes, combinedCommit=git(target, "rev-parse", "HEAD"),
                  combinedTree=git(target, "rev-parse", "HEAD^{tree}"), verification={"build": "NotRun"})
     if git(target, "diff", product, "HEAD", "--", "src"):
         raise ValueError("Test composition changed Product code")
-    receipt.parent.mkdir(parents=True, exist_ok=True)
-    receipt.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+    evidence.mkdir(mode=0o700, parents=True)
+    with receipt.open("x", encoding="utf-8") as output:
+        output.write(json.dumps(value, indent=2) + "\n")
     return value
 
 
 def verify(target: Path, receipt: Path, value: dict, baseline: Path) -> None:
+    target, receipt = verification_paths(target, receipt)
     output = receipt.parent
     try:
         value["sdk"] = run(["dotnet", "--version"], target)
@@ -75,6 +76,7 @@ def verify(target: Path, receipt: Path, value: dict, baseline: Path) -> None:
         value["verification"]["build"] = "Failed"
         run(["dotnet", "build", "Coglatas.slnx", "-c", "Release", "--nologo", "-warnaserror"], target, capture=False)
         value["verification"]["build"] = "Passed"
+        artifacts = []
         for name, project, filter_value in (
             ("projectIde", "tests/Coglatas.Tests/Coglatas.Tests.csproj", "FullyQualifiedName~ProjectIde"),
             ("architecture", "tests/Coglatas.Architecture.Tests/Coglatas.Architecture.Tests.csproj", None),
@@ -103,9 +105,10 @@ def verify(target: Path, receipt: Path, value: dict, baseline: Path) -> None:
             if name == "projectIde" and not any("TypedRelationTests" in item for item in names):
                 raise ValueError("Slice 3 tests did not run")
             (output / f"{name}-inventory.json").write_text(json.dumps(names, indent=2) + "\n", encoding="utf-8")
+            artifacts.extend((path, output / f"{name}-discovery.json", output / f"{name}-inventory.json"))
             value["verification"][name] = dict(total=len(names), failed=0, skipped=0, added=sorted(set(names) - set(previous)))
         value["artifactSha256"] = {path.name: hashlib.sha256(path.read_bytes()).hexdigest()
-                                   for path in sorted(output.iterdir()) if path.is_file() and path != receipt}
+                                   for path in sorted(artifacts)}
         if git(target, "status", "--porcelain", "--untracked-files=no"):
             raise ValueError("Verification changed tracked files")
     finally:
