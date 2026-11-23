@@ -4,6 +4,53 @@ namespace Coglatas.Tests.ProjectIde;
 
 public sealed class ProjectTestOutputTests
 {
+    [Theory]
+    [InlineData(0, 2, "cancelled")]
+    [InlineData(1, 1, "original")]
+    [InlineData(2, 2, "original")]
+    [InlineData(3, 3, "original")]
+    public async Task PublicationCancellationReplacesOnlyAProspectiveSuccess(
+        int priorExitCode, int expectedExitCode, string expectedOutput)
+    {
+        var directory = Directory.CreateTempSubdirectory("projectide-test-cancel-output-");
+        try
+        {
+            var destination = Path.Combine(directory.FullName, "result.json");
+            var code = await ProjectTestOutput.PublishResultAsync(destination, "original"u8.ToArray(),
+                priorExitCode, new CancellationToken(canceled: true), static () => "cancelled"u8.ToArray());
+
+            Assert.Equal(expectedExitCode, code);
+            Assert.Equal(expectedOutput, await File.ReadAllTextAsync(destination));
+            Assert.Equal(destination, Assert.Single(Directory.GetFileSystemEntries(directory.FullName)));
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task CancelledPublicationPreservesAnOccupiedDestination()
+    {
+        var directory = Directory.CreateTempSubdirectory("projectide-test-cancel-existing-");
+        try
+        {
+            var destination = Path.Combine(directory.FullName, "result.json");
+            await File.WriteAllTextAsync(destination, "existing");
+
+            await Assert.ThrowsAnyAsync<IOException>(() =>
+                ProjectTestOutput.PublishResultAsync(destination, "success"u8.ToArray(), 0,
+                    new CancellationToken(canceled: true), static () => "cancelled"u8.ToArray()));
+
+            Assert.Equal("existing", await File.ReadAllTextAsync(destination));
+            Assert.Equal(destination, Assert.Single(Directory.GetFileSystemEntries(directory.FullName)));
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
     [Fact]
     public async Task ConcurrentPublicationsRetainExactlyOneCompleteOutput()
     {
