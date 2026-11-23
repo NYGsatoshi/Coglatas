@@ -79,4 +79,136 @@ public sealed class SyntheticSimulationDebugTests
             var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender); if (subject.SimulationDebug is not { } current) return; reentered = true; Assert.False(subject.StepSyntheticSimulation(current)); };
         Assert.True(view.StepSyntheticSimulation(view.SimulationDebug!)); Assert.True(reentered); Assert.Single(view.SimulationDebug!.Events);
     }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task CancelledReadyPublicationWithdrawsTheOwnedDebugSession(bool throwOnPublication, bool throwOnWithdrawal)
+    {
+        var fixture = await SyntheticSimulationTests.Ready();
+        using var view = fixture.View;
+        Assert.True(view.LoadSyntheticScopedSources());
+        var plan = view.ScopedExecutionPlan;
+        var compiler = view.Result;
+        using var cancellation = new CancellationTokenSource();
+        Action cancel = cancellation.Cancel;
+        var token = cancellation.Token;
+        var publicationFailure = new InvalidOperationException("publication failed");
+        var withdrawalFailure = new InvalidOperationException("withdrawal failed");
+        SimulationDebugSnapshot? published = null;
+        var withdrawalNotifications = 0;
+        System.ComponentModel.PropertyChangedEventHandler observer = (sender, _) =>
+        {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (published is null && subject.SimulationDebug is { State: SimulationControlState.Ready } snapshot)
+            {
+                published = snapshot;
+                cancel();
+                if (throwOnPublication) throw publicationFailure;
+            }
+            else if (published is not null && subject.SimulationDebug is null && throwOnWithdrawal)
+            {
+                throw withdrawalFailure;
+            }
+        };
+        System.ComponentModel.PropertyChangedEventHandler laterObserver = (sender, _) =>
+        {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (published is not null && subject.SimulationDebug is null) withdrawalNotifications++;
+        };
+        view.PropertyChanged += observer;
+        view.PropertyChanged += laterObserver;
+        Exception? error;
+        try { error = CaptureDebugStartError(view, Guid.Parse(Id(1010)), token); }
+        finally
+        {
+            view.PropertyChanged -= observer;
+            view.PropertyChanged -= laterObserver;
+        }
+
+        Assert.NotNull(published);
+        Assert.Null(view.SimulationDebug);
+        Assert.Null(view.SimulationRun);
+        Assert.Empty(view.SimulationDebugControlReason);
+        Assert.False(view.StepSyntheticSimulation(published));
+        Assert.Empty(published.Events);
+        Assert.Same(plan, view.ScopedExecutionPlan);
+        Assert.Same(compiler, view.Result);
+        Assert.Equal(1, withdrawalNotifications);
+        if (throwOnPublication)
+        {
+            Assert.Same(publicationFailure, error);
+        }
+        else
+        {
+            var cancelled = Assert.IsType<OperationCanceledException>(error);
+            Assert.Equal(token, cancelled.CancellationToken);
+            Assert.Same(throwOnWithdrawal ? withdrawalFailure : null, cancelled.InnerException);
+        }
+    }
+
+    [Fact]
+    public async Task CancelledReadyPublicationKeepsAReentrantReplacementRun()
+    {
+        var fixture = await SyntheticSimulationTests.Ready();
+        using var view = fixture.View;
+        Assert.True(view.LoadSyntheticScopedSources());
+        using var cancellation = new CancellationTokenSource();
+        Action cancel = cancellation.Cancel;
+        var token = cancellation.Token;
+        ProjectSimulationRun? replacement = null;
+        var replacing = false;
+        System.ComponentModel.PropertyChangedEventHandler observer = (sender, _) =>
+        {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (replacing || subject.SimulationDebug is not { State: SimulationControlState.Ready }) return;
+            replacing = true;
+            cancel();
+            Assert.True(subject.RunSyntheticSimulation(Guid.Parse(Id(1011)), 100));
+            replacement = subject.SimulationRun;
+        };
+        view.PropertyChanged += observer;
+        Exception? error;
+        try { error = CaptureDebugStartError(view, Guid.Parse(Id(1012)), token); }
+        finally { view.PropertyChanged -= observer; }
+
+        var cancelled = Assert.IsType<OperationCanceledException>(error);
+        Assert.Equal(token, cancelled.CancellationToken);
+        Assert.NotNull(replacement);
+        Assert.Same(replacement, view.SimulationRun);
+        Assert.Equal(CompilerExecutionState.Completed, replacement.Execution);
+        Assert.Null(view.SimulationDebug);
+    }
+
+    [Fact]
+    public async Task CancellationDuringDebugPreparationRemainsExplicitTerminalEvidence()
+    {
+        var fixture = await SyntheticSimulationTests.Ready();
+        using var view = fixture.View;
+        Assert.True(view.LoadSyntheticScopedSources());
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        Assert.True(view.BeginSyntheticSimulationDebug(Guid.Parse(Id(1013)), cancellationToken: cancellation.Token));
+        var snapshot = Assert.IsType<SimulationDebugSnapshot>(view.SimulationDebug);
+        Assert.Equal(SimulationControlState.Terminated, snapshot.State);
+        Assert.Same(snapshot.Result, view.SimulationRun);
+        Assert.Equal(CompilerExecutionState.Cancelled, view.SimulationRun!.Execution);
+        Assert.False(view.StepSyntheticSimulation(snapshot));
+    }
+
+    private static Exception? CaptureDebugStartError(SyntheticWorkbenchViewModel view, Guid runId, CancellationToken token)
+    {
+        try
+        {
+            _ = view.BeginSyntheticSimulationDebug(runId, cancellationToken: token);
+            return null;
+        }
+        catch (Exception error)
+        {
+            return error;
+        }
+    }
 }
