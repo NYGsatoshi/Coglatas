@@ -17,6 +17,7 @@ import { AdmittedSimulationComparison, readSimulationComparison } from './projec
 import { AdmittedRecordedDebug, RecordedDebugFrame, readRecordedDebug } from './projectide-recorded-debug.reader';
 import { AdmittedScopedSources, ScopedSourceRegion, readScopedSources, resolveScopedSource, scopedSourcesMatch } from './projectide-scoped-sources';
 import { AdmittedSimulation, SimulationEvent, readSimulationRun } from './projectide-simulation.reader';
+import { type AdmittedScenarioSchedule, readScenarioSchedule, scenarioScheduleMatches } from './projectide-scenario-schedule.reader';
 import { AdmittedScenario, PreparedScenario, readPreparedScenario, scenarioMatches, scenarioTriplet } from './projectide-scenario';
 import { PreparedTestEdit, readPreparedTestEdit, testEditPair } from './projectide-test-edit';
 import { AdmittedLocalTests, LocalTestAssertion } from './projectide-tests.contracts';
@@ -916,7 +917,9 @@ export class ProjectIdeWorkbenchStore {
   }
   private scenarioGeneration = 0;
   readonly scenarioReadState = signal<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
-  private readonly scenarioSnapshot = signal<{ bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedScenario } | null>(null);
+  private readonly scenarioSnapshot = signal<{
+    bundle: PreviewBundle; context: PreviewCase; admitted: AdmittedScenario; schedule: AdmittedScenarioSchedule | 'unavailable' | null;
+  } | null>(null);
   readonly preparedScenario = (): PreparedScenario | null => {
     const context = this.context(); const bundle = this.bundle();
     if (!context || !bundle || this.state() !== 'ready' || context !== this.result()) return null;
@@ -926,6 +929,12 @@ export class ProjectIdeWorkbenchStore {
     const snapshot = this.scenarioSnapshot(); const context = this.context(); const bundle = this.bundle();
     return snapshot && bundle && context && this.state() === 'ready' && snapshot.context === context && context === this.result() &&
       snapshot.bundle === bundle && scenarioMatches(bundle, context, snapshot.admitted) ? snapshot.admitted : null;
+  };
+  readonly scenarioSchedule = (): AdmittedScenarioSchedule | 'unavailable' | null => {
+    const snapshot = this.scenarioSnapshot();
+    if (!snapshot?.schedule || !this.scenario()) return null;
+    return snapshot.schedule === 'unavailable' || !scenarioScheduleMatches(snapshot.admitted, snapshot.schedule)
+      ? 'unavailable' : snapshot.schedule;
   };
   private async admitScenario(prepared: PreparedScenario) {
     const generation = this.scenarioGeneration; const bundle = this.bundle(); const context = this.context();
@@ -942,11 +951,18 @@ export class ProjectIdeWorkbenchStore {
     }
   }
   async loadScenarioComparison(prepared: PreparedScenario): Promise<boolean> {
-    const generation = this.scenarioGeneration; const bundle = this.bundle(); const context = this.context();
+    const generation = ++this.scenarioGeneration; const bundle = this.bundle(); const context = this.context();
+    this.scenarioSnapshot.set(null);
     const admitted = await this.admitScenario(prepared);
-    if (!admitted || !bundle || !context || generation !== this.scenarioGeneration || bundle !== this.bundle() || context !== this.context() ||
-        context !== this.result() || this.preparedScenario() !== prepared || !scenarioMatches(bundle, context, admitted)) return false;
-    this.scenarioSnapshot.set({ bundle, context, admitted }); this.scenarioReadState.set('ready'); return true;
+    if (!admitted || !bundle || !context) return false;
+    const current = () => generation === this.scenarioGeneration && bundle === this.bundle() && context === this.context() &&
+      context === this.result() && this.preparedScenario() === prepared && scenarioMatches(bundle, context, admitted);
+    if (!current()) return false;
+    let schedule: AdmittedScenarioSchedule | 'unavailable' | null;
+    try { schedule = await readScenarioSchedule(admitted); }
+    catch { schedule = 'unavailable'; }
+    if (!current()) return false;
+    this.scenarioSnapshot.set({ bundle, context, admitted, schedule }); this.scenarioReadState.set('ready'); return true;
   }
   async exportScenarioAssumptions(prepared: PreparedScenario): Promise<string | null> {
     const generation = this.scenarioGeneration; const bundle = this.bundle(); const context = this.context();
@@ -963,7 +979,7 @@ export class ProjectIdeWorkbenchStore {
     if (stage === 'scenario' && context !== admitted.baseline || stage === 'draft' && context !== admitted.scenario) { this.scenarioReadState.set('ready'); return false; }
     const target = admitted[stage]; this.choose(target.key); this.loadResult();
     if (this.context() !== target || this.result() !== target || this.bundle() !== bundle || !scenarioMatches(bundle, target, admitted)) return false;
-    this.scenarioSnapshot.set({ bundle, context: target, admitted }); this.scenarioReadState.set('ready'); return true;
+    this.scenarioSnapshot.set({ bundle, context: target, admitted, schedule: null }); this.scenarioReadState.set('ready'); return true;
   }
   private clearScenario(): void { this.scenarioGeneration++; this.scenarioSnapshot.set(null); this.scenarioReadState.set('idle'); }
   readonly testEditState = signal<'idle' | 'loading' | 'unavailable'>('idle');
