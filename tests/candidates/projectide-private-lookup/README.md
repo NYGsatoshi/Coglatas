@@ -12,12 +12,21 @@ The separate public reference cache (#2083) and symbol-session continuation
 | --- | --- | --- |
 | Corrected, merged #2079 | `1948e1834f79dfcf10bad5f0308546b2bcd939ae` | `5f8e0ce0b56ee5812277f5582de41ef9ee85fedd` |
 | Original vulnerable #2079 source | `1696603417073e21db216244aabe72427fd61ced` | `77611a2465d30637abac525a9ee43d4009578254` |
+| ProjectIDE continuation after #2174 | `de3b6de1f38128ce519e736e44af9815d3c68d0d` | `ac634b9dc7fed90c2ef0f76c0c2b05a2923ed7f1` |
 
 The corrected merge has the reviewed source tree from `ee6ab354...`. Both
 compositions compile the same complete independently authored C# file under the
 Product's strict SDK 10.0.403 policy. Only the frozen native selection differs.
 No Product source, test fixture helper, result or lockfile is repaired or imported
 as independent evidence.
+
+The separately pinned current-source leg uses .NET SDK 11.0.100 and locked
+restore. It runs the same 24 fact identities as the corrected leg. This leg
+uses the current constructor signature introduced by #2163 to create tables
+from independently compiled rows. The adapter passes an explicit non-cancelled
+token for construction and keeps the original cancelled token for the native
+commit assertion. The two existing pins and their frozen selections remain
+independent of the current-source leg.
 
 The local fixture explicitly requests semantic-model and IR version 2 so complete
 root-only compilations attach their actual dependency analysis. Complete cases

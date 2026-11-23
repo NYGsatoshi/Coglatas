@@ -354,7 +354,7 @@ public sealed class SecurityPrivateLookupCandidateTests
         }
     }
 
-    // Compatibility adapter for the real internal staging boundary in both immutable
+    // Compatibility adapter for the real internal staging boundary in all pinned
     // Product versions. It does not replace fields, patch Product, or import Product tests.
     private sealed class PrivateBoundary(ProjectSemanticIndexLookupCache cache, CompilerSemanticIndex actualIndex)
     {
@@ -366,10 +366,13 @@ public sealed class SecurityPrivateLookupCandidateTests
         public object Prepare(object scope, string dependency)
         {
             var tables = PrepareMethod.ReturnType.GetProperty("Tables")!.PropertyType;
-            var constructor = tables.GetConstructors(Hidden).Single();
-            var create = Expression.New(constructor,
-                Expression.Constant(actualIndex.Symbols, typeof(IReadOnlyList<CompilerIndexedSymbol>)),
-                Expression.Constant(actualIndex.References, typeof(IReadOnlyList<CompilerBoundReference>)));
+            var symbols = Expression.Constant(actualIndex.Symbols, typeof(IReadOnlyList<CompilerIndexedSymbol>));
+            var references = Expression.Constant(actualIndex.References, typeof(IReadOnlyList<CompilerBoundReference>));
+            var currentConstructor = tables.GetConstructor(Hidden, [symbols.Type, references.Type, typeof(CancellationToken)]);
+            var create = currentConstructor is not null
+                ? Expression.New(currentConstructor, symbols, references, Expression.Constant(CancellationToken.None))
+                : Expression.New(tables.GetConstructor(Hidden, [symbols.Type, references.Type])
+                    ?? throw new InvalidOperationException("Unsupported private lookup table constructor."), symbols, references);
             var factory = Expression.Lambda(PrepareMethod.GetParameters()[2].ParameterType, create).Compile();
             return PrepareMethod.Invoke(cache, [scope, new[] { dependency }, factory, CancellationToken.None])!;
         }
