@@ -11,6 +11,7 @@ on:
       - src/Coglatas.Application/ProjectIde/DependencyAcquisition/**
       - tests/Coglatas.Tests/ProjectIde/SyntheticDependencyAcquisitionTests.cs
       - tests/Coglatas.Tests/ProjectIde/Fixtures/artifact-hash-vectors-v1.json
+      - tests/Coglatas.Tests/ProjectIde/Fixtures/artifact-reader-compat-vectors-v1.json
       - tests/ci/projectide-artifact-vectors.test.mjs
       - tests/ci/projectide_artifact_inventory.py
       - tests/ci/projectide_core_isolated.py
@@ -21,6 +22,11 @@ on:
       # Recorded debugger producer, replay tests, and immutable fixture are all
       # independent changes that must activate the full two-host artifact suite.
       - tools/ProjectIde.Preview/**
+      - tools/ProjectIde.Workbench.Synthetic/SyntheticProjectTestConfiguration.cs
+      - tools/ProjectIde.Workbench.Synthetic/SyntheticReadOnlyList.cs
+      - tools/ProjectIde.Workbench.Synthetic/SyntheticSnapshotMaterialization.cs
+      - tools/ProjectIde.Workbench.Synthetic/SyntheticScopedSourceProjection.cs
+      - tools/ProjectIde.Workbench.Synthetic/SyntheticSemanticIndexProjection.cs
       - tests/Coglatas.Tests/ProjectIde/WebSimulationDebugContractTests.cs
       - frontend/public/assets/projectide/simulation-debug-v1.json
       - src/Coglatas.Application/ProjectIde/Core/CompilerHostContracts.cs
