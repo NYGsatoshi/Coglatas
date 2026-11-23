@@ -3,7 +3,14 @@ import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const fixture = JSON.parse(readFileSync(new URL('../Coglatas.Tests/ProjectIde/Fixtures/artifact-hash-vectors-v1.json', import.meta.url), 'utf8'));
+const hashFixture = 'tests/Coglatas.Tests/ProjectIde/Fixtures/artifact-hash-vectors-v1.json';
+const compatibilityFixture = 'tests/Coglatas.Tests/ProjectIde/Fixtures/artifact-reader-compat-vectors-v1.json';
+
+function readFixture(repositoryPath) {
+  return JSON.parse(readFileSync(new URL('../../' + repositoryPath, import.meta.url), 'utf8'));
+}
+
+const fixture = readFixture(hashFixture);
 assert.equal(fixture.status, 'PROTOTYPE_ONLY');
 assert.equal(fixture.vectors.length, 4);
 for (const vector of fixture.vectors) {
@@ -20,10 +27,7 @@ test('type substitution changes full digest', () => {
   assert.equal(new Set(fixture.vectors.map(v => v.sha256)).size, 4);
 });
 
-const readerCompatibility = JSON.parse(readFileSync(
-  new URL('../Coglatas.Tests/ProjectIde/Fixtures/artifact-reader-compat-vectors-v1.json', import.meta.url),
-  'utf8',
-));
+const readerCompatibility = readFixture(compatibilityFixture);
 test('independent reader Unicode and ordered-array digest vectors remain distinct', () => {
   assert.equal(readerCompatibility.status, 'PROTOTYPE_ONLY');
   assert.equal(readerCompatibility.vectors.length, 4);
@@ -48,4 +52,30 @@ test('independent reader Unicode and ordered-array digest vectors remain distinc
   for (const [left, right] of readerCompatibility.casePairs) {
     assert.notEqual(hashes.get(left), hashes.get(right), left + ' / ' + right);
   }
+});
+
+function assertArtifactParitySelects(paths) {
+  const workflow = readFileSync(new URL('../../.github/workflows/projectide-artifact-candidates.yml', import.meta.url), 'utf8');
+  const lines = workflow.split(/\r?\n/);
+  const pullRequest = lines.indexOf('  pull_request:');
+  assert.notEqual(pullRequest, -1, 'Artifact parity must handle pull requests');
+  assert.equal(lines[pullRequest + 1], '    paths:', 'Missing pull_request paths filter');
+  const start = pullRequest + 2;
+  const end = lines.findIndex((line, index) => index >= start && line.trim() && !line.startsWith('      '));
+  const selectors = lines.slice(start, end === -1 ? undefined : end);
+  for (const path of paths) {
+    assert.ok(selectors.includes(`      - ${path}`), `Artifact parity does not select ${path}`);
+  }
+}
+
+test('both checked-in vector fixtures select two-host artifact parity', () => {
+  assertArtifactParitySelects([hashFixture, compatibilityFixture]);
+});
+
+test('Preview exporter linked Workbench sources select two-host artifact parity', () => {
+  const project = readFileSync(new URL('../../tools/ProjectIde.Preview/ProjectIde.Preview.csproj', import.meta.url), 'utf8');
+  const sources = Array.from(project.matchAll(/<Compile\s+Include="\.\.\/(ProjectIde\.Workbench\.Synthetic\/[^"]+)"/g),
+    ([, source]) => 'tools/' + source);
+  assert.ok(sources.length > 0, 'Expected linked Workbench sources in the Preview project');
+  assertArtifactParitySelects(sources);
 });
