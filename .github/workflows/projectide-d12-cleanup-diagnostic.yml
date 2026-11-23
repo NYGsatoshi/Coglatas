@@ -33,7 +33,6 @@ jobs:
     timeout-minutes: 9
     env:
       D12_SOURCE: ${{ github.event.pull_request.head.sha }}
-      D12_EVIDENCE: ${{ runner.temp }}/d12-evidence
     steps:
       - name: Check out the exact diagnostic source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

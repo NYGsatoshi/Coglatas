@@ -4,7 +4,7 @@ set -Eeuo pipefail
 [[ "$GITHUB_ACTIONS" == true && "$GITHUB_JOB" == frontend-test ]]
 [[ "$GITHUB_RUN_ID" =~ ^[1-9][0-9]{0,19}$ && "$GITHUB_RUN_ATTEMPT" == 1 ]]
 [[ "$D12_GENERATION" == obsolete || "$D12_GENERATION" == successor ]]
-[[ "$D12_EVIDENCE" == "$RUNNER_TEMP/d12-evidence" ]]
+D12_EVIDENCE="$RUNNER_TEMP/d12-evidence"
 [[ "$(git rev-parse HEAD)" == "$D12_SOURCE" ]]
 
 helper=.d12/security-source/scripts/ci/cleanup-pr-ci-resources.sh
