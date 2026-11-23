@@ -69,7 +69,7 @@ public sealed partial class SyntheticWorkbenchViewModel
         if (subscribers is null) return null;
 
         Exception? failure = null;
-        var args = new System.ComponentModel.PropertyChangedEventArgs(null);
+        var args = new PropertyChangedEventArgs(null);
         foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
         {
             try { subscriber(this, args); }
