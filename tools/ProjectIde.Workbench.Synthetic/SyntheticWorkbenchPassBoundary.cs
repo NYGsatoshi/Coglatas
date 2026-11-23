@@ -1,9 +1,28 @@
+using System.ComponentModel;
 using Coglatas.Domain.ProjectIde;
 
 namespace Coglatas.ProjectIde.Workbench.Synthetic;
 
 public sealed partial class SyntheticWorkbenchViewModel
 {
+    private Exception? NotifyPassViewWithdrawal()
+    {
+        var subscribers = PropertyChanged;
+        if (subscribers is null)
+        {
+            return null;
+        }
+
+        Exception? firstFailure = null;
+        var args = new PropertyChangedEventArgs(null);
+        foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+        {
+            try { subscriber(this, args); }
+            catch (Exception error) { firstFailure ??= error; }
+        }
+        return firstFailure;
+    }
+
     private long _passBoundaryGeneration;
     private CoreCompilation? _passBoundaryCompilation;
     private ProjectCompilerPassBoundarySnapshot? _recordedPassBoundary;
@@ -32,13 +51,24 @@ public sealed partial class SyntheticWorkbenchViewModel
         var snapshot = ProjectCompilerPassBoundarySnapshot.Read(execution, compilation!, execution.Observation,
             compilation!.Input.InputDigest, expectedResult, ordinal, mode, maximumBodyBytes, token);
         if (!Current()) return false;
-        _recordedPassBoundary = snapshot; _passBoundaryCompilation = compilation; Changed();
-        if (token.IsCancellationRequested)
+        _recordedPassBoundary = snapshot;
+        _passBoundaryCompilation = compilation;
+        Exception? withdrawalFailure = null;
+        bool cancelledAtPublication;
+        try { Changed(); }
+        finally
         {
-            if (generation == _passBoundaryGeneration && ReferenceEquals(_recordedPassBoundary, snapshot))
-            { ClearPassBoundarySnapshot(); Changed(); }
-            token.ThrowIfCancellationRequested();
+            cancelledAtPublication = token.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _passBoundaryGeneration &&
+                ReferenceEquals(_recordedPassBoundary, snapshot))
+            {
+                ClearPassBoundarySnapshot();
+                withdrawalFailure = NotifyPassViewWithdrawal();
+            }
         }
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Pass boundary read was cancelled.", withdrawalFailure, token);
         return Current() && ReferenceEquals(RecordedPassBoundary, snapshot) && snapshot.State is not
             (CompilerPassBoundarySnapshotState.RefusedInvocation or CompilerPassBoundarySnapshotState.RefusedInputBinding or
             CompilerPassBoundarySnapshotState.RefusedWrongResult or CompilerPassBoundarySnapshotState.BoundaryNotRecorded);
