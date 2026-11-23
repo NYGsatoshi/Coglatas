@@ -11,6 +11,16 @@ on:
       - tests/ci/projectide-artifact-vectors.test.mjs
       - global.json
       - tests/ci/projectide_entry_isolated.py
+      - tests/ci/projectide_core_isolated.py
+      - tests/ci/projectide_slice2_isolated.py
+      - tests/ci/projectide_integration_inventory.json
+      - tests/ci/test_projectide_core_isolated.py
+      - tests/ci/test_projectide_integration_isolated.py
+      - tests/ci/test_projectide_slice2_isolated.py
+      - tests/Coglatas.Tests/Coglatas.Tests.csproj
+      - tests/Coglatas.Tests/packages.lock.json
+      - tests/Coglatas.Architecture.Tests/Coglatas.Architecture.Tests.csproj
+      - tests/Coglatas.Architecture.Tests/packages.lock.json
       - tests/ci/test_projectide_entry_isolated.py
       - tests/ci/test_projectide_entry_resharper.py
       - scripts/quality/projectide_entry_resharper.py

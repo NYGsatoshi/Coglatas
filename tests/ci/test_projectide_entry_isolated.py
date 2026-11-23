@@ -50,6 +50,16 @@ class EntryIdentityRetentionTests(unittest.TestCase):
             "tests/Coglatas.Tests/ProjectIde/**",
             "global.json",
             "Coglatas.slnx",
+            "tests/ci/projectide_core_isolated.py",
+            "tests/ci/projectide_slice2_isolated.py",
+            "tests/ci/projectide_integration_inventory.json",
+            "tests/ci/test_projectide_core_isolated.py",
+            "tests/ci/test_projectide_integration_isolated.py",
+            "tests/ci/test_projectide_slice2_isolated.py",
+            "tests/Coglatas.Tests/Coglatas.Tests.csproj",
+            "tests/Coglatas.Tests/packages.lock.json",
+            "tests/Coglatas.Architecture.Tests/Coglatas.Architecture.Tests.csproj",
+            "tests/Coglatas.Architecture.Tests/packages.lock.json",
         ):
             with self.subTest(owned_source=owned_source):
                 self.assertIn(owned_source, triggers)
