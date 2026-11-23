@@ -28,6 +28,12 @@ Project scope, input/digest, incomplete/unknown/bounded-read and lifecycle
 semantics remain. No stored Source/history mutation, new execution, persistent
 token registration, authorization extension or broad abstraction is added.
 
+Semantic Diff reports withdrawal of the previous comparison before starting the
+next read. Cancellation during that notification preserves any newer comparison.
+For both History and Diff, the owning cancelled read withdraws its publication
+even if the observer throws. If withdrawal also throws, the caller receives the
+original publication exception.
+
 Owned regression fixtures observe published state directly and detach their
 subscriptions. Fresh strict builds, source pins and raw paired suites qualify
 the candidate separately. Original negatives explicitly compose the separately
