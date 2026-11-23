@@ -9,10 +9,19 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+from typing import Collection
 from urllib.parse import unquote
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
-PROJECT = "tests/Coglatas.ProjectIde.Entry.Tests/Coglatas.ProjectIde.Entry.Tests.csproj"
+ENTRY_SOURCE_PREFIX = "tests/Coglatas.ProjectIde.Entry.Tests/"
+PROJECT = ENTRY_SOURCE_PREFIX + "Coglatas.ProjectIde.Entry.Tests.csproj"
+ENTRY_WITNESS_INPUTS = {
+    "scripts/quality/projectide_entry_resharper.py",
+    "scripts/quality/check-resharper-pr-sarif.py",
+    ".github/workflows/resharper_pr.yml",
+    "Coglatas.slnx",
+}
 PRODUCT = "94ed17f8d22c0d9bb2ed2bdd149a5c8357b654f3"
 
 
@@ -54,6 +63,22 @@ def validate_report(path: Path, root: Path, revision: str) -> dict:
     return run
 
 
+def has_integrated_entry(root: Path) -> bool:
+    return any(element.get("Path") == PROJECT
+               for element in ET.parse(root / "Coglatas.slnx").iter("Project"))
+
+
+def entry_source_witnesses(changed: Collection[str]) -> list[str]:
+    if not any(path.startswith(ENTRY_SOURCE_PREFIX) or path in ENTRY_WITNESS_INPUTS for path in changed):
+        return []
+    changed_sources = sorted(path for path in changed
+                             if path.startswith(ENTRY_SOURCE_PREFIX) and path.endswith(".cs"))
+    return changed_sources or [
+        ENTRY_SOURCE_PREFIX + "EntryContractTests.cs",
+        ENTRY_SOURCE_PREFIX + "SourceAndRunEntryTests.cs",
+    ]
+
+
 def prepare(args) -> None:
     sys.path.insert(0, str(ROOT / "tests/ci"))
     from projectide_entry_isolated import (PRODUCT_BASE, TEST_BASE, TEST_PATHS, REUSED_BASE,
@@ -62,30 +87,12 @@ def prepare(args) -> None:
     # Once the independent Entry project belongs to the reviewed integration solution,
     # inspect that exact checkout rather than cherry-picking an older test branch.
     # Preserve the historical isolated-composition path below for the original PR.
-    import xml.etree.ElementTree as ET
-    installed = {
-        element.get("Path")
-        for element in ET.parse(ROOT / "Coglatas.slnx").iter("Project")
-    }
-    if PROJECT in installed:
-        gate = load_gate()
-        changed = gate.read_changed_files(args.changed)
-        owned = (
-            "tests/Coglatas.ProjectIde.Entry.Tests/",
-            "scripts/quality/projectide_entry_resharper.py",
-            "scripts/quality/check-resharper-pr-sarif.py",
-            ".github/workflows/resharper_pr.yml",
-            "Coglatas.slnx",
-        )
-        entry_touched = any(path.startswith(owned[0]) or path in owned[1:] for path in changed)
-        if entry_touched:
-            source_paths = sorted(path for path in changed
-                                  if path.startswith(owned[0]) and path.endswith(".cs"))
-            if not source_paths:
-                source_paths = [
-                    "tests/Coglatas.ProjectIde.Entry.Tests/EntryContractTests.cs",
-                    "tests/Coglatas.ProjectIde.Entry.Tests/SourceAndRunEntryTests.cs",
-                ]
+    if has_integrated_entry(ROOT):
+        changed = load_gate().read_changed_files(args.changed)
+        source_paths = entry_source_witnesses(changed)
+        if source_paths:
+            if selected and Path(PROJECT).stem not in selected:
+                raise ValueError("InspectCode scope excludes required integrated Entry witnesses")
             if any(not (ROOT / path).is_file() for path in source_paths):
                 raise ValueError("Integrated Entry source absent from checked-out project")
             candidate = git(ROOT, "rev-parse", "HEAD")
@@ -97,7 +104,7 @@ def prepare(args) -> None:
         with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as output:
             output.write(f"RESHARPER_ROOT={ROOT}\n")
         return
-    if "Coglatas.ProjectIde.Entry.Tests" not in selected:
+    if Path(PROJECT).stem not in selected:
         # All unrelated PRs retain the existing shared-build inspection path.
         with Path(os.environ["GITHUB_ENV"]).open("a") as output:
             output.write(f"RESHARPER_ROOT={ROOT}\n")
@@ -122,7 +129,6 @@ def prepare(args) -> None:
     for path in (".editorconfig", "global.json", "Coglatas.slnx.DotSettings"):
         if git(ROOT, "ls-tree", "HEAD", "--", path) != git(target, "ls-tree", "HEAD", "--", path):
             raise ValueError("Composition changed shared inspection settings")
-    import xml.etree.ElementTree as ET
     baseline = ET.parse(ROOT / "Coglatas.slnx")
     solution = ET.parse(target / "Coglatas.slnx")
     if not {p.get("Path") for p in baseline.iter("Project")} <= {p.get("Path") for p in solution.iter("Project")}:
@@ -154,7 +160,7 @@ def prepare(args) -> None:
 def verify(args) -> None:
     receipt_path = args.report / "composition.json"
     if not receipt_path.exists():
-        if "Coglatas.ProjectIde.Entry.Tests" in args.projects.read_text().splitlines():
+        if Path(PROJECT).stem in args.projects.read_text().splitlines():
             raise ValueError("Required independent composition receipt is missing")
         return
     receipt = json.loads(receipt_path.read_text())
