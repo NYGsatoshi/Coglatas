@@ -101,7 +101,7 @@ public static partial class SpecTraceabilityValidator
         return SpecRegistryValidator.Result(diagnostics, coverage);
     }
 
-    private static bool HasSourceIdentity(string source, string identity)
+    internal static bool HasSourceIdentity(string source, string identity)
     {
         // This is source declaration linkage, not executable discovery or semantic proof.
         // Actual discovery/results must also resolve the full identity in the trusted execution receipt.

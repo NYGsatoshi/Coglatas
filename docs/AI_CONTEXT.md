@@ -1,6 +1,465 @@
 # AI Context
 
+[Private semantic-index lookup reuse](verification/projectide-semantic-index-lookup-reuse.md)
+retains only exact positional tables after fresh full-index construction. Public
+rows, metadata, input/coverage facts and query ownership stay current. Bounds,
+refusal and cancellation prevent partial lookup publication; retention grants no
+runtime authority or independent acceptance.
+
+[Incremental reference binding](verification/projectide-incremental-reference-binding.md)
+reuses exact structural and typed-value resolution only after fresh dependency
+admission and matching original lookup facts. Current diagnostics, global
+validation, full index assembly and query ownership remain fresh. The bounded
+optional session carries its original invalidation epoch through root and regional
+binding, so Clear or owner changes prevent late repopulation. It grants no current
+runtime authority or independent acceptance.
+
+[Local reference neighborhoods](verification/projectide-reference-neighborhood.md)
+render only the current owned Find References page in the Angular Workbench and
+Windows pure ViewModel. Original regional Source navigation, coverage and scan
+continuation stay explicit; runtime authority and actual Native acceptance remain
+separate.
+
+[Full semantic index and paired local readers](verification/projectide-full-semantic-index.md)
+retain actual admitted regional symbols/references and original root input stamps.
+Typed completion, definitions and bounded reference pages require original Source
+admission and current query/member ownership in both local consumers. Compiler
+facts, runtime authority and independent Security/Native qualification remain separate.
+
+[Fresh binding reference indexes](verification/projectide-binding-reference-index.md)
+share complete-context and typed entity/port lookups within each freshly admitted
+Binder invocation. Canonical public keys, ambiguity, authorization and original
+logical charges remain unchanged; full incremental reference invalidation and
+actual editor/Graph acceptance remain separate.
+
+[Incremental symbol binding](verification/projectide-incremental-symbol-binding.md)
+reuses exact immutable declaration/context symbol partitions after fresh admission.
+Root input stamps, references, diagnostics, budgets and global validation remain
+fresh. The original symbol-session epoch survives root/regional/full-Compile
+continuation, so Clear or an owner change prevents late lookup/retention. The
+optional local session and offline fixture exporter grant no runtime access or
+independent Security qualification.
+
+[Paired local regional operator consumers](verification/projectide-paired-regional-operator-consumers.md)
+read original local runs in the pure Workbench and Angular after explicit Source,
+region and diagnostic admission. Actual traversal, original capture and view limits
+stay separate. Scoped Source fingerprints remain private, and stale/foreign reads
+cannot borrow original bodies. These synthetic reads add no remote deserializer,
+current authority, causal reconstruction or actual Avalonia/Native activation.
+
+[Owned local regional observation runs](verification/projectide-owned-regional-observation-host.md)
+bind a separate predeclared regional policy, exact local request/manifest, actual
+attempt and paired receipt. Older host protocols and Domain records stay unchanged;
+current authorization, retention and Native activation remain separate.
+
+[Actual regional predicate observation](verification/projectide-regional-predicate-observation.md)
+adds a separately labelled, explicitly predeclared pure Compiler record and owned
+regional diagnostic reads. Actual call/evaluation counts, execution/coverage/verdict,
+capture gaps and viewer budgets stay distinct. Initial-root records, host/client
+protocols and runtime/retention/Native activation gates remain unchanged.
+
+[Retained Workbench read rosters](verification/projectide-retained-read-rosters.md)
+keeps legacy reference-search and synthetic materialization read lists faithful
+to their original admitted facts without exposing synchronization storage. Existing
+generic reads and write refusals remain; this adds no query, runtime authority
+or independent Security acceptance.
+
+Read [local context start cancellation](verification/projectide-context-start-cancellation.md)
+for five token-bearing local replacement operations. Cancellation during the
+initial context notification aborts the older publication while preserving
+newer contexts and original facts. Source publication remains the existing
+commit point; this adds no durable write, execution or runtime authority.
+
+Read [synthetic inspection admission](verification/projectide-inspection-admission.md)
+for explicit display refusal when a completed Compiler model cannot be projected
+within the existing canonical JSON bound. All four pure Workbench protocols
+preserve original Compiler facts and newer notification contexts; no runtime
+authority, actual Avalonia or numerical assurance is inferred.
+
+The [local Project Test CLI](verification/projectide-local-project-tests.md)
+exposes owned typed discovery and --discover without evaluating assertions or
+producing Test PASS. Original input/plan stamps, decode/coverage/evaluator facts,
+bounds and refusal states stay distinct. It also reports unsupported input settings and unrepresentable Source as explicit
+unsupported failures with exit 2, distinct from malformed input. Structurally
+admitted opaque Source retains its existing limited binding/Test behavior. Input and existing output bytes remain preserved; no bound Test result,
+manifest integrity, runtime authority or CI adoption is inferred.
+
+Read [initial preview and suggestion cancellation](verification/projectide-initial-preview-cancellation.md)
+for five pure Workbench initial notification guards. Cancelled older Revert,
+Task-suggestion, Scenario, Scenario-to-Draft and Test-definition requests report
+cancellation while preserving newer ready/refused views and original facts.
+This adds no Apply, execution, protocol or current permission grant.
+
+Read [initial Workbench read cancellation](verification/projectide-recorded-read-initial-cancellation.md)
+for seven token-bearing original recording/output/premise and Root Source reads.
+A cancelled older read reports cancellation after initial notification
+supersession while retaining newer success/refusal and owned Source premises.
+Metadata-only reads and current permission/Native/Production HOLDs remain unchanged.
+
+Read [initial model read cancellation](verification/projectide-model-read-initial-cancellation.md)
+for the pure Workbench profile/comparison initial notification boundary: a
+cancelled older read reports cancellation while retaining the newer admitted
+or refused view. This adds no execution, protocol or current access grant.
+
+[Fixed model summary recording navigation](verification/projectide-summary-recording-navigation.md)
+resolves only the exact current owned summary and focuses its existing recording.
+Metrics, original event data and simulated-model meaning are unchanged. Durable
+query/export, current authority and independent privacy/Native qualification stay
+separate under P0 #1962.
+
+[Predicate recording input-switch readiness](verification/projectide-predicate-recording-readiness.md)
+requires the original diagnostic recording to complete and receive focus before
+the Product clearing case navigates to Problems. The original browser failure
+and later changed-case qualification stay separate; application and shared CI
+are unchanged.
+
+[Owned historical reads](verification/projectide-historical-read-ownership.md)
+fences older history enumerations and cancelled diff/history publications while
+preserving newer reads and original Compiler/Source facts. Initial-clear
+supersession reports caller cancellation before returning, without enumerating
+the old supplier or withdrawing a newer successful reconstruction. Historical access,
+retention, qualification and current runtime authority remain separate.
+
+[Owned explicit Draft preview cancellation](verification/projectide-draft-preview-publication-cancellation.md)
+withdraws only cancelled current Rename/Revert/Test-definition plans and preserves
+newer previews, original Compiler/Source/history facts and explicit Apply guards.
+Qualification and current runtime authority remain separate.
+
+[Owned Scenario preview publication cancellation](verification/projectide-scenario-preview-publication-cancellation.md)
+withdraws only cancelled current Scenario/Draft previews, preserving newer
+previews, original Compiler facts and fixed Scenario baselines. Qualification
+and current runtime authority remain separate.
+
+[Owned recorded simulation read cancellation](verification/projectide-recorded-simulation-read-cancellation.md)
+withdraws only cancelled current comparison/profile snapshots while preserving
+newer successful reads and original recordings. Numerical assurance and current
+runtime authority remain separate; qualification is recorded independently.
+
+[Owned semantic query publication cancellation](verification/projectide-semantic-query-publication-cancellation.md)
+withdraws only cancelled current completion/Task-suggestion pages while retaining
+newer queries, original Compiler facts and candidate meaning. Qualification and
+current runtime authority remain separate.
+
+[Owned pass Source page publication cancellation](verification/projectide-pass-source-page-publication-cancellation.md)
+withdraws the cancelled read's owned page/target and preserves newer page
+navigation and original Compiler/map facts. Runtime authority and activation
+holds remain separate; qualification is recorded independently.
+
+[Owned Root Source publication cancellation](verification/projectide-root-source-publication-cancellation.md)
+withdraws only the cancelled admission still owned by that read, preserves newer
+Source/premise views and original Compiler facts, and leaves runtime authority
+and activation holds separate. Qualification is recorded independently.
+
+[Owned output and selected pass publication cancellation](verification/projectide-output-boundary-publication-cancellation.md)
+withdraws only the cancelled read's exact current snapshot, preserves newer
+reads and original Compiler/receipt/plan facts, and leaves activation holds
+separate. Current qualification is recorded independently.
+
+[Owned recording publication cancellation](verification/projectide-recording-publication-cancellation.md)
+checks post-notification cancellation for original Pass/Operator/Predicate views,
+withdraws only the owning generation/snapshot and preserves newer successful
+reads and original Compiler/receipt facts. Qualification remains separate.
+
+[Owned admitted Source rosters](verification/projectide-scoped-source-roster-ownership.md)
+keeps the pure ViewModel display sequence faithful to its accepted Core regions
+without exposing the copied backing array. Original Compiler facts, admission,
+navigation and all runtime/native activation holds remain separate.
+
+[Owned diagnostic premise rosters](verification/projectide-diagnostic-basis-immutability.md)
+keeps retained basis pages faithful to actual recorded digests through legacy
+collection interfaces. Original Compiler evidence and result identities remain
+unchanged; bodies, logical/causal structure and all activation holds stay separate.
+
+[Owned premise publication cancellation](verification/projectide-premise-publication-cancellation.md)
+tracks exact-generation/snapshot withdrawal of cancelled local reads while
+preserving newer successful reads and original Compiler facts; qualification
+is recorded separately.
+
+[Paired local reference pages](verification/projectide-paired-reference-pages.md)
+adopts actual bounded Core pages in the pure ViewModel and the Angular offline
+preview, with explicit original root reads, current page/member ownership and
+keyboard continuation. Local scan/index coverage grants no evidence or access.
+Actual Avalonia, runtime authority and all activation holds remain separate.
+
+[Owned pass Source target storage](verification/projectide-pass-source-target-immutability.md)
+keeps the native target page immutable through legacy collection surfaces.
+Actual-page regressions retain original entries and reject foreign-run targets;
+existing Source/run/lifecycle guards and all activation holds remain separate.
+
+[Bounded local reference search pages](verification/projectide-reference-search-pages.md)
+adds an owner-bound Core continuation over actual canonical reference facts.
+Index coverage and scan exhaustion remain separate. Paired offline adoption is
+described above; legacy queries and current query/open authority remain separate.
+
+[Original pass map Source navigation](verification/projectide-pass-source-navigation.md)
+adds explicit bounded targets from the selected retained original map to Angular
+and the Windows pure ViewModel. Current page/member identity and Source/run
+ownership fence navigation; missing maps stay missing. Actual Avalonia and all
+current authority/retention, independent Security and activation gates stay separate.
+
+[Selected original pass boundaries](verification/projectide-selected-pass-boundaries.md)
+adds explicit per-boundary original reads to the Windows pure ViewModel and an
+original-frame-derived Angular selection. Current Source/run ownership, original
+gaps and capture/viewer budgets remain separate; this grants no current access,
+trusted evidence, retention service or actual Avalonia acceptance.
+
+[Original offline pass recordings](verification/projectide-web-pass-recordings.md)
+adds exact original-byte admission and explicit whole-root pass reads to Angular,
+using the separately owned actual Preview runs. Boundaries, missing IR, capture
+and viewer limits and cancelled outcomes remain separate. No current runtime
+access/retention, independent Security or actual Avalonia acceptance is implied.
+
+[Owned pass recording preparation in the pure Workbench](verification/projectide-pure-workbench-pass-recordings.md)
+adds exact intended local run admission and explicit root-wide original pass
+reads to the Windows pure ViewModel, plus a separate actual Preview export.
+Capture gaps, viewer budgets and cancelled host outcomes stay separate. Angular
+consumption, actual Avalonia and current runtime access/retention remain gated.
+
+[Owned local initial-root pass host recording](verification/projectide-local-pass-host-recording.md)
+binds predeclared pass policy, actual input/materializations, intended local run
+and original response/receipt without rewriting the Domain record. The execution
+host is internal to the bounded session. Diagnostic reruns cannot fill old capture
+gaps; existing protocols, clients and current authority/retention remain separate.
+
+[Actual initial-root pass observation](verification/projectide-initial-root-pass-observation.md)
+adds predeclared bounded entry/return capture of existing original JSON with an
+owned metadata-only default snapshot. Missing engine-object/supply bodies remain
+explicit gaps; this is not FullDump, regional observation, a host invocation or
+runtime authority. Existing Compiler/host/client protocols stay separate.
+
+[Paired original operator Inspector](verification/projectide-paired-operator-recordings.md)
+adds explicit owned run and selected original Boolean operator reads to Angular
+and the Windows pure ViewModel, including Requirement conditions without treating
+condition truth as evidence completion. Exact Source/diagnostic bindings, actual visit
+order and duplicate premises stay separate from capture gaps, viewer budgets
+and cancelled host outcomes. Actual Avalonia, regional observations and current
+runtime authority/retention remain gated.
+
+[Owned local operator observation host](verification/projectide-owned-operator-observation-host.md)
+binds the actual initial-root operator record to predeclared requests, owned
+Manifest/response/receipt pairs and explicit bounded diagnostic origins.
+Existing host protocols and paired Inspector arrays remain unchanged; local paired
+operator adoption is documented above. Actual Avalonia and runtime authority/retention remain gated.
+
+[Actual initial-root Compiler predicate observation](verification/projectide-initial-root-predicate-observation.md)
+connects explicit pre-run capture to actual initial-root evaluations and exact
+published diagnostic instances, preserving original result/operation/host
+contracts. Missing regional observations, capture gaps and viewer limits stay
+separate. Owned local host binding and paired local adoption are documented above;
+actual Avalonia and current runtime authority/retention remain gated.
+
+[Actual shared predicate evaluation observation](verification/projectide-shared-predicate-observation.md)
+adds explicit bounded traversal-time Boolean operator recording and owned
+metadata/body reads while preserving the legacy evaluation contract. This
+standalone primitive allocates no Compiler run or intended host selection;
+Initial-root Compiler and owned local host binding are documented above;
+regional evaluation remains #1034 work; local paired adoption is documented above.
+Runtime access/retention and actual Avalonia remain gated.
+
+[Paired recorded predicate Inspector](verification/projectide-paired-predicate-recordings.md)
+binds actual intended local run identity before Windows admission and verifies
+original offline frames in Angular. Explicit Source/run/diagnostic reads preserve
+capture gaps, viewer budgets and lifecycle fences; runtime authority, retention
+and actual Avalonia acceptance remain gated.
+
+[Selected diagnostic original predicate arrays](verification/projectide-recorded-predicate-snapshot.md)
+adds an explicit owned-record read after root Source admission. It exposes only
+arrays named by the selected actual root diagnostic, preserves original capture
+gaps separately from viewer budgets and leaves old input-only snapshot bytes
+unchanged. This Domain read does not select an intended host run or grant current
+access; the paired local client adoption is documented above and full #1034 remains open.
+
+[Policy-bound local predicate host recording](verification/projectide-predicate-host-recording.md)
+binds explicit pre-run capture to actual local run/session/attempt receipts and
+owned original frames. Old host/output-recording protocols remain separate;
+paired local client adoption remains separate from gated runtime disclosure/retention.
+
+[Predeclared original root predicate capture](verification/projectide-predeclared-predicate-capture.md)
+adds an explicit bounded Pure Core entry point before temporary Proof arrays
+disappear. Manifest remains the default; original result meaning and owned
+invocation records stay separate from regional capture and implicit host/UI adoption.
+
+[Explicit root Source admission](verification/projectide-root-source-admission.md)
+allows paired diagnostic premise reads when complete regional IR is unavailable.
+Root-only lookup coverage, unrecorded predicate gaps and exact owned result/Source
+bindings stay distinct from regional evidence and current runtime authority.
+
+[Captured diagnostic premise bodies](verification/projectide-diagnostic-premises.md)
+extend the paired Inspector with exact retained input/binding/analysis bytes,
+explicit default Manifest, atomic byte-budget gaps and current selected ownership.
+Unavailable references and unrecorded logical/causal structure remain visible;
+runtime disclosure and storage/Pin/deletion stay P0 #1966/#1932.
+
+[Recorded diagnostic basis](verification/projectide-diagnostic-basis.md) pairs a bounded
+Angular Inspector with the Windows pure ViewModel over exact selected Compiler
+evidence. Flat digest references do not reconstruct AND/OR or causal relationships;
+full #1034 and current-access/native acceptance remain open.
+
+## Immutable recorded-run comparison candidate (#907)
+
+The Product candidate shares `ProjectSimulationRunComparison` across an Angular original-byte reader/panel and a Windows pure ViewModel adapter. It compares two fixed admitted model recordings; it starts no simulation and grants no live read/control/export authority. Complete and partial records, input equality and bounds equality stay distinct; no outcome PASS or real-world performance assertion follows from an elapsed delta. See `docs/verification/projectide-run-comparison.md` for fixed-capture identity, byte/work limits, lifecycle qualification and remaining actual UI/backend/independent Security work. The new exporter profile is separate; the ten prior profiles must remain byte-identical. Keep full #907 open and preserve all activation holds. Security/shared-CI work remains P0 handoff under the ProjectIDE-only Owner scope.
+
+
+[Original Core recorded debugger consumption](verification/projectide-recorded-debug-web.md)
+adds explicit bounded snapshot/inspection admission and previous/next browsing in
+the offline Angular Workbench, backed by actual Core command replay. Breakpoint
+resume, Task stop boundaries and exact retained inspection follow Core history;
+no browser scheduler, live controls or server authority is introduced. Shared
+CI replay parity remains P0 #1959 and current-access controls remain P0 #1951.
+
+[Current Product promotion and review corrections](verification/projectide-product-promotion.md)
+records source-preserving candidate #1955, actual separate-assembly verification
+and review dispositions. Earlier verification records retain historical local
+counts and gate states; current GitHub HEAD/checks remain authoritative.
+
+[Shared semantic simulation debugging](verification/projectide-semantic-simulation-debugger.md)
+adds actual event/Task stepping, exact-point break/resume, immutable control
+snapshots and typed task/wait inspection over the same pure event engine.
+Windows pure controls fence current snapshot/lifecycle; the recorded Angular
+consumer above remains distinct from live controls. Composites/watch/jobs/native
+and full #907 acceptance remain open.
+
+[Bounded pure elapsed simulation](verification/projectide-pure-simulation.md)
+adds an immutable run manifest and deterministic virtual-clock event engine over
+actually produced elapsed Task DAG plans. It preserves parallelism, joins and
+bounded trace prefixes; no outcome assertion or Project/Test PASS is inferred.
+[Paired fixed simulation consumers](verification/projectide-paired-simulation.md)
+connect the Windows pure ViewModel and an Angular original-byte recording reader
+with explicit Source/run admission and exact event origins. Interactive run
+transport, composites/watch, jobs and full #907 acceptance remain open. Core/Windows pure semantic controls are
+implemented in the debugger follow-up above.
+
+[Explicit immutable plan-definition lowering](verification/projectide-plan-definition.md)
+adds an opt-in frozen engine/target for elapsed Task DAG definitions after complete
+required validation. Both fixed readers admit actual bytes and original locations;
+no run starts. Other execution kinds, actual runtime/native activation and full
+#905/#907 acceptance remain open.
+
+[Explicit scoped semantic publication version two](verification/projectide-scoped-publication.md)
+produces actual normal model/IR/map artifacts for explicit paired version-two
+targets and complete structural scope. Required truth/coverage/evidence remain
+separate. The version-one external publication guard remains. No formal Registry,
+producer trust, eligibility or current runtime authority is implied.
+
+[Paired captured scoped-source readers](verification/projectide-scoped-source-readers.md)
+open exact fixed dependency Sources and original regional findings in Angular and
+the Windows pure ViewModel, with explicit admission and context/version slots.
+Current runtime authorization and actual Avalonia acceptance are separate.
+
+[Scoped IR consolidation](verification/projectide-scoped-ir.md),
+[whole declared graph validation](verification/projectide-global-graph-closure.md)
+and [root-bound dependency analysis](verification/projectide-dependency-analysis.md)
+validate actual regional IR/maps, cross-owner edges and required rule outcomes
+under the root budget. Normal version-two publication now consumes this scope;
+these older verification records describe their respective original slices.
+
+[Root-bound transitive binding closure](verification/projectide-binding-closure.md)
+follows exact admitted dependency contexts and preserves actual snapshot identities.
+Binding completeness alone does not prove semantic validation, plan or PASS.
+
+[Fixed-base local Scenario preparation](verification/projectide-local-scenarios.md)
+adds typed hypotheses, explicit revision/rebase and exact-base Draft conversion.
+Rebase advances typed declaring origins while preserving pinned reference targets
+and opaque Unknown basis, using the shared Draft visitor.
+Both offline clients separate baseline, assumptions and fresh results; Angular
+checks actual Core-prepared snapshots and bounded original-byte applied-value
+projections for the exact Scenario and converted Draft. Direct and nested
+pinned-reference journeys use bounded actual snapshot bytes and explicit Core
+origin-edit records; missing/denied supply remains incomplete. Generic browser
+authoring, actual Avalonia, Simulation/Impact and current server authority remain open.
+
+[Explicit Test definition editing](verification/projectide-test-definition-editing.md)
+exports canonical Source and prepares exact local Draft replacements for all
+initial assertion families. CLI/Windows pure editing and the Core-backed Web
+example preserve a single writable AST; runtime save/authority remain separate.
+
+[Local Test result panels](verification/projectide-local-test-panels.md) add a
+bounded original-byte reader and actual Core-generated offline Web results,
+paired with Windows pure ViewModel execution. Compiler verdicts stay separate;
+runtime authority, durable Jobs and independent qualification remain open.
+
+[Local Project Test assertion navigation](verification/projectide-project-test-navigation.md)
+connects actual Core diagnostic paths to the Web preview and Windows pure
+ViewModel. It preserves failed verdicts and exact Source admission; Tests panels,
+runtime authority and independent Security qualification remain separate.
+
+The [local typed Project Test Core and CLI](verification/projectide-local-project-tests.md)
+adds versioned Test declarations, bounded input-default assertions and exact
+manifest/evaluator binding. Runtime Test execution/editing, current authority
+and durable jobs remain open; independent Security
+qualification is P0 #1945.
+
 This is the primary entry point for future Codex work on Coglatas.
+
+The [Resource assessment storage repair](verification/projectide-resource-assessment-immutability.md)
+owns diagnostic rows so input IDs and typed locations stay bound to the admitted
+Source. Resolution remains Unsupported; independent qualification is P0 #1938.
+
+The [numeric operand storage repair](verification/projectide-numeric-operand-immutability.md)
+owns unit-factor maps so public access cannot change exact evaluation under a
+retained input basis. This changes no arithmetic or numerical assurance policy;
+independent qualification remains P0 #1938.
+
+The [validation snapshot storage repair](verification/projectide-validation-snapshot-immutability.md)
+owns semantic/Relation findings, endpoint resolutions, Requirement claims and
+Draft Rename reference origins.
+Public access preserves invalidity, finding meaning and exact claim freshness;
+independent qualification remains P0 #1938.
+
+The [semantic contract storage repair](verification/projectide-semantic-contract-immutability.md)
+owns built-in Relation interpretation lists, exact conversion provenance,
+retained numeric inputs and actually evaluated Boolean premises.
+It preserves canonical definitions and numerical meaning; independent
+qualification remains separate P0 #1938 work.
+
+The [host and time snapshot storage repair](verification/projectide-host-snapshot-immutability.md)
+owns direct host collections and supplied calendar/timezone collections.
+Compatibility and exact execution bindings stay stable after collection access;
+independent Security and current authority remain separate P0 #1938 work.
+
+The [Compiler envelope storage repair](verification/projectide-compiler-envelope-immutability.md)
+owns Domain input/result/evidence/IR collection storage so typed views stay
+consistent with retained canonical bytes. Host and supplied-snapshot collection
+qualification remains separate P0 #1938 work.
+
+ProjectIDE has a bounded, input-bound entity-reference suggestion preview shared
+by the offline Angular fixture and Windows pure ViewModel. See the
+[scope and remaining #1030 work](verification/projectide-reference-completion.md).
+It opens declarations read-only; runtime editing and actual Avalonia remain gated.
+
+The [Requirement Task candidate preview](verification/projectide-requirement-task-suggestions.md)
+adds bounded reasoned candidates and same-snapshot source navigation in both
+synthetic clients. Candidates are not satisfaction proof; runtime read authority,
+independent Security qualification and broader #1030 acceptance remain separate.
+
+The [local Draft Rename preparation](verification/projectide-draft-rename.md)
+adds a checked immutable display-name change plan, a synthetic Windows local
+application flow and a Core-prepared Angular before/after fixture pair. Runtime
+save/authorization and wider #1030 acceptance remain separate requirements.
+
+An opt-in [incremental declaration decoder](verification/projectide-incremental-declarations.md)
+can reuse bounded immutable shapes while rebuilding bindings and validation for
+every input. The offline exporter compares cached and full results; runtime index
+activation and full dependency-directed incremental acceptance remain separate.
+
+A [local semantic Diff](verification/projectide-semantic-diff.md) compares exact
+before/after inputs by typed identity, preserving local versus pinned references
+and explicit incomplete/refused outcomes. The Windows pure ViewModel and offline
+Angular projection share Core comparison; stored History/Revert, current history
+authority and wider #908 acceptance remain open, with Security work in P0 #1932.
+
+The [Source history reconstruction engine](verification/projectide-source-history.md)
+adds typed forward record deltas, bounded exact checkpoint reconstruction,
+known-lineage/integrity checks and verified local checkpoint replacement. Its
+Core-generated history metadata feeds Angular and the Windows pure ViewModel.
+Ready reconstruction is separate from Source/Compiler support. Durable storage,
+current historical authority, retention/deletion and Revert remain open.
+
+The [inverse Draft preparation](verification/projectide-draft-revert.md) builds
+a new exact-current-base candidate, preserves later independent records and
+returns atomic conflicts for overlapping edits. Both synthetic clients consume
+the same Core preparation. Persisted, currently authorized and reviewed Revert
+application remains separate #906/#908/P0 #1932 work.
 
 Legacy Project comment edits and deletes read the current persisted account,
 comment identity, and parent authority before changing a tracked comment.

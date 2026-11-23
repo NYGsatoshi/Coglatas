@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.Text.Json;
 
 namespace Coglatas.Domain.ProjectIde;
@@ -86,7 +85,7 @@ public sealed class SourceManifest
                 throw new FormatException("Manifest document identity/schema/digest mismatch.");
         }
         if (seen.Count != documents.Count) throw new FormatException("Manifest does not cover every document.");
-        DocumentIds = new ReadOnlyCollection<DocumentId>(seen.OrderBy(id => id.ToString(), StringComparer.Ordinal).ToArray());
+        DocumentIds = new ImmutableListView<DocumentId>(seen.OrderBy(id => id.ToString(), StringComparer.Ordinal));
     }
 
     internal static object CreateEntries(IEnumerable<SourceDocument> documents) => documents.Select(document => new
@@ -130,7 +129,7 @@ public sealed class ProjectSource
             throw new FormatException("Source requires a Project root document.");
         if (documents.Select(document => document.DocumentId).Distinct().Count() != documents.Length)
             throw new FormatException("Duplicate DocumentId.");
-        Documents = new ReadOnlyCollection<SourceDocument>(documents);
+        Documents = new ImmutableListView<SourceDocument>(documents);
         Manifest = new(SourceJson.FromElement(SourceFields.Object(data.Value, "manifest"), data.Limits), Documents);
         Declarations = SourceJson.FromElement(SourceFields.Array(data.Value, "declarations"), data.Limits);
         Relations = SourceJson.FromElement(SourceFields.Array(data.Value, "relations"), data.Limits);

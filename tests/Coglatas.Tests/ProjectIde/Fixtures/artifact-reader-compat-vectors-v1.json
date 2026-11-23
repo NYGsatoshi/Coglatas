@@ -1,0 +1,37 @@
+{
+  "status": "PROTOTYPE_ONLY",
+  "purpose": "Reference hash checks only; no Reader/Migration allocation, trust, evidence eligibility or release.",
+  "domain": "coglatas.prototype.dependency-manifest/1/canonical/1",
+  "casePairs": [
+    [
+      "unicode-composed",
+      "unicode-decomposed"
+    ],
+    [
+      "array-forward",
+      "array-reverse"
+    ]
+  ],
+  "vectors": [
+    {
+      "id": "unicode-composed",
+      "canonical": "{\"text\":\"é\"}",
+      "sha256": "1140eaf6fa0bef5134e94aed3e1d5e70b3915c3ef3d640f20c0faae2f7f80faa"
+    },
+    {
+      "id": "unicode-decomposed",
+      "canonical": "{\"text\":\"é\"}",
+      "sha256": "8c0d0815b518361e555c1b604ece0d3310e5975c4cf76f69f5f6d12252bd303c"
+    },
+    {
+      "id": "array-forward",
+      "canonical": "{\"items\":[1,2,3]}",
+      "sha256": "9111f53db8e29bc14b76e8a75db4a9ac8c8384d95606efa8d9b54aae983d18f1"
+    },
+    {
+      "id": "array-reverse",
+      "canonical": "{\"items\":[3,2,1]}",
+      "sha256": "294dc7e527e89bd8fb2935b770c0419e65296090c543763abd25de222603f0bb"
+    }
+  ]
+}

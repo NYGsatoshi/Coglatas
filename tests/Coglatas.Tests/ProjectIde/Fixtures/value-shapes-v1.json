@@ -1,0 +1,29 @@
+[
+  {
+    "case": "typed-list",
+    "expected": "Decoded",
+    "input": {
+      "type": {"kind":"coglatas.list","schemaVersion":1,"nullable":false,"acceptsUnknown":true,"elementType":{"kind":"coglatas.text","schemaVersion":1,"nullable":true,"acceptsUnknown":true}},
+      "state": "coglatas.known",
+      "value": [{"type":{"kind":"coglatas.text","schemaVersion":1,"nullable":true,"acceptsUnknown":true},"state":"coglatas.known","value":"a"}]
+    }
+  },
+  {
+    "case": "missing-required-structure-field",
+    "expected": "Invalid",
+    "input": {
+      "type": {"kind":"coglatas.structure","schemaVersion":1,"nullable":false,"acceptsUnknown":false,"fields":[{"name":"required","required":true,"type":{"kind":"coglatas.text","schemaVersion":1,"nullable":false,"acceptsUnknown":false}}]},
+      "state": "coglatas.known",
+      "value": {}
+    }
+  },
+  {
+    "case": "opaque-nested-type",
+    "expected": "Unsupported",
+    "input": {
+      "type": {"kind":"coglatas.list","schemaVersion":1,"nullable":false,"acceptsUnknown":true,"elementType":{"kind":"future.external","schemaVersion":7,"assembly":"System.IO.File"}},
+      "state": "coglatas.known",
+      "value": [{"raw":123456789012345678901234567890.123456789,"ordered":["z","a"],"nil":null}]
+    }
+  }
+]

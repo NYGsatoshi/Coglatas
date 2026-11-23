@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "inputDigest": {
+    "algorithm": "sha-256",
+    "value": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "resultDigest": {
+    "algorithm": "sha-256",
+    "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "input": {
+    "id": "0ae20d43-5da4-80db-a122-5a33e94e1b18",
+    "derivationDigest": "0ae20d435da4b0dbe1225a33e94e1b18987c74808f6187a6532142a76994dd78"
+  },
+  "result": {
+    "id": "94766342-cf7f-88a4-90d9-de5665035bd6",
+    "derivationDigest": "94766342cf7fc8a490d9de5665035bd65366cddb6df42052fca1a82a843cbbdd"
+  }
+}

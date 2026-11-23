@@ -1,0 +1,836 @@
+import { readFileSync } from 'node:fs';
+import { expect, test, type Page } from '@playwright/test';
+import { expectNoAccessibilityViolations } from './a11y';
+
+async function preview(page: Page, enabled = true) {
+  await page.addInitScript((enabled) => {
+    localStorage.setItem('coglatas.locale', 'en');
+    window.__COGLATAS_FEATURE_FLAGS__ = {
+      'projectide.syntheticPreview': enabled,
+    };
+  }, enabled);
+  await page.goto('/app/projectide/preview');
+}
+async function choose(page: Page, key: string) {
+  await page.getByTestId('ide-context').selectOption(key);
+  await page
+    .getByRole('button', { name: 'Load result fixture', exact: true })
+    .click();
+}
+
+test.describe('ProjectIDE synthetic read-only workbench', () => {
+  for (const locale of ['en', 'ja'] as const) {
+    test(`opens Core Test assertion locations with keyboard and preserves failed analysis in ${locale}`, async ({ page }) => {
+      await page.addInitScript(locale => {
+        localStorage.setItem('coglatas.locale', locale);
+        window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };
+      }, locale);
+      const writes: string[] = [];
+      page.on('request', request => { if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method())) writes.push(request.method()); });
+      await page.goto('/app/projectide/preview');
+      const load = locale === 'en' ? 'Load result fixture' : '結果Fixtureを読み込む';
+      const problems = locale === 'en' ? 'Problems' : '問題';
+      const go = locale === 'en' ? 'Go to source location' : 'ソース位置へ移動';
+      // Unicode is intentional assertion-key fixture data, including pointer escape characters.
+      const paths = ['example.a~1b~0c', 'example.check', 'example.テスト~1α~0β', 'example.foreign'];
+      for (const [index, key] of paths.entries()) {
+        await page.getByTestId('ide-context').selectOption('test-assertion-navigation');
+        await page.getByRole('button', { name: load, exact: true }).click();
+        await page.getByRole('button', { name: problems, exact: true }).click();
+        const inspect = page.getByRole('button', { name: /coglatas.binding.reference-missing/u }).nth(index);
+        await inspect.focus(); await inspect.press(index % 2 ? 'Space' : 'Enter');
+        await expect(page.getByTestId('projectide-workbench')).toContainText('/payload/assertions/' + key + '/target');
+        await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+        const action = page.getByRole('button', { name: go, exact: true });
+        await action.focus(); await action.press(index % 2 ? 'Enter' : 'Space');
+        const target = page.getByTestId('ide-source-target');
+        await expect(target).toBeFocused();
+        await expect(page.getByTestId('ide-source-location')).toHaveText('/payload/assertions/' + key + '/target');
+        await expect(target).toContainText(index === 3 ? '0000000b-0000-4000-8000-000000000001' : '0000000a-0000-4000-8000-000000000001');
+        await expect(page.getByTestId('ide-analysis-status')).toContainText('coglatas.fail');
+        await page.getByTestId('ide-context').selectOption('branch-pass');
+        await expect(target).toHaveCount(0);
+      }
+      expect(writes).toEqual([]);
+    });
+  }
+
+  for (const locale of ['en', 'ja'] as const) {
+    test(`opens a reasoned Task candidate without claiming requirement satisfaction in ${locale}`, async ({ page }) => {
+      await page.addInitScript(locale => {
+        localStorage.setItem('coglatas.locale', locale); window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };
+      }, locale);
+      const writes: string[] = []; page.on('request', request => {
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method()) && /\/api\/(?:projectide|projects|compiler)(?:\/|$)/u.test(new URL(request.url()).pathname)) writes.push(request.method());
+      });
+      await page.goto('/app/projectide/preview'); const load = locale === 'en' ? 'Load result fixture' : '結果Fixtureを読み込む';
+      const source = locale === 'en' ? 'Source' : 'ソース';
+      for (const key of ['Enter', 'Space']) {
+        await page.getByTestId('ide-context').selectOption('requirement-candidates'); await page.getByRole('button', { name: load, exact: true }).click();
+        await page.getByRole('button', { name: source, exact: true }).click();
+        await page.getByRole('button', { name: 'coglatas.requirement · 0000000b-0000-4000-8000-000000000001', exact: true }).click();
+        const suggestions = page.getByTestId('ide-requirement-task-suggestions'); await expect(suggestions).toHaveCount(1);
+        await expect(suggestions).toContainText(locale === 'en' ? 'They do not prove requirement satisfaction' : '要件充足の証明にはなりません');
+        await expect(suggestions).toContainText(locale === 'en' ? 'Reason: declared Task' : '理由: 読み込み済みスナップショット内のTask宣言');
+        await expectNoAccessibilityViolations(page, 'app-projectide-workbench'); const action = suggestions.getByRole('button'); await action.focus(); await action.press(key);
+        await expect(page.getByTestId('ide-context')).toHaveValue('requirement-candidates');
+        await expect(page.getByTestId('ide-source-target')).toContainText('Observe 🌌'); await expect(page.getByTestId('ide-source-target')).toBeFocused();
+        await expect(page.locator('pre.source-buffer')).toContainText('Candidate observation tasks 11');
+        await expect(page.getByTestId('ide-requirement-task-suggestions')).toHaveCount(0);
+      }
+      expect(writes).toEqual([]);
+    });
+  }
+  for (const locale of ['en', 'ja'] as const) {
+    test(`keeps opaque envelope values visible and incomplete in ${locale}`, async ({ page }) => {
+      await page.addInitScript(locale => {
+        localStorage.setItem('coglatas.locale', locale); window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };
+      }, locale);
+      const writes: string[] = []; page.on('request', request => {
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method()) && /\/api\/(?:projectide|projects|compiler)(?:\/|$)/u.test(new URL(request.url()).pathname)) writes.push(request.method());
+      });
+      await page.goto('/app/projectide/preview'); await page.getByTestId('ide-context').selectOption('envelope-before');
+      await page.getByRole('button', { name: locale === 'en' ? 'Load result fixture' : '結果Fixtureを読み込む', exact: true }).click();
+      await page.getByRole('button', { name: locale === 'en' ? 'Semantic Diff' : '意味差分', exact: true }).click();
+      await expect(page.getByTestId('ide-diff-state')).toHaveText('Incomplete'); await expect(page.getByTestId('ide-diff-empty')).toHaveCount(0);
+      const rows = page.getByTestId('ide-diff-rows'); await expect(rows.locator(':scope > li')).toHaveCount(5);
+      await expect(rows).toContainText('/future~1field~0'); await expect(rows).toContainText('Uninterpreted');
+      const details = rows.locator('details'); await expect(details).toHaveCount(10);
+      for (let index = 0; index < 10; index++) {
+        const item = details.nth(index); const summary = item.locator('summary'); await summary.focus(); await summary.press('Enter');
+        await expect(item.locator('pre')).toBeVisible(); await expect(item.locator('pre')).toHaveAttribute('tabindex', '0');
+      }
+      await expect(rows).toContainText('Source original'); await expect(rows).toContainText('Source changed');
+      await expect(rows).toContainText('Opaque Source hint original'); await expect(rows).toContainText('Opaque Source hint changed');
+      await expect(rows).toContainText('Document Digest original'); await expect(rows).toContainText('Manifest Digest changed');
+      await expect(rows.getByRole('button')).toHaveCount(0); await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+      expect(writes).toEqual([]);
+    });
+  }
+  for (const locale of ['en', 'ja'] as const) {
+    test(`opens a new Core-prepared inverse Draft with keyboard in ${locale}`, async ({ page }) => {
+      await page.addInitScript(locale => {
+        localStorage.setItem('coglatas.locale', locale); window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };
+      }, locale);
+      const writes: string[] = []; page.on('request', request => {
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method()) && /\/api\/(?:projectide|projects|compiler)(?:\/|$)/u.test(new URL(request.url()).pathname)) writes.push(request.method());
+      });
+      await page.goto('/app/projectide/preview');
+      for (const key of ['Enter', 'Space']) {
+        await page.getByTestId('ide-context').selectOption('document-after');
+        await page.getByRole('button', { name: locale === 'en' ? 'Load result fixture' : '結果Fixtureを読み込む', exact: true }).click();
+        await page.getByRole('button', { name: locale === 'en' ? 'Snapshot History' : 'スナップショット履歴', exact: true }).click();
+        await expect(page.getByTestId('ide-draft-revert')).toBeVisible(); await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+        const action = page.getByTestId('ide-draft-revert').getByRole('button'); await action.focus(); await action.press(key);
+        await expect(page.getByTestId('ide-context')).toHaveValue('revert-draft');
+        await expect(page.getByRole('heading', { name: locale === 'en' ? 'Source' : 'ソース', exact: true })).toBeFocused();
+        await expect(page.locator('pre.source-buffer')).toContainText('coglatas.candidate');
+        await expect(page.locator('pre.source-buffer')).not.toContainText('Opaque document annotation');
+      }
+      expect(writes).toEqual([]);
+    });
+  }
+  for (const locale of ['en', 'ja'] as const) {
+    test(`opens Core-reconstructed historical snapshots with keyboard in ${locale}`, async ({ page }) => {
+      await page.addInitScript(locale => {
+        localStorage.setItem('coglatas.locale', locale); window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };
+      }, locale);
+      const writes: string[] = []; page.on('request', request => {
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method()) && /\/api\/(?:projectide|projects|compiler)(?:\/|$)/u.test(new URL(request.url()).pathname)) writes.push(request.method());
+      });
+      await page.goto('/app/projectide/preview');
+      const history = locale === 'en' ? 'Snapshot History' : 'スナップショット履歴';
+      const source = locale === 'en' ? 'Source' : 'ソース'; const load = locale === 'en' ? 'Load result fixture' : '結果Fixtureを読み込む';
+      for (const key of ['Enter', 'Space']) {
+        await page.getByTestId('ide-context').selectOption('document-before'); await page.getByRole('button', { name: load, exact: true }).click();
+        await page.getByRole('button', { name: history, exact: true }).click();
+        await expect(page.getByTestId('ide-history-state')).toContainText('Ready · Unsupported');
+        await expect(page.getByTestId('ide-history-revisions').locator('li')).toHaveCount(2);
+        await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+        const button = page.getByTestId('ide-history-revisions').getByRole('button').nth(1); await button.focus(); await button.press(key);
+        await expect(page.getByTestId('ide-context')).toHaveValue('document-after');
+        await expect(page.getByRole('heading', { name: source, exact: true })).toBeFocused();
+        await expect(page.locator('pre.source-buffer')).toContainText('Opaque document annotation');
+        await expect(page.getByTestId('ide-history-revisions')).toHaveCount(0);
+      }
+      expect(writes).toEqual([]);
+    });
+  }
+  for (const locale of ['en', 'ja'] as const) {
+    test(`navigates exact semantic difference snapshots with keyboard in ${locale}`, async ({ page }) => {
+      await page.addInitScript(locale => {
+        localStorage.setItem('coglatas.locale', locale);
+        window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };
+      }, locale);
+      const writes: string[] = [];
+      page.on('request', request => {
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method()) && /\/api\/(?:projectide|projects|compiler)(?:\/|$)/u.test(new URL(request.url()).pathname)) writes.push(request.method());
+      });
+      await page.goto('/app/projectide/preview');
+      const load = locale === 'en' ? 'Load result fixture' : '結果Fixtureを読み込む';
+      const tab = locale === 'en' ? 'Semantic Diff' : '意味差分';
+      for (const [side, key] of [['before', 'Enter'], ['after', 'Space']] as const) {
+        await page.getByTestId('ide-context').selectOption('draft-before');
+        await page.getByRole('button', { name: load, exact: true }).click();
+        await page.getByRole('button', { name: tab, exact: true }).click();
+        await expect(page.getByTestId('ide-diff-state')).toHaveText('Complete');
+        await expect(page.getByTestId('ide-diff-rows')).toContainText('DisplayName');
+        const details = page.getByTestId('ide-diff-rows').locator('details').first(); await details.locator('summary').click();
+        const value = details.locator('pre'); await expect(value).toHaveAttribute('tabindex', '0');
+        // Force overflow on the actual rendered value region; keyboard scrolling must remain available.
+        await value.evaluate(element => { element.style.maxHeight = '1px'; });
+        expect(await value.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
+        await value.focus(); await value.press('ArrowDown');
+        await expect.poll(() => value.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+        const button = page.getByRole('button', { name: locale === 'en' ? `Open ${side} snapshot` : side === 'before' ? '変更前のスナップショットを開く' : '変更後のスナップショットを開く', exact: true });
+        await button.focus(); await button.press(key);
+        await expect(page.getByTestId('ide-context')).toHaveValue(side === 'before' ? 'draft-before' : 'draft-after');
+        await expect(page.getByTestId('ide-source-target')).toContainText(side === 'before' ? 'Observe 🌌' : 'Observe renamed 🌌');
+        await expect(page.getByTestId('ide-source-target')).toBeFocused();
+        await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+      }
+      await page.getByTestId('ide-context').selectOption('document-before');
+      await page.getByRole('button', { name: load, exact: true }).click();
+      await page.getByRole('button', { name: tab, exact: true }).click();
+      await expect(page.getByTestId('ide-diff-state')).toHaveText('Incomplete');
+      await expect(page.getByTestId('ide-diff-rows')).toContainText('Uninterpreted');
+      await expect(page.getByTestId('ide-diff-rows')).toContainText('/extensions');
+      await page.getByTestId('ide-context').selectOption('unsupported');
+      await page.getByRole('button', { name: load, exact: true }).click();
+      await page.getByRole('button', { name: tab, exact: true }).click();
+      await expect(page.getByTestId('ide-diff-state')).toHaveText('Incomplete');
+      await expect(page.getByTestId('ide-diff-empty')).toHaveCount(0); expect(writes).toEqual([]);
+    });
+  }
+  for (const locale of ['en', 'ja'] as const) {
+    test(`loads a Core-prepared Draft rename with Enter and Space in ${locale}`, async ({ page }) => {
+      await page.addInitScript(locale => {
+        localStorage.setItem('coglatas.locale', locale);
+        window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };
+      }, locale);
+      const writes: string[] = [];
+      page.on('request', request => {
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method()) && /\/api\/(?:projectide|projects|compiler)(?:\/|$)/u.test(new URL(request.url()).pathname))
+          writes.push(request.method() + ' ' + new URL(request.url()).pathname);
+      });
+      await page.goto('/app/projectide/preview');
+      const source = locale === 'en' ? 'Source' : 'ソース';
+      const load = locale === 'en' ? 'Load result fixture' : '結果Fixtureを読み込む';
+      for (const key of ['Enter', 'Space']) {
+        await page.getByTestId('ide-context').selectOption('draft-before');
+        await page.getByRole('button', { name: load, exact: true }).click();
+        await expect(page.getByTestId('projectide-workbench')).toContainText('00000032-0000-4000-8000-000000000001');
+        await page.getByRole('button', { name: source, exact: true }).click();
+        await page.getByRole('button', { name: 'coglatas.task · 00000008-0000-4000-8000-000000000001', exact: true }).click();
+        const preview = page.getByTestId('ide-draft-rename');
+        await expect(preview).toContainText('Observe 🌌');
+        await expect(preview).toContainText('Observe renamed 🌌');
+        const button = preview.getByRole('button', { name: locale === 'en' ? 'Load prepared Draft fixture' : '準備済みDraft Fixtureを読み込む', exact: true });
+        await button.focus(); await button.press(key);
+        await expect(page.getByTestId('ide-context')).toHaveValue('draft-after');
+        await expect(page.getByRole('heading', { name: source, exact: true })).toBeFocused();
+        await expect(page.locator('pre.source-buffer')).toContainText('Observe renamed');
+        await expect(page.getByTestId('ide-source-target')).toHaveCount(0);
+        await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+      }
+      expect(writes).toEqual([]);
+    });
+  }
+
+  test('opens related Inspector findings with Enter and Space and follows their exact source', async ({ page }) => {
+    await preview(page);
+    await choose(page, 'fail');
+    await page.getByRole('button', { name: 'Source', exact: true }).click();
+    await page.getByRole('button', {
+      name: 'coglatas.constraint · 00000007-0000-4000-8000-000000000001', exact: true,
+    }).click();
+    const related = page.getByTestId('ide-related-diagnostics');
+    const finding = related.getByRole('button', { name: /^Inspect diagnostic: coglatas.analysis.constraint-false/u });
+    await expect(finding).toHaveAttribute('aria-pressed', 'false');
+    await finding.focus();
+    await finding.press('Enter');
+    await expect(finding).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('heading', { name: 'Inspector', exact: true })).toBeFocused();
+    await finding.focus();
+    await finding.press('Space');
+    await expect(finding).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('heading', { name: 'Inspector', exact: true })).toBeFocused();
+    await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+    await page.getByRole('button', { name: 'Go to source location', exact: true }).click();
+    await expect(page.getByTestId('ide-source-target')).toContainText('00000007-0000-4000-8000-000000000001');
+    await expect(page.getByTestId('ide-source-target')).toBeFocused();
+    await page.getByTestId('ide-context').selectOption('branch-pass');
+    await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+    await expect(related).toHaveCount(0);
+    await expect(page.getByTestId('ide-source-target')).toHaveCount(0);
+  });
+
+  test('keeps visible filter choices aligned with retained Problems state after panel recreation', async ({ page }) => {
+    await preview(page);
+    await choose(page, 'fail');
+    await page.getByRole('button', { name: 'Problems', exact: true }).click();
+    const severity = page.getByLabel(/^Severity/u);
+    const kind = page.getByLabel(/^Diagnostic kind/u);
+    await severity.selectOption('coglatas.warning');
+    const rule = await kind.locator('option').nth(1).getAttribute('value');
+    expect(rule).toBeTruthy();
+    await kind.selectOption(rule!);
+    await page.getByRole('button', { name: 'Overview', exact: true }).click();
+    await page.getByRole('button', { name: 'Problems', exact: true }).click();
+    await expect(severity).toHaveValue('coglatas.warning');
+    await expect(kind).toHaveValue(rule!);
+    await expect(page.getByTestId('projectide-workbench')).toContainText('0 of 1 diagnostics');
+    await severity.selectOption('');
+    await kind.selectOption('');
+    await page.getByRole('button', { name: 'Overview', exact: true }).click();
+    await page.getByRole('button', { name: 'Problems', exact: true }).click();
+    await expect(severity).toHaveValue('');
+    await expect(kind).toHaveValue('');
+    await expect(page.getByTestId('projectide-workbench')).toContainText('1 of 1 diagnostics');
+  });
+  for (const mutation of [
+    "outside-document",
+    "duplicate-artifact",
+    "missing-proof",
+  ]) {
+    test(`rejects inconsistent synthetic ${mutation} before displaying Source`, async ({
+      page,
+    }) => {
+      await page.route(
+        "**/assets/projectide/preview-v1.json",
+        async (route) => {
+          const response = await route.fetch();
+          const body = await response.json();
+          const value = body.cases[0];
+          if (mutation === "outside-document") {
+            value.result.diagnostics[0].primaryLocation.documentId = "absent";
+          } else if (mutation === "duplicate-artifact") {
+            value.result.artifacts.push(value.result.artifacts[0]);
+          } else {
+            value.result.rules[0].evidence.premises = [];
+          }
+          await route.fulfill({ json: body });
+        },
+      );
+      await preview(page);
+      await expect(page.getByTestId("projectide-workbench")).toContainText(
+        mutation === "outside-document"
+          ? "Scope or revision mismatch"
+          : "Unsupported",
+      );
+      await expect(page.getByTestId("ide-context")).toHaveCount(0);
+      await expect(page.getByTestId("ide-source-target")).toHaveCount(0);
+    });
+  }
+  test('completes context, Source, Problems, Inspector and source navigation in a real browser', async ({
+    page,
+  }, info) => {
+    const requests: string[] = [];
+    page.on('request', (r) => {
+      if (new URL(r.url()).pathname.startsWith('/api/'))
+        requests.push(`${r.method()} ${new URL(r.url()).pathname}`);
+    });
+    await preview(page);
+    await page.getByTestId('ide-context').selectOption('fail');
+    const workbench = page.getByTestId('projectide-workbench');
+    await expect(workbench).toContainText('Synthetic fixture preview');
+    await expect(page.getByTestId('ide-analysis-status')).toContainText(
+      'Compiler execution: NotRun',
+    );
+    await page.getByRole('button', { name: 'Source', exact: true }).click();
+    await expect(page.locator('.source-buffer')).toContainText('Observe 🌌');
+    await page
+      .getByRole('button', { name: 'Load result fixture', exact: true })
+      .click();
+    await page.getByRole('button', { name: 'Problems', exact: true }).click();
+    await expect(workbench).toContainText('1 of 1 diagnostics');
+    await page
+      .getByRole('button', {
+        name: 'Inspect diagnostic: coglatas.analysis.constraint-false',
+        exact: true,
+      })
+      .click();
+    await expect(
+      page.getByRole('heading', { name: 'Inspector', exact: true }),
+    ).toBeFocused();
+    await expect(workbench).toContainText('coglatas.constraint');
+    await expect(workbench).toContainText('Launch readiness');
+    await page.screenshot({
+      path: info.outputPath('inspector.png'),
+      fullPage: true,
+    });
+    await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+    await page
+      .getByRole('button', { name: 'Go to source location', exact: true })
+      .click();
+    await expect(page.getByTestId('ide-source-target')).toContainText(
+      '00000007-0000-4000-8000-000000000001',
+    );
+    await expect(page.getByTestId('ide-source-target')).toBeFocused();
+    await page.screenshot({
+      path: info.outputPath('source-navigation.png'),
+      fullPage: true,
+    });
+    await info.attach('source-navigation', {
+      path: info.outputPath('source-navigation.png'),
+      contentType: 'image/png',
+    });
+    expect(requests.filter((r) => !r.startsWith('GET '))).toEqual([]);
+    expect(
+      requests.some((r) => /compiler|projectide|\/api\/projects\//u.test(r)),
+    ).toBe(false);
+    await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+  });
+  test('drops prior revision results, selection and source targets', async ({
+    page,
+  }) => {
+    await preview(page);
+    await choose(page, 'fail');
+    await page.getByRole('button', { name: 'Problems', exact: true }).click();
+    await page.getByRole('button', { name: /^Inspect diagnostic:/u }).click();
+    await page.getByTestId('ide-context').selectOption('stale-pass');
+    await expect(page.getByTestId('ide-analysis-status')).toContainText(
+      'Compiler execution: NotRun',
+    );
+    await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+    await expect(page.getByTestId('projectide-workbench')).toContainText(
+      'Select a diagnostic',
+    );
+    await expect(
+      page.getByRole('button', { name: 'Go to source location', exact: true }),
+    ).toHaveCount(0);
+  });
+  test('keeps stale PASS visible and blocks source navigation', async ({
+    page,
+  }) => {
+    await preview(page);
+    await choose(page, 'stale-pass');
+    await expect(page.getByTestId('ide-analysis-status')).toContainText(
+      'Stale result',
+    );
+    await expect(page.getByTestId('ide-analysis-status')).not.toContainText(
+      'Complete current PASS',
+    );
+    await page.getByRole('button', { name: 'Source', exact: true }).click();
+    await page
+      .getByRole('button', {
+        name: 'coglatas.project · 00000006-0000-4000-8000-000000000001',
+        exact: true,
+      })
+      .click();
+    await page
+      .getByRole('button', { name: 'Go to source location', exact: true })
+      .click();
+    await expect(
+      page.locator('app-projectide-workbench [role="alert"]'),
+    ).toContainText('Stale result');
+    await expect(page.getByTestId('ide-source-target')).toHaveCount(0);
+  });
+  test('distinguishes unknown, unsupported and zero unexecuted findings', async ({
+    page,
+  }) => {
+    await preview(page);
+    for (const key of [
+      'unknown',
+      'unsupported',
+      'not-run',
+      'cancelled',
+      'timeout',
+    ]) {
+      await choose(page, key);
+      await page.getByRole('button', { name: 'Problems', exact: true }).click();
+      await expect(page.getByTestId('ide-analysis-status')).toContainText(
+        'Analysis is incomplete',
+      );
+      await expect(page.getByTestId('ide-analysis-status')).not.toContainText(
+        'Complete current PASS',
+      );
+    }
+  });
+  test('keeps preview disabled and avoids fetching artifacts without explicit opt-in', async ({
+    page,
+  }) => {
+    let reads = 0;
+    page.on('request', (r) => {
+      if (r.url().endsWith('/projectide/preview-v1.json')) reads++;
+    });
+    await preview(page, false);
+    await expect(page.getByTestId('projectide-workbench')).toContainText(
+      'preview is disabled',
+    );
+    expect(reads).toBe(0);
+  });
+  test('rejects an unauthorized context read without exposing cached content', async ({
+    page,
+  }) => {
+    await page.route('**/assets/projectide/preview-v1.json', (r) =>
+      r.fulfill({ status: 403, body: 'private details' }),
+    );
+    await preview(page);
+    await expect(page.getByTestId('projectide-workbench')).toContainText(
+      'denied',
+    );
+    await expect(page.getByTestId('projectide-workbench')).not.toContainText(
+      'private details',
+    );
+    await expect(page.getByTestId('ide-context')).toHaveCount(0);
+  });
+  test('rejects wrong-scope artifact diagnostics before rendering context', async ({
+    page,
+  }) => {
+    await page.route('**/assets/projectide/preview-v1.json', async (route) => {
+      const response = await route.fetch();
+      const body = await response.json();
+      body.cases[0].result.diagnostics[0].primaryLocation.context.branch.tenantId =
+        'wrong-tenant';
+      await route.fulfill({ json: body });
+    });
+    await preview(page);
+    await expect(page.getByTestId('projectide-workbench')).toContainText(
+      'Scope or revision mismatch',
+    );
+    await expect(page.getByTestId('ide-context')).toHaveCount(0);
+  });
+  test('recovers from an unavailable read without reusing an earlier result', async ({
+    page,
+  }) => {
+    let fail = true;
+    await page.route('**/assets/projectide/preview-v1.json', (route) =>
+      fail ? route.fulfill({ status: 503, body: 'private' }) : route.continue(),
+    );
+    await preview(page);
+    await expect(page.getByTestId('projectide-workbench')).toContainText(
+      'Preview could not be loaded',
+    );
+    fail = false;
+    await page
+      .getByRole('button', { name: 'Reload preview', exact: true })
+      .click();
+    await choose(page, 'pass');
+    await expect(page.getByTestId('ide-analysis-status')).toContainText(
+      'Complete current PASS fixture',
+    );
+  });
+  test('rejects malformed nested artifact data before navigation can render it', async ({
+    page,
+  }) => {
+    await page.route('**/assets/projectide/preview-v1.json', async (route) => {
+      const response = await route.fetch();
+      const body = await response.json();
+      delete body.cases[0].sourceMap.nodes;
+      await route.fulfill({ json: body });
+    });
+    await preview(page);
+    await expect(page.getByTestId('projectide-workbench')).toContainText(
+      'Unsupported preview contract version or value',
+    );
+    await expect(page.getByTestId('ide-context')).toHaveCount(0);
+  });
+  test('cancels loading and discards a delayed artifact', async ({ page }) => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route('**/assets/projectide/preview-v1.json', async (route) => {
+      await held;
+      await route.continue().catch(() => undefined);
+    });
+    await preview(page);
+    await page
+      .getByRole('button', { name: 'Cancel loading', exact: true })
+      .click();
+    release();
+    await expect(page.getByTestId('projectide-workbench')).toContainText(
+      'Preview loading cancelled',
+    );
+    await expect(page.getByTestId('ide-context')).toHaveCount(0);
+  });
+  test('does not admit an unauthenticated route', async ({ page }) => {
+    await page.route('**/api/auth/me', (r) =>
+      r.fulfill({ status: 401, body: '{}' }),
+    );
+    await page.route('**/api/auth/status', (r) =>
+      r.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: '{"isAuthenticated":false}',
+      }),
+    );
+    await preview(page);
+    await expect(page).toHaveURL(/\/app\/login/u);
+    await expect(page.getByTestId('projectide-workbench')).toHaveCount(0);
+  });
+  test('supports keyboard-only context, Problems, Inspector and navigation', async ({
+    page,
+  }) => {
+    await preview(page);
+    const context = page.getByTestId('ide-context');
+    await context.focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(context).toHaveValue('fail');
+    const load = page.getByRole('button', {
+      name: 'Load result fixture',
+      exact: true,
+    });
+    await expect(load).toBeVisible();
+    await page.keyboard.press('Tab');
+    await expect(load).toBeFocused();
+    await page.keyboard.press('Enter');
+    for (let i = 0; i < 3; i++) await page.keyboard.press('Tab');
+    await expect(
+      page.getByRole('button', { name: 'Problems', exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press('Enter');
+    const inspect = page.getByRole('button', { name: /^Inspect diagnostic:/u });
+    for (
+      let i = 0;
+      i < 6 && !(await inspect.evaluate((el) => el === document.activeElement));
+      i++
+    )
+      await page.keyboard.press('Tab');
+    await expect(inspect).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(
+      page.getByRole('heading', { name: 'Inspector', exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(
+      page.getByRole('button', { name: 'Close Inspector', exact: true }),
+    ).toBeFocused();
+    const go = page.getByRole('button', {
+      name: 'Go to source location',
+      exact: true,
+    });
+    for (
+      let i = 0;
+      i < 8 && !(await go.evaluate((el) => el === document.activeElement));
+      i++
+    ) {
+      await page.keyboard.press('Tab');
+    }
+    await expect(go).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('ide-source-target')).toBeVisible();
+  });
+  test('renders Japanese copy while retaining semantic diagnostic codes', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('coglatas.locale', 'ja');
+      window.__COGLATAS_FEATURE_FLAGS__ = {
+        'projectide.syntheticPreview': true,
+      };
+    });
+    await page.goto('/app/projectide/preview');
+    await page.getByTestId('ide-context').selectOption('fail');
+    await page
+      .getByRole('button', { name: '結果Fixtureを読み込む', exact: true })
+      .click();
+    await page.getByRole('button', { name: '問題', exact: true }).click();
+    await expect(page.getByTestId('projectide-workbench')).toContainText(
+      '合成Fixtureプレビュー',
+    );
+    await expect(page.getByTestId('projectide-workbench')).toContainText(
+      'coglatas.analysis.constraint-false',
+    );
+    await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+  });
+});
+
+test('ProjectIDE synthetic semantic inspection shows Source-bound symbols and clears across contexts', async ({ page }) => {
+  await preview(page);
+  await choose(page, 'pass');
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  await page.getByRole('button', { name: /coglatas.project ·/u }).click();
+  const inspection = page.getByTestId('ide-semantic-inspection');
+  await expect(inspection).toBeVisible();
+  await expect(inspection).toContainText('coglatas.project');
+  await expect(inspection).toContainText('Resolved references in loaded scope: 1');
+  await expect(page.getByRole('button', { name: 'Compile unavailable', exact: true })).toBeDisabled();
+  await choose(page, 'branch-pass');
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  await expect(inspection).toHaveCount(0);
+});
+
+test('ProjectIDE synthetic Diagnostic reload clears the previous Inspector and Source selection', async ({ page }) => {
+  await preview(page);
+  await choose(page, 'fail');
+  await page.getByRole('button', { name: 'Problems', exact: true }).click();
+  await page.getByRole('button', { name: /^Inspect diagnostic:/u }).click();
+  await page.getByRole('button', { name: 'Go to source location', exact: true }).click();
+  await expect(page.getByTestId('ide-source-target')).toBeFocused();
+  const reload = page.getByRole('button', { name: 'Load result fixture', exact: true });
+  await reload.focus();
+  await page.keyboard.press('Enter');
+  await expect(reload).toBeFocused();
+  await expect(page.getByTestId('ide-source-target')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Go to source location', exact: true })).toHaveCount(0);
+  await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+});
+
+test('ProjectIDE synthetic Diagnostic Inspector refuses an invalid property location', async ({ page }) => {
+  await page.route('**/assets/projectide/preview-v1.json', async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.cases[0].result.diagnostics[0].primaryLocation.propertyPath = '/payload/missing';
+    await route.fulfill({ json: body });
+  });
+  await preview(page);
+  await choose(page, 'fail');
+  await page.getByRole('button', { name: 'Problems', exact: true }).click();
+  await page.getByRole('button', { name: /^Inspect diagnostic:/u }).click();
+  await expect(page.getByRole('heading', { name: 'Inspector', exact: true })).toBeFocused();
+  await page.getByRole('button', { name: 'Go to source location', exact: true }).click();
+  await expect(page.getByTestId('ide-source-target')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Declared properties', exact: true })).toHaveCount(0);
+});
+
+test('ProjectIDE synthetic Diagnostic navigates to an exact Source-backed symbol', async ({ page }) => {
+  await preview(page);
+  await choose(page, 'fail');
+  await page.getByRole('button', { name: 'Problems', exact: true }).click();
+  await page.getByRole('button', { name: /^Inspect diagnostic:/u }).click();
+  await page.getByRole('button', { name: 'Go to related symbol source', exact: true }).click();
+  await expect(page.getByTestId('ide-source-target')).toBeFocused();
+  await expect(page.getByTestId('ide-source-target')).toContainText('00000007-0000-4000-8000-000000000001');
+  await choose(page, 'unsupported');
+  await page.getByRole('button', { name: 'Problems', exact: true }).click();
+  await page.getByRole('button', { name: 'Inspect diagnostic: coglatas.binding.unsupported-declaration', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Go to related symbol source', exact: true })).toHaveCount(0);
+  await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+});
+
+test('ProjectIDE synthetic local reference origin and definition have separate keyboard targets', async ({ page }) => {
+  await preview(page);
+  await choose(page, 'unknown');
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  await page.getByRole('button', { name: /00000014-0000-4000-8000-000000000001/u }).click();
+  await expect(page.getByRole('heading', { name: 'Inspector', exact: true })).toBeFocused();
+  const reference = page.getByRole('button', { name: /^Reference origin.*\/target$/u });
+  for (let i = 0; i < 12 && !(await reference.evaluate((el) => el === document.activeElement)); i++) {
+    await page.keyboard.press('Tab');
+  }
+  await expect(reference).toBeFocused();
+  await page.keyboard.press('Enter');
+  const origin = page.getByRole('button', { name: 'Go to reference origin', exact: true });
+  for (let i = 0; i < 5 && !(await origin.evaluate((el) => el === document.activeElement)); i++) {
+    await page.keyboard.press('Tab');
+  }
+  await expect(origin).toBeFocused();
+  await page.keyboard.press('Enter');
+  const target = page.getByTestId('ide-source-target');
+  await expect(target).toBeFocused();
+  await expect(page.getByTestId('ide-source-location')).toContainText('/target');
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  await page.getByRole('button', { name: 'Go to definition', exact: true }).click();
+  await expect(target).toBeFocused();
+  await expect(target).toContainText('00000006-0000-4000-8000-000000000001');
+  await expect(page.getByTestId('ide-source-location')).toHaveText('/');
+  await choose(page, 'stale-pass');
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  await expect(target).toHaveCount(0);
+  await page.getByRole('button', { name: /00000014-0000-4000-8000-000000000001/u }).click();
+  await expect(page.getByRole('button', { name: 'Go to definition', exact: true })).toHaveCount(0);
+  await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+});
+
+test('ProjectIDE synthetic local reference definition is available in Japanese', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('coglatas.locale', 'ja');
+    window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };
+  });
+  await page.goto('/app/projectide/preview');
+  await page.getByTestId('ide-context').selectOption('pass');
+  await page.getByRole('button', { name: '結果Fixtureを読み込む', exact: true }).click();
+  await page.getByRole('button', { name: 'ソース', exact: true }).click();
+  await page.getByRole('button', { name: /00000014-0000-4000-8000-000000000001/u }).click();
+  await page.getByRole('button', { name: /^参照元.*\/source$/u }).click();
+  await page.getByRole('button', { name: '定義へ移動', exact: true }).click();
+  await expect(page.getByTestId('ide-source-target')).toContainText('00000007-0000-4000-8000-000000000001');
+});
+
+test('ProjectIDE synthetic Find References navigates from an exact symbol to its origin', async ({ page }) => {
+  await preview(page);
+  await choose(page, 'unknown');
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  await page.getByRole('button', { name: /coglatas.project ·/u }).click();
+  await page.getByRole('button', { name: /^Find references · coglatas.project ·/u }).click();
+  const search = page.getByTestId('ide-reference-search');
+  await expect(search).toContainText(/Matching navigable local references: 1(?!\d)/u);
+  await expect(page.getByRole('button', { name: /^Reference origin ·/u })).toHaveCount(1);
+  await expect(search).toContainText('Coverage is incomplete.');
+  await page.getByRole('button', { name: /^Reference origin.*\/target$/u }).click();
+  await page.getByRole('button', { name: 'Go to reference origin', exact: true }).click();
+  await expect(page.getByTestId('ide-source-target')).toBeFocused();
+  await expect(page.getByTestId('ide-source-location')).toContainText('/target');
+  await choose(page, 'branch-pass');
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  await expect(search).toHaveCount(0);
+});
+
+test('ProjectIDE synthetic Find References interpolates the count in Japanese', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('coglatas.locale', 'ja');
+    window.__COGLATAS_FEATURE_FLAGS__ = { 'projectide.syntheticPreview': true };
+  });
+  await page.goto('/app/projectide/preview');
+  await page.getByTestId('ide-context').selectOption('unknown');
+  await page.getByRole('button', { name: '結果Fixtureを読み込む', exact: true }).click();
+  await page.getByRole('button', { name: 'ソース', exact: true }).click();
+  await page.getByRole('button', { name: /coglatas.project ·/u }).click();
+  await page.getByRole('button', { name: /^参照を検索 · coglatas.project ·/u }).click();
+  const search = page.getByTestId('ide-reference-search');
+  await expect(search).toContainText('移動可能なローカル参照: 1 件');
+  await expect(search).toContainText('参照の取得範囲は不完全です。');
+});
+
+const referencePageCase = JSON.parse(readFileSync('frontend/public/assets/projectide/preview-v1.json', 'utf8')).cases
+  .find((item: {key: string}) => item.key === 'reference-pages');
+for (const locale of ['en', 'ja'] as const) {
+  test('pages through all 35 original Core references with keyboard in ' + locale, async ({page}) => {
+    await page.addInitScript(locale => {
+      localStorage.setItem('coglatas.locale', locale); window.__COGLATAS_FEATURE_FLAGS__ = {'projectide.syntheticPreview': true};
+    }, locale);
+    const writes: string[] = [];
+    page.on('request', request => { if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method())) writes.push(request.method()); });
+    await page.goto('/app/projectide/preview');
+    const button = (en: string, ja: string) => page.getByRole('button', {name: locale === 'en' ? en : ja, exact: true});
+    const origins = page.getByRole('button', {name: locale === 'en' ? /^Reference origin ·/u : /^参照元 ·/u});
+    for (const key of ['Enter', 'Space']) {
+      await page.getByTestId('ide-context').selectOption('reference-pages');
+      await button('Load result fixture', '結果Fixtureを読み込む').click(); await button('Source', 'ソース').click();
+      await button('Read fixed root Source', '固定されたルートソースを読む').focus(); await page.keyboard.press(key);
+      await expect(page.getByTestId('ide-root-source')).toBeFocused();
+      await page.getByRole('button', {name: /^coglatas.project ·/u}).click();
+      const query = page.getByRole('button', {name: locale === 'en' ? /^Find references · coglatas.project ·/u : /^参照を検索 · coglatas.project ·/u});
+      await query.focus(); await query.press(key);
+      const current = page.getByTestId('ide-reference-page'); await expect(current).toBeFocused();
+      await expect(current).toContainText(locale === 'en' ? 'Reference page 1 of 2 · 32' : '参照ページ 1 / 2 · 移動可能な参照元 32');
+      await expect(origins).toHaveCount(32); await expect(page.getByTestId('ide-reference-previous')).toBeDisabled();
+      await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+      await page.getByTestId('ide-reference-next').focus(); await page.keyboard.press(key);
+      await expect(current).toBeFocused(); await expect(origins).toHaveCount(3);
+      await expect(page.getByTestId('ide-reference-next')).toBeDisabled();
+      await expect(current).toContainText(locale === 'en' ? 'End of this local index; evidence coverage remains separate.' : 'ローカル索引の末尾です。証拠の網羅性とは別です。');
+      const last = referencePageCase.semanticInspection.references[34];
+      const record = referencePageCase.declarations.find((item: {identity: string}) => item.identity === last.origin.entityId);
+      await origins.nth(2).focus(); await page.keyboard.press(key);
+      await button('Go to reference origin', '参照元へ移動').focus(); await page.keyboard.press(key);
+      await expect(page.getByTestId('ide-source-target')).toBeFocused();
+      await expect(page.getByTestId('ide-source-target').locator('pre')).toHaveText(JSON.stringify(record.data, null, 2));
+      await expect(page.getByTestId('ide-source-location')).toHaveText(last.origin.propertyPath);
+      await expect(page.getByTestId('ide-analysis-status')).toContainText(referencePageCase.result.verdict);
+      expect(referencePageCase.result.evidenceComplete).toBe(false);
+      await button('Inspector', 'インスペクター').click();
+      await page.getByTestId('ide-reference-previous').focus(); await page.keyboard.press(key);
+      await expect(current).toBeFocused(); await expect(origins).toHaveCount(32);
+      await button('Source', 'ソース').click(); await expect(page.getByTestId('ide-source-target')).toHaveCount(0);
+      await button('Read fixed root Source', '固定されたルートソースを読む').click();
+      await button('Inspector', 'インスペクター').click(); await expect(current).toHaveCount(0);
+      await expect(page.getByTestId('ide-source-target')).toHaveCount(0);
+      await page.getByTestId('ide-context').selectOption('branch-pass'); await expect(current).toHaveCount(0);
+    }
+    await expectNoAccessibilityViolations(page, 'app-projectide-workbench');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    expect(writes).toEqual([]);
+  });
+}

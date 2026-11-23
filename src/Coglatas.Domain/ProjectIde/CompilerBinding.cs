@@ -1,0 +1,508 @@
+using System.Text.Json;
+
+namespace Coglatas.Domain.ProjectIde;
+
+public static class CoreCompilerRules
+{
+    public const string Schema = "coglatas.core.schema";
+    public const string Declarations = "coglatas.core.declarations";
+    public const string Relations = "coglatas.core.relations";
+    public const string Constraints = "coglatas.core.constraints";
+    public const string Requirements = "coglatas.core.requirements";
+    public const string Resources = "coglatas.core.resources";
+}
+
+public sealed record CompilerBindingFinding(RelationFindingState State, CompilerDiagnostic Diagnostic);
+public sealed record CompilerBoundReference(ProjectLocation Origin, ReferenceResolutionState State, string? SymbolKey);
+public sealed record CompilerSymbol(string Key, string Kind, EntityId EntityId, PortId? PortId, SourceRevisionContext Context, ProjectLocation Location, ValueDecodeStatus Status);
+
+/// <summary>A materialized authorized snapshot has to match an explicit input pin before it can supply symbols.</summary>
+public sealed record CompilerMaterializedSnapshot
+{
+    public ExternalSnapshotId SnapshotId { get; }
+    public string Version { get; }
+    public RelationScopeSnapshot Snapshot { get; }
+    public CompilerMaterializedSnapshot(ExternalSnapshotId snapshotId, string version, RelationScopeSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot); ArgumentException.ThrowIfNullOrWhiteSpace(version);
+        _ = snapshotId.ToString(); SnapshotId = snapshotId; Version = version; Snapshot = snapshot;
+    }
+}
+
+/// <summary>Derived editor-facing model. Full compilation remains the reference; no incremental cache or executable plan.</summary>
+public sealed class PartialSemanticModel
+{
+    public CompilerInputManifest Input { get; }
+    public IReadOnlyList<DeclarationDecodeResult> Declarations { get; }
+    public IReadOnlyList<RelationDecodeResult> Relations { get; }
+    public IReadOnlyList<CompilerSymbol> Symbols { get; }
+    public IReadOnlyList<CompilerBoundReference> References { get; }
+    public IReadOnlyList<CompilerBindingFinding> Findings { get; }
+    public IReadOnlyList<RelationScopeSnapshot> BoundSnapshots { get; }
+    internal IReadOnlyList<CompilerMaterializedSnapshot> MaterializedSnapshots { get; }
+    // Noncanonical lifetime metadata; retains no cache, Source or authority.
+    internal ReferenceBindingScope? ReferenceScope { get; }
+    internal SymbolBindingScope? SymbolScope { get; }
+    public bool BindingComplete => Findings.Count == 0 && Input.SourceCoverageComplete;
+    public int LogicalOperationsConsumed { get; }
+    internal PartialSemanticModel(CompilerInputManifest input, IEnumerable<DeclarationDecodeResult> declarations, IEnumerable<RelationDecodeResult> relations,
+        IEnumerable<CompilerSymbol> symbols, IEnumerable<CompilerBoundReference> references, IEnumerable<CompilerBindingFinding> findings, IEnumerable<RelationScopeSnapshot> snapshots,
+        int logicalOperationsConsumed = 0, IEnumerable<CompilerMaterializedSnapshot>? materializedSnapshots = null, ReferenceBindingScope? referenceScope = null, SymbolBindingScope? symbolScope = null)
+    {
+        Input = input; ReferenceScope = referenceScope; SymbolScope = symbolScope; LogicalOperationsConsumed = logicalOperationsConsumed; Declarations = new ImmutableListView<DeclarationDecodeResult>(declarations); Relations = new ImmutableListView<RelationDecodeResult>(relations);
+        Symbols = new ImmutableListView<CompilerSymbol>(symbols.OrderBy(item => item.Key, StringComparer.Ordinal));
+        References = new ImmutableListView<CompilerBoundReference>(references.OrderBy(item => item.Origin.Data.CanonicalText, StringComparer.Ordinal));
+        Findings = new ImmutableListView<CompilerBindingFinding>(findings.OrderBy(item => item.Diagnostic.StageOrdinal).ThenBy(item => item.Diagnostic.RuleId, StringComparer.Ordinal)
+            .ThenBy(item => item.Diagnostic.Location.Data.CanonicalText, StringComparer.Ordinal).ThenBy(item => item.Diagnostic.Code, StringComparer.Ordinal));
+        BoundSnapshots = new ImmutableListView<RelationScopeSnapshot>(snapshots);
+        MaterializedSnapshots = new ImmutableListView<CompilerMaterializedSnapshot>(materializedSnapshots ?? []);
+    }
+}
+
+public static class ProjectSemanticBinder
+{
+    public static PartialSemanticModel Bind(CompilerInputManifest input, IEnumerable<CompilerMaterializedSnapshot?>? materialized = null,
+        CancellationToken cancellationToken = default, PlanDeclarationReadCache? declarationCache = null, ProjectSymbolBindingCache? symbolBindingCache = null, ProjectReferenceBindingCache? referenceBindingCache = null) =>
+        BindCore(input, materialized, cancellationToken, declarationCache, null, symbolBindingCache, referenceBindingCache);
+
+    // Only closure construction can reuse the original admitted root as an implicit scope. It invents no snapshot ID/version or pin.
+    internal static PartialSemanticModel BindRegion(CompilerInputManifest input, IEnumerable<CompilerMaterializedSnapshot> materialized,
+        CompilerInputManifest root, CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache, ProjectSymbolBindingCache? symbolBindingCache = null, ProjectReferenceBindingCache? referenceBindingCache = null, ReferenceBindingScope? referenceScope = null, SymbolBindingScope? symbolScope = null) =>
+        BindCore(input, materialized, cancellationToken, declarationCache,
+            new(root.Source, true, root.SourceCoverageComplete, root.SourceCoverageComplete), symbolBindingCache, referenceBindingCache, root.Source.Context.Branch, referenceScope, symbolScope);
+
+    private static PartialSemanticModel BindCore(CompilerInputManifest input, IEnumerable<CompilerMaterializedSnapshot?>? materialized,
+        CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache, RelationScopeSnapshot? closureRoot,
+        ProjectSymbolBindingCache? symbolBindingCache = null, ProjectReferenceBindingCache? referenceBindingCache = null, BranchRef? ownerScope = null, ReferenceBindingScope? earlierReferenceScope = null, SymbolBindingScope? earlierSymbolScope = null)
+    {
+        ArgumentNullException.ThrowIfNull(input); cancellationToken.ThrowIfCancellationRequested();
+        foreach (var id in new[] { CoreCompilerRules.Schema, CoreCompilerRules.Declarations, CoreCompilerRules.Relations })
+            if (!input.Rules.Any(rule => rule.RuleId == id && rule.Version == 1 && rule.Required))
+                throw new ArgumentException("Binding requires the locked platform structural rule baseline.");
+        var source = input.Source;
+        var referenceScope = referenceBindingCache?.ContinueBinding(ownerScope ?? source.Context.Branch, earlierReferenceScope, cancellationToken);
+        var symbolScope = symbolBindingCache?.ContinueBinding(ownerScope ?? source.Context.Branch, earlierSymbolScope, cancellationToken);
+        var root = ProjectLocation.Create(source.Documents[0].DocumentId, source.Context);
+        var findings = new List<CompilerBindingFinding>(); var references = new List<CompilerBoundReference>(); var symbols = new List<CompilerSymbol>();
+        var findingIds = new HashSet<Guid>();
+        var snapshots = new List<RelationScopeSnapshot>(); var admitted = new List<CompilerMaterializedSnapshot>();
+        var deniedContexts = new HashSet<SourceRevisionContext>();
+        var conflictingContexts = new HashSet<SourceRevisionContext>();
+        void Add(string rule, string code, RelationFindingState state, ProjectLocation location)
+        {
+            var basis = state == RelationFindingState.Invalid
+                ? new CompilerEvidenceBasis(CompilerEvidenceKind.ModelProof, [input.InputDigest, source.Digest])
+                : new CompilerEvidenceBasis(CompilerEvidenceKind.Missing, [], code);
+            var diagnostic = new CompilerDiagnostic(input, rule, 1, rule == CoreCompilerRules.Schema ? 0 : 1, code, location, basis);
+            if (findingIds.Add(diagnostic.DiagnosticId.Value)) findings.Add(new(state, diagnostic));
+        }
+        var remainingOperations = input.ExecutionProfile.MaximumOperations;
+        PartialSemanticModel Empty() => new(input, [], [], symbols, references, findings, snapshots, input.ExecutionProfile.MaximumOperations - Math.Max(0, remainingOperations), admitted, referenceScope, symbolScope);
+        var remainingDeclarations = input.ExecutionProfile.MaximumDeclarations - source.Declarations.Value.GetArrayLength() - source.Documents.Count;
+        if (!WithinBudget(source.Data.Value, ref remainingOperations) || !WithinNumericProfile(source.Data.Value, input.ExecutionProfile.Numbers) ||
+            source.Declarations.Value.GetArrayLength() + source.Documents.Count > input.ExecutionProfile.MaximumDeclarations ||
+            source.Relations.Value.GetArrayLength() > input.ExecutionProfile.MaximumRelations)
+        {
+            Add(CoreCompilerRules.Schema, "coglatas.binding.budget-exhausted", RelationFindingState.Unknown, root); return Empty();
+        }
+        if (!input.SourceCoverageComplete) Add(CoreCompilerRules.Schema, "coglatas.binding.incomplete-source", RelationFindingState.Unknown, root);
+        var schema = new CompilerArtifactIdentity(RelationFields.Child(input.Settings, "schema"));
+        if (schema.ArtifactId != ProjectSource.SchemaId || schema.Version != "1")
+            Add(CoreCompilerRules.Schema, "coglatas.binding.schema-compatibility", RelationFindingState.Unsupported, root);
+        if (ValueFields.HasUnknown(source.Data.Value, "format", "schemaId", "schemaVersion", "canonicalEncodingVersion", "tenantId", "projectId", "context", "documents", "manifest", "declarations", "relations", "extensionDeclarations", "packageLock", "sourceReferences") ||
+            ValueFields.HasUnknown(source.Manifest.Data.Value, "documents") ||
+            source.Manifest.Data.Value.GetProperty("documents").EnumerateArray().Any(item => ValueFields.HasUnknown(item, "documentId", "schemaId", "schemaVersion", "digest") || ValueFields.HasUnknown(item.GetProperty("digest"), "algorithm", "value")) ||
+            source.Documents.Any(document => ValueFields.HasUnknown(document.Data.Value, "documentId", "logicalName", "schemaId", "schemaVersion", "root", "digest") || ValueFields.HasUnknown(document.Digest.Data.Value, "algorithm", "value")) ||
+            source.ExtensionDeclarations.Value.GetArrayLength() != 0 || source.PackageLock.Value.GetArrayLength() != 0)
+            Add(CoreCompilerRules.Schema, "coglatas.binding.opaque-source", RelationFindingState.Unsupported, root);
+        var pins = SourceFields.Array(input.Settings.Value, "authorizedExternalSnapshots").EnumerateArray().ToArray();
+        var supplied = new List<CompilerMaterializedSnapshot>();
+        var suppliedCount = 0;
+        // Supply is caller code. Check cancellation around MoveNext, charge each
+        // entry/body to the same logical budget, and always dispose the enumerator.
+        using (var iterator = (materialized ?? []).GetEnumerator())
+        {
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!iterator.MoveNext()) break;
+                cancellationToken.ThrowIfCancellationRequested();
+                var item = iterator.Current;
+                if (--remainingOperations < 0 || ++suppliedCount > 32 || item is null)
+                {
+                    Add(CoreCompilerRules.Schema, "coglatas.binding.snapshot-budget", RelationFindingState.Unknown, root); return Empty();
+                }
+                if (!item.Snapshot.IsAuthorized)
+                {
+                    // Do not inspect or return a denied body's integrity, metadata
+                    // or coverage. Remember only the context needed to deny binding.
+                    deniedContexts.Add(item.Snapshot.Source.Context);
+                    continue;
+                }
+                remainingDeclarations -= item.Snapshot.Source.Declarations.Value.GetArrayLength() + item.Snapshot.Source.Documents.Count;
+                remainingOperations -= pins.Length * 2 + item.Version.Length;
+                if (remainingDeclarations < 0 || remainingOperations < 0 ||
+                    !WithinBudget(item.Snapshot.Source.Data.Value, ref remainingOperations, cancellationToken) ||
+                    !WithinNumericProfile(item.Snapshot.Source.Data.Value, input.ExecutionProfile.Numbers))
+                {
+                    Add(CoreCompilerRules.Schema, "coglatas.binding.snapshot-budget", RelationFindingState.Unknown, root); return Empty();
+                }
+                supplied.Add(item);
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        // Only publish supply-derived findings after bounded enumeration. An
+        // exhausted prefix must not reveal whether a denied entry arrived first.
+        if (deniedContexts.Count != 0)
+            Add(CoreCompilerRules.Schema, "coglatas.binding.snapshot-unavailable", RelationFindingState.Unknown, root);
+        foreach (var group in supplied.GroupBy(item => item.SnapshotId).Where(group => group.Count() > 1))
+        {
+            var first = group.First();
+            var conflict = group.Any(item => item.Version != first.Version || !item.Snapshot.Source.Data.Equals(first.Snapshot.Source.Data) ||
+                item.Snapshot.DeclarationsComplete != first.Snapshot.DeclarationsComplete || item.Snapshot.RelationsComplete != first.Snapshot.RelationsComplete);
+            Add(CoreCompilerRules.Schema, conflict ? "coglatas.binding.snapshot-conflict" : "coglatas.binding.snapshot-duplicate", RelationFindingState.Invalid, root);
+            foreach (var item in group) conflictingContexts.Add(item.Snapshot.Source.Context);
+        }
+        foreach (var group in supplied.GroupBy(item => item.Snapshot.Source.Context))
+            if (group.Key.Equals(source.Context) || group.Select(item => item.Snapshot.Source.Digest).Distinct().Count() > 1 ||
+                group.Select(item => (item.Version, item.Snapshot.DeclarationsComplete, item.Snapshot.RelationsComplete, CoverageClaim(item))).Distinct().Count() > 1)
+            {
+                conflictingContexts.Add(group.Key);
+                Add(CoreCompilerRules.Schema, "coglatas.binding.snapshot-conflict", RelationFindingState.Invalid, root);
+            }
+        string? CoverageClaim(CompilerMaterializedSnapshot item)
+        {
+            var pin = pins.SingleOrDefault(pin => SourceFields.Identity<ExternalSnapshotId>(pin, "snapshotId") == item.SnapshotId);
+            return pin.ValueKind == JsonValueKind.Undefined ? null : SourceFields.Token(pin, "coverage");
+        }
+        foreach (var item in supplied.OrderBy(item => item.SnapshotId.ToString(), StringComparer.Ordinal)
+            .ThenBy(item => item.Snapshot.Source.Digest.Value, StringComparer.Ordinal).ThenBy(item => item.Version, StringComparer.Ordinal))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var pin = pins.SingleOrDefault(pin => SourceFields.Identity<ExternalSnapshotId>(pin, "snapshotId") == item.SnapshotId);
+            if (pin.ValueKind == JsonValueKind.Undefined || SourceFields.String(pin, "version") != item.Version ||
+                !ContentDigest.Parse(SourceJson.FromElement(pin.GetProperty("digest"))).Equals(item.Snapshot.Source.Digest) ||
+                !SourceRevisionContext.Parse(SourceJson.FromElement(pin.GetProperty("context"))).Equals(item.Snapshot.Source.Context))
+            {
+                Add(CoreCompilerRules.Schema, "coglatas.binding.snapshot-pin-mismatch", RelationFindingState.Invalid, root); continue;
+            }
+            var snapshot = item.Snapshot;
+            if (ValueFields.HasUnknown(pin, "snapshotId", "version", "digest", "context", "coverage", "asOf") ||
+                ValueFields.HasUnknown(pin.GetProperty("digest"), "algorithm", "value") || HasUnsupportedSnapshot(snapshot.Source))
+            {
+                Add(CoreCompilerRules.Schema, "coglatas.binding.snapshot-unsupported", RelationFindingState.Unsupported, root); continue;
+            }
+            if (SourceFields.Token(pin, "coverage") != "coglatas.complete") snapshot = snapshot with { DeclarationsComplete = false, RelationsComplete = false };
+            snapshots.Add(snapshot); admitted.Add(new(item.SnapshotId, item.Version, snapshot));
+        }
+        if (closureRoot is not null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (closureRoot.Source.TenantId != source.TenantId || !closureRoot.IsAuthorized || closureRoot.Source.Context.Equals(source.Context) ||
+                snapshots.Any(item => item.Source.Context.Equals(closureRoot.Source.Context)))
+            { Add(CoreCompilerRules.Schema, "coglatas.binding.closure-root-conflict", RelationFindingState.Unknown, root); return Empty(); }
+            remainingDeclarations -= closureRoot.Source.Declarations.Value.GetArrayLength() + closureRoot.Source.Documents.Count;
+            if (remainingDeclarations < 0 || !WithinBudget(closureRoot.Source.Data.Value, ref remainingOperations, cancellationToken) ||
+                !WithinNumericProfile(closureRoot.Source.Data.Value, input.ExecutionProfile.Numbers))
+            { Add(CoreCompilerRules.Schema, "coglatas.binding.budget-exhausted", RelationFindingState.Unknown, root); return Empty(); }
+            snapshots.Add(closureRoot);
+        }
+        var local = new RelationScopeSnapshot(source, true, input.SourceCoverageComplete, input.SourceCoverageComplete);
+        var declarationSets = snapshots.Prepend(local).Where(item => item.IsAuthorized).Select(item =>
+        {
+            var bindings = symbolBindingCache?.Read(item.Source, symbolScope!, cancellationToken);
+            IReadOnlyList<DeclarationDecodeResult> results = bindings is not null
+                ? bindings.Select(binding => binding.Declaration).ToArray()
+                : declarationCache is not null && ReferenceEquals(item.Source, source)
+                    ? declarationCache.Read(source, cancellationToken) : PlanDeclarationReader.Read(item.Source);
+            return (Snapshot: item, Results: results, Bindings: bindings);
+        }).ToArray();
+        foreach (var set in declarationSets)
+        {
+            if (set.Bindings is not null)
+                foreach (var binding in set.Bindings) symbols.AddRange(binding.Symbols);
+            else
+                foreach (var result in set.Results) symbols.AddRange(BindSymbols(result, set.Snapshot.Source.Context));
+        }
+        var declarations = declarationSets[0].Results;
+        // These indexes belong only to this freshly admitted invocation. Keep every
+        // matching snapshot/symbol so indexing cannot turn ambiguity into a winner.
+        var snapshotIndex = snapshots.GroupBy(item => item.Source.Context).ToDictionary(group => group.Key, group => group.ToArray());
+        var localSnapshotIndex = snapshots.Prepend(local).GroupBy(item => item.Source.Context).ToDictionary(group => group.Key, group => group.ToArray());
+        var symbolIndex = symbols.GroupBy(item => (item.Context, item.EntityId, item.PortId)).ToDictionary(group => group.Key, group => group.ToArray());
+        foreach (var result in declarations)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var entity = SourceFields.Identity<EntityId>(result.Data.Value, "entityId");
+            var location = ProjectLocation.Create(result.DocumentId, source.Context, entityId: entity);
+            if (result.Status != ValueDecodeStatus.Decoded)
+                Add(CoreCompilerRules.Declarations, result.Status == ValueDecodeStatus.Invalid ? "coglatas.binding.invalid-declaration" : "coglatas.binding.unsupported-declaration",
+                    result.Status == ValueDecodeStatus.Invalid ? RelationFindingState.Invalid : RelationFindingState.Unsupported, location);
+            if (!WithinBudget(result.Data.Value, ref remainingOperations))
+            { Add(CoreCompilerRules.Schema, "coglatas.binding.budget-exhausted", RelationFindingState.Unknown, root); return Empty(); }
+            if (result.Declaration is TaskPlanDeclaration valueTask)
+                foreach (var port in valueTask.Ports.OrderBy(item => item.PortId.ToString(), StringComparer.Ordinal))
+                    if (port.DefaultValue is { } value)
+                        foreach (var item in CompilerValueReferenceTraversal.Values(value, "/payload/ports/" + port.PortId + "/defaultValue"))
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            remainingOperations -= snapshots.Count + pins.Length + 1;
+                            if (remainingOperations < 0)
+                            { Add(CoreCompilerRules.Schema, "coglatas.binding.budget-exhausted", RelationFindingState.Unknown, root); return Empty(); }
+                            if (item.Value.KnownValue is TypedProjectReference reference)
+                                ResolveValue(reference, ProjectLocation.Create(result.DocumentId, source.Context, item.Path, entityId: entity));
+                        }
+            if (result.Declaration is ProjectTestPlanDeclaration test)
+                foreach (var assertion in test.Assertions)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    remainingOperations -= snapshots.Count + pins.Length + 1;
+                    if (remainingOperations < 0)
+                    { Add(CoreCompilerRules.Schema, "coglatas.binding.budget-exhausted", RelationFindingState.Unknown, root); return Empty(); }
+                    Resolve(assertion.Target, ProjectLocation.Create(result.DocumentId, source.Context,
+                        assertion.PropertyPath + "/target", entityId: entity), CoreCompilerRules.Declarations, assertion.PortId);
+                }
+            if (result.Declaration is RequirementPlanDeclaration requirement)
+                Resolve(requirement.Target, ProjectLocation.Create(result.DocumentId, source.Context, "/payload/target", entityId: entity), CoreCompilerRules.Declarations);
+            if (result.Declaration is ProjectPlanDeclaration project)
+                foreach (var target in project.Roots)
+                    Resolve(new PlanEntityReference(SourceJson.FromObject(new { tenantId = source.TenantId.ToString(), projectId = source.ProjectId.ToString(), entityId = target.ToString(), context = source.Context.Data.Value })),
+                        ProjectLocation.Create(result.DocumentId, source.Context, "/payload/roots/" + target, entityId: entity), CoreCompilerRules.Declarations);
+        }
+        var descriptorPins = SourceFields.Array(input.Settings.Value, "descriptors").EnumerateArray().Select(item => new CompilerArtifactIdentity(SourceJson.FromElement(item))).ToArray();
+        var relations = TypedRelationReader.Read(source);
+        foreach (var decoded in relations)
+        {
+            var relationId = SourceFields.Identity<RelationId>(decoded.Data.Value, "relationId");
+            var location = ProjectLocation.Create(SourceFields.Identity<DocumentId>(decoded.Data.Value, "documentId"), source.Context, relationId: relationId);
+            if (decoded.Relation is not { } relation)
+            {
+                Add(CoreCompilerRules.Relations, decoded.Status == ValueDecodeStatus.Invalid ? "coglatas.binding.invalid-relation" : "coglatas.binding.unsupported-relation",
+                    decoded.Status == ValueDecodeStatus.Invalid ? RelationFindingState.Invalid : RelationFindingState.Unsupported, location); continue;
+            }
+            if (!descriptorPins.Any(pin => pin.ArtifactId == relation.DescriptorId && pin.Version == "1" && pin.Digest.Equals(relation.Descriptor.Digest)))
+                Add(CoreCompilerRules.Relations, "coglatas.binding.descriptor-lock", RelationFindingState.Unsupported, location);
+            Resolve(relation.Source.Reference, ProjectLocation.Create(relation.DocumentId, source.Context, "/source", relationId: relation.RelationId), CoreCompilerRules.Relations, relation.Source.PortId);
+            Resolve(relation.Target.Reference, ProjectLocation.Create(relation.DocumentId, source.Context, "/target", relationId: relation.RelationId), CoreCompilerRules.Relations, relation.Target.PortId);
+        }
+        foreach (var reference in source.SourceReferences.Value.EnumerateArray())
+        {
+            var document = SourceFields.Identity<DocumentId>(reference, "documentId");
+            if (!source.Manifest.DocumentIds.Contains(document))
+            { Add(CoreCompilerRules.Schema, "coglatas.binding.reference-origin", input.SourceCoverageComplete ? RelationFindingState.Invalid : RelationFindingState.Unknown, root); continue; }
+            var referenceKey = ContentDigest.Compute("coglatas.source-reference/1", SourceJson.FromElement(reference).ToCanonicalBytes()).Value;
+            var location = ProjectLocation.Create(document, source.Context, "/sourceReferences/" + referenceKey);
+            if (SourceFields.Token(reference, "kind") != "coglatas.entity-reference" ||
+                ValueFields.HasUnknown(reference, "kind", "documentId", "entityId"))
+            { Add(CoreCompilerRules.Declarations, "coglatas.binding.unsupported-source-reference", RelationFindingState.Unsupported, location); continue; }
+            Resolve(new PlanEntityReference(SourceJson.FromObject(new { tenantId = source.TenantId.ToString(), projectId = source.ProjectId.ToString(),
+                entityId = SourceFields.String(reference, "entityId"), context = source.Context.Data.Value })), location, CoreCompilerRules.Declarations);
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return new(input, declarations, relations, symbols, references, findings, snapshots, input.ExecutionProfile.MaximumOperations - Math.Max(0, remainingOperations), admitted, referenceScope, symbolScope);
+
+        void ResolveValue(TypedProjectReference reference, ProjectLocation origin)
+        {
+            var matches = snapshotIndex.GetValueOrDefault(reference.Context) ?? [];
+            var candidates = reference.EntityId is { } entity
+                ? symbolIndex.GetValueOrDefault((reference.Context, entity, null)) ?? [] : [];
+            var outcome = referenceBindingCache?.Resolve(referenceScope!, ValueDependencies(), BindValue, cancellationToken) ?? BindValue();
+            references.Add(outcome.Reference);
+            if (outcome.DocumentSymbol is { } publishedDocumentSymbol && !symbols.Any(symbol => symbol.Key == publishedDocumentSymbol.Key)) symbols.Add(publishedDocumentSymbol);
+            PublishReferenceFinding(outcome, CoreCompilerRules.Declarations);
+
+            IEnumerable<string> ValueDependencies()
+            {
+                foreach (var part in LookupDependencies("value", reference.Data, reference.Context, origin, matches, candidates)) yield return part;
+                yield return reference.Kind; yield return reference.ExpectedKind;
+                foreach (var match in matches) yield return match.Source.Digest.Data.CanonicalText;
+                foreach (var pin in pins.Where(pin => SourceRevisionContext.Parse(SourceJson.FromElement(pin.GetProperty("context"))).Equals(reference.Context))
+                    .Select(pin => SourceJson.FromElement(pin).CanonicalText).Order(StringComparer.Ordinal)) yield return pin;
+                if (matches.Length == 1 && reference.DocumentId is { } document)
+                    foreach (var item in matches[0].Source.Documents.Where(item => item.DocumentId == document)) yield return item.Data.CanonicalText;
+            }
+            ReferenceBindingOutcome BindValue()
+            {
+                CompilerSymbol? documentSymbol = null;
+                var state = ReferenceResolutionState.Unsupported;
+                string? key = null;
+                string? code = null;
+                var invalid = false;
+                if (reference.TenantId != source.TenantId) state = ReferenceResolutionState.OutOfScope;
+                else if (!reference.Origin.Context.Equals(origin.Context) || reference.Origin.DocumentId != origin.DocumentId ||
+                    reference.Origin.EntityId != origin.EntityId || reference.Origin.RelationId != origin.RelationId ||
+                    (reference.Origin.PropertyPath.Length != 0 && reference.Origin.PropertyPath != origin.PropertyPath))
+                { code = "coglatas.binding.value-reference-origin-mismatch"; invalid = true; }
+                else if (reference.Kind is not ("coglatas.entity-reference" or "coglatas.document-reference") || reference.Context.Equals(source.Context))
+                    code = "coglatas.binding.value-reference-unavailable";
+                else if (deniedContexts.Contains(reference.Context)) state = ReferenceResolutionState.OutOfScope;
+                else if (conflictingContexts.Contains(reference.Context)) state = ReferenceResolutionState.Ambiguous;
+                else if (matches.Length == 0)
+                    state = reference.ProjectId == source.ProjectId ? ReferenceResolutionState.OutOfScope : ReferenceResolutionState.UnknownDueToCoverage;
+                else if (matches.Any(item => !item.IsAuthorized)) state = ReferenceResolutionState.OutOfScope;
+                else if (matches.Length != 1) state = ReferenceResolutionState.Ambiguous;
+                else if (!pins.Any(pin => SourceRevisionContext.Parse(SourceJson.FromElement(pin.GetProperty("context"))).Equals(reference.Context) &&
+                    SourceFields.String(pin, "version") == reference.ManifestVersion &&
+                    ContentDigest.Parse(SourceJson.FromElement(pin.GetProperty("digest"))).Equals(reference.ManifestDigest) &&
+                    reference.ManifestDigest.Equals(matches[0].Source.Digest)))
+                { code = "coglatas.binding.value-reference-manifest-mismatch"; invalid = true; }
+                else if (reference.EntityId is not null)
+                {
+                    if (candidates.Length == 0) state = matches[0].DeclarationsComplete ? ReferenceResolutionState.MissingWithinCompleteScope : ReferenceResolutionState.UnknownDueToCoverage;
+                    else if (candidates.Length != 1) state = ReferenceResolutionState.Ambiguous;
+                    else if (candidates[0].Status != ValueDecodeStatus.Decoded) state = ReferenceResolutionState.Unsupported;
+                    else if (candidates[0].Kind != reference.ExpectedKind)
+                    { code = "coglatas.binding.value-reference-kind-mismatch"; invalid = true; }
+                    else { state = ReferenceResolutionState.Resolved; key = candidates[0].Key; }
+                }
+                else if (reference.DocumentId is { } documentId)
+                {
+                    var document = matches[0].Source.Documents.SingleOrDefault(item => item.DocumentId == documentId);
+                    if (document is null) state = matches[0].DeclarationsComplete ? ReferenceResolutionState.MissingWithinCompleteScope : ReferenceResolutionState.UnknownDueToCoverage;
+                    else if (ValueFields.HasUnknown(document.Data.Value, "documentId", "logicalName", "schemaId", "schemaVersion", "root", "digest") ||
+                        ValueFields.HasUnknown(document.Digest.Data.Value, "algorithm", "value")) state = ReferenceResolutionState.Unsupported;
+                    else
+                    {
+                        state = ReferenceResolutionState.Resolved;
+                        key = SourceJson.FromObject(new { context = reference.Context.Data.Value, documentId = documentId.ToString() }).CanonicalText;
+                        documentSymbol = new(key, SourceDocument.SchemaId, document.Root.EntityId, null, reference.Context,
+                                ProjectLocation.Create(documentId, reference.Context), ValueDecodeStatus.Decoded);
+                    }
+                }
+
+                return new(new(origin, state, key), code, invalid, documentSymbol);
+            }
+        }
+
+        void Resolve(PlanEntityReference reference, ProjectLocation origin, string rule, PortId? port = null)
+        {
+            var matches = localSnapshotIndex.GetValueOrDefault(reference.Context) ?? [];
+            var candidates = symbolIndex.GetValueOrDefault((reference.Context, reference.EntityId, port)) ?? [];
+            var outcome = referenceBindingCache?.Resolve(referenceScope!, Dependencies(), BindEntity, cancellationToken) ?? BindEntity();
+            references.Add(outcome.Reference); PublishReferenceFinding(outcome, rule);
+
+            IEnumerable<string> Dependencies()
+            {
+                foreach (var part in LookupDependencies("entity", reference.Data, reference.Context, origin, matches, candidates)) yield return part;
+                yield return port?.ToString() ?? string.Empty;
+            }
+            ReferenceBindingOutcome BindEntity()
+            {
+                ReferenceResolutionState state;
+                string? key = null;
+                if (reference.TenantId != source.TenantId) state = ReferenceResolutionState.OutOfScope;
+                else if (deniedContexts.Contains(reference.Context)) state = ReferenceResolutionState.OutOfScope;
+                else if (conflictingContexts.Contains(reference.Context)) state = ReferenceResolutionState.Ambiguous;
+                else if (matches.Length == 0) state = reference.ProjectId == source.ProjectId ? ReferenceResolutionState.OutOfScope : ReferenceResolutionState.UnknownDueToCoverage;
+                else if (matches.Any(item => !item.IsAuthorized)) state = ReferenceResolutionState.OutOfScope;
+                else if (matches.Length != 1) state = ReferenceResolutionState.Ambiguous;
+                else
+                {
+                    if (candidates.Length == 0) state = matches[0].DeclarationsComplete ? ReferenceResolutionState.MissingWithinCompleteScope : ReferenceResolutionState.UnknownDueToCoverage;
+                    else if (candidates.Length != 1) state = ReferenceResolutionState.Ambiguous;
+                    else if (candidates[0].Status != ValueDecodeStatus.Decoded) state = ReferenceResolutionState.Unsupported;
+                    else { state = ReferenceResolutionState.Resolved; key = candidates[0].Key; }
+                }
+
+                return new(new(origin, state, key));
+            }
+        }
+
+        IEnumerable<string> LookupDependencies(string phase, SourceJson reference, SourceRevisionContext context,
+            ProjectLocation origin, IReadOnlyList<RelationScopeSnapshot> matches, IReadOnlyList<CompilerSymbol> candidates)
+        {
+            yield return phase; yield return source.TenantId.ToString(); yield return source.ProjectId.ToString();
+            yield return source.Context.Data.CanonicalText; yield return origin.Data.CanonicalText; yield return reference.CanonicalText;
+            yield return deniedContexts.Contains(context) ? "denied" : "not-denied";
+            yield return conflictingContexts.Contains(context) ? "conflicting" : "not-conflicting";
+            yield return matches.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            foreach (var match in matches)
+            {
+                yield return match.IsAuthorized ? "authorized" : "not-authorized";
+                yield return match.DeclarationsComplete ? "complete" : "partial";
+            }
+            yield return candidates.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            foreach (var candidate in candidates)
+            {
+                yield return candidate.Key; yield return candidate.Kind; yield return candidate.Status.ToString();
+                yield return candidate.Location.Data.CanonicalText;
+            }
+        }
+
+        void PublishReferenceFinding(ReferenceBindingOutcome outcome, string rule)
+        {
+            var state = outcome.Reference.State;
+            if (state != ReferenceResolutionState.Resolved)
+                Add(rule, outcome.DiagnosticCode ?? "coglatas.binding.reference-" + ResolutionToken(state), outcome.Invalid ? RelationFindingState.Invalid : state switch
+                {
+                    ReferenceResolutionState.UnknownDueToCoverage => RelationFindingState.Unknown,
+                    ReferenceResolutionState.Unsupported => RelationFindingState.Unsupported, _ => RelationFindingState.Invalid
+                }, outcome.Reference.Origin);
+        }
+    }
+
+    internal static IEnumerable<CompilerSymbol> BindSymbols(DeclarationDecodeResult result, SourceRevisionContext context)
+    {
+        var entity = SourceFields.Identity<EntityId>(result.Data.Value, "entityId");
+        yield return new(Key(context, entity), SourceFields.Token(result.Data.Value, "kind"), entity, null, context,
+            ProjectLocation.Create(result.DocumentId, context, entityId: entity), result.Status);
+        if (result.Declaration is TaskPlanDeclaration task)
+            foreach (var port in task.Ports)
+                yield return new(Key(context, entity, port.PortId), port.Type.Kind, entity, port.PortId, context,
+                    ProjectLocation.Create(result.DocumentId, context, "/payload/ports/" + port.PortId, entityId: entity), ValueDecodeStatus.Decoded);
+    }
+
+    private static string Key(SourceRevisionContext context, EntityId entity, PortId? port = null) =>
+        SourceJson.FromObject(new { context = context.Data.Value, entityId = entity.ToString(), portId = port?.ToString() }).CanonicalText;
+    private static string ResolutionToken(ReferenceResolutionState state) => state switch
+    {
+        ReferenceResolutionState.MissingWithinCompleteScope => "missing", ReferenceResolutionState.UnknownDueToCoverage => "coverage-unknown",
+        ReferenceResolutionState.Ambiguous => "ambiguous", ReferenceResolutionState.Unsupported => "unsupported", ReferenceResolutionState.OutOfScope => "out-of-scope",
+        _ => throw new ArgumentOutOfRangeException(nameof(state))
+    };
+    private static bool HasUnsupportedSnapshot(ProjectSource source) =>
+        ValueFields.HasUnknown(source.Data.Value, "format", "schemaId", "schemaVersion", "canonicalEncodingVersion", "tenantId", "projectId", "context", "documents", "manifest", "declarations", "relations", "extensionDeclarations", "packageLock", "sourceReferences") ||
+        ValueFields.HasUnknown(source.Manifest.Data.Value, "documents") ||
+        source.Manifest.Data.Value.GetProperty("documents").EnumerateArray().Any(item => ValueFields.HasUnknown(item, "documentId", "schemaId", "schemaVersion", "digest")) ||
+        source.Documents.Any(document => ValueFields.HasUnknown(document.Data.Value, "documentId", "logicalName", "schemaId", "schemaVersion", "root", "digest") ||
+            ValueFields.HasUnknown(document.Digest.Data.Value, "algorithm", "value")) ||
+        source.ExtensionDeclarations.Value.GetArrayLength() != 0 || source.PackageLock.Value.GetArrayLength() != 0;
+
+    internal static bool WithinBudget(JsonElement root, ref int operations, CancellationToken cancellationToken = default)
+    {
+        var pending = new Stack<JsonElement>(); pending.Push(root);
+        while (pending.TryPop(out var value))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (--operations < 0) return false;
+            if (value.ValueKind == JsonValueKind.Object)
+                foreach (var member in value.EnumerateObject()) { operations -= member.Name.Length; pending.Push(member.Value); }
+            else if (value.ValueKind == JsonValueKind.Array) foreach (var item in value.EnumerateArray()) pending.Push(item);
+            else if (value.ValueKind == JsonValueKind.String) operations -= value.GetString()!.Length;
+            if (operations < 0) return false;
+        }
+        return true;
+    }
+    private static bool WithinNumericProfile(JsonElement root, ExactNumberLimits numbers)
+    {
+        var pending = new Stack<JsonElement>(); pending.Push(root);
+        while (pending.TryPop(out var value))
+        {
+            if (value.ValueKind == JsonValueKind.Object)
+            {
+                TypedProjectValue? typed = null;
+                if (value.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.Object && value.TryGetProperty("state", out _))
+                {
+                    var data = SourceJson.FromElement(value);
+                    var decoded = TypedProjectValueCodec.Decode(data); typed = decoded.Value;
+                    if (TypedProjectValueCodec.Decode(data, numbers).Status == ValueDecodeStatus.Invalid && decoded.Status == ValueDecodeStatus.Decoded)
+                        return false;
+                }
+                foreach (var member in value.EnumerateObject())
+                    if (member.Name != "basis" || typed?.State != ValueState.Unknown) pending.Push(member.Value);
+            }
+            else if (value.ValueKind == JsonValueKind.Array) foreach (var item in value.EnumerateArray()) pending.Push(item);
+        }
+        return true;
+    }
+}

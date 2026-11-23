@@ -4,7 +4,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { platform, arch } from 'node:os';
-import { runtimeArguments, preparePrivateDirectory, postgresStorageArguments, verifyPostgresStorage } from './sec-arch-runtime-options.mjs';
+import { runtimeArguments, preparePrivateDirectory, postgresStorageArguments, verifyPostgresStorage, dotnetExecutionProfile } from './sec-arch-runtime-options.mjs';
 import { captureRuntimeAssemblyBinding, unverifiedRuntimeAssemblyBinding } from './sec-arch-runtime-assemblies.mjs';
 
 // Local qualification owns its PostgreSQL environment; it cannot accept an external connection string.
@@ -140,6 +140,7 @@ try {
   environment = { platform: platform(), architecture: arch(), postgresImage: image,
     postgresVersion: requireSuccess(await docker(['exec', container, 'psql', '-U', 'sec_arch_migration', '-d', 'sec_arch_fixture', '-Atc', 'SHOW server_version'])),
     dotnetSdk: requireSuccess(await command('dotnet', ['--version'])), fixture: 'SEC02_SYNTHETIC',
+    dotnetExecutionProfile: dotnetExecutionProfile(process.env),
     postgresStorage: { mode: options.postgresStorage, mountType, filesystemType,
       maximumBytes: options.postgresStorage === 'tmpfs' ? 2147483648 : null,
       fsync: 'on', fullPageWrites: 'on', crashRecoveryQualified: false } };

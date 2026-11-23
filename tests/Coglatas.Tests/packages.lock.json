@@ -390,6 +390,18 @@
           "Coglatas.Infrastructure": "[1.0.0, )",
           "Microsoft.AspNetCore.OpenApi": "[11.0.0, )"
         }
+      },
+      "projectide.tests": {
+        "type": "Project",
+        "dependencies": {
+          "Coglatas.Domain": "[1.0.0, )"
+        }
+      },
+      "projectide.workbench.synthetic": {
+        "type": "Project",
+        "dependencies": {
+          "Coglatas.Application": "[1.0.0, )"
+        }
       }
     }
   }
