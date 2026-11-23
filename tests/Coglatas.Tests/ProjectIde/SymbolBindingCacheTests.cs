@@ -221,6 +221,49 @@ public sealed class SymbolBindingCacheTests
         Assert.Equal(count, cache.RetainedCount);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AColdBindingCompletesAgainstTheCurrentRetentionState(bool clearWhileDecoding)
+    {
+        var source = Source();
+        var timeout = TimeSpan.FromSeconds(20);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cache = new ProjectSymbolBindingCache((data, document) =>
+        {
+            if (started.TrySetResult())
+                release.Task.WaitAsync(timeout).GetAwaiter().GetResult();
+            return PlanDeclarationReader.Read(data, document);
+        });
+        var scope = cache.BeginBinding(source.Context.Branch, CancellationToken.None);
+        var firstRead = Task.Run(() => cache.Read(source, scope, CancellationToken.None));
+        BoundProjectDeclaration? published = null;
+        try
+        {
+            await started.Task.WaitAsync(timeout);
+            if (clearWhileDecoding)
+            {
+                await Task.Run(cache.Clear).WaitAsync(timeout);
+            }
+            else
+            {
+                var secondRead = await Task.Run(() => cache.Read(source, scope, CancellationToken.None)).WaitAsync(timeout);
+                published = Assert.Single(secondRead);
+            }
+        }
+        finally
+        {
+            release.TrySetResult();
+        }
+
+        var original = Assert.Single(await firstRead.WaitAsync(timeout));
+        if (clearWhileDecoding)
+            Assert.Equal(0, cache.RetainedCount);
+        else
+            Assert.Same(published, original);
+    }
+
     [Fact]
     public void TenantBoundResourceStatusAndPrivateCollectionStorageCannotPoisonRetainedBindings()
     {
