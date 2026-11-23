@@ -68,8 +68,9 @@ existing decisions. #1122 provides the authorized Application historical read
 model and bounded diagnostics. Reads require current Tenant/Project authority and
 an active persisted session belonging to the current actor before and after
 awaited host-context resolution. The store reads session and account state
-independently of tracked entities. Missing host evidence is Unverified; known
-differences are Stale;
+independently of tracked entities. The reader discards a projection when the
+viewer, session or Tenant changes during the lookup. Missing host evidence is
+Unverified; known differences are Stale;
 Current requires complete matching independent Source/policy/compiler identities.
 A different currently authorized viewer does not invalidate the original actor's
 historical identity. Currentness never substitutes for current authorization or
