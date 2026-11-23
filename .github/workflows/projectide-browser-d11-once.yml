@@ -1,0 +1,100 @@
+name: ProjectIDE D11 hosted browser diagnostic (NO-MERGE)
+
+on:
+  push:
+    branches:
+      - diagnostic/projectide-browser-d11-1959
+    paths:
+      - .github/workflows/projectide-browser-d11-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  browser-diagnostic:
+    name: D11 ${{ matrix.project }} shard ${{ matrix.shard }}/2 (diagnostic)
+    if: >-
+      github.repository == 'NYGsatoshi/Coglatas' &&
+      github.event.created &&
+      github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        project: [chromium-desktop, chromium-mobile]
+        shard: [1, 2]
+    env:
+      SOURCE_SHA: de3b6de1f38128ce519e736e44af9815d3c68d0d
+      BROWSER_PROJECT: ${{ matrix.project }}
+      BROWSER_SHARD: ${{ matrix.shard }}/2
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:4173
+      FORCE_COLOR: '0'
+    steps:
+      - name: Checkout the diagnostic commit without retained credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Validate the diagnostic delta and switch to its pinned source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD^)" = "$SOURCE_SHA"
+          actual="$(git diff --name-only "$SOURCE_SHA" HEAD)"
+          expected=$'.github/workflows/projectide-browser-d11-once.yml\nscripts/ci/projectide-browser-d11-evidence.py'
+          test "$actual" = "$expected"
+          cp scripts/ci/projectide-browser-d11-evidence.py "$RUNNER_TEMP/d11-evidence.py"
+          git checkout --detach "$SOURCE_SHA"
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+      - name: Use the repository Node runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '26'
+      - name: Install locked dependencies and the Playwright Chromium runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
+          bash scripts/ci/npm-ci-retry.sh .
+          bash scripts/ci/npm-ci-retry.sh frontend
+          node node_modules/@playwright/test/cli.js install --with-deps chromium
+      - name: Build and run the explicitly selected Chromium shard
+        timeout-minutes: 18
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/d11-evidence"
+          mkdir -p "$evidence"
+          python3 "$RUNNER_TEMP/d11-evidence.py" select "$evidence"
+          mapfile -t specs < "$evidence/additional-specs.txt"
+          npm --prefix frontend run build
+          node tests/ui/serve-static.mjs --port 4173 > "$evidence/static-server.log" 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true; wait "$server" 2>/dev/null || true' EXIT
+          curl --fail --silent --show-error --retry 10 --retry-connrefused --retry-delay 1 "$PLAYWRIGHT_BASE_URL/health"
+          python3 "$RUNNER_TEMP/d11-evidence.py" serve "$evidence"
+          export PLAYWRIGHT_JSON_OUTPUT_FILE="$evidence/browser.json"
+          export PLAYWRIGHT_JUNIT_OUTPUT_FILE="$evidence/browser.xml"
+          set +e
+          node node_modules/@playwright/test/cli.js test \
+            --project="$BROWSER_PROJECT" --shard="$BROWSER_SHARD" \
+            --workers=2 --global-timeout=840000 --reporter=line,json,junit \
+            "${specs[@]}" 2>&1 | tee "$evidence/browser.log"
+          pipeline=("${PIPESTATUS[@]}")
+          set -e
+          printf '%s\n' "${pipeline[0]}" > "$evidence/playwright-exit.txt"
+          test "${pipeline[1]}" = 0
+          git diff --exit-code "$SOURCE_SHA" --
+          python3 "$RUNNER_TEMP/d11-evidence.py" report "$evidence"
+          exit "${pipeline[0]}"
+      - name: Retain reports, identities, and attempt receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: projectide-d11-${{ matrix.project }}-${{ matrix.shard }}
+          path: ${{ runner.temp }}/d11-evidence
+          if-no-files-found: warn
+          retention-days: 14
