@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Coglatas.Domain.ProjectIde;
 
 namespace Coglatas.ProjectIde.Workbench.Synthetic;
@@ -27,13 +28,33 @@ public sealed partial class SyntheticWorkbenchViewModel
         }
         var snapshot = ProjectCompilerOutputSnapshot.Read(compilation!, expectedResult, mode, maximumBodyBytes, token, compilation!.Input);
         if (!Current()) return false;
-        _compilerOutputSnapshot = snapshot; _outputSnapshotCompilation = compilation; Changed();
-        if (token.IsCancellationRequested)
+        _compilerOutputSnapshot = snapshot;
+        _outputSnapshotCompilation = compilation;
+        Exception? withdrawalFailure = null;
+        bool cancelledAtPublication;
+        try { Changed(); }
+        finally
         {
-            if (generation == _outputSnapshotGeneration && ReferenceEquals(_compilerOutputSnapshot, snapshot))
-            { ClearCompilerOutputSnapshot(); Changed(); }
-            token.ThrowIfCancellationRequested();
+            cancelledAtPublication = token.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _outputSnapshotGeneration &&
+                ReferenceEquals(_compilerOutputSnapshot, snapshot))
+            {
+                ClearCompilerOutputSnapshot();
+                var subscribers = PropertyChanged;
+                if (subscribers is not null)
+                {
+                    var args = new PropertyChangedEventArgs(null);
+                    foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+                    {
+                        try { subscriber(this, args); }
+                        catch (Exception error) { withdrawalFailure ??= error; }
+                    }
+                }
+            }
         }
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Compiler output read was cancelled.", withdrawalFailure, token);
         return Current() && ReferenceEquals(CompilerOutputSnapshot, snapshot) && snapshot.State is not
             (CompilerOutputSnapshotState.RefusedWrongResult or CompilerOutputSnapshotState.RefusedInputBinding or CompilerOutputSnapshotState.RefusedOutputBinding);
     }
