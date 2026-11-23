@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Coglatas.Domain.ProjectIde;
 
 namespace Coglatas.ProjectIde.Workbench.Synthetic;
@@ -27,15 +28,33 @@ public sealed partial class SyntheticWorkbenchViewModel
         }
         var profile = ProjectSimulationTraceProfile.Read(run!, expectedRun, maximumEvents, token);
         if (!Current()) return false;
-        _simulationTraceProfile = profile; _profiledRun = run; Changed();
-        if (token.IsCancellationRequested)
+        _simulationTraceProfile = profile;
+        _profiledRun = run;
+        Exception? withdrawalFailure = null;
+        bool cancelledAtPublication;
+        try { Changed(); }
+        finally
         {
-            if (generation == _profileGeneration && ReferenceEquals(_simulationTraceProfile, profile))
+            cancelledAtPublication = token.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _profileGeneration &&
+                ReferenceEquals(_simulationTraceProfile, profile))
             {
-                ClearSimulationTraceProfile(); Changed();
+                ClearSimulationTraceProfile();
+                var subscribers = PropertyChanged;
+                if (subscribers is not null)
+                {
+                    var args = new PropertyChangedEventArgs(null);
+                    foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+                    {
+                        try { subscriber(this, args); }
+                        catch (Exception error) { withdrawalFailure ??= error; }
+                    }
+                }
             }
-            token.ThrowIfCancellationRequested();
         }
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Profiler read was cancelled.", withdrawalFailure, token);
         return Current() && ReferenceEquals(SimulationTraceProfile, profile) && profile.State != SimulationTraceProfileState.Refused;
     }
     /// <summary>Read the existing fixed model recording through its current owned summary.</summary>
