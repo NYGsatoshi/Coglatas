@@ -113,18 +113,39 @@ public sealed class SyntheticCompilerOutputSnapshotTests
         private readonly CancellationTokenSource _source = new();
         private readonly ContentDigest _expectedResult;
         private readonly bool _replace;
-        private int _notifications;
+        private readonly Exception? _publicationException;
+        private readonly Exception? _withdrawalException;
         public CancellationToken Token => _source.Token;
         public bool Fired { get; private set; }
         public bool ReplacementSucceeded { get; private set; }
+        public int WithdrawalNotifications { get; private set; }
+        public List<bool> DeliveredWithdrawalNotifications { get; } = [];
         public ProjectCompilerOutputSnapshot? Replacement { get; private set; }
-        public CancelPublishedRead(SyntheticWorkbenchViewModel vm, bool replace)
-        { _vm = vm; _expectedResult = vm.Result!.ResultDigest; _replace = replace; vm.PropertyChanged += Changed; }
+        public CancelPublishedRead(SyntheticWorkbenchViewModel vm, bool replace, Exception? publicationException = null,
+            Exception? withdrawalException = null)
+        {
+            _vm = vm;
+            _expectedResult = vm.Result!.ResultDigest;
+            _replace = replace;
+            _publicationException = publicationException;
+            _withdrawalException = withdrawalException;
+            vm.PropertyChanged += Changed;
+            vm.PropertyChanged += RecordWithdrawal;
+        }
         public Exception? Read() => Record.Exception(ReadCore);
         private void ReadCore() => _vm.ReadSyntheticCompilerOutputs(_expectedResult, CompilerOutputSnapshotMode.AvailableOutputs, ProjectCompilerOutputSnapshot.MaximumBodyBudgetBytes, token: Token);
         private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
-            if (Fired || ++_notifications != 2) return;
+            if (Fired)
+            {
+                if (Token.IsCancellationRequested)
+                {
+                    WithdrawalNotifications++;
+                    if (_vm.CompilerOutputSnapshot is null && _withdrawalException is not null) throw _withdrawalException;
+                }
+                return;
+            }
+            if (_vm.CompilerOutputSnapshot is null) return;
             Fired = true;
             if (_replace)
             {
@@ -132,8 +153,23 @@ public sealed class SyntheticCompilerOutputSnapshotTests
                 Replacement = _vm.CompilerOutputSnapshot;
             }
             _source.Cancel();
+            if (_publicationException is not null) throw _publicationException;
         }
-        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+
+        private void RecordWithdrawal(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Token.IsCancellationRequested)
+            {
+                DeliveredWithdrawalNotifications.Add(_vm.CompilerOutputSnapshot is null);
+            }
+        }
+
+        public void Dispose()
+        {
+            _vm.PropertyChanged -= Changed;
+            _vm.PropertyChanged -= RecordWithdrawal;
+            _source.Dispose();
+        }
     }
 
     [Theory]
@@ -156,7 +192,59 @@ public sealed class SyntheticCompilerOutputSnapshotTests
             Assert.Same(cancellation.Replacement, vm.CompilerOutputSnapshot); Assert.NotEmpty(vm.CompilerOutputSnapshot!.Bodies);
         }
         else Assert.Null(vm.CompilerOutputSnapshot);
-        Assert.IsType<OperationCanceledException>(error);
+        var cancelled = Assert.IsType<OperationCanceledException>(error);
+        Assert.Equal(token, cancelled.CancellationToken);
+        Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task ThrowingObserverWithdrawsOnlyItsCancelledOutputSnapshot(bool replace) =>
+        VerifyThrowingWithdrawal(replace, new InvalidOperationException("Output publication observer failed"));
+
+    [Fact]
+    public Task ThrowingOutputWithdrawalObserverPreservesCancellation() =>
+        VerifyThrowingWithdrawal(false, null);
+
+    private static async Task VerifyThrowingWithdrawal(bool replace, InvalidOperationException? publicationError)
+    {
+        var fixture = await Ready();
+        using var view = fixture.View;
+        var result = view.Result!;
+        var plan = view.ScopedExecutionPlan;
+        Assert.True(ReadBodies(view));
+        var previous = view.CompilerOutputSnapshot!;
+        var withdrawalError = new InvalidOperationException("Output withdrawal observer failed");
+        using var cancellation = new CancelPublishedRead(view, replace, publicationError, withdrawalError);
+        var error = cancellation.Read();
+
+        Assert.True(cancellation.Fired);
+        Assert.True(cancellation.Token.IsCancellationRequested);
+        Assert.Same(result, view.Result);
+        Assert.Same(plan, view.ScopedExecutionPlan);
+        Assert.NotEmpty(previous.Bodies);
+        if (replace)
+        {
+            Assert.True(cancellation.ReplacementSucceeded);
+            Assert.NotNull(cancellation.Replacement);
+            Assert.Same(cancellation.Replacement, view.CompilerOutputSnapshot);
+            Assert.NotEmpty(cancellation.Replacement.Bodies);
+        }
+        else
+        {
+            Assert.Null(view.CompilerOutputSnapshot);
+        }
+        Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+        bool[] expectedNotifications = publicationError is null ? [false, true] : [true];
+        Assert.Equal(replace ? [] : expectedNotifications, cancellation.DeliveredWithdrawalNotifications);
+        if (publicationError is null)
+        {
+            var cancelled = Assert.IsType<OperationCanceledException>(error);
+            Assert.Equal(cancellation.Token, cancelled.CancellationToken);
+            Assert.Same(withdrawalError, cancelled.InnerException);
+        }
+        else Assert.Same(publicationError, error);
     }
 
     private sealed class CancelInitialRecordedRead : IDisposable
