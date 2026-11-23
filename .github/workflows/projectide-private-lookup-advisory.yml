@@ -14,9 +14,9 @@ permissions:
 env:
   PROVENANCE_BLOB: bc8106b9c4ac38af7ddb53bd4f904aef98d847e8
   PROVENANCE_CONTROLS_BLOB: c9f7ec729870758b86b21f806423ce1bb726933c
-  SOURCE_BLOB: 38a7a5a58da7b94c986cd2bd553a7068da22f6e6
-  RUNNER_BLOB: bb28c9754fd25e489eaa0200e5d29cd972afead7
-  CONTROLS_BLOB: 96fd9d805a1288d392b334107a60042968abf40f
+  SOURCE_BLOB: de5a753f521c04496958762c419b0bbb2ff49226
+  RUNNER_BLOB: 9b4cff7ca82276be040bce9255b2295c9b4ac572
+  CONTROLS_BLOB: 334355c74e34eb3987f9b3e5f062232a6cc7b8c1
 
 concurrency:
   group: private-lookup-qualification-${{ github.event.pull_request.number }}
@@ -29,7 +29,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [corrected, historical-red]
+        mode: [corrected, historical-red, current]
         include:
           - mode: corrected
             product: 1948e1834f79dfcf10bad5f0308546b2bcd939ae
@@ -39,6 +39,10 @@ jobs:
             product: 1696603417073e21db216244aabe72427fd61ced
             product_tree: 77611a2465d30637abac525a9ee43d4009578254
             scope: SYNTHETIC_PRIVATE_LOOKUP_HISTORICAL_LIFETIME_ONLY
+          - mode: current
+            product: de3b6de1f38128ce519e736e44af9815d3c68d0d
+            product_tree: ac634b9dc7fed90c2ef0f76c0c2b05a2923ed7f1
+            scope: SYNTHETIC_PRIVATE_LOOKUP_CURRENT_CORE_ONLY
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
@@ -197,6 +201,7 @@ jobs:
             '--worktree', "$env:RUNNER_TEMP/private-lookup-qualification-product",
             '--evidence', "$env:RUNNER_TEMP/private-lookup-qualification-evidence")
           if ('${{ matrix.mode }}' -eq 'historical-red') { $candidateArguments += '--historical' }
+          if ('${{ matrix.mode }}' -eq 'current') { $candidateArguments += '--current' }
           python @candidateArguments
           if ($LASTEXITCODE -ne 0) { throw 'Private lookup original native qualification did not complete' }
       - name: Retain original source, native outcomes and identities
@@ -216,7 +221,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [corrected, historical-red]
+        mode: [corrected, historical-red, current]
         include:
           - mode: corrected
             product: 1948e1834f79dfcf10bad5f0308546b2bcd939ae
@@ -226,6 +231,10 @@ jobs:
             product: 1696603417073e21db216244aabe72427fd61ced
             product_tree: 77611a2465d30637abac525a9ee43d4009578254
             scope: SYNTHETIC_PRIVATE_LOOKUP_HISTORICAL_LIFETIME_ONLY
+          - mode: current
+            product: de3b6de1f38128ce519e736e44af9815d3c68d0d
+            product_tree: ac634b9dc7fed90c2ef0f76c0c2b05a2923ed7f1
+            scope: SYNTHETIC_PRIVATE_LOOKUP_CURRENT_CORE_ONLY
     runs-on: windows-latest
     timeout-minutes: 35
     env:
@@ -384,6 +393,7 @@ jobs:
             '--worktree', "$env:RUNNER_TEMP/private-lookup-qualification-product",
             '--evidence', "$env:RUNNER_TEMP/private-lookup-qualification-evidence")
           if ('${{ matrix.mode }}' -eq 'historical-red') { $candidateArguments += '--historical' }
+          if ('${{ matrix.mode }}' -eq 'current') { $candidateArguments += '--current' }
           python @candidateArguments
           if ($LASTEXITCODE -ne 0) { throw 'Private lookup original native qualification did not complete' }
       - name: Retain original source, native outcomes and identities

@@ -291,6 +291,18 @@ class HistoricalAdmissionControls(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "^Only the independently reviewed immutable Product commit is admitted$"):
                     RUNNER.selected_product(head, historical)
 
+    def test_current_mode_admits_only_its_own_immutable_product_pin(self) -> None:
+        self.assertEqual(RUNNER.CURRENT_TREE,
+                         RUNNER.selected_product(RUNNER.CURRENT_HEAD, False, current=True))
+        for head in (RUNNER.PRODUCT_HEAD, RUNNER.HISTORICAL_HEAD, "a" * 40):
+            with self.subTest(head=head):
+                with self.assertRaisesRegex(ValueError, "^Only the independently reviewed immutable Product commit is admitted$"):
+                    RUNNER.selected_product(head, False, current=True)
+        with self.assertRaisesRegex(ValueError, "^Only the independently reviewed immutable Product commit is admitted$"):
+            RUNNER.selected_product(RUNNER.CURRENT_HEAD, False)
+        with self.assertRaisesRegex(ValueError, "^Historical and current Product modes are mutually exclusive$"):
+            RUNNER.selected_product(RUNNER.CURRENT_HEAD, True, current=True)
+
     def test_run_level_errors_cannot_hide_behind_expected_assertion_failures(self) -> None:
         for outcome in ("Error", "Failed", "Aborted", "Timeout", "Inconclusive", "Unknown"):
             with self.subTest(outcome=outcome):
