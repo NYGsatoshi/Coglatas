@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Coglatas.Tests" />
     <ProjectReference Include="../../src/Coglatas.Web/Coglatas.Web.csproj" />
   </ItemGroup>
 </Project>

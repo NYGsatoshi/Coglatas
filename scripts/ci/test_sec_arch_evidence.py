@@ -22,6 +22,7 @@ import sec_arch_evidence as evidence
 import sec_arch_assembly_binding as assemblies
 
 NOW = datetime(2026, 10, 9, 13, tzinfo=timezone.utc)
+UNCLASSIFIED_CASE_PATTERN = "Unclassified or duplicate SEC-ARCH test case"
 Q = "{" + evidence.NS["t"] + "}"
 
 
@@ -583,7 +584,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
         self.assertEqual(sum(evidence.EXPECTED.values()), result["observedCaseCount"])
-        self.assertEqual(353, result["observedCaseCount"])
+        self.assertEqual(358, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
         for row in result["cases"]:
             expected = {"method", "caseDigest", "outcome"} | ({"verifierCaseId"} if row["method"] in evidence.THEORY_CASES else set())
@@ -619,7 +620,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
         self.assertEqual(1, evidence.EXPECTED[method])
         original_catalogue = {name: count for name, count in evidence.EXPECTED.items() if name != method}
         with patch.object(evidence, "EXPECTED", original_catalogue):
-            with self.assertRaisesRegex(ValueError, "Unclassified or duplicate SEC-ARCH test case"):
+            with self.assertRaisesRegex(ValueError, UNCLASSIFIED_CASE_PATTERN):
                 observe(root)
 
     def test_readonly_reconnect_mapping_preserves_missing_skipped_failed_and_error_outcomes(self):
@@ -642,13 +643,65 @@ class ExecutionEvidenceTests(unittest.TestCase):
                 recalculate(root)
                 result = observe(root)
                 self.assertEqual(expected, result["outcome"])
-                self.assertEqual(353, result["requiredCaseCount"])
+                self.assertEqual(358, result["requiredCaseCount"])
                 if outcome == "missing":
                     self.assertIn(method, result["missingMethods"])
                 else:
                     observed = [item for item in result["cases"] if item["method"] == method]
                     self.assertEqual(1, len(observed))
                     self.assertEqual(expected, observed[0]["outcome"])
+
+    def test_unregistered_copier_controls_reproduce_closed_catalogue_rejection(self):
+        prefix = evidence.PREFIX + "SecurityArchitectureRlsComposedHostCopyTests."
+        root = fixture()
+        self.assertEqual(5, sum(count for method, count in evidence.EXPECTED.items() if method.startswith(prefix)))
+        previous_catalogue = {method: count for method, count in evidence.EXPECTED.items() if not method.startswith(prefix)}
+        with patch.object(evidence, "EXPECTED", previous_catalogue), \
+             self.assertRaisesRegex(ValueError, UNCLASSIFIED_CASE_PATTERN):
+            observe(root)
+
+    def test_copier_mapping_preserves_missing_skipped_failed_and_error_outcomes(self):
+        for member in evidence.CATALOG["SecurityArchitectureRlsComposedHostCopyTests"]:
+            method = evidence.PREFIX + "SecurityArchitectureRlsComposedHostCopyTests." + member
+            for outcome, expected in (("missing", "UNVERIFIED"), ("NotExecuted", "UNVERIFIED"),
+                                      ("Failed", "FAIL"), ("Aborted", "ERROR")):
+                with self.subTest(method=member, outcome=outcome):
+                    self.assert_copier_outcome(method, outcome, expected)
+
+    def assert_copier_outcome(self, method, outcome, expected):
+        root = fixture()
+        definitions = root.find(Q + "TestDefinitions")
+        definition = next(item for item in definitions if
+            item.find(Q + "TestMethod").attrib["className"] + "." +
+            item.find(Q + "TestMethod").attrib["name"] == method)
+        results = root.find(Q + "Results")
+        row = next(item for item in results if item.attrib["testId"] == definition.attrib["id"])
+        if outcome == "missing":
+            results.remove(row)
+            definitions.remove(definition)
+        else:
+            row.attrib["outcome"] = outcome
+        recalculate(root)
+        result = observe(root)
+        self.assertEqual(expected, result["outcome"])
+        self.assertEqual(358, result["requiredCaseCount"])
+        if outcome == "missing":
+            self.assertIn(method, result["missingMethods"])
+        else:
+            self.assertIn(expected, [case["outcome"] for case in result["cases"] if case["method"] == method])
+
+    def test_copier_cases_cannot_repeat_a_case_name_with_distinct_execution_ids(self):
+        method = evidence.PREFIX + "SecurityArchitectureRlsComposedHostCopyTests.ChangedProducerOrTestModuleIsRejected"
+        root = fixture()
+        definitions = [item for item in root.find(Q + "TestDefinitions") if
+            item.find(Q + "TestMethod").attrib["className"] + "." +
+            item.find(Q + "TestMethod").attrib["name"] == method]
+        self.assertEqual(2, len(definitions))
+        definitions[1].attrib["name"] = definitions[0].attrib["name"]
+        result = next(item for item in root.find(Q + "Results") if item.attrib["testId"] == definitions[1].attrib["id"])
+        result.attrib["testName"] = definitions[0].attrib["name"]
+        with self.assertRaisesRegex(ValueError, UNCLASSIFIED_CASE_PATTERN):
+            observe(root)
 
     def test_wave_one_catalogue_retains_structural_controls_without_runtime_credit(self):
         methods = evidence.CATALOG["SecurityArchitectureWaveOneTests"]

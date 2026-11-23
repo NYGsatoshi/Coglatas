@@ -1,5 +1,11 @@
 # Known Issues
 
+Recovery/quality integration is a review candidate in #2054. Logical, physical
+and continuation Main-SHA paths are configured but have no integrated-Main
+execution credit. Current source, Qodana inventory, exact-run evidence and
+unchanged production/release holds are tracked in
+[the integration ledger](verification/recovery-quality-integration-20261117.md).
+
 ## Student Council pilot: Main qualification failure retained
 
 Normal merge #1294 produced Main `3816908c6a1bae3cb79128af9f9dd3c6633cf50f`.

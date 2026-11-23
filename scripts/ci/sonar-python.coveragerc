@@ -44,6 +44,9 @@ include =
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/thread_probe_diagnostics.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sonar-python-coverage-bootstrap/sitecustomize.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/run-synthetic-logical-recovery-ci.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/run-synthetic-physical-recovery-ci.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/synthetic-physical-recovery-probe.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/run-synthetic-recovery-continuation-ci.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/specification_contract.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/specification_contract_check.py
     ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sec_arch_http_accounting.py

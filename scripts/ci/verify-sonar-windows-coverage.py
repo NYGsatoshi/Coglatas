@@ -19,6 +19,7 @@ ASSEMBLIES = {
     "Coglatas.UI.Core": "src/Coglatas.UI.Core",
     "Coglatas.Web": "src/Coglatas.Web",
     "Coglatas.SecurityArchitecture": "tools/Coglatas.SecurityArchitecture",
+    "Coglatas.SyntheticRecoveryAcceptance": "tools/synthetic-recovery-acceptance",
     "Coglatas.Tests": "tests/Coglatas.Tests",
 }
 GUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
@@ -119,6 +120,7 @@ def verify_report(raw: bytes, source) -> dict:
                 r"Microsoft.AspNetCore.OpenApi.SourceGenerators/Microsoft.AspNetCore.OpenApi.SourceGenerators.XmlCommentGenerator/OpenApiXmlCommentSupport.generated.cs",
             )
             pattern = (r"(?:[A-Za-z]:/[^\x00]+/|/_/)(?:(?:src|tools)/Coglatas\.[A-Za-z.]+/obj/Release/net11\.0"
+                       r"|tools/synthetic-recovery-acceptance/obj/Release/net11\.0"
                        r"|obj/Coglatas\.[A-Za-z.]+/release)/(?:"
                        + "|".join(re.escape(x) for x in generators) + r")")
             if not re.fullmatch(pattern, normalized) or "/../" in normalized or "/./" in normalized:

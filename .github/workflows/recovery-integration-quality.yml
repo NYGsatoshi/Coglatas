@@ -1,0 +1,17 @@
+name: Recovery integration full Qodana
+
+# Credential-free complete inventory before integration. Main keeps its existing
+# Community and protected Cloud workflows; no historical result is inherited.
+on:
+  push:
+    branches:
+      - 'integration/recovery-qodana-completion-*'
+permissions:
+  contents: read
+concurrency:
+  group: recovery-integration-quality-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  full-qodana:
+    if: github.repository == 'NYGsatoshi/Coglatas'
+    uses: ./.github/workflows/qodana_trusted_gate.yml

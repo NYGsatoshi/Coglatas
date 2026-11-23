@@ -1,5 +1,7 @@
 import importlib.util
 import json
+import os
+from unittest.mock import patch
 from pathlib import Path
 import tempfile
 import unittest
@@ -62,6 +64,54 @@ def encoded(receipt):
 
 
 class ClosedRecoveryPublicationTests(unittest.TestCase):
+    def test_main_context_rejects_forgery_before_workspace_or_docker(self):
+        admitted = {"COGLATAS_RECOVERY_RUNNER_ENVIRONMENT": "github-hosted",
+                    "RUNNER_OS": "Linux", "GITHUB_EVENT_NAME": "push",
+                    "GITHUB_REPOSITORY": "NYGsatoshi/Coglatas",
+                    "GITHUB_REF": "refs/heads/main", "GITHUB_SHA": "a" * 40,
+                    "GITHUB_RUN_ID": "1", "GITHUB_RUN_ATTEMPT": "1", "RUNNER_TEMP": "/unused"}
+        ci.require_hosted_recovery_event(admitted)
+        ci.require_hosted_recovery_event({**admitted, "GITHUB_EVENT_NAME": "pull_request"})
+        for change in ({"GITHUB_EVENT_NAME": "workflow_dispatch"},
+                       {"GITHUB_EVENT_NAME": "pull_request_target"},
+                       {"GITHUB_REPOSITORY": "foreign/Coglatas"},
+                       {"GITHUB_REF": "refs/heads/other"}, {"GITHUB_REF": "refs/tags/main"},
+                       {"GITHUB_SHA": "a" * 40 + "\n"}, {"GITHUB_SHA": "bad"},
+                       {"COGLATAS_PR_HEAD_SHA": "b" * 40}, {"COGLATAS_PR_BASE_SHA": "b" * 40},
+                       {"RUNNER_OS": "Windows"},
+                       {"COGLATAS_RECOVERY_RUNNER_ENVIRONMENT": "self-hosted"}):
+            with self.subTest(change=change), patch.dict(os.environ, {**admitted, **change}, clear=True), \
+                 patch.object(ci.tempfile, "mkdtemp") as workspace, \
+                 patch.object(ci.subprocess, "run") as command, \
+                 patch.object(ci, "publish_once"), patch("builtins.print"):
+                with self.assertRaises(ci.Rejected):
+                    ci.require_hosted_recovery_event({**admitted, **change})
+                self.assertEqual(ci.main(), 1)
+                workspace.assert_not_called()
+                command.assert_not_called()
+
+    def test_physical_and_continuation_main_routes_preserve_pr_filters(self):
+        for name in ("synthetic-physical-recovery", "synthetic-recovery-continuation"):
+            workflow = (ROOT / ".github/workflows" / (name + ".yml")).read_text()
+            pr, push = workflow.split("  push:\n    branches:\n      - main\n    paths:\n")
+            self.assertEqual(pr.split("    paths:\n", 1)[1], push.split("permissions:\n", 1)[0])
+            self.assertIn("github.event.pull_request.number || github.ref", workflow)
+            self.assertIn("ref: " + chr(36) + "{{ github.sha }}", workflow)
+            self.assertIn("tests/ci/test_synthetic_physical_recovery_http_guard.py", pr)
+            self.assertIn("tests/ci/test_synthetic_physical_recovery_http_guard.py", push)
+            self.assertIn("  cancel-in-progress: false\n", workflow)
+            self.assertIn("  contents: read\n", workflow)
+
+    def test_full_qodana_caller_uses_existing_unmodified_local_gate_without_secrets(self):
+        workflow = (ROOT / ".github/workflows/recovery-integration-quality.yml").read_text()
+        self.assertIn("uses: ./.github/workflows/qodana_trusted_gate.yml", workflow)
+        self.assertIn("  contents: read\n", workflow)
+        self.assertIn("  push:\n", workflow)
+        self.assertNotIn("secrets:", workflow)
+        self.assertNotIn("workflow_dispatch:", workflow)
+        self.assertNotIn("pull_request_target:", workflow)
+        self.assertNotIn("reuse_main_artifacts:", workflow)
+
     def test_tool_framework_and_native_paths_match_current_product(self):
         import xml.etree.ElementTree as ET
         product = ET.parse(ROOT / "src/Coglatas.Web/Coglatas.Web.csproj").getroot()
