@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Coglatas.Domain.ProjectIde;
@@ -11,7 +12,8 @@ var testEditProfile = args is [_, "--test-edit"];
 var dependencyProfile = args is [_, "--dependency-analysis"];
 var graphProfile = args is [_, "--graph-closure"];
 var debugProfile = args is [_, "--simulation-debug"];
-var comparisonProfile = args is [_, "--simulation-comparison"];
+var scenarioScheduleProfile = args is [_, "--scenario-schedule"];
+var comparisonProfile = args is [_, "--simulation-comparison"] || scenarioScheduleProfile;
 var traceProfile = args is [_, "--simulation-profile"];
 var simulationProfile = args is [_, "--simulation"] || debugProfile || comparisonProfile || traceProfile;
 var planProfile = args is [_, "--execution-plan"] || simulationProfile;
@@ -26,7 +28,7 @@ var outputSnapshotProfile = args is [_, "--compiler-outputs"] || recordingProfil
 var publicationProfile = args is [_, "--scoped-publication"] || outputSnapshotProfile;
 var scopedProfile = args is [_, "--scoped-sources"];
 var scenarioProfile = args is [_, "--scenario"] || dependencyProfile || graphProfile || scopedProfile || publicationProfile || planProfile || regionalOperatorRecordingProfile || semanticIndexProfile;
-if (args.Length != 1 && !testEditProfile && !scenarioProfile && !rootPremiseProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--simulation-profile/--compiler-outputs/--compiler-recordings/--diagnostic-premises/--root-diagnostic-premises/--predicate-recordings/--operator-recordings/--regional-operator-recordings/--pass-recordings/--semantic-index/--semantic-index-large profile.");
+if (args.Length != 1 && !testEditProfile && !scenarioProfile && !rootPremiseProfile) throw new ArgumentException("Supply the output JSON path and optional --test-edit, --scenario, --dependency-analysis, --graph-closure or --scoped-sources/--scoped-publication/--execution-plan/--simulation/--simulation-debug/--simulation-comparison/--scenario-schedule/--simulation-profile/--compiler-outputs/--compiler-recordings/--diagnostic-premises/--root-diagnostic-premises/--predicate-recordings/--operator-recordings/--regional-operator-recordings/--pass-recordings/--semantic-index/--semantic-index-large profile.");
 var testEditFixture = testEditProfile ? TestEditFixture() : null;
 var scenarioFixtures = scenarioProfile ? new Dictionary<string, PreparedScenarioFixture>(StringComparer.Ordinal)
 {
@@ -48,11 +50,16 @@ if (planProfile) scenarioFixtures = new(StringComparer.Ordinal) {
     ["tests-plan-budget"] = ReferenceScenarioFixture(2100, dependencyConstraint: true, publication: true, truth: true, planTarget: true, planBudget: 200000)
 };
 if (simulationProfile) scenarioFixtures = new(StringComparer.Ordinal) {
-    ["tests-simulation-root"] = ScenarioFixture(publication: true, planTarget: true),
+    ["tests-simulation-root"] = ScenarioFixture(publication: true, planTarget: true, scheduleImpact: scenarioScheduleProfile),
     ["tests-simulation-external"] = ReferenceScenarioFixture(2600, dependencyConstraint: true, publication: true, truth: true, planTarget: true),
     ["tests-simulation-unknown"] = ReferenceScenarioFixture(2300, dependencyConstraint: true, publication: true, truth: null, planTarget: true),
     ["tests-simulation-bounded"] = ReferenceScenarioFixture(2400, dependencyConstraint: true, publication: true, truth: true, planTarget: true)
 };
+if (scenarioScheduleProfile)
+{
+    scenarioFixtures!.Remove("tests-simulation-external");
+    scenarioFixtures.Remove("tests-simulation-unknown");
+}
 if (regionalOperatorRecordingProfile) scenarioFixtures = new(StringComparer.Ordinal) {
     ["tests-regional-root"] = ScenarioFixture(publication: true),
     ["tests-regional-true"] = ReferenceScenarioFixture(9200, dependencyConstraint: true, publication: true, truth: true, uniqueDependencyIdentity: true),
@@ -353,7 +360,32 @@ if (comparisonProfile)
             var row = cases.OfType<JsonObject>().Single(item => item["key"]!.GetValue<string>() == beforeKey);
             row["simulationComparison"] = JsonSerializer.SerializeToNode(new { afterCaseKey = afterKey, text = comparison.Data.CanonicalText, digest = comparison.Digest.Data.Value }); paired++;
         }
-    if (paired != 6) throw new InvalidOperationException("The comparison example requires six actual Core pairs.");
+    if (paired != (scenarioScheduleProfile ? 4 : 6))
+        throw new InvalidOperationException("The comparison example did not produce its expected Core pairs.");
+}
+if (scenarioScheduleProfile)
+{
+    foreach (var key in new[] { "tests-simulation-root", "tests-simulation-bounded" })
+    {
+        var beforeKey = key + "-base";
+        var afterKey = key + "-hypothesis";
+        var before = comparisonRuns[beforeKey];
+        var after = comparisonRuns[afterKey];
+        var scenario = scenarioFixtures![key].Scenario;
+        var schedule = ProjectScenarioElapsedScheduleImpact.Compare(scenario, before, before.Digest, after, after.Digest);
+        var expected = key == "tests-simulation-bounded" ? ScenarioElapsedScheduleImpactState.Incomplete : ScenarioElapsedScheduleImpactState.Complete;
+        if (schedule.State != expected || expected == ScenarioElapsedScheduleImpactState.Complete &&
+            (schedule.ModeledFinishDeltaTicks != 2 || schedule.Baseline?.Tasks.Single(task => task.Task.EntityId == EntityId.Parse(Id(7))).TotalFloatTicks != 5))
+            throw new InvalidOperationException("Scenario schedule fixture lost its expected outcome: " + schedule.Reason);
+        var frame = Json(new { format = "coglatas.local-scenario-elapsed-schedule/1", overlayDigest = scenario.OverlayDigest.Data.Value,
+            baselineRunDigest = before.Digest.Data.Value, scenarioRunDigest = after.Digest.Data.Value,
+            state = schedule.State.ToString(), reason = schedule.Reason,
+            modeledFinishDeltaTicks = schedule.ModeledFinishDeltaTicks?.ToString(CultureInfo.InvariantCulture),
+            baseline = Schedule(schedule.Baseline), hypothesis = Schedule(schedule.Hypothesis) });
+        var row = cases.OfType<JsonObject>().Single(item => item["key"]!.GetValue<string>() == beforeKey);
+        row["scenarioScheduleImpact"] = JsonSerializer.SerializeToNode(new { afterCaseKey = afterKey, text = frame.CanonicalText,
+            digest = ContentDigest.Compute("coglatas.local-scenario-elapsed-schedule/1", frame.ToCanonicalBytes()).Data.Value });
+    }
 }
 var output = JsonSerializer.Serialize(new { format = "coglatas.web-preview/1", mode = "synthetic-fixture", coreProduct = "610f9911f9ce31739188437972f7eeb018f611da", cases }, new JsonSerializerOptions { WriteIndented = true, Encoder = largeSemanticIndexProfile ? System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping : null });
 if (recordingProfile) {
@@ -414,18 +446,44 @@ static CompilerInputManifest PlanTarget(CompilerInputManifest input, int operati
 static object PlanTask(int id) => new { entityId = Id(id), documentId = Id(4), kind = "coglatas.task", schemaVersion = 1, payload = new {
     duration = new { type = new { kind = "coglatas.elapsed-duration", schemaVersion = 1, nullable = false, acceptsUnknown = false }, state = "coglatas.known", value = "1" }, ports = Array.Empty<object>() } };
 static string Id(int n) => new Guid(n, 0, 0x4000, 0x80, 0, 0, 0, 0, 0, 0, 1).ToString();
-static PreparedScenarioFixture ScenarioFixture(bool publication = false, bool planTarget = false)
+static object? Schedule(ElapsedRunSchedule? schedule) => schedule is null ? null : new
 {
-    var fixtureRevision = planTarget ? 2200 : 750;
+    finishOffsetTicks = schedule.FinishOffsetTicks.ToString(CultureInfo.InvariantCulture),
+    tasks = schedule.Tasks.Select(task => new { location = task.Task.Data.Value,
+        startOffsetTicks = task.StartOffsetTicks.ToString(CultureInfo.InvariantCulture),
+        finishOffsetTicks = task.FinishOffsetTicks.ToString(CultureInfo.InvariantCulture),
+        totalFloatTicks = task.TotalFloatTicks.ToString(CultureInfo.InvariantCulture) }).ToArray()
+};
+
+static PreparedScenarioFixture ScenarioFixture(bool publication = false, bool planTarget = false, bool scheduleImpact = false)
+{
+    var fixtureRevision = scheduleImpact ? 22200 : planTarget ? 2200 : 750;
     var basis = LocalTestInput("tests-fail", fixtureRevision);
     if (publication) { var settings = JsonNode.Parse(basis.Settings.CanonicalText)!.AsObject(); settings["semantics"]!["version"] = "2"; settings["ir"]!["version"] = "2"; basis = new(basis.Source, Json(settings)); }
     if (planTarget) basis = PlanTarget(basis);
+    if (scheduleImpact)
+    {
+        var declarations = JsonNode.Parse(basis.Source.Declarations.CanonicalText)!.AsArray();
+        declarations.Single(row => row!["entityId"]!.GetValue<string>() == Id(8))!["payload"]!["duration"]!["value"] = "6";
+        var relations = JsonNode.Parse(basis.Source.Relations.CanonicalText)!.AsArray();
+        relations.Single(row => row!["relationId"]!.GetValue<string>() == Id(44))!["source"]!["reference"]!["entityId"] = Id(9);
+        basis = new(ProjectSource.Create(basis.Source.Context, basis.Source.Documents, Json(declarations), Json(relations)), basis.Settings);
+    }
     var model = ProjectSemanticBinder.Bind(basis);
     var task = model.Declarations.Select(item => item.Declaration).OfType<TaskPlanDeclaration>().Single(item => item.EntityId == EntityId.Parse(Id(8)));
     var port = task.Ports.Single(); var value = JsonNode.Parse(port.DefaultValue!.Data.CanonicalText)!.AsObject(); value["value"] = true;
     var change = new ProjectScenarioOverride(ProjectLocation.Create(task.DocumentId, basis.Source.Context, entityId: task.EntityId),
         ProjectScenarioOverrideKind.TaskInputDefault, Json(value), port.PortId);
-    var plan = ProjectScenarios.Prepare(model, basis.InputDigest, ScenarioId.Parse(Id(fixtureRevision + 10)), ScenarioRevisionId.Parse(Id(fixtureRevision + 11)), [change]).Plan
+    var changes = new List<ProjectScenarioOverride> { change };
+    if (scheduleImpact)
+    {
+        var delayed = model.Declarations.Select(item => item.Declaration).OfType<TaskPlanDeclaration>().Single(item => item.EntityId == EntityId.Parse(Id(7)));
+        var duration = JsonNode.Parse(delayed.Duration.Data.CanonicalText)!.AsObject();
+        duration["value"] = "8";
+        changes.Add(new(ProjectLocation.Create(delayed.DocumentId, basis.Source.Context, entityId: delayed.EntityId),
+            ProjectScenarioOverrideKind.TaskDuration, Json(duration)));
+    }
+    var plan = ProjectScenarios.Prepare(model, basis.InputDigest, ScenarioId.Parse(Id(fixtureRevision + 10)), ScenarioRevisionId.Parse(Id(fixtureRevision + 11)), changes).Plan
         ?? throw new InvalidOperationException("Scenario preparation unavailable.");
     var revision = basis.Source.Context.CommittedRevision!;
     var draft = ProjectScenarios.ToDraft(plan, model, basis.InputDigest, new(ProposalId.Parse(Id(fixtureRevision + 20)), CandidateRevisionId.Parse(Id(fixtureRevision + 21)), revision, revision)).Plan
