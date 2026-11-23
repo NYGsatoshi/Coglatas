@@ -2,13 +2,31 @@ namespace Coglatas.ProjectIde.TestCli;
 
 internal static class ProjectTestOutput
 {
-    internal static async Task WriteNewAsync(string path, ReadOnlyMemory<byte> bytes)
+    internal static async Task<int> PublishResultAsync(string path, ReadOnlyMemory<byte> bytes, int exitCode,
+        CancellationToken cancellationToken, Func<ReadOnlyMemory<byte>> cancelledArtifact)
+    {
+        try
+        {
+            // A known failure or already-cancelled result remains publishable evidence.
+            await WriteNewAsync(path, bytes, exitCode == 0 ? cancellationToken : CancellationToken.None);
+            return exitCode;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            await WriteNewAsync(path, cancelledArtifact());
+            return 2;
+        }
+    }
+
+    internal static async Task WriteNewAsync(string path, ReadOnlyMemory<byte> bytes,
+        CancellationToken cancellationToken = default)
     {
         var suppliedName = Path.GetFileName(path);
         var destination = Path.GetFullPath(path);
         if (suppliedName.Length == 0 || suppliedName is "." or ".." || Path.GetFileName(destination).Length == 0)
             throw new ArgumentException("Output path must end with a file name.", nameof(path));
 
+        cancellationToken.ThrowIfCancellationRequested();
         var temporary = Path.Combine(Path.GetDirectoryName(destination)!, $".projectide-test-{Guid.NewGuid():N}.tmp");
         var ownsTemporary = false;
         try
@@ -17,10 +35,11 @@ internal static class ProjectTestOutput
                 4096, FileOptions.Asynchronous))
             {
                 ownsTemporary = true;
-                await output.WriteAsync(bytes);
-                await output.FlushAsync();
+                await output.WriteAsync(bytes, cancellationToken);
+                await output.FlushAsync(cancellationToken);
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             if (OperatingSystem.IsWindows())
             {
                 File.Move(temporary, destination, overwrite: false);
