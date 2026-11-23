@@ -79,11 +79,15 @@ jobs:
 
           CHANGED_FILES_PATH="$changed_files" \
           PROJECTS_FILE="$projects_file" \
-          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          python3 -B - <<'PY' >> "$GITHUB_OUTPUT"
           import os
+          import sys
           from pathlib import Path
 
           root = Path.cwd().resolve()
+          sys.path.insert(0, str(root / "scripts/quality"))
+          from projectide_entry_resharper import PROJECT, entry_source_witnesses, has_integrated_entry
+
           changed_path = Path(os.environ["CHANGED_FILES_PATH"])
           projects_path = Path(os.environ["PROJECTS_FILE"])
 
@@ -158,6 +162,11 @@ jobs:
                       selected.clear()
                       break
                   selected[project.stem] = project.relative_to(root)
+
+          # Scope and preparation must agree about the integrated Entry witnesses.
+          if not full_solution and entry_source_witnesses(paths) and has_integrated_entry(root):
+              entry_project = Path(PROJECT)
+              selected[entry_project.stem] = entry_project
 
           # Pipeline-only changes still exercise a real but bounded inspection.
           if not full_solution and not selected:
