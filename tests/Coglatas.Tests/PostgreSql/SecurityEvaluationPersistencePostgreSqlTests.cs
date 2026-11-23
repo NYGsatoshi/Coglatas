@@ -678,7 +678,7 @@ public sealed class SecurityEvaluationPersistencePostgreSqlTests
         }
 
         public ISecurityEvaluationReader CreateReader(ISecurityCurrentContextProvider provider,
-            SecurityEvaluationDiagnostics? diagnostics = null) => new SecurityEvaluationReader(Store, provider, diagnostics ?? new(), Tenant, Actor);
+            SecurityEvaluationDiagnostics? diagnostics = null) => new SecurityEvaluationReader(Store, provider, diagnostics ?? new());
 
         public SecurityBinding Binding(SourceRevisionContext? context = null)
         {

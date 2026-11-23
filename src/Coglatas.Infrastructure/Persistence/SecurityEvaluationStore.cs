@@ -93,11 +93,9 @@ public sealed class SecurityEvaluationStore(AppDbContext context, ICurrentTenant
     public async Task<SecurityEvaluationRecord?> FindAsync(Guid projectId, Guid evaluationId,
         CancellationToken cancellationToken = default)
     {
-        var scope = CaptureScope();
-        if (scope is null || currentUser.SessionId is not { } sessionId || sessionId == Guid.Empty ||
-            !await CanReadAsync(scope.Value, sessionId, projectId, cancellationToken)) return null;
+        if (CaptureViewer() is not { } viewer || !await CanReadAsync(viewer, projectId, cancellationToken)) return null;
         var run = await context.SecurityEvaluationRuns.AsNoTracking()
-            .Where(run => run.Id == evaluationId && run.TenantId == scope.Value.TenantId && run.ProjectId == projectId)
+            .Where(run => run.Id == evaluationId && run.TenantId == viewer.TenantId && run.ProjectId == projectId)
             .Select(run => new
             {
                 run.Id, run.TenantId, run.ProjectId, run.BindingDigest, run.SchemaVersion, run.IdentityJson,
@@ -105,10 +103,10 @@ public sealed class SecurityEvaluationStore(AppDbContext context, ICurrentTenant
             }).SingleOrDefaultAsync(cancellationToken);
         if (run is null) return null;
         var rules = run.Status == SecurityEvaluationStatus.Pending ? [] : await context.SecurityEvaluationRuleResults.AsNoTracking()
-            .Where(rule => rule.EvaluationId == evaluationId && rule.TenantId == scope.Value.TenantId && rule.ProjectId == projectId)
+            .Where(rule => rule.EvaluationId == evaluationId && rule.TenantId == viewer.TenantId && rule.ProjectId == projectId)
             .OrderBy(rule => rule.Sequence)
             .Select(rule => new SecurityRuleResult(rule.RuleId, rule.Status, rule.Outcome, rule.ReasonCode)).ToArrayAsync(cancellationToken);
-        if (!await CanReadAsync(scope.Value, sessionId, projectId, cancellationToken)) return null;
+        if (!await CanReadAsync(viewer, projectId, cancellationToken)) return null;
         var identity = JsonSerializer.Deserialize<SecurityEvaluationIdentitySnapshot>(run.IdentityJson, IdentityJsonOptions)
             ?? throw new InvalidOperationException("Stored Security identity is invalid.");
         if (identity.Resource.TenantId != run.TenantId || identity.Resource.ProjectId != run.ProjectId)
@@ -119,6 +117,10 @@ public sealed class SecurityEvaluationStore(AppDbContext context, ICurrentTenant
             run.EnforcementMode, run.Status, run.Outcome, run.ReasonCode, run.CreatedAtUtc, run.TerminalAtUtc,
             Array.AsReadOnly(rules));
     }
+
+    public SecurityEvaluationViewer? CaptureViewer() =>
+        CaptureScope() is { } scope && currentUser.SessionId is { } sessionId && sessionId != Guid.Empty
+            ? new(scope.TenantId, scope.UserId, sessionId) : null;
 
     private (Guid TenantId, Guid UserId)? CaptureScope() => currentTenant.IsAvailable && !currentTenant.IsPlatformScope &&
         currentTenant.TenantId != Guid.Empty && currentUser.IsAuthenticated && currentUser.UserId is { } userId && userId != Guid.Empty
@@ -136,20 +138,18 @@ public sealed class SecurityEvaluationStore(AppDbContext context, ICurrentTenant
             .AnyAsync(project => project.Id == projectId && project.TenantId == scope.TenantId && project.DeletedAt == null, token) &&
         ScopeIsCurrent(scope);
 
-    private async Task<bool> CanReadAsync((Guid TenantId, Guid UserId) scope, Guid sessionId, Guid projectId,
-        CancellationToken token)
+    private async Task<bool> CanReadAsync(SecurityEvaluationViewer viewer, Guid projectId, CancellationToken token)
     {
-        if (!ScopeIsCurrent(scope) || currentUser.SessionId != sessionId ||
-            !await authorization.CanViewProject(scope.UserId, projectId, token) ||
-            !await AuthorizationStateIsCurrentAsync(scope, projectId, token) ||
+        if (CaptureViewer() != viewer || !await authorization.CanViewProject(viewer.UserId, projectId, token) ||
+            !await AuthorizationStateIsCurrentAsync((viewer.TenantId, viewer.UserId), projectId, token) ||
             !await context.Projects.AsNoTracking()
-                .AnyAsync(project => project.Id == projectId && project.TenantId == scope.TenantId && project.DeletedAt == null, token))
+                .AnyAsync(project => project.Id == projectId && project.TenantId == viewer.TenantId && project.DeletedAt == null, token))
             return false;
 
-        var session = await sessions.GetCurrentByIdWithUserAsync(sessionId, token);
-        return ScopeIsCurrent(scope) && currentUser.SessionId == sessionId && session is
+        var session = await sessions.GetCurrentByIdWithUserAsync(viewer.SessionId, token);
+        return CaptureViewer() == viewer && session is
             { RevokedAt: null, User: { Status: UserStatus.Active, DeletedAt: null } } &&
-            session.UserId == scope.UserId && session.ExpiresAt > clock.UtcNow;
+            session.UserId == viewer.UserId && session.ExpiresAt > clock.UtcNow;
     }
 
     private async Task<bool> AuthorizationStateIsCurrentAsync((Guid TenantId, Guid UserId) scope, Guid projectId, CancellationToken token)

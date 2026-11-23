@@ -1,7 +1,5 @@
 using System.Text.Json;
 using Coglatas.Application;
-using Coglatas.Application.Common.Interfaces;
-using Coglatas.Application.Common.Tenancy;
 using Coglatas.Application.ProjectIde.Evaluations;
 using Coglatas.Domain.ProjectIde;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,8 +16,8 @@ public sealed class SecurityEvaluationReaderTests
         var store = new ReadStore(record);
         var provider = new ContextProvider(binding);
         using var cancellation = new CancellationTokenSource();
-        var result = Assert.IsType<SecurityEvaluationReadModel>(await CreateReader(record, store, provider, new())
-            .FindAsync(record.ProjectId, record.EvaluationId, cancellation.Token));
+        var result = Assert.IsType<SecurityEvaluationReadModel>(await new SecurityEvaluationReader(store, provider,
+            new()).FindAsync(record.ProjectId, record.EvaluationId, cancellation.Token));
         Assert.Equal(record.EvaluationId, result.EvaluationId);
         Assert.Equal(record.TenantId, result.TenantId);
         Assert.Equal(record.ProjectId, result.ProjectId);
@@ -81,8 +79,8 @@ public sealed class SecurityEvaluationReaderTests
             changed == "host-compiler" ? new("test-host/2", "different") : binding.Evidence.Compiler));
         var record = Record(binding);
         var diagnostics = new SecurityEvaluationDiagnostics();
-        var result = Assert.IsType<SecurityEvaluationReadModel>(await CreateReader(record, new ReadStore(record), new ContextProvider(current), diagnostics)
-            .FindAsync(record.ProjectId, record.EvaluationId));
+        var result = Assert.IsType<SecurityEvaluationReadModel>(await new SecurityEvaluationReader(new ReadStore(record),
+            new ContextProvider(current), diagnostics).FindAsync(record.ProjectId, record.EvaluationId));
         Assert.Equal(SecurityEvaluationFreshness.Stale, result.Freshness);
         Assert.Equal(1, diagnostics.Snapshot().BindingMismatch);
         Assert.DoesNotContain("private-context-canary", JsonSerializer.Serialize(result));
@@ -113,8 +111,8 @@ public sealed class SecurityEvaluationReaderTests
             new(currentContext, currentSource.Digest), request.EnforcementMode, currentSource, request.Policy, request.Compiler),
             new(currentSource, SecurityEvaluationTestData.Policy(), request.Compiler));
         var record = Record(binding);
-        var result = Assert.IsType<SecurityEvaluationReadModel>(await CreateReader(record, new ReadStore(record), new ContextProvider(current), new())
-            .FindAsync(record.ProjectId, record.EvaluationId));
+        var result = Assert.IsType<SecurityEvaluationReadModel>(await new SecurityEvaluationReader(new ReadStore(record),
+            new ContextProvider(current), new()).FindAsync(record.ProjectId, record.EvaluationId));
         Assert.Equal(SecurityEvaluationFreshness.Stale, result.Freshness);
     }
 
@@ -140,8 +138,8 @@ public sealed class SecurityEvaluationReaderTests
             ExpectedPolicy = missing == "saved-policy" ? null : record.Identity.ExpectedPolicy,
             ExpectedCompiler = missing == "saved-compiler" ? null : record.Identity.ExpectedCompiler
         } };
-        var result = Assert.IsType<SecurityEvaluationReadModel>(await CreateReader(record, new ReadStore(record), new ContextProvider(current), new())
-            .FindAsync(record.ProjectId, record.EvaluationId));
+        var result = Assert.IsType<SecurityEvaluationReadModel>(await new SecurityEvaluationReader(new ReadStore(record),
+            new ContextProvider(current), new()).FindAsync(record.ProjectId, record.EvaluationId));
         Assert.Equal(SecurityEvaluationFreshness.Unverified, result.Freshness);
     }
 
@@ -154,8 +152,8 @@ public sealed class SecurityEvaluationReaderTests
             request.Operation, request.Resource, request.EnforcementMode, request.Source, request.Policy, request.Compiler), binding.Evidence);
         Assert.NotEqual(binding.Digest, current.Digest);
         var record = Record(binding);
-        var result = Assert.IsType<SecurityEvaluationReadModel>(await CreateReader(record, new ReadStore(record), new ContextProvider(current), new())
-            .FindAsync(record.ProjectId, record.EvaluationId));
+        var result = Assert.IsType<SecurityEvaluationReadModel>(await new SecurityEvaluationReader(new ReadStore(record),
+            new ContextProvider(current), new()).FindAsync(record.ProjectId, record.EvaluationId));
         Assert.Equal(SecurityEvaluationFreshness.Current, result.Freshness);
         Assert.Equal(request.Subject.UserId, result.Identity.SubjectUserId);
         Assert.False(result.IsAuthoritative);
@@ -167,7 +165,10 @@ public sealed class SecurityEvaluationReaderTests
         var record = Record(SecurityEvaluationTestData.Binding());
         var store = new ReadStore(null);
         var provider = new ContextProvider(null);
-        var reader = CreateReader(record, store, provider, new());
+        var reader = new SecurityEvaluationReader(store, provider, new());
+        Assert.Null(await reader.FindAsync(record.ProjectId, record.EvaluationId));
+        Assert.Equal(0, store.Reads);
+        store.Viewer = new(record.TenantId, record.Identity.SubjectUserId, Guid.NewGuid());
         Assert.Null(await reader.FindAsync(record.ProjectId, record.EvaluationId));
         Assert.Equal(0, provider.Calls);
         store.AvailableRecord = record;
@@ -185,23 +186,19 @@ public sealed class SecurityEvaluationReaderTests
     {
         var binding = SecurityEvaluationTestData.Binding();
         var record = Record(binding);
-        var tenant = new CurrentTenantService();
-        tenant.SetTenant(record.TenantId, "security-test");
-        var viewer = new Viewer(record.Identity.SubjectUserId);
-        var store = new ReadStore(record);
+        var viewer = new SecurityEvaluationViewer(record.TenantId, record.Identity.SubjectUserId, Guid.NewGuid());
+        var store = new ReadStore(record) { Viewer = viewer };
         var provider = new ContextProvider(binding)
         {
-            BeforeReturn = () =>
+            BeforeReturn = () => store.Viewer = changed switch
             {
-                switch (changed)
-                {
-                    case "tenant": tenant.SetTenant(Guid.NewGuid(), "replacement"); break;
-                    case "viewer": viewer.UserId = Guid.NewGuid(); break;
-                    case "session": viewer.SessionId = Guid.NewGuid(); break;
-                }
+                "tenant" => viewer with { TenantId = Guid.NewGuid() },
+                "viewer" => viewer with { UserId = Guid.NewGuid() },
+                "session" => viewer with { SessionId = Guid.NewGuid() },
+                _ => throw new ArgumentOutOfRangeException(nameof(changed))
             }
         };
-        var reader = new SecurityEvaluationReader(store, provider, new(), tenant, viewer);
+        var reader = new SecurityEvaluationReader(store, provider, new());
 
         Assert.Null(await reader.FindAsync(record.ProjectId, record.EvaluationId));
         Assert.Equal(1, provider.Calls);
@@ -214,10 +211,8 @@ public sealed class SecurityEvaluationReaderTests
         var services = new ServiceCollection().AddApplication();
         var record = Record(SecurityEvaluationTestData.Binding());
         services.AddScoped<ISecurityEvaluationStore>(_ => new ReadStore(record));
-        services.AddScoped<ICurrentUser>(_ => new Viewer(record.Identity.SubjectUserId));
         await using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
-        scope.ServiceProvider.GetRequiredService<ICurrentTenantAccessor>().SetTenant(record.TenantId, "security-test");
         var result = Assert.IsType<SecurityEvaluationReadModel>(await scope.ServiceProvider.GetRequiredService<ISecurityEvaluationReader>()
             .FindAsync(record.ProjectId, record.EvaluationId));
         Assert.Equal(SecurityEvaluationFreshness.Unverified, result.Freshness);
@@ -231,23 +226,6 @@ public sealed class SecurityEvaluationReaderTests
         SecurityEvaluationStatus.Completed, SecurityDecisionOutcome.Allow, SecurityReasonCode.BindingsVerified,
         DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch.AddSeconds(1),
         [new("fixture", SecurityEvaluationStatus.Completed, SecurityDecisionOutcome.Allow, SecurityReasonCode.BindingsVerified)]);
-
-    private static SecurityEvaluationReader CreateReader(SecurityEvaluationRecord record, ISecurityEvaluationStore store,
-        ISecurityCurrentContextProvider provider, SecurityEvaluationDiagnostics diagnostics)
-    {
-        var tenant = new CurrentTenantService();
-        tenant.SetTenant(record.TenantId, "security-test");
-        return new(store, provider, diagnostics, tenant, new Viewer(record.Identity.SubjectUserId));
-    }
-
-    private sealed class Viewer(Guid userId) : ICurrentUser
-    {
-        public Guid? UserId { get; set; } = userId;
-        public Guid? SessionId { get; set; } = Guid.NewGuid();
-        public string? Email => null;
-        public Coglatas.Domain.Enums.SystemRole? SystemRole => null;
-        public bool IsAuthenticated => true;
-    }
 
     private sealed class ContextProvider(SecurityBinding? binding) : ISecurityCurrentContextProvider
     {
@@ -272,7 +250,10 @@ public sealed class SecurityEvaluationReaderTests
     private sealed class ReadStore(SecurityEvaluationRecord? record) : ISecurityEvaluationStore
     {
         public SecurityEvaluationRecord? AvailableRecord { get; set; } = record;
+        public SecurityEvaluationViewer? Viewer { get; set; } = record is null
+            ? null : new(record.TenantId, record.Identity.SubjectUserId, Guid.NewGuid());
         public int Reads { get; private set; }
+        public SecurityEvaluationViewer? CaptureViewer() => Viewer;
         public Task<SecurityEvaluationRecord?> FindAsync(Guid projectId, Guid evaluationId, CancellationToken cancellationToken = default)
         {
             Reads++;

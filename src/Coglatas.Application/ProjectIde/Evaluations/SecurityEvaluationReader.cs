@@ -1,4 +1,3 @@
-using Coglatas.Application.Common.Interfaces;
 using Coglatas.Domain.ProjectIde;
 
 namespace Coglatas.Application.ProjectIde.Evaluations;
@@ -39,27 +38,26 @@ internal sealed class UnavailableSecurityCurrentContextProvider : ISecurityCurre
 }
 
 public sealed class SecurityEvaluationReader(ISecurityEvaluationStore store,
-    ISecurityCurrentContextProvider currentContext, SecurityEvaluationDiagnostics diagnostics,
-    ICurrentTenant currentTenant, ICurrentUser currentUser) : ISecurityEvaluationReader
+    ISecurityCurrentContextProvider currentContext, SecurityEvaluationDiagnostics diagnostics) : ISecurityEvaluationReader
 {
     public async Task<SecurityEvaluationReadModel?> FindAsync(Guid projectId, Guid evaluationId,
         CancellationToken cancellationToken = default)
     {
-        var viewer = CaptureViewer();
+        var viewer = store.CaptureViewer();
         if (viewer is null)
             return null;
 
         // The store enforces current authentication and Tenant/Project authorization before disclosure.
         var record = await store.FindAsync(projectId, evaluationId, cancellationToken);
-        if (record is null || record.TenantId != viewer.Value.TenantId || CaptureViewer() != viewer)
+        if (record is null || record.TenantId != viewer.Value.TenantId || store.CaptureViewer() != viewer)
             return null;
         var current = await currentContext.ResolveAsync(projectId, record.Identity.Resource, cancellationToken);
-        if (CaptureViewer() != viewer)
+        if (store.CaptureViewer() != viewer)
             return null;
 
         // Host resolution can await I/O. Recheck permission and retention before returning anything.
         record = await store.FindAsync(projectId, evaluationId, cancellationToken);
-        if (record is null || record.TenantId != viewer.Value.TenantId || CaptureViewer() != viewer)
+        if (record is null || record.TenantId != viewer.Value.TenantId || store.CaptureViewer() != viewer)
             return null;
         var freshness = GetFreshness(record, current);
         if (freshness == SecurityEvaluationFreshness.Stale)
@@ -68,12 +66,6 @@ public sealed class SecurityEvaluationReader(ISecurityEvaluationStore store,
             record.Identity, record.EnforcementMode, record.Status, record.Outcome, record.ReasonCode,
             record.CreatedAtUtc, record.TerminalAtUtc, freshness, Array.AsReadOnly(record.Rules.ToArray()));
     }
-
-    private (Guid TenantId, Guid UserId, Guid SessionId)? CaptureViewer() =>
-        currentTenant is { IsAvailable: true, IsPlatformScope: false } && currentTenant.TenantId != Guid.Empty &&
-        currentUser.IsAuthenticated && currentUser.UserId is { } userId && userId != Guid.Empty &&
-        currentUser.SessionId is { } sessionId && sessionId != Guid.Empty
-            ? (currentTenant.TenantId, userId, sessionId) : null;
 
     private static SecurityEvaluationFreshness GetFreshness(SecurityEvaluationRecord record, SecurityBinding? current)
     {

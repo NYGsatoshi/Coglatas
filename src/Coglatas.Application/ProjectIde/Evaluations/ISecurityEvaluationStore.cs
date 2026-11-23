@@ -4,9 +4,13 @@ namespace Coglatas.Application.ProjectIde.Evaluations;
 
 public enum SecurityTerminalizationResult { Terminalized, AlreadyTerminal, Unavailable }
 
+/// <summary>Stable viewer identity for one read. The stamp does not grant access.</summary>
+public readonly record struct SecurityEvaluationViewer(Guid TenantId, Guid UserId, Guid SessionId);
+
 /// <summary>Current authorization is required for every operation. IDs and digests never grant access.</summary>
 public interface ISecurityEvaluationStore
 {
+    SecurityEvaluationViewer? CaptureViewer() => null;
     Task<bool> CreatePendingAsync(SecurityBinding binding, CancellationToken cancellationToken = default);
     Task<SecurityTerminalizationResult> TerminalizeAsync(SecurityBinding binding, SecurityDecision decision,
         CancellationToken cancellationToken = default);
