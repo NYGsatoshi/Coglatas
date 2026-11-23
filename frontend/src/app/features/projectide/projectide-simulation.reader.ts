@@ -24,7 +24,10 @@ const ticks = (v: unknown): bigint => typeof v === 'string' && /^(0|[1-9][0-9]{0
 const equal = (a: unknown, b: unknown): boolean => a === b || Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => equal(v, b[i])) ||
   object(a) && object(b) && Object.keys(a).length === Object.keys(b).length && Object.keys(a).every(k => Object.hasOwn(b, k) && equal(a[k], b[k]));
 const ordered = (v: unknown): unknown => Array.isArray(v) ? v.map(ordered) : object(v) ? Object.fromEntries(Object.keys(v).sort().map(k => [k, ordered(v[k])])) : v;
-const key = (v: Record<string, unknown>) => JSON.stringify([ordered(v['context']), v['irNodeId']]);
+export function simulationTaskKey(value: unknown): string {
+  const row = obj(value);
+  return JSON.stringify([ordered(row['context']), row['irNodeId']]);
+}
 const freeze = <T>(v: T): T => { if (v && typeof v === 'object') { Object.values(v).forEach(freeze); Object.freeze(v); } return v; };
 const engine = { artifactId: 'coglatas.elapsed-fs-simulator', version: '1', digest: { algorithm: 'sha-256', value: 'f00793b35d96a12850c9a34b38d717be99238b194eaddfd5fd7ad1d37c54c401' } };
 const policy = 'coglatas.elapsed-fs-end-before-start-context-node-sequence/1';
@@ -54,16 +57,16 @@ export async function readSimulationRun(value: PreviewCase, sources: AdmittedSco
   const tasks = sources.plan.definition['tasks']; const dependencies = sources.plan.definition['dependencies'];
   if (!Array.isArray(tasks) || !Array.isArray(dependencies) || !Array.isArray(data['events']) || data['events'].length > limits['maximumEvents'] ||
       new TextEncoder().encode(JSON.stringify(data['events'])).length > limits['maximumTraceBytes']) return fail();
-  const taskIndex = new Map(tasks.map(obj).map(task => [key(task), task]));
+  const taskIndex = new Map(tasks.map(obj).map(task => [simulationTaskKey(task), task]));
   const incoming = new Map([...taskIndex.keys()].map(k => [k, [] as { prerequisite: string; lag: bigint }[]]));
   for (const raw of dependencies) {
-    const edge = obj(raw); const dependent = key(obj(edge['dependent'])); const prerequisite = key(obj(edge['prerequisite']));
+    const edge = obj(raw); const dependent = simulationTaskKey(edge['dependent']); const prerequisite = simulationTaskKey(edge['prerequisite']);
     if (!incoming.has(dependent) || !taskIndex.has(prerequisite)) return fail();
     incoming.get(dependent)!.push({ prerequisite, lag: ticks(obj(edge['lag'])['value']) });
   }
   const starts = new Map<string, bigint>(); const ends = new Map<string, bigint>(); const scheduled = new Set<number>(); let previous = start;
   for (const [index, raw] of data['events'].entries()) {
-    const event = obj(raw); const taskKey = key(event); const task = taskIndex.get(taskKey); const time = ticks(event['ticks']);
+    const event = obj(raw); const taskKey = simulationTaskKey(event); const task = taskIndex.get(taskKey); const time = ticks(event['ticks']);
     if (!fields(event, ['sequence', 'scheduledSequence', 'kind', 'ticks', 'context', 'irNodeId', 'location']) || !task ||
         event['sequence'] !== index + 1 || !integer(event['scheduledSequence'], tasks.length * 2) || event['scheduledSequence'] < 1 || scheduled.has(event['scheduledSequence']) ||
         !isProjectLocationShape(event['location']) || !equal(event['location'], task['location']) || time < previous || time - start > elapsed) return fail();
