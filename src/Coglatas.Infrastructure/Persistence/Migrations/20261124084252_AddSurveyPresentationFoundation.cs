@@ -12,11 +12,6 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddUniqueConstraint(
-                name: "AK_workspaces_Id_TenantId",
-                table: "workspaces",
-                columns: new[] { "Id", "TenantId" });
-
-            migrationBuilder.AddUniqueConstraint(
                 name: "AK_tenant_users_TenantId_UserId",
                 table: "tenant_users",
                 columns: new[] { "TenantId", "UserId" });
@@ -107,6 +102,9 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                         principalTable: "users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
+                    // The unique workspace index established by Wpc02DTaskWorkflowTemplates
+                    // covers these columns in reverse order. Keeping a single physical
+                    // key also preserves existing FK index bindings after logical restore.
                     table.ForeignKey(
                         name: "FK_form_definitions_workspaces_WorkspaceId_TenantId",
                         columns: x => new { x.WorkspaceId, x.TenantId },
@@ -1299,10 +1297,6 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
 
             migrationBuilder.DropTable(
                 name: "form_definitions");
-
-            migrationBuilder.DropUniqueConstraint(
-                name: "AK_workspaces_Id_TenantId",
-                table: "workspaces");
 
             migrationBuilder.DropUniqueConstraint(
                 name: "AK_tenant_users_TenantId_UserId",
