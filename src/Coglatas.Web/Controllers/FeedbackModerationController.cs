@@ -51,7 +51,9 @@ public sealed class FeedbackModerationController(FeedbackModerationService moder
     public sealed record ResolveReportRequest(long ExpectedVersionNo, string Resolution, string Reason);
 
     [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-    public sealed record ReaderStateRequest(long ObservedRevision, bool IsRead);
+    public sealed record ReaderStateRequest(
+        [property: JsonRequired] long ObservedRevision,
+        [property: JsonRequired] bool IsRead);
 
     [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
     public sealed record VersionedReasonRequest(long ExpectedVersionNo, string Reason);
