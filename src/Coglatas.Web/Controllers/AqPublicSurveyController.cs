@@ -92,16 +92,27 @@ public sealed class AqPublicSurveyController(
     [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Submit(string code, CancellationToken cancellationToken)
     {
-        if (!IsEnabled())
-        {
-            return Fail("NotFound");
-        }
-
         // Defense for hosts that compose the controller without the standard
         // middleware. ASP.NET Core reuses a validation already performed there.
         if (!await antiforgery.IsRequestValidAsync(HttpContext))
         {
             return Fail("CsrfRejected");
+        }
+
+        // Validate the request header before consulting the activation switch.
+        // This depends only on the header and cannot disclose survey existence.
+        if (!Request.Headers.TryGetValue("Idempotency-Key", out var keys))
+        {
+            return Fail("MissingIdempotencyKey");
+        }
+        if (keys.Count != 1 || keys[0] is not { Length: >= 8 and <= 128 } key ||
+            key.All(character => character == ' ') || key.Any(character => character is < ' ' or > '~'))
+        {
+            return Fail("InvalidIdempotencyKey");
+        }
+        if (!IsEnabled())
+        {
+            return Fail("NotFound");
         }
 
         if (!Request.HasJsonContentType())
@@ -132,12 +143,7 @@ public sealed class AqPublicSurveyController(
         {
             return Fail("ValidationFailed");
         }
-        if (Request.Headers.TryGetValue("Idempotency-Key", out var keys) && keys.Count != 1)
-        {
-            return Fail("InvalidIdempotencyKey");
-        }
-
-        var result = await surveys.SubmitAsync(code, keys.Count == 1 ? keys[0] : null, body, HttpContext.TraceIdentifier, cancellationToken);
+        var result = await surveys.SubmitAsync(code, key, body, HttpContext.TraceIdentifier, cancellationToken);
         return result.Receipt is { } receipt
             ? StatusCode(StatusCodes.Status201Created,
                 new ApiSuccessEnvelope<AqPublicAcceptance>(receipt.RequestId, new AqPublicAcceptance(true), []))
