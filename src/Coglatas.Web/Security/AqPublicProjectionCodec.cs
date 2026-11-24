@@ -18,7 +18,7 @@ public sealed class AqPublicProjectionCodec(IDataProtectionProvider provider) : 
         {
             return entryProtector.Unprotect(protectedCode);
         }
-        catch (CryptographicException)
+        catch (Exception exception) when (exception is CryptographicException or FormatException)
         {
             return null;
         }
@@ -32,7 +32,7 @@ public sealed class AqPublicProjectionCodec(IDataProtectionProvider provider) : 
         {
             return JsonSerializer.Deserialize<AqProgramCursor>(cursorProtector.Unprotect(protectedCursor));
         }
-        catch (CryptographicException)
+        catch (Exception exception) when (exception is CryptographicException or FormatException)
         {
             return null;
         }
