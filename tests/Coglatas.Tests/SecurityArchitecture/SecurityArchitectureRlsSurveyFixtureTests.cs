@@ -57,6 +57,35 @@ public sealed class SecurityArchitectureRlsSurveyFixtureTests
                           AND submission."SurveyTargetId" IS NULL
                         """, ("answer", ordinary.Id), ("tenant", fixture.Tenant));
                     Assert.Equal(1, ordinaryCount);
+
+                    var feedbackCount = await PostgreSqlMigrationTestDatabase.ScalarAsync<long>(database, """
+                        SELECT count(*)
+                        FROM feedback_viewer_grants AS invitation
+                        JOIN feedback_invitation_policies AS policy
+                          ON policy."Id" = invitation."InvitationPolicyId"
+                          AND policy."TenantId" = invitation."TenantId"
+                        JOIN presentations AS presentation
+                          ON presentation."Id" = invitation."PresentationId"
+                          AND presentation."TenantId" = invitation."TenantId"
+                          AND presentation."EventId" = policy."EventId"
+                        JOIN feedback_report_cases AS report
+                          ON report."PresentationId" = presentation."Id"
+                          AND report."TenantId" = presentation."TenantId"
+                        JOIN answer_visibility_decisions AS visibility
+                          ON visibility."FormSubmissionValueId" = report."FormSubmissionValueId"
+                          AND visibility."TenantId" = report."TenantId"
+                        JOIN survey_feedback_export_requests AS request
+                          ON request."PresentationId" = presentation."Id"
+                          AND request."TenantId" = presentation."TenantId"
+                        JOIN survey_feedback_export_grants AS grant_row
+                          ON grant_row."ExportRequestId" = request."Id"
+                          AND grant_row."TenantId" = request."TenantId"
+                          AND grant_row."RecipientUserId" = request."RequesterId"
+                        WHERE invitation."TenantId" = @tenant AND report."FormSubmissionValueId" = @answer
+                          AND invitation."InviterUserId" <> invitation."RecipientUserId"
+                          AND policy."Enabled" AND visibility."IsHidden"
+                        """, ("tenant", fixture.Tenant), ("answer", surveyValue.Id));
+                    Assert.Equal(1, feedbackCount);
                 }
             });
 }
