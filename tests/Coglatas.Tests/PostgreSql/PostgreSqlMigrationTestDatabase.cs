@@ -10,6 +10,7 @@ namespace Coglatas.Tests.PostgreSql;
 /// <summary>Creates isolated PostgreSQL databases for provider and migration scenarios.</summary>
 internal static class PostgreSqlMigrationTestDatabase
 {
+    private const string TemporaryDatabasePrefix = "coglatas_taskv1_migration_";
     private const string UseMigratedTemplateEnvironmentVariable = "COGLATAS_TEST_USE_MIGRATED_TEMPLATE";
     private static readonly SemaphoreSlim MigratedTemplateGate = new(1, 1);
     private static string? migratedTemplateDatabaseName;
@@ -17,6 +18,25 @@ internal static class PostgreSqlMigrationTestDatabase
 
     public static Task WithTemporaryDatabaseAsync(string connectionString, Func<string, Task> scenario) =>
         WithTemporaryDatabaseCoreAsync(connectionString, templateDatabaseName: null, scenario);
+
+    public static Task WithTemporarySnapshotCloneAsync(string connectionString, string snapshotConnectionString,
+        Func<string, Task> scenario)
+    {
+        var server = new NpgsqlConnectionStringBuilder(connectionString);
+        var snapshot = new NpgsqlConnectionStringBuilder(snapshotConnectionString);
+        var name = snapshot.Database;
+        if (name is null || !name.StartsWith(TemporaryDatabasePrefix, StringComparison.Ordinal) ||
+            !Guid.TryParseExact(name[TemporaryDatabasePrefix.Length..], "N", out _) ||
+            !string.Equals(server.Host, snapshot.Host, StringComparison.Ordinal) || server.Port != snapshot.Port ||
+            !string.Equals(server.Username, snapshot.Username, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("The restore fixture must use this harness's temporary database.");
+        }
+
+        // The caller closes the fixture host and its contexts before the snapshot.
+        ClearPool(snapshotConnectionString);
+        return WithTemporaryDatabaseCoreAsync(connectionString, name, scenario);
+    }
 
     /// <summary>
     /// Creates an isolated database that is already at the latest migration when the CI template
@@ -46,7 +66,7 @@ internal static class PostgreSqlMigrationTestDatabase
         string? templateDatabaseName,
         Func<string, Task> scenario)
     {
-        var databaseName = $"coglatas_taskv1_migration_{Guid.NewGuid():N}";
+        var databaseName = $"{TemporaryDatabasePrefix}{Guid.NewGuid():N}";
         var source = new NpgsqlConnectionStringBuilder(connectionString);
         var temporary = new NpgsqlConnectionStringBuilder(connectionString) { Database = databaseName }.ConnectionString;
 
