@@ -9,6 +9,7 @@ using Coglatas.Domain.Enums;
 using Coglatas.Tests.PostgreSql;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using AdmissionHost = Coglatas.Tests.PostgreSql.ConversationAdmissionHostedHttpTests.AdmissionHost;
 
 namespace Coglatas.Tests.Aq;
@@ -40,14 +41,7 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
             await AssertInvitationDeniedAsync(approver, feedback);
             await AssertInvitationDeniedAsync(host.Client, approvalQueue);
 
-            using var initial = await GetDataAsync(approver, eventSettings);
-            using var configured = await PatchAsync(approver, eventSettings, new
-            {
-                expectedVersionNo = initial.RootElement.GetProperty("data").GetProperty("versionNo").GetInt64(),
-                invitationPolicy = new { enabled = true, decisionWindowSeconds = 3600, maximumActiveSeconds = 7200 }
-            });
-            var policy = (await ReadInvitationDataAsync(configured, HttpStatusCode.OK))
-                .GetProperty("settings").GetProperty("invitationPolicy");
+            var policy = await ConfigureManualInvitationsAsync(approver, eventSettings);
             Assert.True(policy.GetProperty("enabled").GetBoolean());
             Assert.Equal("operator", policy.GetProperty("approvalMode").GetString());
             Assert.Equal(3600, policy.GetProperty("decisionWindowSeconds").GetInt32());
@@ -161,6 +155,104 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
             Assert.NotNull(grant.RecipientAcceptedAtUtc);
             Assert.False(await db.Set<PresentationParticipant>().AnyAsync(row => row.UserId == host.Recipient.Id));
         });
+
+    [PostgreSqlFact]
+    public Task ConcurrentApprovalAndRevocationCommitOneVersionAndCannotReviveTheGrant() =>
+        AqPostgreSqlScenario.WithHostedEventAsync(async (database, host, project, activity) =>
+        {
+            var survey = await SeedAsync(database, host, project, activity, presenterFeedbackFixture: true);
+            var (operatorAccount, _) = await SeedInvitationActorsAsync(database, host, project, activity);
+            using var guest = AqPostgreSqlScenario.CreateGuestClient(host);
+            using var recipient = await LoginInvitationActorAsync(host, host.Recipient);
+            using var approver = await LoginInvitationActorAsync(host, operatorAccount);
+            await host.LoginAsync();
+
+            using (var submitted = await SubmitAsync(guest, survey.TargetCode, "invite-race-answer", Payload(survey)))
+                await ReadMinimalReceiptAsync(submitted);
+            var presentation = $"/api/v1/core/presentations/{survey.PresentationId:D}";
+            var feedback = presentation + "/feedback";
+            await ConfigureManualInvitationsAsync(approver, $"/api/v1/core/events/{activity.Id:D}/feedback-settings");
+            using var issued = await host.PostAsync(presentation + "/feedback-invitations", new { recipientRef = host.Recipient.Id });
+            var pending = await ReadInvitationDataAsync(issued, HttpStatusCode.Created);
+            var invitationId = pending.GetProperty("id").GetGuid();
+            var decision = $"/api/v1/core/feedback-invitations/{invitationId:D}";
+            using var accepted = await AdmissionHost.PostAsync(recipient, decision + "/accept",
+                new { expectedVersionNo = pending.GetProperty("versionNo").GetInt64(), consent = true });
+            var consented = await ReadInvitationDataAsync(accepted, HttpStatusCode.OK);
+            Assert.Equal("pending", consented.GetProperty("status").GetString());
+            Assert.Equal("awaitingOperator", consented.GetProperty("approvalState").GetString());
+            Assert.True(consented.GetProperty("recipientAccepted").GetBoolean());
+            var version = consented.GetProperty("versionNo").GetInt64();
+            await AssertInvitationDeniedAsync(recipient, feedback);
+
+            await using var blocker = new NpgsqlConnection(database);
+            await blocker.OpenAsync();
+            await using var transaction = await blocker.BeginTransactionAsync();
+            await using var hold = new NpgsqlCommand("""
+                SELECT "Id" FROM feedback_viewer_grants WHERE "Id" = @id FOR UPDATE
+                """, blocker, transaction);
+            hold.Parameters.AddWithValue("id", invitationId);
+            Assert.Equal(invitationId, Assert.IsType<Guid>(await hold.ExecuteScalarAsync()));
+            var writes = Task.WhenAll(
+                AdmissionHost.PostAsync(approver, decision + "/approve", new { expectedVersionNo = version }),
+                host.PostAsync(decision + "/revoke", new { expectedVersionNo = version, reason = "Synthetic concurrent withdrawal" }));
+            var observedBoth = await ObservePostgreSqlWaitersAsync(database, blocker.ProcessID, writes);
+            await transaction.CommitAsync();
+            var outcomes = await writes;
+            using var approval = outcomes[0];
+            using var withdrawal = outcomes[1];
+            Assert.True(observedBoth, "Both independent decisions must reach the held PostgreSQL invitation row.");
+            var approvalWon = approval.StatusCode == HttpStatusCode.OK;
+            var winner = await ReadInvitationDataAsync(approvalWon ? approval : withdrawal, HttpStatusCode.OK);
+            Assert.Equal(version + 1, winner.GetProperty("versionNo").GetInt64());
+            await AssertErrorAsync(approvalWon ? withdrawal : approval, HttpStatusCode.Conflict, "RowVersionConflict");
+
+            var terminal = winner;
+            if (approvalWon)
+            {
+                Assert.Equal("active", winner.GetProperty("status").GetString());
+                using (var granted = await GetDataAsync(recipient, feedback))
+                    Assert.Single(granted.RootElement.GetProperty("data").GetProperty("items").EnumerateArray());
+                using var retry = await host.PostAsync(decision + "/revoke", new
+                {
+                    expectedVersionNo = version + 1, reason = "Synthetic withdrawal after observed approval"
+                });
+                terminal = await ReadInvitationDataAsync(retry, HttpStatusCode.OK);
+            }
+
+            var terminalVersion = version + (approvalWon ? 2 : 1);
+            Assert.Equal(terminalVersion, terminal.GetProperty("versionNo").GetInt64());
+            Assert.Equal("revoked", terminal.GetProperty("status").GetString());
+            await AssertInvitationDeniedAsync(recipient, feedback);
+            await AssertInvitationDeniedAsync(recipient, feedback + "-summary");
+            using (var stale = await AdmissionHost.PostAsync(approver, decision + "/approve", new { expectedVersionNo = version }))
+                await AssertErrorAsync(stale, HttpStatusCode.Conflict, "RowVersionConflict");
+            using (var renew = await AdmissionHost.PostAsync(approver, decision + "/approve",
+                       new { expectedVersionNo = terminalVersion }))
+                await AssertErrorAsync(renew, HttpStatusCode.Conflict, "InvalidStateTransition");
+
+            await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+            var grant = await db.Set<FeedbackViewerGrant>().AsNoTracking().SingleAsync(row => row.Id == invitationId);
+            Assert.Equal(FeedbackViewerGrantStatus.Revoked, grant.Status);
+            Assert.Equal(terminalVersion, grant.VersionNo);
+            Assert.NotNull(grant.RecipientAcceptedAtUtc);
+            Assert.Equal(1, await db.AuditLogs.CountAsync(row =>
+                row.EntityId == invitationId && row.Action == "FeedbackInvitation.revoke"));
+            Assert.Equal(approvalWon ? 1 : 0, await db.AuditLogs.CountAsync(row =>
+                row.EntityId == invitationId && row.Action == "FeedbackInvitation.approve"));
+        });
+
+    private static async Task<JsonElement> ConfigureManualInvitationsAsync(HttpClient approver, string route)
+    {
+        using var initial = await GetDataAsync(approver, route);
+        using var configured = await PatchAsync(approver, route, new
+        {
+            expectedVersionNo = initial.RootElement.GetProperty("data").GetProperty("versionNo").GetInt64(),
+            invitationPolicy = new { enabled = true, decisionWindowSeconds = 3600, maximumActiveSeconds = 7200 }
+        });
+        return (await ReadInvitationDataAsync(configured, HttpStatusCode.OK))
+            .GetProperty("settings").GetProperty("invitationPolicy");
+    }
 
     private static async Task<(User Operator, Guid OtherPresentationId)> SeedInvitationActorsAsync(
         string database, AdmissionHost host, Project project, ActivityEvent activity)
