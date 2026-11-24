@@ -11,25 +11,49 @@ namespace Coglatas.Web.Controllers;
 [Authorize]
 [Route("api/v1/core")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+[ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status400BadRequest, "application/json")]
+[ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status401Unauthorized, "application/json")]
+[ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status403Forbidden, "application/json")]
+[ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status404NotFound, "application/json")]
+[ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status500InternalServerError, "application/json")]
 public sealed class AqSurveyEntryCodesController(AqSurveyManagementService service, IConfiguration configuration) : ControllerBase
 {
     [HttpPost("events/{eventId:guid}/program-code/rotate")]
+    [ProducesResponseType<ApiSuccessEnvelope<AqChangedCode>>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status409Conflict, "application/json")]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status413PayloadTooLarge, "application/json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status415UnsupportedMediaType, "application/problem+json")]
     public async Task<IActionResult> RotateProgram(Guid eventId, AqChangeCodeRequest request, CancellationToken ct) =>
         Respond(await service.ChangeProgramCodeAsync(eventId, request, rotate: true, ct));
 
     [HttpPost("events/{eventId:guid}/program-code/revoke")]
+    [ProducesResponseType<ApiSuccessEnvelope<AqChangedCode>>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status409Conflict, "application/json")]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status413PayloadTooLarge, "application/json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status415UnsupportedMediaType, "application/problem+json")]
     public async Task<IActionResult> RevokeProgram(Guid eventId, AqChangeCodeRequest request, CancellationToken ct) =>
         Respond(await service.ChangeProgramCodeAsync(eventId, request, rotate: false, ct));
 
     [HttpPost("survey-targets/{targetId:guid}/public-code/rotate")]
+    [ProducesResponseType<ApiSuccessEnvelope<AqChangedCode>>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status409Conflict, "application/json")]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status413PayloadTooLarge, "application/json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status415UnsupportedMediaType, "application/problem+json")]
     public async Task<IActionResult> RotateTarget(Guid targetId, AqChangeCodeRequest request, CancellationToken ct) =>
         Respond(await service.ChangeTargetCodeAsync(targetId, request, rotate: true, ct));
 
     [HttpPost("survey-targets/{targetId:guid}/public-code/revoke")]
+    [ProducesResponseType<ApiSuccessEnvelope<AqChangedCode>>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status409Conflict, "application/json")]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status413PayloadTooLarge, "application/json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status415UnsupportedMediaType, "application/problem+json")]
     public async Task<IActionResult> RevokeTarget(Guid targetId, AqChangeCodeRequest request, CancellationToken ct) =>
         Respond(await service.ChangeTargetCodeAsync(targetId, request, rotate: false, ct));
 
     [HttpGet("survey-campaigns/{campaignId:guid}/qr-export")]
+    [ProducesResponseType<Stream>(StatusCodes.Status200OK, "image/png", "image/svg+xml", "application/pdf")]
+    [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status409Conflict, "application/json")]
+    [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status413PayloadTooLarge, "application/json")]
     public async Task<IActionResult> ExportQr(Guid campaignId, string format, Guid? targetId, CancellationToken ct)
     {
         if (format is not ("png" or "svg" or "pdf") || (format != "pdf" && !targetId.HasValue))

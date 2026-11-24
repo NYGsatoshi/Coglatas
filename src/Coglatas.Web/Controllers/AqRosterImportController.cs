@@ -16,6 +16,11 @@ namespace Coglatas.Web.Controllers;
 [Authorize]
 [Route("api/v1/core/events/{eventId:guid}/presentations")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+[ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status400BadRequest, "application/json")]
+[ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status401Unauthorized, "application/json")]
+[ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status403Forbidden, "application/json")]
+[ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status404NotFound, "application/json")]
+[ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status500InternalServerError, "application/json")]
 public sealed class AqRosterImportController(
     AqSurveyManagementService management,
     IDataProtectionProvider protection) : ControllerBase
@@ -28,6 +33,9 @@ public sealed class AqRosterImportController(
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(MaximumBytes + 4096)]
     [RequestFormLimits(MultipartBodyLengthLimit = MaximumBytes)]
+    [ProducesResponseType<ApiSuccessEnvelope<AqRosterPreview>>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status413PayloadTooLarge, "application/json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status415UnsupportedMediaType, "application/problem+json")]
     public async Task<IActionResult> Preview(Guid eventId, IFormFile file, CancellationToken cancellationToken)
     {
         if (file.Length is <= 0 or > MaximumBytes || Request.Form.Files.Count != 1 || Request.Form.Count != 0)
@@ -84,6 +92,10 @@ public sealed class AqRosterImportController(
 
     [HttpPost("import-commit")]
     [RequestSizeLimit(MaximumBytes)]
+    [ProducesResponseType<ApiSuccessEnvelope<AqRosterReceipt>>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status409Conflict, "application/json")]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status413PayloadTooLarge, "application/json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status415UnsupportedMediaType, "application/problem+json")]
     public async Task<IActionResult> Commit(Guid eventId, AqCommitRosterRequest request, CancellationToken cancellationToken)
     {
         var keys = Request.Headers["Idempotency-Key"];
