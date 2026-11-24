@@ -1,8 +1,9 @@
+import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, distinctUntilChanged, forkJoin, map, Observable, of } from 'rxjs';
-import { AqApi, Page, SurveyField, aqSegment } from './aq-api';
+import { AqApi, ManageableEventCandidate, Page, SurveyField, aqSegment } from './aq-api';
 import { createCryptographicUuid } from '../../core/security/client-id';
 
 interface EventSettings {
@@ -514,6 +515,71 @@ export class AqManagement {
         if (generation !== this.generation) return;
         this.busy.set(false);
         this.failed.set(true);
+      },
+    });
+  }
+}
+
+
+@Component({
+  imports: [RouterLink, DatePipe],
+  styleUrl: './aq-page.css',
+  template: `
+    <section class="aq-page" lang="ja">
+      <a routerLink="/aq/feedback">発表一覧へ</a>
+      <h1>運営する発表イベント</h1>
+      @if (busy()) { <p role="status">読み込み中…</p> }
+      @if (failed()) {
+        <p role="alert">イベント一覧を読み込めませんでした。</p>
+        <button type="button" (click)="load(1)">再読み込み</button>
+      }
+      <ul class="aq-list">
+        @for (event of items(); track event.id) {
+          <li>
+            <a [routerLink]="['/aq/manage', event.id]">{{ event.title }}</a>
+            <p><time [attr.datetime]="event.startsAt">{{ event.startsAt | date:'medium' }}</time></p>
+          </li>
+        } @empty {
+          @if (!busy() && !failed()) { <li>このページに対象のイベントはありません。</li> }
+        }
+      </ul>
+      @if (page() > 1) {
+        <button type="button" [disabled]="busy()" (click)="load(page() - 1)">前のページ</button>
+      }
+      @if (next()) {
+        <button type="button" [disabled]="busy()" (click)="load(page() + 1)">次のページ</button>
+      }
+    </section>
+  `,
+})
+export class AqManagementIndex {
+  private readonly api = inject(AqApi);
+  private readonly destroyRef = inject(DestroyRef);
+  protected readonly items = signal<ManageableEventCandidate[]>([]);
+  protected readonly busy = signal(false);
+  protected readonly failed = signal(false);
+  protected readonly page = signal(1);
+  protected readonly next = signal(false);
+
+  constructor() {
+    this.load(1);
+  }
+
+  protected load(page: number): void {
+    if (this.busy()) return;
+    this.busy.set(true);
+    this.failed.set(false);
+    this.api.events(page).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: result => {
+        this.items.set(result.items.filter(item => item.relatedScope.projectId));
+        this.next.set(page * 25 < result.totalCount);
+        this.page.set(page);
+        this.busy.set(false);
+      },
+      error: () => {
+        this.items.set([]);
+        this.failed.set(true);
+        this.busy.set(false);
       },
     });
   }

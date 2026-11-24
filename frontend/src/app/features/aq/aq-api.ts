@@ -56,6 +56,13 @@ export interface Submission {
 }
 export interface Page<T> { items: T[]; nextCursor?: string }
 interface Envelope<T> { data: T }
+export interface ManageableEventCandidate {
+  id: string;
+  title: string;
+  startsAt: string;
+  relatedScope: { projectId?: string };
+}
+export interface EventListPage { items: ManageableEventCandidate[]; totalCount: number }
 
 export function aqSegment(value: string): string {
   return encodeURIComponent(value);
@@ -103,6 +110,10 @@ export class AqApi {
         return response.data;
       }),
     );
+  }
+
+  events(page: number): Observable<EventListPage> {
+    return this.http.get<EventListPage>('/api/events', { params: { page, pageSize: 25 } });
   }
 
   eventScope(id: string): Observable<{ projectId?: string }> {

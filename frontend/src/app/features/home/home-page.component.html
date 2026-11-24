@@ -4,7 +4,10 @@
       <h1 id="home-title">{{ i18n.translate('nav.home') }}</h1>
       <p class="home-subtitle">{{ i18n.translate('home.subtitle') }}</p>
     </div>
-    <a class="home-button" routerLink="/workspaces">{{ i18n.translate('home.manageWorkspaces') }}</a>
+    <div class="home-context-actions">
+      <a class="home-button" routerLink="/aq/feedback" lang="ja">発表のフィードバック</a>
+      <a class="home-button" routerLink="/workspaces">{{ i18n.translate('home.manageWorkspaces') }}</a>
+    </div>
   </header>
 
   <nav class="home-destinations" [attr.aria-label]="i18n.translate('home.destinations')">

@@ -65,6 +65,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/aq/aq-feedback').then(module => module.AqFeedbackDetail),
       },
       {
+        path: 'aq/manage',
+        loadComponent: () => import('./features/aq/aq-management').then(module => module.AqManagementIndex),
+      },
+      {
         path: 'aq/manage/:eventId',
         loadComponent: () => import('./features/aq/aq-management').then(module => module.AqManagement),
       },

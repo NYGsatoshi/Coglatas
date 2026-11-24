@@ -64,7 +64,10 @@ const invitationLabels: Record<Invitation['status'], string> = {
   template: `
     <section lang="ja" class="aq-page">
       <h1>発表のフィードバック</h1>
-      <a routerLink="/aq/feedback/inbox">レビュー受信箱</a>
+      <nav class="aq-actions" aria-label="発表の機能">
+        <a routerLink="/aq/feedback/inbox">レビュー受信箱</a>
+        <a routerLink="/aq/manage">発表イベントの運営</a>
+      </nav>
       @if (loading()) { <p role="status">読み込み中…</p> }
       @if (failed()) { <p role="alert">一覧を読み込めませんでした。</p> }
       <button type="button" (click)="load()">更新</button>
