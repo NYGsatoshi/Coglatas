@@ -87,6 +87,13 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
                 await AssertErrorAsync(different, HttpStatusCode.Conflict, "IdempotencyConflict");
 
             var replacementCode = await StopAndRotateAsync(database, host, survey);
+            using (var replacementForm = await GetDataAsync(firstGuest, SurveyRoute + replacementCode))
+            {
+                var current = replacementForm.RootElement.GetProperty("data");
+                Assert.NotEqual(survey.VersionRef, current.GetProperty("versionRef").GetString());
+                Assert.NotEqual(survey.Digest, current.GetProperty("schemaDigest").GetString());
+                Assert.Equal("closed", current.GetProperty("receptionState").GetString());
+            }
             using (var revoked = await SubmitAsync(firstGuest, survey.TargetCode, key, payload))
                 await AssertErrorAsync(revoked, HttpStatusCode.NotFound, "NotFound");
             using (var replay = await SubmitAsync(firstGuest, replacementCode, key, payload))
@@ -343,6 +350,18 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
 
         var replacement = Guid.NewGuid().ToString("N");
         var target = await db.Set<SurveyTarget>().SingleAsync(row => row.Id == survey.TargetId);
+        var original = await db.Set<PublishedSurveySchema>().SingleAsync(row => row.Id == survey.SchemaId);
+        var common = await db.Set<FormVersion>().Include(row => row.Fields)
+            .SingleAsync(row => row.Id == original.FormVersionId);
+        var now = DateTimeOffset.UtcNow;
+        var extra = TargetQuestionSetVersion.Publish(target, 2,
+            [new SurveyField("later-field", "Synthetic later field", SurveyFieldType.Boolean, false, [])], now);
+        db.Add(extra);
+        await db.SaveChangesAsync();
+        var changed = PublishedSurveySchema.Compose(target, common, extra, Guid.NewGuid().ToString("N"), now);
+        db.Add(changed);
+        await db.SaveChangesAsync();
+        target.Publish(target.VersionNo, changed);
         var codec = host.Services.GetRequiredService<IAqPublicProjectionCodec>();
         db.Add(SurveyPublicCode.ForTarget(target, AqPublicSurveyService.Hash(replacement), codec.ProtectEntry(replacement)));
         await db.SaveChangesAsync();

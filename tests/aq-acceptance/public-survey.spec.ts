@@ -5,6 +5,9 @@ const publicApi = '/api/v1/public/surveys/';
 const submitText = '送信';
 const successText = '視聴者向けフォームの回答を受け付けました';
 const alreadySentText = 'このブラウザーでは、このアンケートの回答を送信済みです。';
+const retryText = '同じ回答を再試行';
+const unknownText = '回答が受理されたか確認できません。';
+const expiredText = '回答結果を確認できる期間が終了しました。受付済みの可能性があります。';
 
 function requiredFixtureSetting(key: string): string {
   const value = process.env[key];
@@ -76,3 +79,49 @@ test('guest program and direct survey resolve to the same form and commit an ans
   await expect(page.getByText(alreadySentText, { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: submitText, exact: true })).toHaveCount(0);
 });
+
+for (const expired of [false, true]) {
+  test(`guest keeps an unconfirmed answer safe when replay ${expired ? 'expires' : 'succeeds'}`, async ({ page }) => {
+    const target = encodeURIComponent(requiredFixtureSetting('COGLATAS_AQ_SURVEY_CODE'));
+    const label = requiredFixtureSetting('COGLATAS_AQ_GUEST_QUESTION_LABEL');
+    const submissionPath = publicApi + target + '/submissions';
+    const attempts: Array<{ key: string | null; body: string | null; status: number }> = [];
+    await page.route(submissionPath, async route => {
+      const request = route.request();
+      const server = await route.fetch({ maxRetries: 0, maxRedirects: 0 });
+      attempts.push({ key: await request.headerValue('idempotency-key'), body: request.postData(), status: server.status() });
+      if (attempts.length === 1) {
+        // The real server committed; only the browser's receipt delivery is interrupted.
+        await route.abort('connectionreset');
+      } else {
+        await route.fulfill({ response: server });
+      }
+    });
+
+    const start = new Date();
+    await page.clock.setFixedTime(start);
+    await page.goto(`/app/aq/surveys/${target}`);
+    await page.getByRole('textbox', { name: label, exact: true }).fill('Synthetic response for interrupted delivery');
+    await page.getByRole('button', { name: submitText, exact: true }).click();
+    const pending = page.getByRole('alert').filter({ hasText: unknownText });
+    await expect(pending).toBeFocused();
+    expect(attempts).toHaveLength(1);
+    expect(attempts[0].status).toBe(201);
+    expect(attempts[0].key).toBeTruthy();
+    await expect(page.getByText(alreadySentText, { exact: true })).toHaveCount(0);
+
+    if (expired) await page.clock.setFixedTime(new Date(start.getTime() + 24 * 60 * 60 * 1000));
+    await page.getByRole('button', { name: retryText, exact: true }).click();
+    if (expired) {
+      await expect(page.getByRole('alert').filter({ hasText: expiredText })).toBeFocused();
+      await expect(page.getByRole('button', { name: submitText, exact: true })).toHaveCount(0);
+      expect(attempts).toHaveLength(1);
+    } else {
+      await expect(page.getByRole('status').filter({ hasText: successText })).toBeFocused();
+      expect(attempts).toHaveLength(2);
+      expect(attempts[1]).toEqual(attempts[0]);
+      await page.reload();
+      await expect(page.getByText(alreadySentText, { exact: true })).toBeVisible();
+    }
+  });
+}
