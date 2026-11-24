@@ -24,6 +24,11 @@ public sealed class FeedbackModerationController(FeedbackModerationService moder
     public async Task<IActionResult> HiddenDetail(Guid id, CancellationToken cancellationToken) =>
         ToResponse(await moderation.HiddenDetailAsync(id, cancellationToken));
 
+    [HttpGet("/api/v1/core/presentations/{id:guid}/feedback-reports")]
+    public async Task<IActionResult> ReportQueue(Guid id, string? state, string? cursor, int pageSize = 25,
+        CancellationToken cancellationToken = default) =>
+        ToResponse(await moderation.ReportQueueAsync(id, state, cursor, pageSize, cancellationToken));
+
     [HttpGet("reports/{id:guid}")]
     public async Task<IActionResult> ReportDetail(Guid id, CancellationToken cancellationToken) =>
         ToResponse(await moderation.ReportDetailAsync(id, cancellationToken));

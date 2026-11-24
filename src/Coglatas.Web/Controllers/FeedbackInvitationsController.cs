@@ -16,6 +16,11 @@ public sealed class FeedbackInvitationsController(FeedbackInvitationService invi
         CancellationToken cancellationToken = default) =>
         ToResponse(await invitations.ListAsync(cursor, direction, status, pageSize, cancellationToken));
 
+    [HttpGet("presentations/{id:guid}/feedback-invitation-recipients")]
+    public async Task<IActionResult> EligibleRecipients(Guid id, string? cursor, int pageSize = 25,
+        CancellationToken cancellationToken = default) =>
+        ToResponse(await invitations.EligibleRecipientsAsync(id, cursor, pageSize, cancellationToken));
+
     [HttpPost("presentations/{id:guid}/feedback-invitations")]
     public async Task<IActionResult> Issue(Guid id, IssueInvitationRequest request, CancellationToken cancellationToken) =>
         ToResponse(await invitations.IssueAsync(id, request.RecipientRef, request.RequestedActiveDurationSeconds,

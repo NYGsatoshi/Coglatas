@@ -65,6 +65,65 @@ public sealed class FeedbackInvitationService(
         return Result<FeedbackPage<FeedbackInvitationSummary>>.Success(new(rows));
     }
 
+    public async Task<Result<FeedbackPage<EligibleFeedbackRecipient>>> EligibleRecipientsAsync(Guid presentationId,
+        string? cursor, int pageSize, CancellationToken cancellationToken)
+    {
+        var actor = await authorization.ReadActorAsync(cancellationToken);
+        if (actor is null)
+        {
+            return SurveyFeedbackService.AuthenticationRequired<FeedbackPage<EligibleFeedbackRecipient>>();
+        }
+
+        var access = await authorization.ReadAccessAsync(actor, presentationId, cancellationToken);
+        if (access is not { Presenter: true, CanRead: true } ||
+            !await authorization.IsEligibleInviterAsync(actor, access.Scope, cancellationToken) ||
+            await repository.ReadInvitationPolicyAsync(actor.TenantId, access.Scope.EventId, cancellationToken)
+                is not { Enabled: true })
+        {
+            return SurveyFeedbackService.NotFound<FeedbackPage<EligibleFeedbackRecipient>>();
+        }
+
+        var cursorScope = new FeedbackCursorScope(actor.TenantId, actor.UserId, presentationId, "invitation-recipients");
+        FeedbackPagePosition? position = null;
+        if (pageSize is < 1 or > 100 || cursor is not null && !cursors.TryRead(cursor, cursorScope, out position))
+        {
+            return SurveyFeedbackService.Invalid<FeedbackPage<EligibleFeedbackRecipient>>();
+        }
+
+        Guid? after = position?.Id;
+        var rows = new List<EligibleFeedbackRecipient>(pageSize);
+        var batchSize = pageSize + 1;
+        while (true)
+        {
+            var candidates = await repository.ReadRecipientCandidatesAsync(actor.TenantId, access.Scope.WorkspaceId,
+                actor.UserId, after, batchSize, cancellationToken);
+            foreach (var candidate in candidates)
+            {
+                if (!await authorization.IsEligibleRecipientAsync(
+                        new FeedbackActor(actor.TenantId, candidate.RecipientRef), access.Scope, cancellationToken))
+                {
+                    continue;
+                }
+
+                if (rows.Count == pageSize)
+                {
+                    var next = cursors.Write(cursorScope, new FeedbackPagePosition(DateTimeOffset.UnixEpoch,
+                        rows[^1].RecipientRef));
+                    return Result<FeedbackPage<EligibleFeedbackRecipient>>.Success(new(rows, next));
+                }
+
+                rows.Add(candidate);
+            }
+
+            if (candidates.Count < batchSize)
+            {
+                return Result<FeedbackPage<EligibleFeedbackRecipient>>.Success(new(rows));
+            }
+
+            after = candidates[^1].RecipientRef;
+        }
+    }
+
     public Task<Result<FeedbackInvitationDto>> IssueAsync(Guid presentationId, Guid recipientId,
         int? durationSeconds, CancellationToken cancellationToken) =>
         repository.InWriteTransactionAsync(async token =>

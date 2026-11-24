@@ -153,7 +153,7 @@ public sealed class SurveyFeedbackService(
         new(source.Id, source.PresentationId, source.SubmittedAt, source.Answers.Select(answer =>
             new FeedbackAnswer(answer.Id, answer.FieldKey, answer.IsHidden ? "hidden" : "visible",
                 answer.IsHidden ? null : JsonSerializer.Deserialize<JsonElement>(answer.ValueJson),
-                canModerate ? answer.VisibilityVersionNo : null)).ToArray());
+                canModerate ? answer.VisibilityVersionNo : null, answer.Label)).ToArray());
 
     internal static Result<T> AuthenticationRequired<T>() =>
         Result<T>.Failure(new ApplicationErrorDetail("AuthenticationRequired", "Authentication is required."));

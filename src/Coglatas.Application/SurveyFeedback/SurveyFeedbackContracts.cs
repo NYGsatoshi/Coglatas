@@ -46,7 +46,8 @@ public sealed record FeedbackValueSnapshot(
     string CompatibilityStamp,
     string ValueJson,
     bool IsHidden,
-    long VisibilityVersionNo = 1);
+    long VisibilityVersionNo = 1,
+    string? Label = null);
 
 public sealed record SurveyFeedbackSnapshot(
     Guid Id,
@@ -59,7 +60,8 @@ public sealed record FeedbackAnswer(
     string FieldKey,
     string Visibility,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] JsonElement? Value,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] long? VisibilityVersionNo);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] long? VisibilityVersionNo,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Label);
 
 public sealed record FeedbackRow(Guid Id, Guid PresentationId, DateTimeOffset SubmittedAt,
     IReadOnlyList<FeedbackAnswer> Answers);

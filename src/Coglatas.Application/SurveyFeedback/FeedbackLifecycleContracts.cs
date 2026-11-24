@@ -9,6 +9,8 @@ public sealed record FeedbackAnswerResource(Guid PresentationId, Guid Submission
 
 public sealed record FeedbackSubmissionResource(Guid PresentationId, FormSubmission Submission);
 
+public sealed record EligibleFeedbackRecipient(Guid RecipientRef, string Label);
+
 public sealed record FeedbackInvitationSummary(Guid Id, string PresentationLabel, string Direction, string Status,
     long VersionNo, DateTimeOffset DecisionDeadline,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTimeOffset? ExpiresAt);
@@ -22,6 +24,11 @@ public sealed record HiddenAnswerModerationDetail(Guid AnswerId, string Visibili
 public sealed record FeedbackVisibilityDto(Guid AnswerId, string Visibility, long VersionNo);
 
 public sealed record FeedbackReportDto(Guid ReportId, string State, long VersionNo);
+
+public sealed record FeedbackReportQueueRow(FeedbackReportDto Report, DateTimeOffset OpenedAtUtc);
+
+public sealed record FeedbackReportQueueProjection(Guid ReportId, FeedbackReportStatus Status, long VersionNo,
+    DateTimeOffset OpenedAtUtc);
 
 public sealed record FeedbackReportDetail(FeedbackReportDto Report, Guid PresentationId, string Reason,
     DateTimeOffset OpenedAtUtc,
@@ -42,6 +49,8 @@ public interface IFeedbackLifecycleRepository
         CancellationToken cancellationToken);
     Task<IReadOnlyList<FeedbackViewerGrant>> ReadInvitationsAsync(Guid tenantId, Guid userId, string? direction,
         FeedbackPagePosition? after, CancellationToken cancellationToken);
+    Task<IReadOnlyList<EligibleFeedbackRecipient>> ReadRecipientCandidatesAsync(Guid tenantId, Guid workspaceId,
+        Guid inviterId, Guid? after, int take, CancellationToken cancellationToken);
     Task<FeedbackViewerGrant?> GetInvitationAsync(Guid tenantId, Guid invitationId,
         CancellationToken cancellationToken);
     Task<IReadOnlyList<FeedbackViewerGrant>> GetLiveInvitationsAsync(Guid tenantId, Guid presentationId,
@@ -49,6 +58,8 @@ public interface IFeedbackLifecycleRepository
     Task<FeedbackAnswerResource?> FindAnswerAsync(Guid tenantId, Guid answerId, CancellationToken cancellationToken);
     Task<AnswerVisibilityDecision?> GetVisibilityAsync(Guid tenantId, Guid answerId, CancellationToken cancellationToken);
     Task<string?> ReadAnswerValueJsonAsync(Guid tenantId, Guid answerId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<FeedbackReportQueueProjection>> ReadReportQueueAsync(Guid tenantId, Guid presentationId,
+        FeedbackReportStatus? status, FeedbackPagePosition? after, int take, CancellationToken cancellationToken);
     Task<FeedbackReportCase?> GetReportAsync(Guid tenantId, Guid reportId, CancellationToken cancellationToken);
     Task<FeedbackSubmissionResource?> GetSubmissionAsync(Guid tenantId, Guid submissionId,
         CancellationToken cancellationToken);

@@ -11,6 +11,7 @@ public sealed class FeedbackModerationService(
     IFeedbackLifecycleRepository repository,
     IAuditLogger audit,
     ISurveyFeedbackInvalidation invalidation,
+    ISurveyFeedbackCursor cursors,
     IClock clock)
 {
     public Task<Result<FeedbackReportDto>> ReportAsync(Guid answerId, string? reason, CancellationToken cancellationToken) =>
@@ -102,6 +103,47 @@ public sealed class FeedbackModerationService(
             return Result<FeedbackVisibilityDto>.Success(new FeedbackVisibilityDto(answerId, hide ? "hidden" : "visible",
                 visibility.VersionNo));
         }, cancellationToken, "RowVersionConflict");
+
+    public async Task<Result<FeedbackPage<FeedbackReportQueueRow>>> ReportQueueAsync(Guid presentationId,
+        string? state, string? cursor, int pageSize, CancellationToken cancellationToken)
+    {
+        var actor = await authorization.ReadActorAsync(cancellationToken);
+        if (actor is null)
+        {
+            return SurveyFeedbackService.AuthenticationRequired<FeedbackPage<FeedbackReportQueueRow>>();
+        }
+
+        var access = await authorization.ReadAccessAsync(actor, presentationId, cancellationToken);
+        if (!await CanModerateAsync(actor, access, cancellationToken))
+        {
+            return SurveyFeedbackService.NotFound<FeedbackPage<FeedbackReportQueueRow>>();
+        }
+
+        var scope = new FeedbackCursorScope(actor.TenantId, actor.UserId, presentationId, $"feedback-reports/{state}");
+        FeedbackPagePosition? after = null;
+        if (pageSize is < 1 or > 100 || state is not (null or "open" or "resolved" or "dismissed") ||
+            cursor is not null && !cursors.TryRead(cursor, scope, out after))
+        {
+            return SurveyFeedbackService.Invalid<FeedbackPage<FeedbackReportQueueRow>>();
+        }
+
+        var status = state switch
+        {
+            "open" => FeedbackReportStatus.Open,
+            "resolved" => FeedbackReportStatus.Resolved,
+            "dismissed" => FeedbackReportStatus.Dismissed,
+            _ => (FeedbackReportStatus?)null
+        };
+        var rows = await repository.ReadReportQueueAsync(actor.TenantId, presentationId, status, after,
+            pageSize + 1, cancellationToken);
+        var items = rows.Take(pageSize).Select(row => new FeedbackReportQueueRow(
+            new FeedbackReportDto(row.ReportId, row.Status.ToString().ToLowerInvariant(), row.VersionNo),
+            row.OpenedAtUtc)).ToArray();
+        var next = rows.Count > pageSize
+            ? cursors.Write(scope, new FeedbackPagePosition(rows[pageSize - 1].OpenedAtUtc, rows[pageSize - 1].ReportId))
+            : null;
+        return Result<FeedbackPage<FeedbackReportQueueRow>>.Success(new(items, next));
+    }
 
     public async Task<Result<FeedbackReportDetail>> ReportDetailAsync(Guid reportId,
         CancellationToken cancellationToken)

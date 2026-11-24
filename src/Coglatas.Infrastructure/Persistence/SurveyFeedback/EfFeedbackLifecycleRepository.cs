@@ -66,6 +66,27 @@ public sealed class EfFeedbackLifecycleRepository(AppDbContext dbContext) : IFee
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<EligibleFeedbackRecipient>> ReadRecipientCandidatesAsync(Guid tenantId,
+        Guid workspaceId, Guid inviterId, Guid? after, int take, CancellationToken cancellationToken)
+    {
+        var candidates =
+            from member in dbContext.Set<WorkspaceMember>().AsNoTracking()
+            join user in dbContext.Set<User>().AsNoTracking() on member.UserId equals user.Id
+            where member.TenantId == tenantId && member.WorkspaceId == workspaceId &&
+                member.Status == MembershipStatus.Active && member.UserId != inviterId &&
+                user.Status == UserStatus.Active && !user.DeletedAt.HasValue &&
+                user.DisplayName != "" &&
+                dbContext.Set<TenantUser>().Any(tenantMember => tenantMember.TenantId == tenantId &&
+                    tenantMember.UserId == member.UserId && tenantMember.Status == TenantUserStatus.Active)
+            select new EligibleFeedbackRecipient(member.UserId, user.DisplayName);
+        if (after is { } last)
+        {
+            candidates = candidates.Where(candidate => candidate.RecipientRef.CompareTo(last) > 0);
+        }
+
+        return await candidates.OrderBy(candidate => candidate.RecipientRef).Take(take).ToListAsync(cancellationToken);
+    }
+
     public Task<FeedbackViewerGrant?> GetInvitationAsync(Guid tenantId, Guid invitationId,
         CancellationToken cancellationToken) =>
         dbContext.Set<FeedbackViewerGrant>()
@@ -114,9 +135,38 @@ public sealed class EfFeedbackLifecycleRepository(AppDbContext dbContext) : IFee
         dbContext.Set<FormSubmissionValue>().Where(answer => answer.TenantId == tenantId && answer.Id == answerId)
             .Select(answer => answer.ValueJson).SingleOrDefaultAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<FeedbackReportQueueProjection>> ReadReportQueueAsync(Guid tenantId,
+        Guid presentationId, FeedbackReportStatus? status, FeedbackPagePosition? after, int take,
+        CancellationToken cancellationToken)
+    {
+        var query = ScopedReports(tenantId).AsNoTracking()
+            .Where(report => report.PresentationId == presentationId &&
+                (!status.HasValue || report.Status == status));
+        if (after is not null)
+        {
+            query = query.Where(report => report.CreatedAt < after.SubmittedAt ||
+                report.CreatedAt == after.SubmittedAt && report.Id.CompareTo(after.Id) < 0);
+        }
+
+        return await query.OrderByDescending(report => report.CreatedAt).ThenByDescending(report => report.Id)
+            .Take(take)
+            .Select(report => new FeedbackReportQueueProjection(report.Id, report.Status, report.VersionNo,
+                report.CreatedAt))
+            .ToListAsync(cancellationToken);
+    }
+
     public Task<FeedbackReportCase?> GetReportAsync(Guid tenantId, Guid reportId, CancellationToken cancellationToken) =>
-        dbContext.Set<FeedbackReportCase>().SingleOrDefaultAsync(
-            report => report.TenantId == tenantId && report.Id == reportId, cancellationToken);
+        ScopedReports(tenantId).SingleOrDefaultAsync(report => report.Id == reportId, cancellationToken);
+
+    private IQueryable<FeedbackReportCase> ScopedReports(Guid tenantId) =>
+        from report in dbContext.Set<FeedbackReportCase>()
+        join answer in dbContext.Set<FormSubmissionValue>() on report.FormSubmissionValueId equals answer.Id
+        join submission in dbContext.Set<FormSubmission>() on answer.FormSubmissionId equals submission.Id
+        join target in dbContext.Set<SurveyTarget>() on submission.SurveyTargetId equals (Guid?)target.Id
+        where report.TenantId == tenantId && answer.TenantId == tenantId &&
+            submission.TenantId == tenantId && target.TenantId == tenantId &&
+            target.PresentationId == report.PresentationId && !target.ResultsStopped
+        select report;
 
     public Task<FeedbackSubmissionResource?> GetSubmissionAsync(Guid tenantId, Guid submissionId,
         CancellationToken cancellationToken) =>

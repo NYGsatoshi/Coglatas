@@ -154,6 +154,8 @@ public sealed class SurveyFeedbackAuthorization(
         FeedbackActor recipient, PresentationFeedbackScope scope, CancellationToken cancellationToken) =>
         recipient.TenantId == scope.TenantId &&
         await IsCurrentMemberAsync(recipient, cancellationToken) &&
+        await workspaces.GetCurrentMemberAsync(scope.WorkspaceId, recipient.UserId, cancellationToken) is
+            { Status: MembershipStatus.Active } membership && membership.TenantId == scope.TenantId &&
         await projects.CanViewProject(recipient.UserId, scope.ProjectId, cancellationToken);
 
     public async Task<bool> HasCapabilityAsync(FeedbackActor actor, PresentationFeedbackScope scope,
