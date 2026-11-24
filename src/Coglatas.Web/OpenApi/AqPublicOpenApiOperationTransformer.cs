@@ -60,9 +60,9 @@ public sealed class AqPublicOpenApiOperationTransformer : IOpenApiOperationTrans
         operation.RequestBody = new OpenApiRequestBody
         {
             Required = true,
-            Content = new Dictionary<string, OpenApiMediaType>
+            Content = new Dictionary<string, IOpenApiMediaType>
             {
-                ["application/json"] = new()
+                ["application/json"] = new OpenApiMediaType()
                 {
                     Schema = ClosedObject(new Dictionary<string, IOpenApiSchema>
                     {
