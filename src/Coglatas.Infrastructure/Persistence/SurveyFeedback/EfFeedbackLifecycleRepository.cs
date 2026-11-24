@@ -291,7 +291,16 @@ public sealed class EfFeedbackLifecycleRepository(AppDbContext dbContext) : IFee
     private static Result<T> Conflict<T>(string code) => Result<T>.Failure(
         new ApplicationErrorDetail(code, "A concurrent feedback change prevented this operation."));
 
-    private static bool IsConcurrentFailure(Exception exception) =>
-        (exception as PostgresException ?? exception.InnerException as PostgresException)?.SqlState is
-            PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.UniqueViolation;
+    private static bool IsConcurrentFailure(Exception exception)
+    {
+        while (exception is not PostgresException && exception.InnerException is { } inner)
+        {
+            exception = inner;
+        }
+
+        return exception is PostgresException
+        {
+            SqlState: PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.UniqueViolation
+        };
+    }
 }
