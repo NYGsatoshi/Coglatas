@@ -19,8 +19,8 @@ public sealed class Presentation : AuditableEntity, ITenantEntity
                 throw new InvalidOperationException("Tenant identity is immutable.");
         }
     }
-    public Guid EventId { get; private set; }
-    public Guid ProjectId { get; private set; }
+    public Guid EventId { get; private init; }
+    public Guid ProjectId { get; private init; }
     public string Title { get; private set; } = string.Empty;
     public string? Venue { get; private set; }
     public DateTimeOffset StartsAtUtc { get; private set; }
@@ -140,7 +140,7 @@ public sealed class EventFeedbackSettings : AuditableEntity, ITenantEntity
                 throw new InvalidOperationException("Tenant identity is immutable.");
         }
     }
-    public Guid EventId { get; private set; }
+    public Guid EventId { get; private init; }
     public DateTimeOffset StartsAtUtc { get; private set; }
     public DateTimeOffset EndsAtUtc { get; private set; }
     public string TimeZoneId { get; private set; } = string.Empty;
@@ -325,8 +325,8 @@ public sealed class SurveyCampaign : AuditableEntity, ITenantEntity
                 throw new InvalidOperationException("Tenant identity is immutable.");
         }
     }
-    public Guid EventId { get; private set; }
-    public Guid FormDefinitionId { get; private set; }
+    public Guid EventId { get; private init; }
+    public Guid FormDefinitionId { get; private init; }
     public bool IsEnabled { get; private set; }
     public bool IsPublished { get; private set; }
     public Guid? RetentionPolicyId { get; private set; }
@@ -348,7 +348,7 @@ public sealed class SurveyCampaign : AuditableEntity, ITenantEntity
 
         return new SurveyCampaign
         {
-            TenantId = activityEvent.TenantId,
+            TenantId = owningProject.TenantId,
             EventId = activityEvent.Id,
             FormDefinitionId = definition.Id,
             RetentionPolicyId = retentionPolicyId
@@ -402,10 +402,10 @@ public sealed class SurveyTarget : AuditableEntity, ITenantEntity
                 throw new InvalidOperationException("Tenant identity is immutable.");
         }
     }
-    public Guid EventId { get; private set; }
+    public Guid EventId { get; private init; }
     public Guid CampaignId { get; private set; }
-    public Guid PresentationId { get; private set; }
-    public Guid FormDefinitionId { get; private set; }
+    public Guid PresentationId { get; private init; }
+    public Guid FormDefinitionId { get; private init; }
     public Guid? PublishedSchemaId { get; private set; }
     public DateTimeOffset? StartsAtUtc { get; private set; }
     public DateTimeOffset? EndsAtUtc { get; private set; }
@@ -538,6 +538,6 @@ internal static class SurveyVersion
         if (versionNo != expectedVersionNo)
             throw new InvalidOperationException("The supplied version does not match the current record.");
 
-        return checked(versionNo + 1);
+        return checked(expectedVersionNo + 1);
     }
 }

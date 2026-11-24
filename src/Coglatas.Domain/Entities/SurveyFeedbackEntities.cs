@@ -32,12 +32,12 @@ public sealed class FeedbackViewerGrant : AuditableEntity, ITenantEntity
     public Guid PresentationId { get; private set; }
     public Guid InviterUserId { get; private set; }
     public Guid RecipientUserId { get; private set; }
-    public Guid InvitationPolicyId { get; private set; }
-    public long InvitationPolicyVersion { get; private set; }
+    public Guid InvitationPolicyId { get; private init; }
+    public long InvitationPolicyVersion { get; private init; }
     public FeedbackViewerGrantStatus Status { get; private set; }
     public long VersionNo { get; private set; } = 1;
-    public int ActiveDurationSeconds { get; private set; }
-    public DateTimeOffset DecisionDeadlineUtc { get; private set; }
+    public int ActiveDurationSeconds { get; private init; }
+    public DateTimeOffset DecisionDeadlineUtc { get; private init; }
     public DateTimeOffset? RecipientAcceptedAtUtc { get; private set; }
     public Guid? ApprovedByUserId { get; private set; }
     public DateTimeOffset? ApprovedAtUtc { get; private set; }
@@ -164,7 +164,7 @@ public sealed class AnswerVisibilityDecision : AuditableEntity, ITenantEntity
         IsHidden = hide;
         ChangedByUserId = actorId;
         Reason = reason;
-        VersionNo++;
+        VersionNo = expectedVersionNo + 1;
     }
 }
 
@@ -199,7 +199,7 @@ public sealed class FeedbackReportCase : AuditableEntity, ITenantEntity
         DisposedByUserId = actorId;
         DisposedAtUtc = utcNow;
         DispositionReason = reason;
-        VersionNo++;
+        VersionNo = expectedVersionNo + 1;
     }
 }
 
