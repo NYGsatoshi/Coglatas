@@ -164,6 +164,76 @@ public sealed class AqOperatorHostedPostgreSqlTests
             Assert.Equal(2, await db.Set<PresentationParticipant>().CountAsync(x => x.PresentationId == presentationId));
         });
 
+    [PostgreSqlFact]
+    public Task RosterPreviewDoesNotWriteAndCommitUsesConfirmedSourceVersionAndIdempotency() =>
+        AqPostgreSqlScenario.WithHostedEventAsync(async (database, host, project, activity) =>
+        {
+            const string core = "/api/v1/core";
+            var eventRoute = $"{core}/events/{activity.Id:D}";
+            await GrantOperatorAsync(database, host, project);
+            await host.LoginAsync();
+            var created = await CreatePresentationAsync(host.Client, eventRoute, activity, "Synthetic CSV roster target");
+            var presentationId = created.GetProperty("presentation").GetProperty("id").GetGuid();
+            var participants = $"{core}/presentations/{presentationId:D}/participants";
+            var before = await GetAsync(host.Client, participants);
+            var originalVersion = before.GetProperty("versionNo").GetInt64();
+            Assert.Empty(before.GetProperty("assignments").EnumerateArray());
+
+            var header = "presentationId,role,personRef,pendingRosterRef\n";
+            var row = $"{presentationId:D},reviewer,{host.Actor.Id:D},\n";
+            var duplicates = await PreviewAsync(host.Client, eventRoute, header + row + row);
+            Assert.Equal(JsonValueKind.Null, duplicates.GetProperty("previewRef").ValueKind);
+            Assert.Equal("DuplicateAssignment", Assert.Single(duplicates.GetProperty("diagnostics").EnumerateArray())
+                .GetProperty("code").GetString());
+            var preview = await PreviewAsync(host.Client, eventRoute, header + row);
+            Assert.Empty(preview.GetProperty("diagnostics").EnumerateArray());
+            var version = Assert.Single(preview.GetProperty("expectedSourceVersions").EnumerateArray());
+            Assert.Equal(originalVersion, version.GetProperty("versionNo").GetInt64());
+            var untouched = await GetAsync(host.Client, participants);
+            Assert.Empty(untouched.GetProperty("assignments").EnumerateArray());
+            Assert.Equal(originalVersion, untouched.GetProperty("versionNo").GetInt64());
+
+            var accepted = new
+            {
+                previewRef = preview.GetProperty("previewRef").GetString(),
+                confirmedAssignments = new[] { new { row = 2, assignment = new { role = "reviewer", personRef = host.Actor.Id } } },
+                expectedSourceVersions = preview.GetProperty("expectedSourceVersions")
+            };
+            var commitRoute = eventRoute + "/presentations/import-commit";
+            const string key = "synthetic-roster-intent";
+            var committed = await WriteAsync(host.Client, HttpMethod.Post, commitRoute, accepted, idempotencyKey: key);
+            Assert.Equal(1, committed.GetProperty("presentationsUpdated").GetInt32());
+            Assert.Equal(1, committed.GetProperty("assignmentsApplied").GetInt32());
+            var replay = await WriteAsync(host.Client, HttpMethod.Post, commitRoute, accepted, idempotencyKey: key);
+            Assert.Equal(committed.GetRawText(), replay.GetRawText());
+            using (var stale = await SendAsync(host.Client, HttpMethod.Post, commitRoute, accepted, "synthetic-roster-other"))
+                Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+
+            var final = await GetAsync(host.Client, participants);
+            var reviewer = Assert.Single(final.GetProperty("assignments").EnumerateArray());
+            Assert.Equal("reviewer", reviewer.GetProperty("role").GetString());
+            Assert.Equal(host.Actor.Id, reviewer.GetProperty("personRef").GetGuid());
+            Assert.Equal(originalVersion + 1, final.GetProperty("versionNo").GetInt64());
+            await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+            Assert.Equal(1, await db.Set<PresentationParticipant>().CountAsync(x => x.PresentationId == presentationId));
+        });
+
+    private static async Task<JsonElement> PreviewAsync(HttpClient client, string eventRoute, string csv)
+    {
+        using var multipart = new MultipartFormDataContent();
+        multipart.Add(new StringContent(csv, Encoding.UTF8, "text/csv"), "file", "synthetic-roster.csv");
+        using var request = new HttpRequestMessage(HttpMethod.Post, eventRoute + "/presentations/import-preview")
+        {
+            Content = multipart
+        };
+        request.Headers.Add(SecurityOptions.CsrfHeaderName, await ReadCsrfAsync(client));
+        using var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.True(response.StatusCode == HttpStatusCode.OK, $"Roster preview: {(int)response.StatusCode} {body}");
+        using var document = JsonDocument.Parse(body);
+        return document.RootElement.GetProperty("data").Clone();
+    }
+
     private static async Task GrantOperatorAsync(string database, AdmissionHost host, Project project)
     {
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
@@ -200,22 +270,31 @@ public sealed class AqOperatorHostedPostgreSqlTests
     }
 
     private static async Task<JsonElement> WriteAsync<T>(
-        HttpClient client, HttpMethod method, string path, T payload, HttpStatusCode expected = HttpStatusCode.OK)
+        HttpClient client, HttpMethod method, string path, T payload, HttpStatusCode expected = HttpStatusCode.OK,
+        string? idempotencyKey = null)
     {
-        using var response = await SendAsync(client, method, path, payload);
+        using var response = await SendAsync(client, method, path, payload, idempotencyKey);
         var body = await response.Content.ReadAsStringAsync();
         Assert.True(response.StatusCode == expected, $"{path}: {(int)response.StatusCode} {body}");
         using var result = JsonDocument.Parse(body);
         return result.RootElement.GetProperty("data").Clone();
     }
 
-    private static async Task<HttpResponseMessage> SendAsync<T>(HttpClient client, HttpMethod method, string path, T payload)
+    private static async Task<HttpResponseMessage> SendAsync<T>(
+        HttpClient client, HttpMethod method, string path, T payload, string? idempotencyKey = null)
+    {
+        using var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(payload) };
+        request.Headers.Add(SecurityOptions.CsrfHeaderName, await ReadCsrfAsync(client));
+        if (idempotencyKey is not null)
+            request.Headers.Add("Idempotency-Key", idempotencyKey);
+        return await client.SendAsync(request);
+    }
+
+    private static async Task<string> ReadCsrfAsync(HttpClient client)
     {
         using var csrf = await client.GetAsync("/api/security/csrf-token");
         csrf.EnsureSuccessStatusCode();
         using var csrfJson = JsonDocument.Parse(await csrf.Content.ReadAsStringAsync());
-        using var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(payload) };
-        request.Headers.Add(SecurityOptions.CsrfHeaderName, csrfJson.RootElement.GetProperty("token").GetString());
-        return await client.SendAsync(request);
+        return csrfJson.RootElement.GetProperty("token").GetString()!;
     }
 }
