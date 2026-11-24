@@ -9,7 +9,7 @@ public sealed class SurveyFeedbackExportRequestConfiguration : IEntityTypeConfig
     public void Configure(EntityTypeBuilder<SurveyFeedbackExportRequest> builder)
     {
         builder.ToTable("survey_feedback_export_requests", table =>
-            table.HasCheckConstraint("ck_survey_feedback_export_requests_mode", "\"Mode\" IN ('aggregate', 'detail')"));
+            table.HasCheckConstraint("ck_survey_feedback_export_requests_mode", "\"Mode\"::text = ANY(ARRAY['aggregate'::text, 'detail'::text])"));
         builder.ConfigureAuditableEntity();
         builder.Property(item => item.Mode).HasMaxLength(16).IsRequired();
         builder.Property(item => item.ColumnsJson).HasMaxLength(240).IsRequired();

@@ -6400,7 +6400,7 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
 
                     b.ToTable("survey_feedback_export_requests", null, t =>
                         {
-                            t.HasCheckConstraint("ck_survey_feedback_export_requests_mode", "\"Mode\" IN ('aggregate', 'detail')");
+                            t.HasCheckConstraint("ck_survey_feedback_export_requests_mode", "\"Mode\"::text = ANY(ARRAY['aggregate'::text, 'detail'::text])");
                         });
                 });
 

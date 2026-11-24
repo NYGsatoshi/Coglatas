@@ -186,7 +186,7 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                 {
                     table.PrimaryKey("PK_survey_feedback_export_requests", x => x.Id);
                     table.UniqueConstraint("AK_survey_feedback_export_requests_Id_TenantId_RequesterId", x => new { x.Id, x.TenantId, x.RequesterId });
-                    table.CheckConstraint("ck_survey_feedback_export_requests_mode", "\"Mode\" IN ('aggregate', 'detail')");
+                    table.CheckConstraint("ck_survey_feedback_export_requests_mode", "\"Mode\"::text = ANY(ARRAY['aggregate'::text, 'detail'::text])");
                     table.ForeignKey(
                         name: "FK_survey_feedback_export_requests_presentations_PresentationI~",
                         columns: x => new { x.PresentationId, x.TenantId },
