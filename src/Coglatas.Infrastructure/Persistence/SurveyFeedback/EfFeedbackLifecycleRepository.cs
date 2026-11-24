@@ -50,6 +50,14 @@ public sealed class EfFeedbackLifecycleRepository(AppDbContext dbContext) : IFee
         dbContext.Set<FeedbackInvitationPolicy>().AsNoTracking()
             .SingleOrDefaultAsync(policy => policy.TenantId == tenantId && policy.EventId == eventId, cancellationToken);
 
+    public Task<FeedbackInvitationPolicy?> FindInvitationPolicyForUpdateAsync(Guid tenantId, Guid eventId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<FeedbackInvitationPolicy>()
+            .SingleOrDefaultAsync(policy => policy.TenantId == tenantId && policy.EventId == eventId, cancellationToken);
+
+    public void AddInvitationPolicy(FeedbackInvitationPolicy policy) =>
+        dbContext.Set<FeedbackInvitationPolicy>().Add(policy);
+
     public async Task<IReadOnlyList<FeedbackViewerGrant>> ReadInvitationsAsync(Guid tenantId, Guid userId,
         string? direction, FeedbackPagePosition? after, CancellationToken cancellationToken)
     {

@@ -11,6 +11,7 @@ public static class SurveyFeedbackDependencyInjection
             .AddScoped<SurveyFeedbackInboxService>()
             .AddScoped<ISurveyFeedbackInboxRepository, EfSurveyFeedbackInboxRepository>()
             .AddScoped<FeedbackInvitationService>()
+            .AddScoped<FeedbackEventInvitationPolicyManagement>()
             .AddScoped<FeedbackModerationService>()
             .AddScoped<FeedbackNotesService>()
             .AddScoped<IFeedbackLifecycleRepository, EfFeedbackLifecycleRepository>()

@@ -47,6 +47,9 @@ public interface IFeedbackLifecycleRepository
     Task FlushAsync(CancellationToken cancellationToken);
     Task<FeedbackInvitationPolicy?> ReadInvitationPolicyAsync(Guid tenantId, Guid eventId,
         CancellationToken cancellationToken);
+    Task<FeedbackInvitationPolicy?> FindInvitationPolicyForUpdateAsync(Guid tenantId, Guid eventId,
+        CancellationToken cancellationToken);
+    void AddInvitationPolicy(FeedbackInvitationPolicy policy);
     Task<IReadOnlyList<FeedbackViewerGrant>> ReadInvitationsAsync(Guid tenantId, Guid userId, string? direction,
         FeedbackPagePosition? after, CancellationToken cancellationToken);
     Task<IReadOnlyList<EligibleFeedbackRecipient>> ReadRecipientCandidatesAsync(Guid tenantId, Guid workspaceId,
