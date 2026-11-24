@@ -2946,7 +2946,10 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "FormResponseId", "FormQuestionId")
                         .IsUnique();
 
-                    b.ToTable("form_answers", (string)null);
+                    b.ToTable("form_answers", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
                 });
 
             modelBuilder.Entity("Coglatas.Domain.Entities.FormDefinition", b =>
@@ -2978,13 +2981,28 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("GroupId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("LegacyClosesAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LegacyFormType")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<bool?>("LegacyIsAnonymous")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("LegacyOpensAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid?>("ProjectId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Purpose")
                         .IsRequired()
+                        .ValueGeneratedOnAdd()
                         .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
+                        .HasColumnType("character varying(40)")
+                        .HasDefaultValue("Ordinary");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -3004,7 +3022,9 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
 
                     b.Property<long>("VersionNo")
                         .IsConcurrencyToken()
-                        .HasColumnType("bigint");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(1L);
 
                     b.Property<Guid?>("WorkspaceId")
                         .HasColumnType("uuid");
@@ -3204,7 +3224,10 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "FormId", "RespondentUserId")
                         .IsUnique();
 
-                    b.ToTable("form_responses", (string)null);
+                    b.ToTable("form_responses", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
                 });
 
             modelBuilder.Entity("Coglatas.Domain.Entities.FormSubmission", b =>
@@ -3300,6 +3323,21 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("FormSubmissionId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("HasUninterpretedLegacyValue")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("LegacyAnswerJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("LegacyAnswerText")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<Guid?>("LegacyQuestionId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("PublishedSurveySchemaId")
                         .HasColumnType("uuid");
 
@@ -3340,6 +3378,11 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("FormDefinitionId")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("IsLegacyObservedSnapshot")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<int>("Number")
                         .HasColumnType("integer");
@@ -3723,7 +3766,10 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("WorkspaceId");
 
-                    b.ToTable("internal_forms", (string)null);
+                    b.ToTable("internal_forms", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
                 });
 
             modelBuilder.Entity("Coglatas.Domain.Entities.Invite", b =>
