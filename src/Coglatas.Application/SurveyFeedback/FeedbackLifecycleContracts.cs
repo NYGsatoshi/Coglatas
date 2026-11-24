@@ -11,6 +11,12 @@ public sealed record FeedbackSubmissionResource(Guid PresentationId, FormSubmiss
 
 public sealed record EligibleFeedbackRecipient(Guid RecipientRef, string Label);
 
+public sealed record FeedbackApprovalCandidate(FeedbackViewerGrant Invitation, string? InviterLabel, string? RecipientLabel);
+
+public sealed record FeedbackInvitationApprovalRow(FeedbackInvitationDto Invitation, string PresentationLabel,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? InviterLabel,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RecipientLabel);
+
 public sealed record FeedbackInvitationSummary(Guid Id, string PresentationLabel, string Direction, string Status,
     long VersionNo, DateTimeOffset DecisionDeadline,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTimeOffset? ExpiresAt);
@@ -52,6 +58,8 @@ public interface IFeedbackLifecycleRepository
     void AddInvitationPolicy(FeedbackInvitationPolicy policy);
     Task<IReadOnlyList<FeedbackViewerGrant>> ReadInvitationsAsync(Guid tenantId, Guid userId, string? direction,
         FeedbackPagePosition? after, CancellationToken cancellationToken);
+    Task<IReadOnlyList<FeedbackApprovalCandidate>> ReadApprovalCandidatesAsync(Guid tenantId, Guid eventId,
+        DateTimeOffset now, FeedbackPagePosition? after, int take, CancellationToken cancellationToken);
     Task<IReadOnlyList<EligibleFeedbackRecipient>> ReadRecipientCandidatesAsync(Guid tenantId, Guid workspaceId,
         Guid inviterId, Guid? after, int take, CancellationToken cancellationToken);
     Task<FeedbackViewerGrant?> GetInvitationAsync(Guid tenantId, Guid invitationId,

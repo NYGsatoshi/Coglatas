@@ -129,6 +129,14 @@ public sealed class SurveyFeedbackAuthorization(
         await HasCapabilityAsync(actor, access.Scope, detail ? "feedback.export.detail" : "feedback.export.aggregate",
             cancellationToken);
 
+    public async Task<bool> CanApproveEventInvitationsAsync(FeedbackActor actor, Guid eventId,
+        CancellationToken cancellationToken)
+    {
+        var scope = await repository.GetEventScopeAsync(actor.TenantId, eventId, cancellationToken);
+        return scope is not null && await projects.CanViewProject(actor.UserId, scope.ProjectId, cancellationToken) &&
+            await HasCapabilityAsync(actor, scope.WorkspaceId, "feedback.invite.approve", cancellationToken);
+    }
+
     public async Task<bool> CanCompareAsync(FeedbackActor actor, Guid eventId, CancellationToken cancellationToken)
     {
         var scope = await repository.GetEventScopeAsync(actor.TenantId, eventId, cancellationToken);

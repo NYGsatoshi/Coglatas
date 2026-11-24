@@ -74,6 +74,33 @@ public sealed class EfFeedbackLifecycleRepository(AppDbContext dbContext) : IFee
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<FeedbackApprovalCandidate>> ReadApprovalCandidatesAsync(Guid tenantId,
+        Guid eventId, DateTimeOffset now, FeedbackPagePosition? after, int take, CancellationToken cancellationToken)
+    {
+        var query =
+            from invitation in dbContext.Set<FeedbackViewerGrant>().AsNoTracking()
+            join presentation in dbContext.Set<Presentation>().AsNoTracking()
+                on invitation.PresentationId equals presentation.Id
+            join policy in dbContext.Set<FeedbackInvitationPolicy>().AsNoTracking()
+                on invitation.InvitationPolicyId equals policy.Id
+            join inviter in dbContext.Set<User>().AsNoTracking() on invitation.InviterUserId equals inviter.Id
+            join recipient in dbContext.Set<User>().AsNoTracking() on invitation.RecipientUserId equals recipient.Id
+            where invitation.TenantId == tenantId && presentation.TenantId == tenantId &&
+                policy.TenantId == tenantId && policy.EventId == eventId && presentation.EventId == eventId &&
+                invitation.InvitationPolicyVersion == policy.VersionNo && policy.Enabled &&
+                !policy.ApprovedForAutomaticApproval && invitation.Status == FeedbackViewerGrantStatus.Pending &&
+                invitation.ApprovedAtUtc == null && invitation.DecisionDeadlineUtc > now
+            select new FeedbackApprovalCandidate(invitation, inviter.DisplayName, recipient.DisplayName);
+        if (after is not null)
+        {
+            query = query.Where(row => row.Invitation.CreatedAt < after.SubmittedAt ||
+                row.Invitation.CreatedAt == after.SubmittedAt && row.Invitation.Id.CompareTo(after.Id) < 0);
+        }
+
+        return await query.OrderByDescending(row => row.Invitation.CreatedAt)
+            .ThenByDescending(row => row.Invitation.Id).Take(take).ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<EligibleFeedbackRecipient>> ReadRecipientCandidatesAsync(Guid tenantId,
         Guid workspaceId, Guid inviterId, Guid? after, int take, CancellationToken cancellationToken)
     {

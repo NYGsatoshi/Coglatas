@@ -124,6 +124,73 @@ public sealed class FeedbackInvitationService(
         }
     }
 
+    public async Task<Result<FeedbackPage<FeedbackInvitationApprovalRow>>> ApprovalQueueAsync(Guid eventId,
+        string? cursor, int pageSize, CancellationToken cancellationToken)
+    {
+        var actor = await authorization.ReadActorAsync(cancellationToken);
+        if (actor is null)
+        {
+            return SurveyFeedbackService.AuthenticationRequired<FeedbackPage<FeedbackInvitationApprovalRow>>();
+        }
+
+        if (!await authorization.CanApproveEventInvitationsAsync(actor, eventId, cancellationToken))
+        {
+            return SurveyFeedbackService.NotFound<FeedbackPage<FeedbackInvitationApprovalRow>>();
+        }
+
+        var cursorScope = new FeedbackCursorScope(actor.TenantId, actor.UserId, null, $"approval-queue/{eventId:D}");
+        FeedbackPagePosition? position = null;
+        if (pageSize is < 1 or > 100 || cursor is not null && !cursors.TryRead(cursor, cursorScope, out position))
+        {
+            return SurveyFeedbackService.Invalid<FeedbackPage<FeedbackInvitationApprovalRow>>();
+        }
+
+        var policy = await repository.ReadInvitationPolicyAsync(actor.TenantId, eventId, cancellationToken);
+        if (policy is not { Enabled: true, ApprovedForAutomaticApproval: false })
+        {
+            return Result<FeedbackPage<FeedbackInvitationApprovalRow>>.Success(new([]));
+        }
+
+        var now = clock.UtcNow;
+        var rows = new List<FeedbackInvitationApprovalRow>(pageSize);
+        FeedbackPagePosition? lastIncluded = null;
+        var batchSize = pageSize + 1;
+        while (true)
+        {
+            var candidates = await repository.ReadApprovalCandidatesAsync(actor.TenantId, eventId, now, position,
+                batchSize, cancellationToken);
+            foreach (var candidate in candidates)
+            {
+                var invite = candidate.Invitation;
+                position = new FeedbackPagePosition(invite.CreatedAt, invite.Id);
+                var access = await authorization.ReadAccessAsync(actor, invite.PresentationId, cancellationToken);
+                if (access is null || access.Scope.EventId != eventId || access.Scope.ResultsStopped ||
+                    !await authorization.IsEligibleInviterAsync(new FeedbackActor(actor.TenantId, invite.InviterUserId),
+                        access.Scope, cancellationToken) ||
+                    !await authorization.IsEligibleRecipientAsync(new FeedbackActor(actor.TenantId, invite.RecipientUserId),
+                        access.Scope, cancellationToken))
+                {
+                    continue;
+                }
+
+                if (rows.Count == pageSize)
+                {
+                    return Result<FeedbackPage<FeedbackInvitationApprovalRow>>.Success(
+                        new(rows, cursors.Write(cursorScope, lastIncluded!)));
+                }
+
+                rows.Add(new FeedbackInvitationApprovalRow(ToDto(invite, policy), access.Scope.Title,
+                    candidate.InviterLabel, candidate.RecipientLabel));
+                lastIncluded = position;
+            }
+
+            if (candidates.Count < batchSize)
+            {
+                return Result<FeedbackPage<FeedbackInvitationApprovalRow>>.Success(new(rows));
+            }
+        }
+    }
+
     public Task<Result<FeedbackInvitationDto>> IssueAsync(Guid presentationId, Guid recipientId,
         int? durationSeconds, CancellationToken cancellationToken) =>
         repository.InWriteTransactionAsync(async token =>
