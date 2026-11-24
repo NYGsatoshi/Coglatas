@@ -60,6 +60,7 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
         services.AddSurveyFeedback();
         services.AddFeedbackCsv();
+        services.AddAqSurveyManagement();
         services.AddScoped<ICurrentUser, CurrentUserService>();
         services.AddScoped<DbSessionCookieAuthenticationEvents>();
         services.AddSingleton<IAuthorizationMiddlewareResultHandler, WpcAuthorizationMiddlewareResultHandler>();
