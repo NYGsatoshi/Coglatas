@@ -1,0 +1,75 @@
+<section lang="ja" class="aq-page">
+  <a routerLink="/aq/feedback">発表一覧へ</a>
+  <h1>発表イベントの運営</h1>
+  @if (busy()) { <p role="status">処理中…</p> }
+  @if (failed()) { <p role="alert">操作を完了できませんでした。アクセス権や現在の設定を確認してください。</p> }
+  @if (outcome()) { <p role="status">{{ outcome() }}</p> }
+  <button type="button" [disabled]="busy()" (click)="load()">更新</button>
+  @if (data(); as event) {
+    <h2>公開と受付</h2>
+    <fieldset [disabled]="busy()">
+      <label><input type="checkbox" [checked]="event.settings.programPublished" (change)="setEventSetting('programPublished', $any($event.target).checked)"> 発表一覧を公開</label>
+      <label><input type="checkbox" [checked]="event.settings.receptionStopped" (change)="setEventSetting('receptionStopped', $any($event.target).checked)"> 回答受付を停止</label>
+      <label><input type="checkbox" [checked]="event.settings.resultsStopped" (change)="setEventSetting('resultsStopped', $any($event.target).checked)"> 結果の閲覧を停止</label>
+      <button type="button" (click)="rotateProgram()">発表一覧リンクを発行または更新</button>
+      @if (programCode()) { <p><a [routerLink]="['/aq/events', programCode()]">発表一覧の公開リンク</a></p> }
+    </fieldset>
+    <h2>発表</h2>
+    <ul class="aq-list">
+      @for (row of presentations(); track row.presentation.id) {
+        <li><a [routerLink]="['/aq/feedback', row.presentation.id]">{{ row.presentation.title }}</a></li>
+      } @empty { <li>発表はまだ登録されていません。</li> }
+    </ul>
+    <form (submit)="createPresentation($event)">
+      <label>発表名 <input type="text" required [value]="title()" (input)="title.set($any($event.target).value)"></label>
+      <label>会場 <input type="text" [value]="venue()" (input)="venue.set($any($event.target).value)"></label>
+      <label>開始日時（この端末の時間帯）
+        <input type="datetime-local" required [value]="start()" (input)="start.set($any($event.target).value)">
+      </label>
+      <label>終了日時（この端末の時間帯）
+        <input type="datetime-local" required [value]="end()" (input)="end.set($any($event.target).value)">
+      </label>
+      <button type="submit" [disabled]="busy()">発表を追加</button>
+    </form>
+    <h2>名簿の取り込み</h2>
+    <label>CSVファイル <input type="file" accept=".csv,text/csv" [disabled]="busy()" (change)="upload($event)"></label>
+    @if (preview(); as result) {
+      <p>確認待ちの割り当て {{ result.proposedAssignments.length }}件</p>
+      @for (diagnostic of result.diagnostics; track $index) { <p>{{ diagnostic.row }}行目 · {{ diagnostic.code }}</p> }
+      <button type="button" [disabled]="busy() || !result.expectedSourceVersions?.length || !!result.diagnostics.length || !result.proposedAssignments.length" (click)="commitImport()">内容を確認して取り込む</button>
+    }
+    <h2>QR資料</h2>
+    <label>アンケート
+      <select [value]="campaignId()" (change)="selectCampaign($any($event.target).value)">
+        <option value="">選択してください</option>
+        @for (campaign of campaigns(); track campaign.id; let i = $index) {
+          <option [value]="campaign.id">アンケート {{ i + 1 }} · {{ campaign.published ? '公開中' : '未公開' }}</option>
+        }
+      </select>
+    </label>
+    @if (campaignId()) {
+      <label>発表
+        <select [value]="targetId()" (change)="targetId.set($any($event.target).value)">
+          <option value="">選択してください</option>
+          @for (target of targets(); track target.id) {
+            <option [value]="target.id">{{ presentationTitle(target.presentationId) }}</option>
+          }
+        </select>
+      </label>
+      <div class="aq-actions">
+        <button type="button" [disabled]="busy() || !targetId()" (click)="download('png')">QR画像 PNG</button>
+        <button type="button" [disabled]="busy() || !targetId()" (click)="download('svg')">QR画像 SVG</button>
+        <button type="button" [disabled]="busy()" (click)="download('pdf')">印刷用PDF</button>
+      </div>
+    }
+    <h2>閲覧招待の承認</h2>
+    <ul class="aq-list">
+      @for (approval of approvals(); track approval.invitation.id) {
+        <li>
+          <p>{{ approval.presentationLabel }} · {{ approval.inviterLabel }} → {{ approval.recipientLabel }}</p>
+          <button type="button" [disabled]="busy()" (click)="approve(approval)">承認する</button>
+        </li>
+      } @empty { <li>承認待ちの招待はありません。</li> }
+    </ul>
+  }
+</section>

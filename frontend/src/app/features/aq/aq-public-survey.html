@@ -1,0 +1,87 @@
+<main lang="ja" class="aq-page">
+  <h1>{{ survey()?.title ?? copy.survey }}</h1>
+  @if (loading()) { <p role="status">{{ copy.loading }}</p> }
+  @if (loadFailed()) {
+    <p role="alert">{{ copy.surveyError }}</p>
+    <button type="button" (click)="load()">{{ copy.retryLoad }}</button>
+  }
+  @if (survey(); as form) {
+    <p>{{ form.notice }}</p>
+    @switch (state()) {
+      @case ('accepted') { <p #outcome tabindex="-1" role="status">{{ copy.accepted }}</p> }
+      @case ('pending') {
+        <p #outcome tabindex="-1" role="alert">{{ copy.pending }}</p>
+        <button type="button" (click)="retry()">{{ copy.retrySubmit }}</button>
+      }
+      @case ('expired') { <p #outcome tabindex="-1" role="alert">{{ copy.expired }}</p> }
+    }
+    @if (state() === 'ready' || state() === 'sending' || state() === 'rejected') {
+      @if (state() === 'rejected') { <p #outcome tabindex="-1" role="alert">{{ copy.rejected }}</p> }
+      @if (form.receptionState === 'closed') {
+        <p role="status">{{ copy.closed }}</p>
+      } @else if (marked()) {
+        <p role="status">{{ copy.alreadyAccepted }}</p>
+      } @else {
+        <form (submit)="submit($event)">
+          <fieldset [disabled]="state() === 'sending'" class="aq-grid">
+            @if (form.nameMode !== 'anonymous') {
+              <label>{{ copy.name }} @if (form.nameMode === 'requiredName') { ({{ copy.required }}) }
+                <input type="text" autocomplete="name" [required]="form.nameMode === 'requiredName'"
+                  [value]="displayName()" (input)="displayName.set($any($event.target).value)">
+              </label>
+              @if (form.accountOptInAvailable) {
+                <label><input type="checkbox" [checked]="consent()" (change)="consent.set($any($event.target).checked)"> {{ copy.consent }}</label>
+              }
+            }
+            @for (field of form.fields; track field.fieldKey; let i = $index) {
+              <fieldset [attr.aria-describedby]="invalidFields().has(field.fieldKey) ? 'aq-field-error-' + i : null">
+                <legend>{{ field.label }} @if (field.required) { ({{ copy.required }}) }</legend>
+                @switch (field.type) {
+                  @case ('text') {
+                    <textarea [required]="field.required" [attr.aria-label]="field.label"
+                      [attr.minlength]="field.constraints?.minLength" [attr.maxlength]="field.constraints?.maxLength"
+                      [value]="answers().get(field.fieldKey) ?? ''" (input)="setAnswer(field.fieldKey, $any($event.target).value)"></textarea>
+                  }
+                  @case ('date') {
+                    <input type="date" [required]="field.required" [attr.aria-label]="field.label"
+                      [attr.min]="field.constraints?.minimumDate" [attr.max]="field.constraints?.maximumDate"
+                      [value]="answers().get(field.fieldKey) ?? ''" (input)="setAnswer(field.fieldKey, $any($event.target).value)">
+                  }
+                  @case ('boolean') {
+                    <label><input type="radio" [name]="'aq-' + i" [required]="field.required"
+                      [checked]="answers().get(field.fieldKey) === true" (change)="setAnswer(field.fieldKey, true)"> {{ copy.yes }}</label>
+                    <label><input type="radio" [name]="'aq-' + i" [required]="field.required"
+                      [checked]="answers().get(field.fieldKey) === false" (change)="setAnswer(field.fieldKey, false)"> {{ copy.no }}</label>
+                  }
+                  @case ('singleChoice') {
+                    @for (option of field.options ?? []; track option.optionKey) {
+                      <label><input type="radio" [name]="'aq-' + i" [required]="field.required"
+                        [checked]="answers().get(field.fieldKey) === option.optionKey"
+                        (change)="setAnswer(field.fieldKey, option.optionKey)"> {{ option.label }}</label>
+                    }
+                  }
+                  @case ('multipleChoice') {
+                    @for (option of field.options ?? []; track option.optionKey) {
+                      <label><input type="checkbox" [checked]="chosen(field.fieldKey, option.optionKey)"
+                        (change)="selectChoice(field.fieldKey, option.optionKey, $any($event.target).checked)"> {{ option.label }}</label>
+                    }
+                  }
+                  @default {
+                    <input type="number" [required]="field.required" [attr.aria-label]="field.label"
+                      [attr.min]="field.constraints?.minimum" [attr.max]="field.constraints?.maximum"
+                      [attr.step]="field.constraints?.step ?? 'any'" [value]="answers().get(field.fieldKey) ?? ''"
+                      (input)="setAnswer(field.fieldKey, $any($event.target).valueAsNumber)">
+                  }
+                }
+                @if (invalidFields().has(field.fieldKey)) {
+                  <p [id]="'aq-field-error-' + i" role="alert">{{ copy.invalid }}</p>
+                }
+              </fieldset>
+            }
+            <button type="submit">{{ state() === 'sending' ? copy.submitting : copy.submit }}</button>
+          </fieldset>
+        </form>
+      }
+    }
+  }
+</main>

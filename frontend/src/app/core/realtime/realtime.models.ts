@@ -48,7 +48,8 @@ export type RealtimeEventType =
   | 'Projects.ProjectChanged.v1'
   | 'Announcements.AnnouncementChanged.v1'
   | 'Files.FileChanged.v1'
-  | 'Security.AuthorizationStateChanged.v1';
+  | 'Security.AuthorizationStateChanged.v1'
+  | 'Feedback.PresentationInvalidated.v1';
 
 export interface RealtimeDiagnostic {
   readonly code:
@@ -77,5 +78,6 @@ export const REALTIME_EVENT_TYPES: ReadonlySet<string> = new Set([
   'Projects.ProjectChanged.v1',
   'Announcements.AnnouncementChanged.v1',
   'Files.FileChanged.v1',
-  'Security.AuthorizationStateChanged.v1'
+  'Security.AuthorizationStateChanged.v1',
+  'Feedback.PresentationInvalidated.v1'
 ]);
