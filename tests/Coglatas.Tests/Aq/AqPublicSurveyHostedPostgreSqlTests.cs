@@ -286,7 +286,8 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
         });
 
     private static async Task<SeededSurvey> SeedAsync(
-        string database, AdmissionHost host, Project project, ActivityEvent activity, bool presenterFeedbackFixture = false)
+        string database, AdmissionHost host, Project project, ActivityEvent activity, bool presenterFeedbackFixture = false,
+        SurveyField? additionalQuestion = null)
     {
         var settings = EventFeedbackSettings.Create(activity, activity.StartsAt, activity.EndsAt, "UTC");
         settings.SetProgram(settings.VersionNo, true, SurveyProgramFields.Title | SurveyProgramFields.TimeZone,
@@ -303,8 +304,8 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
         var questions = new List<SurveyField> { new(FieldKey, "Comment", SurveyFieldType.Text, true, []) };
         if (presenterFeedbackFixture) questions.Add(new SurveyField("score", "Score", SurveyFieldType.Number, false, []));
         var common = FormVersion.Publish(definition, 1, questions, publishedAt);
-        var extra = TargetQuestionSetVersion.Publish(target, 1, [], publishedAt);
-        var schema = PublishedSurveySchema.Compose(target, common, extra, "synthetic-version-1", publishedAt);
+        var extra = TargetQuestionSetVersion.Publish(target, 1, additionalQuestion is null ? [] : [additionalQuestion], publishedAt);
+        var schema = PublishedSurveySchema.Compose(target, common, extra, Guid.NewGuid().ToString("N"), publishedAt);
         var programCode = Guid.NewGuid().ToString("N");
         var targetCode = Guid.NewGuid().ToString("N");
         var codec = host.Services.GetRequiredService<IAqPublicProjectionCodec>();
