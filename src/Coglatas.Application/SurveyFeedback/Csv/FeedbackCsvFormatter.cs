@@ -110,7 +110,7 @@ public static class FeedbackCsvFormatter
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
         var summary = SurveyFeedbackAggregation.Summarize(new FeedbackSummaryInput(count, answers.Select(answer =>
             new FeedbackValueSnapshot(answer.Id, answer.FieldKey, answer.FieldType.ToString(),
-                answer.FieldId.ToString("D"), answer.ValueJson, false)).ToArray()));
+                (answer.CompatibilityRootFieldId ?? answer.FieldId).ToString("D"), answer.ValueJson, false)).ToArray()));
 
         if (summary.Questions.Count == 0)
         {
@@ -234,6 +234,7 @@ public static class FeedbackCsvFormatter
         {
             writer.Write(answer.Id.ToByteArray());
             writer.Write(answer.FieldId.ToByteArray());
+            writer.Write((answer.CompatibilityRootFieldId ?? answer.FieldId).ToByteArray());
             writer.Write(answer.VisibilityVersionNo);
             writer.Write(answer.IsHidden);
         }

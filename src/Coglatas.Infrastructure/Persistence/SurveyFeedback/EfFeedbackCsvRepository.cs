@@ -68,7 +68,8 @@ public sealed class EfFeedbackCsvRepository(AppDbContext dbContext) : IFeedbackC
                 (visibility == null || !visibility.IsHidden)
             orderby submission.SubmittedAtUtc, submission.Id, field.SortOrder, answer.Id
             select new FeedbackCsvAnswer(answer.Id, submission.Id, field.Id, field.FieldKey, field.Label, field.FieldType,
-                field.OptionsJson, answer.ValueJson, visibility == null ? 1 : visibility.VersionNo, false);
+                field.OptionsJson, answer.ValueJson, visibility == null ? 1 : visibility.VersionNo, false,
+                field.CompatibilityRootFieldId);
         var values = await answers.Take(maximum + 1).ToArrayAsync(cancellationToken);
         if (values.Length > maximum)
             return TooLarge();

@@ -37,7 +37,8 @@ public sealed record FeedbackCsvAnswer(
     string OptionsJson,
     string ValueJson,
     long VisibilityVersionNo,
-    bool IsHidden);
+    bool IsHidden,
+    Guid? CompatibilityRootFieldId = null);
 
 public sealed record FeedbackCsvSnapshot(
     long PresentationVersion,

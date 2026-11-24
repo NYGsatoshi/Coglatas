@@ -61,6 +61,29 @@ public sealed class FeedbackCsvFormatterTests
     }
 
     [Fact]
+    public void CompatibleCorrectionCombinesAggregateWhileDetailKeepsHistoricalLabels()
+    {
+        var first = Submission();
+        var second = Submission();
+        var original = new FeedbackCsvAnswer(Guid.NewGuid(), first.Id, Guid.NewGuid(), "score", "Original score",
+            SurveyFieldType.Number, "[]", "2", 1, false);
+        var correction = original with
+        {
+            Id = Guid.NewGuid(), SubmissionId = second.Id, FieldId = Guid.NewGuid(),
+            Label = "Corrected score", ValueJson = "4", CompatibilityRootFieldId = original.FieldId
+        };
+        var source = Snapshot([first, second], [original, correction]);
+        var aggregate = Format(new("aggregate", ["questionLabel", "eligibleDenominator", "numericMean"]), source);
+        var detail = Format(new("detail", ["questionLabel", "answerValue"]), source);
+
+        Assert.True(aggregate.IsSuccess);
+        Assert.True(detail.IsSuccess);
+        Assert.Contains("\"Original score\",\"2\",\"3\"\r\n", Encoding.UTF8.GetString(aggregate.Value!.Content));
+        Assert.Contains("\"Original score\",\"2\"\r\n", Encoding.UTF8.GetString(detail.Value!.Content));
+        Assert.Contains("\"Corrected score\",\"4\"\r\n", Encoding.UTF8.GetString(detail.Value.Content));
+    }
+
+    [Fact]
     public void PermissionSensitiveColumnsAndTotalBoundsFailClosed()
     {
         var restricted = Format(new("detail", ["respondentName"]), Snapshot([], []));
