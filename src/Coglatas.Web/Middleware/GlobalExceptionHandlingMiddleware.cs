@@ -50,9 +50,11 @@ public sealed class GlobalExceptionHandlingMiddleware(
         }
         catch (Exception exception)
         {
-            if (AqPublicRoutes.IsPublicSurvey(context.Request.Path))
+            var surveyRequest = AqPublicRoutes.IsPublicSurvey(context.Request.Path) ||
+                AqPublicRoutes.IsProtectedSurvey(context);
+            if (surveyRequest)
             {
-                logger.LogError("Unhandled public survey failure. TraceId: {TraceId}", context.TraceIdentifier);
+                logger.LogError("Unhandled survey failure. TraceId: {TraceId}", context.TraceIdentifier);
             }
             else
             {
@@ -61,8 +63,7 @@ public sealed class GlobalExceptionHandlingMiddleware(
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
             context.Response.ContentType = "application/json";
 
-            if (IsWpcPath(context.Request.Path.Value) || AqPublicRoutes.IsPublicSurvey(context.Request.Path) ||
-                AqPublicRoutes.IsProtectedSurvey(context.Request.Path))
+            if (IsWpcPath(context.Request.Path.Value) || surveyRequest)
             {
                 await context.Response.WriteAsJsonAsync(ApiEnvelope.Error(
                     context,

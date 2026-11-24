@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Coglatas.Web.Controllers;
 
+[AqProtectedEndpoint]
 [ApiController]
 [Authorize]
 [Route("api/v1/core")]

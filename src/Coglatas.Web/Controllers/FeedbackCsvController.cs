@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace Coglatas.Web.Controllers;
 
+[AqProtectedEndpoint]
 [ApiController]
 [Authorize]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]

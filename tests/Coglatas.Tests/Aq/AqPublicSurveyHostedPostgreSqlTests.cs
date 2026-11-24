@@ -169,11 +169,16 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
             using var guest = AqPostgreSqlScenario.CreateGuestClient(host);
             await host.LoginAsync();
             var feedbackRoute = $"/api/v1/core/presentations/{survey.PresentationId:D}/feedback";
+            using (var unrelated = await host.Client.GetAsync("/api/v1/core/not-an-aq-endpoint"))
+                Assert.Equal("strict-origin-when-cross-origin", unrelated.Headers.GetValues("Referrer-Policy").Single());
 
             using (var first = await SubmitAsync(guest, survey.TargetCode, "aggregate-first", Payload(survey, score: 2)))
                 await ReadMinimalReceiptAsync(first);
             using (var publicFeedback = await guest.GetAsync(feedbackRoute))
+            {
                 Assert.Equal(HttpStatusCode.Unauthorized, publicFeedback.StatusCode);
+                Assert.Equal("no-referrer", publicFeedback.Headers.GetValues("Referrer-Policy").Single());
+            }
 
             using (var visible = await GetDataAsync(host.Client, feedbackRoute))
             {

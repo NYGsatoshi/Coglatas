@@ -42,7 +42,7 @@ public sealed class CsrfProtectionMiddleware(
         }
         catch (AntiforgeryValidationException ex)
         {
-            if (publicSurvey || AqPublicRoutes.IsProtectedSurvey(context.Request.Path))
+            if (publicSurvey || AqPublicRoutes.IsProtectedSurvey(context))
             {
                 logger.LogWarning("Rejected survey mutation without a valid antiforgery token.");
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;

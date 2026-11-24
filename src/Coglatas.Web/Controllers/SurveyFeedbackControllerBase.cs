@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Coglatas.Web.Controllers;
 
+[AqProtectedEndpoint]
 public abstract class SurveyFeedbackControllerBase : ControllerBase
 {
     protected IActionResult ToResponse<T>(Result<T> result, int successStatus = StatusCodes.Status200OK)

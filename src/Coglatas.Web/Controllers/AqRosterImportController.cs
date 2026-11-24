@@ -11,6 +11,7 @@ using Microsoft.VisualBasic.FileIO;
 
 namespace Coglatas.Web.Controllers;
 
+[AqProtectedEndpoint]
 [ApiController]
 [Authorize]
 [Route("api/v1/core/events/{eventId:guid}/presentations")]
