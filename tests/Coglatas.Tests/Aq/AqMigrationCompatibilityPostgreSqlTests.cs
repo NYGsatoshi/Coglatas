@@ -187,7 +187,7 @@ public sealed class AqMigrationCompatibilityPostgreSqlTests
             QuestionText = "Synthetic question",
             QuestionType = FormQuestionType.ShortText
         };
-        db.AddRange(form, question, saved, answer, activity, empty, emptyQuestion);
+        db.AddRange(form, question, activity, empty, emptyQuestion);
         db.EventAttendances.Add(new EventAttendance
         {
             TenantId = form.TenantId,
@@ -197,6 +197,15 @@ public sealed class AqMigrationCompatibilityPostgreSqlTests
             RespondedAt = now
         });
         await db.SaveChangesAsync();
+        // Persist the predecessor's physical shape. Current EF also maps privacy columns added during cutover.
+        await PostgreSqlMigrationTestDatabase.ExecuteAsync(database, """
+            INSERT INTO form_responses ("Id", "TenantId", "FormId", "RespondentUserId", "SubmittedAt", "CreatedAt")
+            VALUES (@response_id, @tenant_id, @form_id, @respondent_id, @submitted_at, @submitted_at);
+            INSERT INTO form_answers ("Id", "TenantId", "FormResponseId", "FormQuestionId", "AnswerText", "CreatedAt")
+            VALUES (@answer_id, @tenant_id, @response_id, @question_id, @choice, @submitted_at);
+            """, ("response_id", saved.Id), ("tenant_id", form.TenantId), ("form_id", form.Id),
+            ("respondent_id", host.Actor.Id), ("submitted_at", now), ("answer_id", answer.Id),
+            ("question_id", question.Id), ("choice", HistoricalChoice));
         return new PredecessorFixture(form.Id, question.Id, saved.Id, answer.Id, activity.Id, empty.Id, emptyQuestion.Id);
     }
 
