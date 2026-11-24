@@ -76,9 +76,6 @@ public sealed record FeedbackSummary(long Responses, IReadOnlyList<FeedbackQuest
 
 public sealed record FeedbackSummaryInput(long Count, IReadOnlyList<FeedbackValueSnapshot> Values);
 
-public sealed record FeedbackComparison(
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] object? Comparison = null);
-
 public interface ISurveyFeedbackRepository
 {
     Task<PresentationFeedbackScope?> GetScopeAsync(Guid tenantId, Guid presentationId, CancellationToken cancellationToken);

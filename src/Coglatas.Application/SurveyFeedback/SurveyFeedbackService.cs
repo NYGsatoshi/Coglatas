@@ -71,23 +71,6 @@ public sealed class SurveyFeedbackService(
         return Result<FeedbackSummary>.Success(SurveyFeedbackAggregation.Summarize(input));
     }
 
-    public async Task<Result<FeedbackComparison>> ComparisonAsync(Guid eventId, CancellationToken cancellationToken)
-    {
-        var actor = await authorization.ReadActorAsync(cancellationToken);
-        if (actor is null)
-        {
-            return AuthenticationRequired<FeedbackComparison>();
-        }
-
-        if (!await authorization.CanCompareAsync(actor, eventId, cancellationToken))
-        {
-            return NotFound<FeedbackComparison>();
-        }
-
-        // Cross-target cells are unavailable without an approved safe-cohort policy.
-        return Result<FeedbackComparison>.Success(new FeedbackComparison());
-    }
-
     public async Task<Result<FeedbackPage<FeedbackRow>>> FeedbackAsync(Guid presentationId, string? cursor,
         int pageSize, string? fieldKey, string? visibility, CancellationToken cancellationToken)
     {

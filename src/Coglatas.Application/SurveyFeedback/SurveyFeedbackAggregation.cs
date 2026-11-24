@@ -35,7 +35,7 @@ public static class SurveyFeedbackAggregation
                     answer.TryGetDecimal(out var number))
                 {
                     // Average without adding two potentially large signed values first.
-                    mean = count == 1 ? number : (mean - mean / count) + number / count;
+                    mean = count == 1 ? number : AppendToAverage(mean, number, count);
                 }
                 else if (first.FieldType == "SingleChoice" && answer.ValueKind is JsonValueKind.String)
                 {
@@ -64,6 +64,9 @@ public static class SurveyFeedbackAggregation
 
         return new FeedbackSummary(input.Count, questions);
     }
+
+    internal static decimal AppendToAverage(decimal mean, decimal number, long totalCount) =>
+        (mean - mean / totalCount) + number / totalCount;
 
     private static void Increment(Dictionary<string, long> distribution, string key) =>
         distribution[key] = distribution.GetValueOrDefault(key) + 1;

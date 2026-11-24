@@ -8,7 +8,8 @@ namespace Coglatas.Web.Controllers;
 [Authorize]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 [Route("api/v1/core")]
-public sealed class PresentationFeedbackController(SurveyFeedbackService feedback, SurveyFeedbackInboxService inbox) : SurveyFeedbackControllerBase
+public sealed class PresentationFeedbackController(SurveyFeedbackService feedback, SurveyFeedbackInboxService inbox,
+    SurveyFeedbackComparisonService comparison) : SurveyFeedbackControllerBase
 {
     [HttpGet("me/presentation-feedback")]
     public async Task<IActionResult> ListWorkspaces(string? cursor, int pageSize = 25,
@@ -23,8 +24,8 @@ public sealed class PresentationFeedbackController(SurveyFeedbackService feedbac
             hasReport, visibility, reportStatus), cursor, pageSize, cancellationToken));
 
     [HttpGet("events/{id:guid}/feedback-summary")]
-    public async Task<IActionResult> GetComparison(Guid id, CancellationToken cancellationToken) =>
-        ToResponse(await feedback.ComparisonAsync(id, cancellationToken));
+    public async Task<IActionResult> GetComparison(Guid id, string? comparisonRef, CancellationToken cancellationToken) =>
+        ToResponse(await comparison.CompareAsync(id, comparisonRef, cancellationToken));
 
     [HttpGet("presentations/{id:guid}/feedback-summary")]
     public async Task<IActionResult> GetSummary(Guid id, string? fieldKey, CancellationToken cancellationToken) =>
