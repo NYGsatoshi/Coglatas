@@ -8,12 +8,13 @@ function requiredFixtureSetting(key: string): string {
   return value;
 }
 
-test('feedback clears an old answer and rereads the current visibility on reconnect', async ({ page, context, browserName }) => {
+test('feedback clears an old answer and rereads the current visibility on reconnect', async ({ page, context, playwright, browserName }) => {
   const presentation = encodeURIComponent(requiredFixtureSetting('COGLATAS_AQ_PRESENTATION_ID'));
   const text = `Synthetic feedback for ${browserName}`;
   const feedbackPath = `/api/v1/core/presentations/${presentation}/feedback`;
   const answer = page.getByText(text, { exact: false });
   const connection = page.getByTestId('realtime-connection-state');
+  let browserSocket: WebSocketRoute | undefined;
   let serverSocket: WebSocketRoute | undefined;
   let socketCount = 0;
   const reconnect = Promise.withResolvers<void>();
@@ -26,6 +27,7 @@ test('feedback clears an old answer and rereads the current visibility on reconn
   await page.routeWebSocket(url => url.pathname === '/hubs/app', async socket => {
     socketCount += 1;
     if (socketCount > 1) await reconnect.promise;
+    browserSocket = socket;
     serverSocket = socket.connectToServer();
   });
   await page.route(url => url.pathname === feedbackPath, async route => {
@@ -36,16 +38,19 @@ test('feedback clears an old answer and rereads the current visibility on reconn
     await route.continue();
   });
 
+  const operator = await playwright.request.newContext({ baseURL: requiredFixtureSetting('COGLATAS_AQ_SYNTHETIC_ORIGIN') });
   try {
-    await loginViaApi(context.request, {
+    const credentials = {
       email: requiredFixtureSetting('COGLATAS_AQ_SYNTHETIC_EMAIL'),
       password: requiredFixtureSetting('COGLATAS_AQ_SYNTHETIC_PASSWORD'),
-    });
+    };
+    await loginViaApi(context.request, credentials);
+    await loginViaApi(operator, credentials);
     await page.goto(`/app/aq/feedback/${presentation}`);
     await expect(connection).toHaveText('Realtime updates connected.');
     await expect(answer).toBeVisible();
     expect(socketCount).toBe(1);
-    if (!serverSocket) throw new Error('The browser did not negotiate a live WebSocket.');
+    if (!serverSocket || !browserSocket) throw new Error('The browser did not negotiate a live WebSocket.');
 
     const current = await context.request.get(feedbackPath);
     expect(current.status()).toBe(200);
@@ -56,8 +61,9 @@ test('feedback clears an old answer and rereads the current visibility on reconn
     if (!target?.visibilityVersionNo) throw new Error('The authorized fixture cannot moderate its synthetic answer.');
 
     await serverSocket.close({ code: 1012, reason: 'Synthetic network interruption' });
+    await browserSocket.close({ code: 1012, reason: 'Synthetic network interruption' });
     await expect(connection).toHaveText('Reconnecting realtime updates.');
-    const hide = await csrfAwareRequest(context.request, 'PATCH',
+    const hide = await csrfAwareRequest(operator, 'PATCH',
       `/api/v1/core/feedback/answers/${encodeURIComponent(target.id)}/visibility`, {
         data: { expectedVersionNo: target.visibilityVersionNo, action: 'hide', reason: 'Synthetic reconnect visibility' },
       });
@@ -80,5 +86,6 @@ test('feedback clears an old answer and rereads the current visibility on reconn
   } finally {
     reconnect.resolve();
     refresh.resolve();
+    await operator.dispose();
   }
 });
