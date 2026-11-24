@@ -1,3 +1,4 @@
+using Coglatas.Web.Models;
 using System.Globalization;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
@@ -19,6 +20,8 @@ public static class HttpSecurityPolicy
 {
     public const string CorsPolicyName = "canonical-browser-origin";
     public const string LoginRateLimitPolicy = "login";
+    public const string AqPublicReadRateLimitPolicy = "aq-public-read";
+    public const string AqPublicSubmitRateLimitPolicy = "aq-public-submit";
     public const string InviteRateLimitPolicy = "invite";
     public const string FileUploadRateLimitPolicy = "file-upload";
     public const string ApiTokenRateLimitPolicy = "api-token";
@@ -102,6 +105,13 @@ public static class HttpSecurityPolicy
             }
 
             rejection.HttpContext.Response.ContentType = "application/json";
+            if (AqPublicRoutes.IsPublicSurvey(rejection.HttpContext.Request.Path))
+            {
+                await rejection.HttpContext.Response.WriteAsJsonAsync(ApiEnvelope.Error(
+                    rejection.HttpContext, StatusCodes.Status429TooManyRequests, "RateLimited",
+                    "Too many requests. Retry after the indicated interval."), cancellationToken);
+                return;
+            }
             await rejection.HttpContext.Response.WriteAsJsonAsync(new
             {
                 requestId = rejection.HttpContext.TraceIdentifier,
@@ -113,6 +123,10 @@ public static class HttpSecurityPolicy
             }, cancellationToken);
         };
 
+        // Audience members can share a school NAT, including at the planned
+        // synthetic concurrency. Avoid low per-session limits on that origin.
+        AddFixedWindowPolicy(options, AqPublicReadRateLimitPolicy, 4_800, TimeSpan.FromMinutes(1));
+        AddFixedWindowPolicy(options, AqPublicSubmitRateLimitPolicy, 2_400, TimeSpan.FromMinutes(1));
         AddFixedWindowPolicy(options, LoginRateLimitPolicy, 10, TimeSpan.FromMinutes(1));
         AddFixedWindowPolicy(options, InviteRateLimitPolicy, 10, TimeSpan.FromMinutes(1));
         AddFixedWindowPolicy(options, FileUploadRateLimitPolicy, 20, TimeSpan.FromMinutes(1));

@@ -18,6 +18,9 @@ internal static class SecurityArchitecturePublicSurfaceInventory
         ("/api/invites/validate", "GET") => "PUBLIC_INVITE_TOKEN_VALIDATION",
         ("/api/auth/status", "GET") => "PUBLIC_AUTHENTICATION_STATUS",
         ("/api/security/csrf-token", "GET") => "PUBLIC_ANTIFORGERY_BOOTSTRAP",
+        ("/api/v1/public/events/{code}/presentations", "GET") or
+        ("/api/v1/public/surveys/{code}", "GET") => "PUBLIC_SURVEY_PUBLISHED_PROJECTION",
+        ("/api/v1/public/surveys/{code}/submissions", "POST") => "PUBLIC_SURVEY_GUEST_SUBMISSION",
         ("/api/ui/runtime-config.js", "GET") => "PUBLIC_FEATURE_FLAG_SCRIPT",
         ("/health/live", "GET") => "PUBLIC_LIVENESS",
         ("/health/ready", "GET") => "PUBLIC_DEPENDENCY_READINESS",
@@ -36,6 +39,9 @@ internal static class SecurityArchitecturePublicSurfaceInventory
         ("/api/auth/login", "POST") => "AUTH_SERVICE_PASSWORD_AND_ACCOUNT_STATE",
         ("/api/auth/register-by-invite", "POST") or ("/api/invites/accept", "POST") or
         ("/api/invites/validate", "GET") => "AUTH_SERVICE_CURRENT_HASHED_INVITE_SCOPE_AND_EXPIRY",
+        ("/api/v1/public/events/{code}/presentations", "GET") or
+        ("/api/v1/public/surveys/{code}", "GET") => "SURVEY_STORE_TYPED_CODE_CURRENT_PUBLICATION",
+        ("/api/v1/public/surveys/{code}/submissions", "POST") => "SURVEY_STORE_TYPED_CODE_CURRENT_ADMISSION_AND_ANTIFORGERY",
         ("/api/projects/{projectId}/gantt", "GET") => "PLANNING_SERVICE_CURRENT_ACTOR_AND_PROJECT_AUTHORITY",
         ("/api/tasks/{taskItemId}/dependencies", "GET" or "POST") or
         ("/api/tasks/{taskItemId}/dependencies/{dependencyId}", "DELETE") => "PROJECT_SERVICE_CURRENT_ACTOR_AND_TASK_PROJECT_AUTHORITY",
@@ -49,6 +55,8 @@ internal static class SecurityArchitecturePublicSurfaceInventory
         "/api/auth/login" or "/api/auth/register-by-invite" or "/api/auth/status" => "src/Coglatas.Web/Controllers/AuthController.cs",
         "/api/invites/accept" or "/api/invites/validate" => "src/Coglatas.Web/Controllers/InvitesController.cs",
         "/api/security/csrf-token" => "src/Coglatas.Web/Controllers/SecurityController.cs",
+        "/api/v1/public/events/{code}/presentations" or "/api/v1/public/surveys/{code}" or
+        "/api/v1/public/surveys/{code}/submissions" => "src/Coglatas.Web/Controllers/AqPublicSurveyController.cs",
         "/api/projects/{projectId}/gantt" => "src/Coglatas.Web/Controllers/PlanningController.cs",
         "/api/tasks/{taskItemId}/dependencies" or "/api/tasks/{taskItemId}/dependencies/{dependencyId}" or
         "/api/tasks/{taskItemId}/progress" or "/api/tasks/{taskItemId}/schedule" => "src/Coglatas.Web/Controllers/ProjectsController.cs",
