@@ -1,3 +1,4 @@
+using System.Data;
 using Coglatas.Application.SurveyFeedback;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
@@ -91,8 +92,16 @@ public sealed class EfSurveyFeedbackRepository(AppDbContext dbContext) : ISurvey
     public async Task<FeedbackSummaryInput> ReadSummaryAsync(Guid tenantId, Guid presentationId, string? fieldKey,
         CancellationToken cancellationToken)
     {
+        // The count and question cells must describe the same admitted responses
+        // even if a guest submit, void or visibility decision commits mid-read.
+        await using var snapshot = dbContext.Database.IsNpgsql()
+            ? await dbContext.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken)
+            : null;
         var total = await Submissions(tenantId, presentationId).LongCountAsync(cancellationToken);
         var values = await Values(tenantId, presentationId, fieldKey).ToListAsync(cancellationToken);
+        if (snapshot is not null)
+            await snapshot.CommitAsync(cancellationToken);
+
         return new FeedbackSummaryInput(total, values.Select(ToValue).ToArray());
     }
 

@@ -48,9 +48,10 @@ public sealed class EfFeedbackCsvRepository(AppDbContext dbContext) : IFeedbackC
             where submission.TenantId == scope.TenantId && !target.ResultsStopped &&
                 submission.Status == FormSubmissionStatus.Submitted
             select submission;
-        var submissionVersions = await submissions.OrderBy(item => item.Id)
+        Task<FeedbackCsvSubmission[]> ReadSubmissionVersionsAsync() => submissions.OrderBy(item => item.Id)
             .Select(item => new FeedbackCsvSubmission(item.Id, item.SubmittedAtUtc, item.VersionNo))
             .Take(maximum + 1).ToArrayAsync(cancellationToken);
+        var submissionVersions = await ReadSubmissionVersionsAsync();
         if (submissionVersions.Length > maximum)
             return TooLarge();
 
@@ -78,8 +79,10 @@ public sealed class EfFeedbackCsvRepository(AppDbContext dbContext) : IFeedbackC
         var currentTargetVersions = await targets.OrderBy(item => item.Id)
             .Select(item => new FeedbackCsvTarget(item.Id, item.VersionNo, item.ResultsStopped))
             .Take(maximum + 1).ToArrayAsync(cancellationToken);
+        var currentSubmissionVersions = await ReadSubmissionVersionsAsync();
         var submissionIds = submissionVersions.Select(item => item.Id).ToHashSet();
         if (currentSettings != settings || !currentTargetVersions.SequenceEqual(targetVersions) ||
+            !currentSubmissionVersions.SequenceEqual(submissionVersions) ||
             values.Any(item => !submissionIds.Contains(item.SubmissionId)))
         {
             return Result<FeedbackCsvSnapshot>.Failure(new ApplicationErrorDetail(
