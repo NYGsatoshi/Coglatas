@@ -12,7 +12,7 @@ public sealed class RequestBodyLimitMiddleware(
     public async Task InvokeAsync(HttpContext context)
     {
         var maxRequestBodySize = securityOptions.Value.MaxRequestBodySizeBytes;
-        if (context.Request.ContentLength is long contentLength &&
+        if (context.Request.ContentLength is { } contentLength &&
             contentLength > maxRequestBodySize)
         {
             await WriteTooLargeResponseAsync(context);

@@ -183,13 +183,24 @@ public sealed class AqPublicSurveyService(IAqPublicSurveyStore store, ICurrentUs
     {
         answers = new Dictionary<string, string>(StringComparer.Ordinal);
         if (string.IsNullOrEmpty(input.VersionRef) || input.SchemaDigest is not { Length: 64 } digest ||
-            digest.Any(character => character is not (>= 'a' and <= 'f') and not (>= '0' and <= '9')) ||
-            input.Answers is null)
+            digest.Any(character => character is not (>= 'a' and <= 'f') and not (>= '0' and <= '9')))
         {
             return false;
         }
 
-        foreach (var answer in input.Answers)
+        return TryCanonicalizeAnswers(input.Answers, answers);
+    }
+
+    private static bool TryCanonicalizeAnswers(
+        IReadOnlyList<AqPublicAnswerInput?>? input, Dictionary<string, string> answers)
+    {
+        // JSON can supply null for the list or its entries even though the API requires both.
+        if (input is null)
+        {
+            return false;
+        }
+
+        foreach (var answer in input)
         {
             if (answer is null || string.IsNullOrEmpty(answer.FieldKey) ||
                 !TryCanonicalizeValue(answer.Value, out var serialized) ||

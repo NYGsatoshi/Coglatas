@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Reflection;
 using System.Text;
 using Coglatas.Application.Common.Interfaces;
@@ -47,7 +46,8 @@ public sealed class AqPublicSubmissionHeaderTests
         host.MapControllers();
         await host.StartAsync();
 
-        using var client = new HttpClient { BaseAddress = new Uri(host.Urls.Single()) };
+        using var client = new HttpClient();
+        client.BaseAddress = new Uri(host.Urls.Single());
         var csrf = await client.GetFromJsonAsync<CsrfTokenResponse>("/api/security/csrf-token");
         Assert.NotNull(csrf);
 
