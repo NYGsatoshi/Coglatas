@@ -53,6 +53,7 @@ public static class DependencyInjection
             options.MultipartBodyLengthLimit = security.MaxMultipartBodySizeBytes;
         });
         services.AddAntiforgery(options => HttpSecurityPolicy.ConfigureAntiforgery(options, security));
+        services.AddAqRequestLogPrivacy();
         services.AddAqPublicSurveys();
         services.AddHostedService<StartupConfigurationValidator>();
         services.AddHostedService<HttpSecurityConfigurationValidator>();

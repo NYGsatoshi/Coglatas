@@ -1,7 +1,35 @@
+{
+	log default {
+		exclude http.log.error.aq_private
+	}
+	log aq_private {
+		include http.log.error.aq_private
+		format filter {
+			wrap json
+			fields {
+				request delete
+			}
+		}
+	}
+}
+
 :80 {
-    reverse_proxy web:8080 {
-        header_up X-Forwarded-Proto https
-        header_up X-Forwarded-Host {host}
-        header_up X-Forwarded-For {remote_host}
-    }
+	# Keep access logging disabled. Route AQ proxy errors to a sink that omits
+	# the request object while keeping the status, duration and error details.
+	log {
+		output discard
+	}
+	log_skip
+	@aq_entry path /api/v1/public/surveys /api/v1/public/surveys/* /api/v1/public/events /api/v1/public/events/* /app/aq/surveys /app/aq/surveys/* /app/aq/events /app/aq/events/* /app/aq/feedback /app/aq/feedback/* /app/aq/manage /app/aq/manage/*
+	@aq_core path_regexp aq_core (?i)^/api/v1/core/(?:feedback|feedback-invitations|forms|presentations|presentation-feedback-exports|survey-campaigns|survey-targets|me/(?:presentation-feedback|feedback-invitations)|events/[^/]+/(?:presentations|program-code|feedback-settings|survey-campaigns|feedback-summary|feedback-invitations|feedback-invitation-policy))(?:/|$)
+	route {
+		log_name ""
+		log_name @aq_entry aq_private
+		log_name @aq_core aq_private
+		reverse_proxy web:8080 {
+			header_up X-Forwarded-Proto https
+			header_up X-Forwarded-Host {host}
+			header_up X-Forwarded-For {remote_host}
+		}
+	}
 }
