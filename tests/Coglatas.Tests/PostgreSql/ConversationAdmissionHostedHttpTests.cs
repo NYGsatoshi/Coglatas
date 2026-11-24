@@ -97,7 +97,10 @@ public sealed class ConversationAdmissionHostedHttpTests
         public User ForeignRecipient { get; private set; } = null!;
         public User OtherWorkspaceRecipient { get; private set; } = null!;
 
-        public static async Task<AdmissionHost> CreateAsync(string database, ILoggerProvider? logProvider = null)
+        public static async Task<AdmissionHost> CreateAsync(
+            string database,
+            ILoggerProvider? logProvider = null,
+            IReadOnlyDictionary<string, string?>? configurationOverrides = null)
         {
             var temporaryRoot = Path.Combine(Path.GetTempPath(), "coglatas-admission-http", Guid.NewGuid().ToString("N"));
             var keyPath = Path.Combine(temporaryRoot, "keys");
@@ -126,6 +129,7 @@ public sealed class ConversationAdmissionHostedHttpTests
                 ["FileStorage:AllowedExtensions:0"] = ".txt",
                 ["FileStorage:AllowedContentTypes:0"] = "text/plain"
             });
+            if (configurationOverrides is not null) builder.Configuration.AddInMemoryCollection(configurationOverrides);
             builder.Services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(keyPath));
             builder.Services.AddApplication().AddInfrastructure(builder.Configuration).AddWebServices(builder.Configuration);
             builder.Services.AddControllers().AddApplicationPart(typeof(ConversationsController).Assembly);
