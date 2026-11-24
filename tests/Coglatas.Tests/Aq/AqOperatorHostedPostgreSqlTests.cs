@@ -12,6 +12,7 @@ using AdmissionHost = Coglatas.Tests.PostgreSql.ConversationAdmissionHostedHttpT
 namespace Coglatas.Tests.Aq;
 
 [Trait("Feature", "AQ")]
+[Trait("Category", "PostgreSQLIntegration")]
 public sealed class AqOperatorHostedPostgreSqlTests
 {
     [PostgreSqlFact]
