@@ -76,7 +76,7 @@ services:
       dotnet ef database update --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web"
 
   postgres:
-    image: postgres:18-alpine
+    image: postgres:19-alpine
     environment:
       POSTGRES_DB: ${DB_NAME:-coglatas}
       POSTGRES_USER: ${DB_USER:-coglatas}
