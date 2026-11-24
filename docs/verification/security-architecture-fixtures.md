@@ -185,6 +185,110 @@ control exercises the Security-rule parent-deletion cascade before checking
 cross-Tenant isolation; that database branch does not approve retention authority
 or make direct rule deletion available.
 
+### AQ relation catalogue transition
+
+The catalogue validates public physical table membership, including each
+`TenantId` column's type. Compatibility views are recorded separately.
+This transition is tracked under #1156, #1157 and #1158.
+
+| Catalogue | Terminal migration | Physical tables | Physical tables with `TenantId` | Compatibility views |
+| --- | --- | ---: | ---: | ---: |
+| `pre-aq-v1` | `20261101062657_StabilizeLogicalRecoveryConstraintExpressions` | 114 | 103 | 0 |
+| `aq-foundation-v2` | `20261124091200_ProtectOrdinaryRespondentPrivacy` | 132 | 121 | 3 |
+| `aq-feedback-v3` | `20261124091631_TrackCompatiblePublishedSurveyFields` | 141 | 130 | 3 |
+
+Guest submission has the Foundation migration set. Six non-tenant historical
+tables remain shared or internal. `file_selection_snapshot_items` and
+`coglatas_ui_canonical_change_journal` remain parent-derived without a tenant
+column. `users`, `sessions` and `tenants` retain the separate identity/root
+authority review. The additional AQ tables have non-null UUID tenant identities
+and composite tenant bindings to their scoped parents. User references used
+for identity or attribution do not confer scope.
+
+The Foundation migration `20261124084252_AddSurveyPresentationFoundation`
+adds 18 physical tables, adds tenant-bearing parent keys to `activity_events`,
+`groups`, and `tenant_users`, and reuses the established Workspace key.
+The cutover migration `20261124085803_CutOverOrdinaryFormsToCanonicalSubmissions`
+renames `internal_forms`, `form_responses`, and `form_answers` to their
+`pre_aq_*` archive names and creates `security_invoker` compatibility views
+under the original names. Archived records retain their tenant columns and
+identity and are fenced against INSERT, UPDATE, DELETE and TRUNCATE. The views
+read active canonical representations and use the current ordinary Forms write
+paths. `form_questions` remains a physical tenant table whose writes now use
+the canonical `form_definitions` parent and authoring fence. The privacy
+migration preserves the respondent mask in `form_submissions` and projects it
+through the response view. Native PostgreSQL verifies the archived and canonical
+row identities from migrated synthetic source data, the view dependencies and
+invoker setting, and the archive guard's actual rejection and retained rows.
+
+The following relationships and application lifecycles determine future
+operation qualification. The scoped parents are checked against native
+PostgreSQL foreign keys. Direct operations outside each listed lifecycle remain
+unqualified. Each applicable operation requires a successful same-tenant
+control and a paired foreign-scope, missing/invalid-context and unauthorized-role
+control under a reviewed identity. Native publication guards block direct
+UPDATE and DELETE for the five immutable publication tables. Those rejections
+are source guards. They supply no RLS denial credit.
+
+| Foundation table | Tenant-bound parent tables | Application lifecycle or native limit |
+| --- | --- | --- |
+| `event_feedback_settings` | `activity_events` | Scoped reception, publication and results settings |
+| `form_definitions` | One of `workspaces`, `groups`, `projects` | Scoped authoring, version advance and ordinary Forms compatibility |
+| `form_versions` | `form_definitions` | Publish and read immutable versions |
+| `form_field_definitions` | One of `form_versions`, `target_question_set_versions` | Publish and read immutable fields |
+| `form_submissions` | `form_versions`, eligible `published_survey_schemas` | Admission, scoped reads, ordinary respondent mask |
+| `form_submission_values` | `form_submissions`, `form_field_definitions`, eligible `published_survey_schema_fields` | Admission checks immutable membership before scoped reads |
+| `presentation_feedback_settings` | `presentations` | Scoped reception overrides |
+| `presentation_participants` | `presentations`, optional `tenant_users` | Roster assignment and removal |
+| `presentations` | `activity_events`, `projects` | Scoped schedule and roster version changes |
+| `published_survey_schema_fields` | `published_survey_schemas`, `form_field_definitions` | Immutable composition membership |
+| `published_survey_schemas` | `survey_targets`, `form_versions`, optional `target_question_set_versions` | Publish and read immutable compositions |
+| `submission_idempotency` | `survey_targets`, `form_submissions` | Admit, replay and replace expired receipts |
+| `survey_campaigns` | `activity_events`, `form_definitions` | Scoped campaign management |
+| `survey_program_entries` | `survey_targets` | Public program projection and event publication |
+| `survey_public_codes` | One of `activity_events`, `survey_targets` | Digest lookup, issue, rotate and revoke |
+| `survey_respondent_identities` | `form_submissions` | Eligible survey submissions with separately gated identity |
+| `survey_targets` | `presentations`, `survey_campaigns`, optional `published_survey_schemas` | Scoped target and current composition publication |
+| `target_question_set_versions` | `survey_targets` | Publish and read immutable target questions |
+
+`20261124091003_AddSurveyFeedbackLifecycleAndExports` adds the nine Feedback
+tables below. `20261124091631_TrackCompatiblePublishedSurveyFields` adds
+nullable same-tenant, same-key predecessor and root field links and reason
+columns on published version records. The existing publication immutability
+guard remains active on those records.
+
+| Feedback table | Tenant-bound parent tables | Application lifecycle |
+| --- | --- | --- |
+| `answer_visibility_decisions` | `form_submission_values` | Scoped moderation decisions |
+| `feedback_invitation_policies` | `activity_events` | Scoped event invitation settings |
+| `feedback_read_states` | `form_submissions` | Read state for the current user |
+| `feedback_report_cases` | `form_submission_values`, `presentations` | Report and moderation state transitions |
+| `feedback_viewer_grants` | `feedback_invitation_policies`, `presentations` | Issue and revoke scoped viewer access |
+| `shared_teacher_feedback` | `presentations` | Author, share and retract scoped feedback |
+| `survey_feedback_export_grants` | `survey_feedback_export_requests` | Short-lived delivery grants |
+| `survey_feedback_export_requests` | `presentations` | Authorize and process scoped export requests |
+| `teacher_private_notes` | `presentations` | Author-scoped private notes and revision |
+
+The current AQ tables, archives and compatibility views have their own
+unverified runtime policy and role authority. The transition asserts inactive
+RLS and no non-owner relation ACL grants on these objects. The prior draft
+105-table policy and CRUD observations use the explicit `pre-aq-v1`
+migration. On the latest migrated schema, the original CRUD causal controls
+run on the 101 retained unaffected physical relations. The same fixture role
+exercises the current `form_questions` SELECT positives and denials separately.
+Its INSERT, UPDATE and DELETE invoke the new authoring dependency on
+`form_definitions` and have no current authorized draft-write fixture. The
+recovery mechanics use 102 retained active relations and capture every
+physical table's row and schema identities, including the archives and AQ
+relations. This fixture work leaves worker, application-role and activation
+decisions with the RLS workstream.
+
+The private `draft-rls-relation-catalogue-transition.json` captures both
+migration identities and the latest AQ native parent/guard identities.
+Historical operation and source-reference receipts retain their 114-table
+provenance. The current retained-table operation observation is written
+separately. The verification scope excludes operational roll-out.
+
 SecurityArchitectureRlsRuntimeTests composes an isolated HTTP fixture with the
 current tenant resolver, cookie events, persisted session/membership validator
 and repositories. Only a validated signed principal and current membership can

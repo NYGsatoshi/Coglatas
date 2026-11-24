@@ -303,11 +303,11 @@ class RlsSourceBindingTests(unittest.TestCase):
                      "constraints": [{key: value[key] for key in sources.CONSTRAINT_KEYS} for value in native["constraints"]]}
         native["schemaDigest"] = hashlib.sha256(json.dumps(canonical, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
 
-    def reconcile(self, receipt=None, reference=None, head=SHA, clean=""):
+    def reconcile(self, receipt=None, reference=None, head=SHA, clean="", environment_fingerprint=ENVIRONMENT_DIGEST):
         with patch.object(sources.subprocess, "run", side_effect=[SimpleNamespace(stdout=head + "\n"),
                                                                   SimpleNamespace(stdout=clean)]) as process:
             result = matrix.reconcile(self.receipt if receipt is None else receipt, self.inventory, SHA, ASSEMBLY,
-                                      ENVIRONMENT_DIGEST, self.reference if reference is None else reference, self.checkout)
+                                      environment_fingerprint, self.reference if reference is None else reference, self.checkout)
             self.assertEqual([["git", "-C", str(self.checkout), "rev-parse", "HEAD"],
                               ["git", "-C", str(self.checkout), "status", "--porcelain", "--untracked-files=all"]],
                              [call.args[0] for call in process.call_args_list])
@@ -322,6 +322,51 @@ class RlsSourceBindingTests(unittest.TestCase):
         self.assertEqual("UNVERIFIED", result["observedMatrixOutcome"])
         self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
         self.assertIsNone(result["ownerApproval"])
+
+    def test_postgres_package_version_binds_dotnet_and_canonical_environment_fingerprints(self):
+        environment = {"dotnetVersion": "11.0.0", "npgsqlVersion": "10.0.4.0",
+                       "postgresVersion": "18.7 (Debian 18.7-1.pgdg13+5)", "fixture": "isolated-migrated-postgresql"}
+        # SHA-256 observed in both native .NET receipts on the Debian PostgreSQL image.
+        dotnet_digest = "80f25f2c0bd3cd6918665fa458059919bab2b5f577bd5509a1617c1229f93652"
+        canonical_digest = "4380b919d1ccabd7c10e5f927a5208e401d3059175a5acdaf0bc8dbe4b89fead"
+        for digest in (dotnet_digest, canonical_digest):
+            with self.subTest(digest=digest):
+                receipt = dict(self.receipt, environment=environment, environmentFingerprint=digest)
+                reference = dict(self.reference, environment=dict(environment), environmentFingerprint=digest)
+                result = self.reconcile(receipt, reference, environment_fingerprint=digest)
+                self.assertEqual("PASS", result["sourceBindingOutcome"])
+                self.assertEqual(digest, result["environmentFingerprint"])
+                changed = dict(environment, postgresVersion="18.7 (Debian 18.7-1.pgdg13+6)")
+                with self.assertRaises(matrix.MatrixError):
+                    self.reconcile(dict(receipt, environment=changed), reference, environment_fingerprint=digest)
+                with self.assertRaises(matrix.MatrixError):
+                    self.reconcile(receipt, dict(reference, environment=changed), environment_fingerprint=digest)
+                with self.assertRaises(matrix.MatrixError):
+                    self.reconcile(receipt, reference, environment_fingerprint="0" * 64)
+
+    def test_versioned_historical_receipt_requires_a_matching_independent_catalogue(self):
+        catalogue = sources.HISTORICAL_CATALOGUE
+        legacy = self.reconcile()
+        self.assertNotIn("relationCatalogue", legacy)
+        receipt = dict(self.receipt, relationCatalogue=catalogue)
+        reference = dict(self.reference, relationCatalogue=catalogue)
+        result = self.reconcile(receipt, reference)
+        self.assertEqual(catalogue, result["relationCatalogue"])
+        self.assertEqual(legacy["observedMatrixOutcome"], result["observedMatrixOutcome"])
+        self.assertEqual(legacy["sourceBindingOutcome"], result["sourceBindingOutcome"])
+
+        changed_migration = dict(catalogue, latestMigration="20990101000000_SyntheticChange")
+        for matrix_receipt, independent_reference in (
+            (receipt, self.reference),
+            (self.receipt, reference),
+            (receipt, dict(reference, relationCatalogue=changed_migration)),
+            (dict(receipt, relationCatalogue=changed_migration),
+             dict(reference, relationCatalogue=changed_migration)),
+        ):
+            with self.subTest(matrix_catalogue=matrix_receipt.get("relationCatalogue"),
+                              source_catalogue=independent_reference.get("relationCatalogue")):
+                with self.assertRaises(matrix.MatrixError):
+                    self.reconcile(matrix_receipt, independent_reference)
 
     def applicable_fixture(self, guarded=False):
         receipt, reference = self.guarded_fixture() if guarded else (copy.deepcopy(self.receipt), copy.deepcopy(self.reference))

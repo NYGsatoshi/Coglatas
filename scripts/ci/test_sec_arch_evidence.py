@@ -583,7 +583,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
         self.assertEqual(sum(evidence.EXPECTED.values()), result["observedCaseCount"])
-        self.assertEqual(353, result["observedCaseCount"])
+        self.assertEqual(354, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
         for row in result["cases"]:
             expected = {"method", "caseDigest", "outcome"} | ({"verifierCaseId"} if row["method"] in evidence.THEORY_CASES else set())
@@ -613,14 +613,17 @@ class ExecutionEvidenceTests(unittest.TestCase):
                 if outcome == "missing":
                     self.assertIn(method, result["missingMethods"])
 
-    def test_unregistered_readonly_reconnect_reproduces_closed_catalogue_rejection(self):
-        method = evidence.PREFIX + "SecurityArchitectureSignalRReadOnlyReconnectTests.ReadOnlyReconnectRetainsReadsButDeniesThreadWriteUntilCurrentRoleRestoration"
+    def test_unregistered_native_probe_reproduces_closed_catalogue_rejection(self):
         root = fixture()
-        self.assertEqual(1, evidence.EXPECTED[method])
-        original_catalogue = {name: count for name, count in evidence.EXPECTED.items() if name != method}
-        with patch.object(evidence, "EXPECTED", original_catalogue):
-            with self.assertRaisesRegex(ValueError, "Unclassified or duplicate SEC-ARCH test case"):
-                observe(root)
+        for identity in ("SecurityArchitectureSignalRReadOnlyReconnectTests.ReadOnlyReconnectRetainsReadsButDeniesThreadWriteUntilCurrentRoleRestoration",
+                         "SecurityArchitectureRlsSurveyFixtureTests.SeedBuildsSeparateValidSurveyAndOrdinaryFormGraphs"):
+            with self.subTest(identity=identity):
+                method = evidence.PREFIX + identity
+                self.assertEqual(1, evidence.EXPECTED[method])
+                original_catalogue = {name: count for name, count in evidence.EXPECTED.items() if name != method}
+                with patch.object(evidence, "EXPECTED", original_catalogue):
+                    with self.assertRaisesRegex(ValueError, "Unclassified or duplicate SEC-ARCH test case"):
+                        observe(root)
 
     def test_readonly_reconnect_mapping_preserves_missing_skipped_failed_and_error_outcomes(self):
         method = evidence.PREFIX + "SecurityArchitectureSignalRReadOnlyReconnectTests.ReadOnlyReconnectRetainsReadsButDeniesThreadWriteUntilCurrentRoleRestoration"
@@ -642,7 +645,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
                 recalculate(root)
                 result = observe(root)
                 self.assertEqual(expected, result["outcome"])
-                self.assertEqual(353, result["requiredCaseCount"])
+                self.assertEqual(354, result["requiredCaseCount"])
                 if outcome == "missing":
                     self.assertIn(method, result["missingMethods"])
                 else:
