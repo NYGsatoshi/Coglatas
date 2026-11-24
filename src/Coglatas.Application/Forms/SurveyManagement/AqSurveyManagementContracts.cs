@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using System.Text.Json.Serialization;
 using Coglatas.Application.Common;
 using Coglatas.Domain.Common;
 using Coglatas.Domain.Entities;
@@ -77,4 +78,5 @@ public sealed record AqUpdateTargetRequest(
     System.Text.Json.JsonElement StartAt, System.Text.Json.JsonElement EndAt);
 public sealed record AqTargetSummary(
     Guid Id, Guid CampaignId, Guid PresentationId, Guid CommonVersionId, long VersionNo,
-    AqTargetSettings Settings, DateTimeOffset? EffectiveStartsAt, DateTimeOffset? EffectiveEndsAt);
+    AqTargetSettings Settings, DateTimeOffset? EffectiveStartsAt, DateTimeOffset? EffectiveEndsAt,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SurveyEntryRef = null);

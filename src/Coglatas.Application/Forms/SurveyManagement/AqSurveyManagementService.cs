@@ -4,6 +4,7 @@ using System.Text.Json;
 using Coglatas.Application.Common;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Events;
+using Coglatas.Application.Forms.PublicSurveys;
 using Coglatas.Application.Tenancy;
 using Coglatas.Domain.Common;
 using Coglatas.Domain.Entities;
@@ -20,7 +21,8 @@ public sealed partial class AqSurveyManagementService(
     IUserRepository users,
     ICapabilityGrantEvaluator capabilities,
     IAuditLogger audit,
-    IClock clock)
+    IClock clock,
+    IAqPublicProjectionCodec codec)
 {
     private const string Manage = "survey.manage";
     private const string Assign = "presentation.assign";

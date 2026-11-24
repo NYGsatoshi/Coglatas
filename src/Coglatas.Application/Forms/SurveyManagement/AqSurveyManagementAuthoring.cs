@@ -219,8 +219,9 @@ public sealed partial class AqSurveyManagementService
             store.Add(composition);
             await store.FlushAsync(token);
             target.Publish(target.VersionNo, composition);
+            var entryRef = IssueTargetCode(target);
             await AuditAsync(scope.Actor, "aq.target.create", target.Id, token);
-            return Success(ToTarget(target, composition, settings));
+            return Success(ToTarget(target, composition, settings) with { SurveyEntryRef = entryRef });
         }, cancellationToken);
 
     public Task<Result<AqTargetSummary>> UpdateTargetAsync(Guid targetId, AqUpdateTargetRequest request, CancellationToken cancellationToken) =>
