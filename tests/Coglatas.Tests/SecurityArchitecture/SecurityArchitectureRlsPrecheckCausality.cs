@@ -17,7 +17,8 @@ public sealed partial class SecurityArchitectureRlsOperationTests
     private static async Task<PrecheckControl> VerifyPrecheckAsync(string database, string application, string role,
         TenantTable table, IReadOnlyList<TenantTable> tables, SecurityArchitectureRlsGuardedProbes.Probe probe,
         SecurityArchitectureRlsSchemaIdentity.Snapshot schema, string? tenant, string operation, string sql,
-        IReadOnlyList<(string Name, object Value, string Type)> parameters, int positive)
+        IReadOnlyList<(string Name, object Value, string Type)> parameters, int positive,
+        SecurityArchitectureRlsRelationCatalogue.Snapshot catalogue)
     {
         Assert.True(positive > 0, "The exact operation requires a prior legitimate same-scope positive.");
         Assert.Equal(operation, probe.Operation);
@@ -115,7 +116,7 @@ public sealed partial class SecurityArchitectureRlsOperationTests
             }
             await WritePrecheckHistoryAsync(table.Table, table.TenantIdentityKind, operation, probe.Situation, role, positive, parents,
                 schema.SchemaDigest, baselinePolicy, restoredPolicy, beforeRows, afterRows, stages,
-                failure?.GetType().Name, restorationErrors.Select(error => error.GetType().Name).ToArray());
+                failure?.GetType().Name, restorationErrors.Select(error => error.GetType().Name).ToArray(), catalogue);
             if (restorationErrors.Count > 0)
             {
                 if (failure is not null)
@@ -196,7 +197,8 @@ public sealed partial class SecurityArchitectureRlsOperationTests
 
     private static async Task WritePrecheckHistoryAsync(string table, string tenantIdentityKind, string operation, string situation, string role, int positive,
         IReadOnlyList<string> parents, string nativeDigest, string baselinePolicy, string? restoredPolicy,
-        string beforeRows, string? afterRows, IReadOnlyList<PrecheckStage> stages, string? failureKind, IReadOnlyList<string> restorationErrors)
+        string beforeRows, string? afterRows, IReadOnlyList<PrecheckStage> stages, string? failureKind, IReadOnlyList<string> restorationErrors,
+        SecurityArchitectureRlsRelationCatalogue.Snapshot catalogue)
     {
         var directory = Environment.GetEnvironmentVariable("COGLATAS_SEC_ARCH_PRIVATE_INVENTORY_DIRECTORY");
         if (string.IsNullOrWhiteSpace(directory))
@@ -206,11 +208,14 @@ public sealed partial class SecurityArchitectureRlsOperationTests
         Directory.CreateDirectory(directory);
         await using var assembly = File.OpenRead(typeof(SecurityArchitectureRlsOperationTests).Assembly.Location);
         var assemblyDigest = Convert.ToHexString(await SHA256.HashDataAsync(assembly)).ToLowerInvariant();
-        await using var output = new FileStream(Path.Combine(directory, "draft-rls-precheck-" + table + "-" + operation.ToLowerInvariant() + "-" + situation + ".json"),
+        var suffix = catalogue.Version == SecurityArchitectureRlsRelationCatalogue.HistoricalVersion ? "" : "-" + catalogue.Version;
+        var filename = $"draft-rls-precheck-{table}-{operation.ToLowerInvariant()}-{situation}{suffix}.json";
+        await using var output = new FileStream(Path.Combine(directory, filename),
             FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, useAsync: true);
         await JsonSerializer.SerializeAsync(output, new
         {
             schemaVersion = 1, candidateSha = Environment.GetEnvironmentVariable("COGLATAS_SEC_ARCH_CANDIDATE_SHA"), testAssemblyDigest = assemblyDigest,
+            relationCatalogue = new { catalogue.Version, catalogue.LatestMigration },
             table, tenantIdentityKind, operation, situation, databaseRole = role, sameScopePositiveAffectedRows = positive,
             parentPolicyTables = parents, nativeSourceDigest = nativeDigest, baselinePolicyDigest = baselinePolicy,
             restoredPolicyDigest = restoredPolicy, beforeRowsDigest = beforeRows, afterRowsDigest = afterRows,
