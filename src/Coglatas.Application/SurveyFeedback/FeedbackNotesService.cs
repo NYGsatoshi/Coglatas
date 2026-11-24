@@ -1,7 +1,6 @@
 using Coglatas.Application.Common;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Domain.Entities;
-using Coglatas.Domain.Enums;
 
 namespace Coglatas.Application.SurveyFeedback;
 
@@ -11,7 +10,6 @@ public sealed record SharedFeedbackDto(Guid SharedFeedbackId, string Body, DateT
 public sealed class FeedbackNotesService(
     SurveyFeedbackAuthorization authorization,
     IFeedbackLifecycleRepository repository,
-    IWorkspaceRepository workspaces,
     IAuditLogger audit,
     ISurveyFeedbackInvalidation invalidation,
     ISurveyFeedbackCursor cursors,
@@ -28,7 +26,7 @@ public sealed class FeedbackNotesService(
             }
 
             var access = await authorization.ReadAccessAsync(actor, presentationId, token);
-            if (!await CanUsePrivateNotesAsync(actor, access, token))
+            if (!await authorization.CanUsePrivateNotesAsync(actor, access, token))
             {
                 return SurveyFeedbackService.NotFound<PrivateNoteDto>();
             }
@@ -63,7 +61,7 @@ public sealed class FeedbackNotesService(
             }
 
             var access = await authorization.ReadAccessAsync(actor, presentationId, token);
-            if (!await CanShareAsync(actor, access, token))
+            if (!await authorization.CanShareFeedbackAsync(actor, access, token))
             {
                 return SurveyFeedbackService.NotFound<SharedFeedbackDto>();
             }
@@ -98,7 +96,7 @@ public sealed class FeedbackNotesService(
         }
 
         var access = await authorization.ReadAccessAsync(actor, presentationId, cancellationToken);
-        if (!await CanUsePrivateNotesAsync(actor, access, cancellationToken))
+        if (!await authorization.CanUsePrivateNotesAsync(actor, access, cancellationToken))
         {
             return SurveyFeedbackService.NotFound<FeedbackPage<PrivateNoteDto>>();
         }
@@ -126,7 +124,7 @@ public sealed class FeedbackNotesService(
 
         var access = await authorization.ReadAccessAsync(actor, presentationId, cancellationToken);
         if (access is not { CanRead: true } ||
-            !access.Presenter && !await CanShareAsync(actor, access, cancellationToken))
+            !access.Presenter && !await authorization.CanShareFeedbackAsync(actor, access, cancellationToken))
         {
             return SurveyFeedbackService.NotFound<FeedbackPage<SharedFeedbackDto>>();
         }
@@ -143,23 +141,6 @@ public sealed class FeedbackNotesService(
         return Result<FeedbackPage<SharedFeedbackDto>>.Success(Page(rows.Select(ToDto).ToArray(), pageSize, scope,
             note => new FeedbackPagePosition(note.CreatedAtUtc, note.SharedFeedbackId)));
     }
-
-    private async Task<bool> CanUsePrivateNotesAsync(FeedbackActor actor, PresentationFeedbackAccess? access,
-        CancellationToken cancellationToken)
-    {
-        if (access is not { CanRead: true, Reviewer: true } ||
-            !await authorization.HasCapabilityAsync(actor, access.Scope, "feedback.note.private", cancellationToken))
-        {
-            return false;
-        }
-        return await workspaces.GetCurrentMemberAsync(access.Scope.WorkspaceId, actor.UserId, cancellationToken) is
-            { Status: MembershipStatus.Active, Role: WorkspaceRole.Adviser };
-    }
-
-    private async Task<bool> CanShareAsync(FeedbackActor actor, PresentationFeedbackAccess? access,
-        CancellationToken cancellationToken) =>
-        access is { CanRead: true, Reviewer: true } &&
-        await authorization.HasCapabilityAsync(actor, access.Scope, "feedback.feedback.share", cancellationToken);
 
     private static bool ValidNote(string? body) => !string.IsNullOrWhiteSpace(body) && body.Length <= 10000;
 

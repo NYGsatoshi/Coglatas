@@ -25,7 +25,7 @@ public sealed class FeedbackModerationService(
             var answer = await repository.FindAnswerAsync(actor.TenantId, answerId, token);
             var access = answer is null ? null : await authorization.ReadAccessAsync(actor, answer.PresentationId, token);
             if (answer is not { IsHidden: false } || access is not { CanRead: true } ||
-                !await authorization.HasCapabilityAsync(actor, access.Scope, "feedback.report", token))
+                !await authorization.CanReportAsync(actor, access, token))
             {
                 return SurveyFeedbackService.NotFound<FeedbackReportDto>();
             }

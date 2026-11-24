@@ -98,10 +98,22 @@ public sealed class FeedbackInvitationService(
             var prior = await repository.GetLiveInvitationsAsync(actor.TenantId, presentationId, recipientId, token);
             foreach (var grant in prior)
             {
-                if (!grant.ExpireIfElapsed(now))
+                if (grant.ExpireIfElapsed(now))
+                {
+                    await WriteAuditAsync(actor, grant, "Expired", token);
+                    continue;
+                }
+
+                var originalIssuer = new FeedbackActor(actor.TenantId, grant.InviterUserId);
+                if (grant.InvitationPolicyId == policy.Id && grant.InvitationPolicyVersion == policy.VersionNo &&
+                    await authorization.IsEligibleInviterAsync(originalIssuer, access.Scope, token))
                 {
                     return Conflict("InvalidStateTransition");
                 }
+
+                grant.Terminate(decline: false, "Invitation eligibility changed.", grant.VersionNo, now);
+                await WriteAuditAsync(actor, grant, "EligibilityEnded", token);
+                await invalidation.InvalidateAccessAsync(actor.TenantId, presentationId, recipientId, token);
             }
 
             FeedbackViewerGrant invitation;
@@ -114,6 +126,11 @@ public sealed class FeedbackInvitationService(
                 return SurveyFeedbackService.Invalid<FeedbackInvitationDto>();
             }
 
+            if (prior.Count > 0)
+            {
+                // Free the live uniqueness slot before inserting a replacement; both writes remain in this transaction.
+                await repository.FlushAsync(token);
+            }
             repository.AddInvitation(invitation);
             await WriteAuditAsync(actor, invitation, "Issued", token);
             return Result<FeedbackInvitationDto>.Success(ToDto(invitation, policy));

@@ -37,6 +37,7 @@ public interface IFeedbackLifecycleRepository
 {
     Task<Result<T>> InWriteTransactionAsync<T>(Func<CancellationToken, Task<Result<T>>> operation,
         CancellationToken cancellationToken);
+    Task FlushAsync(CancellationToken cancellationToken);
     Task<FeedbackInvitationPolicy?> ReadInvitationPolicyAsync(Guid tenantId, Guid eventId,
         CancellationToken cancellationToken);
     Task<IReadOnlyList<FeedbackViewerGrant>> ReadInvitationsAsync(Guid tenantId, Guid userId, string? direction,
@@ -69,6 +70,8 @@ public interface IFeedbackLifecycleRepository
 
 public interface ISurveyFeedbackInvalidation
 {
+    Task<IReadOnlyList<Guid>> ReadCurrentRecipientsAsync(Guid tenantId, Guid presentationId,
+        CancellationToken cancellationToken);
     Task InvalidateAsync(Guid tenantId, Guid presentationId, CancellationToken cancellationToken);
     Task InvalidateAccessAsync(Guid tenantId, Guid presentationId, Guid recipientId,
         CancellationToken cancellationToken);

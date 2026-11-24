@@ -11,6 +11,10 @@ public sealed class EfSurveyFeedbackRepository(AppDbContext dbContext) : ISurvey
         CancellationToken cancellationToken) =>
         Scopes(tenantId).SingleOrDefaultAsync(scope => scope.Id == presentationId, cancellationToken);
 
+    public Task<bool> IsInvitationEnabledAsync(Guid tenantId, Guid eventId, CancellationToken cancellationToken) =>
+        dbContext.Set<FeedbackInvitationPolicy>().AsNoTracking().AnyAsync(policy => policy.TenantId == tenantId &&
+            policy.EventId == eventId && policy.Enabled, cancellationToken);
+
     public Task<FeedbackEventScope?> GetEventScopeAsync(Guid tenantId, Guid eventId,
         CancellationToken cancellationToken) =>
         (from activityEvent in dbContext.Set<ActivityEvent>().AsNoTracking()

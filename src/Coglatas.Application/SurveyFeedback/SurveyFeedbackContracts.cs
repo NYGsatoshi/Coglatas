@@ -20,7 +20,11 @@ public sealed record FeedbackEventScope(Guid Id, Guid ProjectId, Guid WorkspaceI
 public sealed record PresentationFeedbackSummary(Guid Id, Guid EventId, string Title,
     DateTimeOffset StartAt, DateTimeOffset EndAt, string? Venue);
 
-public sealed record PresentationWorkspace(PresentationFeedbackSummary Presentation, IReadOnlyList<string> Relations);
+public sealed record FeedbackActionCapabilities(bool Report, bool Invite, bool PrivateNote, bool Share,
+    bool ExportAggregate, bool ExportDetail);
+
+public sealed record PresentationWorkspace(PresentationFeedbackSummary Presentation, IReadOnlyList<string> Relations,
+    FeedbackActionCapabilities Capabilities);
 
 public sealed record FeedbackPage<T>(IReadOnlyList<T> Items,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? NextCursor = null);
@@ -76,6 +80,7 @@ public sealed record FeedbackComparison(
 public interface ISurveyFeedbackRepository
 {
     Task<PresentationFeedbackScope?> GetScopeAsync(Guid tenantId, Guid presentationId, CancellationToken cancellationToken);
+    Task<bool> IsInvitationEnabledAsync(Guid tenantId, Guid eventId, CancellationToken cancellationToken);
     Task<FeedbackEventScope?> GetEventScopeAsync(Guid tenantId, Guid eventId, CancellationToken cancellationToken);
     Task<IReadOnlyList<PresentationFeedbackScope>> GetCandidateScopesAsync(Guid tenantId, Guid userId,
         CancellationToken cancellationToken);

@@ -13,19 +13,27 @@ public sealed class SurveyFeedbackInvalidation(
 {
     public const string EventName = "Feedback.PresentationInvalidated.v1";
 
-    public async Task InvalidateAsync(Guid tenantId, Guid presentationId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Guid>> ReadCurrentRecipientsAsync(Guid tenantId, Guid presentationId,
+        CancellationToken cancellationToken)
     {
-        var routes = new List<RealtimeRoutingTarget>();
+        var recipients = new List<Guid>();
         foreach (var recipient in await repository.ReadInvalidationCandidatesAsync(tenantId, presentationId, cancellationToken))
         {
             var actor = new FeedbackActor(tenantId, recipient);
             if (await authorization.IsCurrentMemberAsync(actor, cancellationToken) &&
                 await authorization.ReadAccessAsync(actor, presentationId, cancellationToken) is { CanRead: true })
             {
-                routes.Add(new RealtimeRoutingTarget(RealtimeSubscriptionType.User, recipient));
+                recipients.Add(recipient);
             }
         }
 
+        return recipients;
+    }
+
+    public async Task InvalidateAsync(Guid tenantId, Guid presentationId, CancellationToken cancellationToken)
+    {
+        var recipients = await ReadCurrentRecipientsAsync(tenantId, presentationId, cancellationToken);
+        var routes = recipients.Select(recipient => new RealtimeRoutingTarget(RealtimeSubscriptionType.User, recipient));
         foreach (var batch in routes.Chunk(50))
         {
             var result = await outbox.EnqueueAsync(new DurableEventEnvelope(Guid.NewGuid(), EventName,

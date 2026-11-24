@@ -40,7 +40,8 @@ public sealed class SurveyFeedbackService(
                 continue;
             }
 
-            result.Add(new PresentationWorkspace(ToSummary(access.Scope), access.Relations));
+            var capabilities = await authorization.ReadActionCapabilitiesAsync(actor, access, cancellationToken);
+            result.Add(new PresentationWorkspace(ToSummary(access.Scope), access.Relations, capabilities));
             if (result.Count > pageSize)
             {
                 break;

@@ -43,6 +43,8 @@ public sealed class EfFeedbackLifecycleRepository(AppDbContext dbContext) : IFee
         }
     }
 
+    public Task FlushAsync(CancellationToken cancellationToken) => dbContext.SaveChangesAsync(cancellationToken);
+
     public Task<FeedbackInvitationPolicy?> ReadInvitationPolicyAsync(Guid tenantId, Guid eventId,
         CancellationToken cancellationToken) =>
         dbContext.Set<FeedbackInvitationPolicy>().AsNoTracking()
@@ -131,8 +133,19 @@ public sealed class EfFeedbackLifecycleRepository(AppDbContext dbContext) : IFee
             state.FormSubmissionId == submissionId && state.UserId == userId, cancellationToken);
 
     public async Task<IReadOnlyList<Guid>> ReadInvalidationCandidatesAsync(Guid tenantId, Guid presentationId,
-        CancellationToken cancellationToken) =>
-        await dbContext.Set<PresentationParticipant>().AsNoTracking()
+        CancellationToken cancellationToken)
+    {
+        var operatorCandidates =
+            from presentation in dbContext.Set<Presentation>().AsNoTracking()
+            join project in dbContext.Set<Project>().AsNoTracking() on presentation.ProjectId equals project.Id
+            from grant in dbContext.Set<CapabilityGrant>().AsNoTracking()
+            where presentation.TenantId == tenantId && project.TenantId == tenantId &&
+                presentation.Id == presentationId && grant.TenantId == tenantId &&
+                grant.RevokedAt == null && grant.CapabilityKey == "feedback.read.managed" &&
+                (grant.ScopeType == CapabilityScopeType.Workspace && grant.ScopeId == project.WorkspaceId ||
+                 grant.ScopeType == CapabilityScopeType.Tenant && grant.ScopeId == tenantId)
+            select grant.SubjectUserId;
+        return await dbContext.Set<PresentationParticipant>().AsNoTracking()
             .Where(participant => participant.TenantId == tenantId && participant.PresentationId == presentationId &&
                 participant.UserId.HasValue)
             .Select(participant => participant.UserId!.Value)
@@ -140,7 +153,9 @@ public sealed class EfFeedbackLifecycleRepository(AppDbContext dbContext) : IFee
                 .Where(grant => grant.TenantId == tenantId && grant.PresentationId == presentationId &&
                     grant.Status == FeedbackViewerGrantStatus.Active)
                 .Select(grant => grant.RecipientUserId))
+            .Union(operatorCandidates)
             .ToListAsync(cancellationToken);
+    }
 
     public async Task<IReadOnlyList<TeacherPrivateNote>> ReadPrivateNotesAsync(Guid tenantId, Guid presentationId,
         Guid authorId, FeedbackPagePosition? after, int take, CancellationToken cancellationToken)

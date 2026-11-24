@@ -29,6 +29,7 @@ public sealed class SurveyFeedbackAuthorization(
     ICurrentTenant currentTenant,
     ICurrentUser currentUser,
     ITenantRepository tenants,
+    IWorkspaceRepository workspaces,
     IProjectAuthorizationService projects,
     ICapabilityGrantEvaluator capabilities,
     ISurveyFeedbackRepository repository,
@@ -87,6 +88,46 @@ public sealed class SurveyFeedbackAuthorization(
 
         return new PresentationFeedbackAccess(scope, presenter, reviewer, granted, managed);
     }
+
+    public async Task<FeedbackActionCapabilities> ReadActionCapabilitiesAsync(FeedbackActor actor,
+        PresentationFeedbackAccess access, CancellationToken cancellationToken) =>
+        new(
+            await CanReportAsync(actor, access, cancellationToken),
+            access.Presenter && await IsEligibleInviterAsync(actor, access.Scope, cancellationToken) &&
+                await repository.IsInvitationEnabledAsync(actor.TenantId, access.Scope.EventId, cancellationToken),
+            await CanUsePrivateNotesAsync(actor, access, cancellationToken),
+            await CanShareFeedbackAsync(actor, access, cancellationToken),
+            await CanExportAsync(actor, access, detail: false, cancellationToken),
+            await CanExportAsync(actor, access, detail: true, cancellationToken));
+
+    public Task<bool> CanReportAsync(FeedbackActor actor, PresentationFeedbackAccess access,
+        CancellationToken cancellationToken) => access.CanRead
+        ? HasCapabilityAsync(actor, access.Scope, "feedback.report", cancellationToken)
+        : Task.FromResult(false);
+
+    public async Task<bool> CanUsePrivateNotesAsync(FeedbackActor actor, PresentationFeedbackAccess? access,
+        CancellationToken cancellationToken)
+    {
+        if (access is not { CanRead: true, Reviewer: true } ||
+            !await HasCapabilityAsync(actor, access.Scope, "feedback.note.private", cancellationToken))
+        {
+            return false;
+        }
+
+        return await workspaces.GetCurrentMemberAsync(access.Scope.WorkspaceId, actor.UserId, cancellationToken) is
+            { Status: MembershipStatus.Active, Role: WorkspaceRole.Adviser };
+    }
+
+    public async Task<bool> CanShareFeedbackAsync(FeedbackActor actor, PresentationFeedbackAccess? access,
+        CancellationToken cancellationToken) =>
+        access is { CanRead: true, Reviewer: true } &&
+        await HasCapabilityAsync(actor, access.Scope, "feedback.feedback.share", cancellationToken);
+
+    public async Task<bool> CanExportAsync(FeedbackActor actor, PresentationFeedbackAccess access, bool detail,
+        CancellationToken cancellationToken) =>
+        access.CanRead && (detail ? access.Reviewer || access.Operator : access.Presenter || access.Reviewer || access.Operator) &&
+        await HasCapabilityAsync(actor, access.Scope, detail ? "feedback.export.detail" : "feedback.export.aggregate",
+            cancellationToken);
 
     public async Task<bool> CanCompareAsync(FeedbackActor actor, Guid eventId, CancellationToken cancellationToken)
     {
