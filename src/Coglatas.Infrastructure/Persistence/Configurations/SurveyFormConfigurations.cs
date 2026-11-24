@@ -13,9 +13,14 @@ public sealed class FormDefinitionConfiguration : IEntityTypeConfiguration<FormD
         builder.ConfigureSoftDeletableEntity();
         builder.Property(form => form.Title).HasMaxLength(240).IsRequired();
         builder.Property(form => form.Description).HasMaxLength(4000);
-        builder.Property(form => form.Purpose).HasEnumStringConversion().IsRequired();
+        builder.Property(form => form.Purpose).HasEnumStringConversion().HasDefaultValue(Coglatas.Domain.Enums.FormPurpose.Ordinary).IsRequired();
+        // The authenticated Forms contract continues to use the existing metadata.
+        builder.Property<string>("LegacyFormType").HasMaxLength(40);
+        builder.Property<DateTimeOffset?>("LegacyOpensAt");
+        builder.Property<DateTimeOffset?>("LegacyClosesAt");
+        builder.Property<bool?>("LegacyIsAnonymous");
         builder.Property(form => form.Status).HasEnumStringConversion().IsRequired();
-        builder.Property(form => form.VersionNo).IsConcurrencyToken();
+        builder.Property(form => form.VersionNo).HasDefaultValue(1L).IsConcurrencyToken();
         builder.HasAlternateKey(form => new { form.Id, form.TenantId });
 
         builder.HasOne<Workspace>().WithMany().HasForeignKey(form => new { form.WorkspaceId, form.TenantId })
@@ -36,6 +41,7 @@ public sealed class FormVersionConfiguration : IEntityTypeConfiguration<FormVers
             table.HasCheckConstraint("CK_form_versions_number", "\"Number\" > 0"));
         builder.ConfigureEntity();
         builder.Property(version => version.SnapshotJson).IsRequired();
+        builder.Property<bool>("IsLegacyObservedSnapshot").HasDefaultValue(false);
         builder.HasAlternateKey(version => new { version.Id, version.TenantId });
         builder.HasAlternateKey(version => new { version.Id, version.TenantId, version.FormDefinitionId });
         builder.HasIndex(version => new { version.TenantId, version.FormDefinitionId, version.Number }).IsUnique();

@@ -47,6 +47,10 @@ public sealed class FormSubmissionValueConfiguration : IEntityTypeConfiguration<
         builder.ToTable("form_submission_values");
         builder.ConfigureEntity();
         builder.Property(value => value.ValueJson).HasColumnType("jsonb").IsRequired();
+        builder.Property<Guid?>("LegacyQuestionId");
+        builder.Property<string>("LegacyAnswerText").HasMaxLength(4000);
+        builder.Property<string>("LegacyAnswerJson").HasColumnType("jsonb");
+        builder.Property<bool>("HasUninterpretedLegacyValue").HasDefaultValue(false);
         builder.HasAlternateKey(value => new { value.Id, value.TenantId });
         builder.HasIndex(value => new { value.FormSubmissionId, value.TenantId, value.FormFieldDefinitionId }).IsUnique();
         builder.HasOne<FormSubmission>().WithMany(submission => submission.Values)
