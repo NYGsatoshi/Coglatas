@@ -61,7 +61,7 @@ public sealed partial class AqSurveyManagementService
         if (!form.IsSuccess)
             return Failure<AqVersionDetail>(form.ErrorDetail!);
         var item = await store.FindCommonVersionAsync(formId, versionId, cancellationToken);
-        return item is null ? NotFound<AqVersionDetail>() : Success(ToVersionDetail(item.Id, item.Number, item.Fields));
+        return item is null ? NotFound<AqVersionDetail>() : Success(ToVersionDetail(item.Id, item.Number, item.Fields, item.CompatibilityChangeReason));
     }
 
     public Task<Result<AqVersionSummary>> PublishCommonVersionAsync(
@@ -78,17 +78,22 @@ public sealed partial class AqSurveyManagementService
             if (!TryFields(request, out var fields) || fields.Count == 0)
                 return Invalid<AqVersionSummary>("Supply at least one common field and a publish action.");
 
-            if (await store.AnyAsync<FormSubmission>(
-                x => x.FormDefinitionId == formId && x.SurveyTargetId != null, token))
+            FormVersion? previous = null;
+            if (request.Compatibility is not null || await store.AnyAsync<FormSubmission>(
+                    x => x.FormDefinitionId == formId && x.SurveyTargetId != null, token))
             {
                 var previousId = await store.FindAsync<FormVersion>(
                     x => x.FormDefinitionId == formId && x.Number == form.VersionNo - 1, token);
-                var previous = previousId is null ? null : await store.FindCommonVersionAsync(formId, previousId.Id, token);
+                previous = previousId is null ? null : await store.FindCommonVersionAsync(formId, previousId.Id, token);
                 if (!CompatibleChange(previous?.Fields, fields, request))
-                    return Conflict<AqVersionSummary>("After submissions, only explicit compatible field corrections may publish.");
+                    return Conflict<AqVersionSummary>("An explicit correction must preserve the preceding field set and answer contracts.");
             }
 
-            var version = FormVersion.Publish(form, checked((int)form.VersionNo), fields, clock.UtcNow);
+            var nextNumber = checked((int)form.VersionNo);
+            var now = clock.UtcNow;
+            var version = previous is null
+                ? FormVersion.Publish(form, nextNumber, fields, now)
+                : FormVersion.PublishCorrection(form, previous, nextNumber, fields, now, request.ChangeReason!);
             form.AdvancePublicationVersion(request.ExpectedVersionNo);
             store.Add(version);
             await AuditAsync(currentUser.UserId!.Value, "aq.form.version.publish", version.Id, token);
@@ -237,6 +242,10 @@ public sealed partial class AqSurveyManagementService
             var settings = await store.FindAsync<EventFeedbackSettings>(x => x.EventId == target.EventId, token);
             if (settings is null)
                 return Conflict<AqTargetSummary>("Configure the Event reception first.");
+            if (request.CommonVersionId is { } versionId)
+            {
+                return await RepinCommonVersionAsync(scope, target, settings, versionId, request, token);
+            }
             if (!TryDateBoundary(request.StartAt, target.StartsAtUtc, out var start)
                 || !TryDateBoundary(request.EndAt, target.EndsAtUtc, out var end))
                 return Invalid<AqTargetSummary>("Target reception boundaries must be valid timestamps or null.");
@@ -269,7 +278,7 @@ public sealed partial class AqSurveyManagementService
             return Failure<AqVersionDetail>(scoped.ErrorDetail!);
 
         var item = await store.FindAdditionalVersionAsync(targetId, versionId, cancellationToken);
-        return item is null ? NotFound<AqVersionDetail>() : Success(ToVersionDetail(item.Id, item.Number, item.Fields));
+        return item is null ? NotFound<AqVersionDetail>() : Success(ToVersionDetail(item.Id, item.Number, item.Fields, item.CompatibilityChangeReason));
     }
 
     public Task<Result<AqVersionSummary>> PublishTargetVersionAsync(
@@ -291,15 +300,19 @@ public sealed partial class AqSurveyManagementService
                 await store.FindCommonVersionAsync(target.FormDefinitionId, publication.FormVersionId, token);
             if (common is null || publication is null)
                 return Conflict<AqVersionSummary>("The target has no current published common version.");
-            if (await store.AnyAsync<FormSubmission>(x => x.SurveyTargetId == targetId, token))
+            TargetQuestionSetVersion? previous = null;
+            if (request.Compatibility is not null || await store.AnyAsync<FormSubmission>(x => x.SurveyTargetId == targetId, token))
             {
-                var previous = await store.FindAdditionalVersionAsync(targetId, publication.TargetQuestionSetVersionId, token);
+                previous = await store.FindAdditionalVersionAsync(targetId, publication.TargetQuestionSetVersionId, token);
                 if (!CompatibleChange(previous?.Fields, fields, request))
-                    return Conflict<AqVersionSummary>("After submissions, only explicit compatible field corrections may publish.");
+                    return Conflict<AqVersionSummary>("An explicit correction must preserve the preceding field set and answer contracts.");
             }
 
             var now = clock.UtcNow;
-            var addition = TargetQuestionSetVersion.Publish(target, checked((int)target.VersionNo), fields, now);
+            var nextNumber = checked((int)target.VersionNo);
+            var addition = previous is null
+                ? TargetQuestionSetVersion.Publish(target, nextNumber, fields, now)
+                : TargetQuestionSetVersion.PublishCorrection(target, previous, nextNumber, fields, now, request.ChangeReason!);
             var composition = PublishedSurveySchema.Compose(target, common, addition, NewOpaqueToken(), now);
             store.Add(addition);
             store.Add(composition);
@@ -390,11 +403,7 @@ public sealed partial class AqSurveyManagementService
         }
         for (var index = 0; index < next.Count; index++)
         {
-            var old = oldOrdered[index].ToSurveyField();
-            var current = next[index];
-            if (old.FieldKey != current.FieldKey || old.Type != current.Type || old.Required != current.Required
-                || old.Constraints != current.Constraints
-                || !old.Options.Select(x => x.OptionKey).SequenceEqual(current.Options.Select(x => x.OptionKey)))
+            if (!oldOrdered[index].IsCompatibleCorrectionOf(next[index]))
                 return false;
         }
         return true;
@@ -419,10 +428,16 @@ public sealed partial class AqSurveyManagementService
     private static AqFormSummary ToFormSummary(FormDefinition item) =>
         new(item.Id, item.Title, "survey", item.VersionNo > 1 ? "published" : "draft", item.VersionNo);
 
-    private static AqVersionDetail ToVersionDetail(Guid id, long versionNo, IEnumerable<FormFieldDefinition> fields) =>
-        new(id, "published", versionNo, fields.OrderBy(x => x.SortOrder).Select(x => x.ToSurveyField())
-            .Select(x => new AqFormField(x.FieldKey, x.Label, Wire(x.Type), x.Required, x.Options.Count == 0 ? null : x.Options, x.Constraints))
-            .ToArray());
+    private static AqVersionDetail ToVersionDetail(
+        Guid id, long versionNo, IReadOnlyList<FormFieldDefinition> fields, string? changeReason)
+    {
+        var ordered = fields.OrderBy(x => x.SortOrder).ToArray();
+        var projection = ordered.Select(x => x.ToSurveyField()).Select(x => new AqFormField(
+            x.FieldKey, x.Label, Wire(x.Type), x.Required, x.Options.Count == 0 ? null : x.Options, x.Constraints)).ToArray();
+        return new AqVersionDetail(id, "published", versionNo, projection, changeReason, changeReason is null ? null :
+            ordered.Where(x => x.CompatiblePreviousFieldId is not null)
+                .Select(x => new AqFieldCompatibility(x.FieldKey, x.FieldKey)).ToArray());
+    }
 
     private static AqCampaignSummary ToCampaign(SurveyCampaign item) =>
         new(item.Id, item.EventId, item.FormDefinitionId, item.VersionNo, item.IsEnabled, item.IsPublished, item.RetentionPolicyId);

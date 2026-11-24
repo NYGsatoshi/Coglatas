@@ -67,7 +67,10 @@ public sealed record AqPublishQuestionVersionRequest(
     long ExpectedVersionNo, string Action, IReadOnlyList<AqFormField>? Fields,
     string? ChangeReason, IReadOnlyList<AqFieldCompatibility>? Compatibility);
 public sealed record AqVersionSummary(Guid Id, string State, long VersionNo);
-public sealed record AqVersionDetail(Guid Id, string State, long VersionNo, IReadOnlyList<AqFormField> Fields);
+public sealed record AqVersionDetail(
+    Guid Id, string State, long VersionNo, IReadOnlyList<AqFormField> Fields,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ChangeReason = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<AqFieldCompatibility>? Compatibility = null);
 
 public sealed record AqCreateCampaignRequest(Guid FormDefinitionId, Guid? PolicyRef);
 public sealed record AqUpdateCampaignRequest(long ExpectedVersionNo, bool? Enabled, bool? Published, AqRetentionPolicyRequest? Retention);
@@ -78,7 +81,7 @@ public sealed record AqTargetSettings(bool Enabled, bool ResultsStopped, DateTim
 public sealed record AqCreateTargetRequest(Guid PresentationId, Guid CommonVersionId, AqTargetSettings? Settings);
 public sealed record AqUpdateTargetRequest(
     long ExpectedVersionNo, bool? Enabled, bool? ResultsStopped,
-    System.Text.Json.JsonElement StartAt, System.Text.Json.JsonElement EndAt);
+    System.Text.Json.JsonElement StartAt, System.Text.Json.JsonElement EndAt, Guid? CommonVersionId = null);
 public sealed record AqTargetSummary(
     Guid Id, Guid CampaignId, Guid PresentationId, Guid CommonVersionId, long VersionNo,
     AqTargetSettings Settings, DateTimeOffset? EffectiveStartsAt, DateTimeOffset? EffectiveEndsAt,

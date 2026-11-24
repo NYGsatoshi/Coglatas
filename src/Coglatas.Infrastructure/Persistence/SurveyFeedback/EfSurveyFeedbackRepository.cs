@@ -132,12 +132,12 @@ public sealed class EfSurveyFeedbackRepository(AppDbContext dbContext) : ISurvey
         where answer.TenantId == tenantId && field.TenantId == tenantId &&
             (fieldKey == null || field.FieldKey == fieldKey)
         let hidden = decision != null && decision.IsHidden
-        select new AnswerProjection(answer.Id, submission.Id, field.Id, field.FieldKey, field.FieldType,
+        select new AnswerProjection(answer.Id, submission.Id, field.CompatibilityRootFieldId ?? field.Id, field.FieldKey, field.Label, field.FieldType,
             hidden ? "true" : answer.ValueJson, field.SortOrder, hidden, decision == null ? 1 : decision.VersionNo);
 
     private static FeedbackValueSnapshot ToValue(AnswerProjection answer) =>
-        new(answer.Id, answer.FieldKey, answer.FieldType.ToString(), answer.FieldId.ToString("D"), answer.ValueJson, answer.IsHidden, answer.VisibilityVersionNo);
+        new(answer.Id, answer.FieldKey, answer.FieldType.ToString(), answer.CompatibilityRootFieldId.ToString("D"), answer.ValueJson, answer.IsHidden, answer.VisibilityVersionNo, Label: answer.Label);
 
-    private sealed record AnswerProjection(Guid Id, Guid SubmissionId, Guid FieldId, string FieldKey,
+    private sealed record AnswerProjection(Guid Id, Guid SubmissionId, Guid CompatibilityRootFieldId, string FieldKey, string Label,
         SurveyFieldType FieldType, string ValueJson, int SortOrder, bool IsHidden, long VisibilityVersionNo);
 }

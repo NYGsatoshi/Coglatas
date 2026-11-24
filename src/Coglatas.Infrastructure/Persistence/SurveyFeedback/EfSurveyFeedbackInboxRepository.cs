@@ -75,7 +75,7 @@ public sealed class EfSurveyFeedbackInboxRepository(AppDbContext dbContext) : IS
                     (!answer.IsHidden || row.CanModerate) &&
                     (filters.Visibility is null || answer.IsHidden == (filters.Visibility == "hidden")))
                 .Select(answer => new FeedbackValueSnapshot(answer.Id, answer.FieldKey, answer.FieldType.ToString(),
-                    answer.FieldId.ToString("D"), answer.ValueJson, answer.IsHidden, answer.VisibilityVersionNo))
+                    answer.CompatibilityRootFieldId.ToString("D"), answer.ValueJson, answer.IsHidden, answer.VisibilityVersionNo, Label: answer.Label))
                 .ToArray();
             return new FeedbackInboxSnapshot(
                 new SurveyFeedbackSnapshot(row.Id, row.PresentationId, row.SubmittedAt, selectedValues),
@@ -94,12 +94,12 @@ public sealed class EfSurveyFeedbackInboxRepository(AppDbContext dbContext) : IS
         where answer.TenantId == tenantId && field.TenantId == tenantId &&
             (fieldKey == null || field.FieldKey == fieldKey)
         let hidden = decision != null && decision.IsHidden
-        select new AnswerProjection(answer.Id, answer.FormSubmissionId, field.Id, field.FieldKey, field.FieldType,
+        select new AnswerProjection(answer.Id, answer.FormSubmissionId, field.CompatibilityRootFieldId ?? field.Id, field.FieldKey, field.Label, field.FieldType,
             hidden ? "true" : answer.ValueJson, field.SortOrder, hidden, decision == null ? 1 : decision.VersionNo);
 
     private sealed record InboxProjection(Guid Id, Guid PresentationId, DateTimeOffset SubmittedAt,
         long Revision, bool IsRead, bool HasReport, int OpenReports, bool CanModerate);
 
-    private sealed record AnswerProjection(Guid Id, Guid SubmissionId, Guid FieldId, string FieldKey,
+    private sealed record AnswerProjection(Guid Id, Guid SubmissionId, Guid CompatibilityRootFieldId, string FieldKey, string Label,
         SurveyFieldType FieldType, string ValueJson, int SortOrder, bool IsHidden, long VisibilityVersionNo);
 }
