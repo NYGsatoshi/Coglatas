@@ -1,11 +1,16 @@
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Coglatas.Application.Announcements;
 using Coglatas.Application.Events;
+using Coglatas.Application.Forms.PublicSurveys;
+using Coglatas.Application.Forms.SurveyManagement;
 using Coglatas.Application.Integrations;
 using Coglatas.Application.Messaging;
 using Coglatas.Application.Projects;
+using Coglatas.Application.SurveyFeedback;
+using Coglatas.Application.SurveyFeedback.Csv;
 using Coglatas.Application.TenantAdministration;
 using Coglatas.Application.Workspaces;
 using Coglatas.Web.Controllers;
@@ -23,6 +28,24 @@ public sealed class SecurityOpenApiSchemaTransformer : IOpenApiSchemaTransformer
     private static readonly string[] ConversationScopeIdentifiers =
         ["workspaceId", "projectId", "parentConversationId"];
 
+    private static readonly HashSet<Type> AqResponsesWithOmittedNulls =
+    [
+        typeof(AqPublicProgram),
+        typeof(AqPublicProgramEntry),
+        typeof(AqPublicField),
+        typeof(AqEventSettings),
+        typeof(AqChangedCode),
+        typeof(FeedbackInboxPage),
+        typeof(FeedbackInboxRow),
+        typeof(FeedbackCsvStatus),
+        typeof(FeedbackInvitationApprovalRow),
+        typeof(FeedbackInvitationSummary),
+        typeof(FeedbackInvitationDto),
+        typeof(FeedbackReportDetail),
+        typeof(FeedbackAnswer),
+        typeof(FeedbackQuestionSummary)
+    ];
+
     public Task TransformAsync(
         OpenApiSchema schema,
         OpenApiSchemaTransformerContext context,
@@ -31,7 +54,30 @@ public sealed class SecurityOpenApiSchemaTransformer : IOpenApiSchemaTransformer
         ApplyPropertyValidationMetadata(schema, context);
         ConfigureRequestShape(schema, context.JsonTypeInfo.Type);
         ConfigureWireSchema(schema, context.JsonTypeInfo.Type);
+        ConfigureAqResponseOmission(schema, context);
         return Task.CompletedTask;
+    }
+
+    private static void ConfigureAqResponseOmission(
+        OpenApiSchema schema, OpenApiSchemaTransformerContext context)
+    {
+        if (schema.Required is not { Count: > 0 } required ||
+            !AqResponsesWithOmittedNulls.Contains(context.JsonTypeInfo.Type))
+        {
+            return;
+        }
+
+        // OpenAPI infers required fields from positional constructor parameters.
+        // On these response DTOs, JSON deliberately omits annotated null values.
+        foreach (var property in context.JsonTypeInfo.Properties)
+        {
+            if (!property.IsRequired && property.AttributeProvider?.GetCustomAttributes(
+                    typeof(JsonIgnoreAttribute), inherit: true) is
+                [JsonIgnoreAttribute { Condition: JsonIgnoreCondition.WhenWritingNull }])
+            {
+                required.Remove(property.Name);
+            }
+        }
     }
 
     private static void ApplyPropertyValidationMetadata(
