@@ -59,6 +59,7 @@ public static class DependencyInjection
         services.AddHostedService<AuditPackageExportWorker>();
         services.AddHttpContextAccessor();
         services.AddSurveyFeedback();
+        services.AddFeedbackCsv();
         services.AddScoped<ICurrentUser, CurrentUserService>();
         services.AddScoped<DbSessionCookieAuthenticationEvents>();
         services.AddSingleton<IAuthorizationMiddlewareResultHandler, WpcAuthorizationMiddlewareResultHandler>();
