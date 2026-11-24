@@ -489,8 +489,8 @@ export class AqManagement {
     }), '発表一覧に回答リンクを追加しました。');
   }
 
-  protected presentationTitle(id: string, fallback = '発表'): string {
-    return this.presentations().find(row => row.presentation.id === id)?.presentation.title ?? fallback;
+  protected presentationTitle(id: string): string {
+    return this.presentations().find(row => row.presentation.id === id)?.presentation.title ?? '発表';
   }
 
   private eventPath(): string {
