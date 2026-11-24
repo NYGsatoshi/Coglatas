@@ -99,12 +99,31 @@ public static class PerformanceCiFixtureSeed
             DO $$
             DECLARE
                 table_list text;
+                retained_table text;
+                retained_has_rows boolean;
+                retained_tables constant text[] := ARRAY[
+                    'pre_aq_internal_forms', 'pre_aq_form_responses', 'pre_aq_form_answers'];
             BEGIN
+                -- The ordinary Forms cutover fences its historical sources even when empty.
+                -- A generated performance fixture must not adopt an archive containing history.
+                FOREACH retained_table IN ARRAY retained_tables LOOP
+                    IF to_regclass(format('%I.%I', 'public', retained_table)) IS NOT NULL THEN
+                        EXECUTE format('LOCK TABLE %I.%I IN ACCESS EXCLUSIVE MODE', 'public', retained_table);
+                        EXECUTE format('SELECT EXISTS (SELECT 1 FROM %I.%I)', 'public', retained_table)
+                            INTO retained_has_rows;
+                        IF retained_has_rows THEN
+                            RAISE EXCEPTION 'PERF-02 requires empty retained Forms source tables'
+                                USING ERRCODE = '23514';
+                        END IF;
+                    END IF;
+                END LOOP;
+
                 SELECT string_agg(format('%I.%I', schemaname, tablename), ', ')
                 INTO table_list
                 FROM pg_tables
                 WHERE schemaname = 'public'
-                  AND tablename <> '__EFMigrationsHistory';
+                  AND tablename <> '__EFMigrationsHistory'
+                  AND tablename <> ALL (retained_tables);
 
                 IF table_list IS NOT NULL THEN
                     EXECUTE 'TRUNCATE TABLE ' || table_list || ' RESTART IDENTITY CASCADE';
