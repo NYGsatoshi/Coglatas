@@ -3332,6 +3332,12 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("CompatibilityRootFieldId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CompatiblePreviousFieldId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("ConstraintsJson")
                         .HasColumnType("jsonb");
 
@@ -3383,6 +3389,10 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TargetQuestionSetVersionId", "TenantId");
 
+                    b.HasIndex("CompatibilityRootFieldId", "TenantId", "FieldKey");
+
+                    b.HasIndex("CompatiblePreviousFieldId", "TenantId", "FieldKey");
+
                     b.HasIndex("TenantId", "FormVersionId", "FieldKey")
                         .IsUnique()
                         .HasFilter("\"FormVersionId\" IS NOT NULL");
@@ -3402,6 +3412,8 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
 
                     b.ToTable("form_field_definitions", null, t =>
                         {
+                            t.HasCheckConstraint("CK_form_field_definitions_compatibility", "(\"CompatiblePreviousFieldId\" IS NULL AND \"CompatibilityRootFieldId\" IS NULL) OR\n(\"CompatiblePreviousFieldId\" IS NOT NULL AND \"CompatibilityRootFieldId\" IS NOT NULL AND\n    \"CompatiblePreviousFieldId\" <> \"Id\" AND \"CompatibilityRootFieldId\" <> \"Id\")");
+
                             t.HasCheckConstraint("CK_form_field_definitions_order", "\"SortOrder\" >= 0");
 
                             t.HasCheckConstraint("CK_form_field_definitions_version", "num_nonnulls(\"FormVersionId\", \"TargetQuestionSetVersionId\") = 1");
@@ -3655,6 +3667,9 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("CompatibilityChangeReason")
+                        .HasColumnType("text");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -6653,6 +6668,9 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("CompatibilityChangeReason")
+                        .HasColumnType("text");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -9406,6 +9424,18 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                         .WithMany("Fields")
                         .HasForeignKey("TargetQuestionSetVersionId", "TenantId")
                         .HasPrincipalKey("Id", "TenantId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Coglatas.Domain.Entities.FormFieldDefinition", null)
+                        .WithMany()
+                        .HasForeignKey("CompatibilityRootFieldId", "TenantId", "FieldKey")
+                        .HasPrincipalKey("Id", "TenantId", "FieldKey")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Coglatas.Domain.Entities.FormFieldDefinition", null)
+                        .WithMany()
+                        .HasForeignKey("CompatiblePreviousFieldId", "TenantId", "FieldKey")
+                        .HasPrincipalKey("Id", "TenantId", "FieldKey")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
