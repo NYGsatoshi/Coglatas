@@ -63,17 +63,37 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
                 await AssertInvitationDeniedAsync(recipient, feedback);
 
                 await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
-                var assignment = await db.WorkspaceMembers.SingleAsync(row => row.TenantId == host.Tenant.Id &&
-                    row.WorkspaceId == project.WorkspaceId && row.UserId == host.Recipient.Id);
+                var tenantId = host.Tenant.Id;
+                var recipientId = host.Recipient.Id;
+                var membership = await db.WorkspaceMembers.SingleAsync(row => row.TenantId == tenantId &&
+                    row.WorkspaceId == project.WorkspaceId && row.UserId == recipientId);
                 var entity = await db.Set<Presentation>().SingleAsync(row => row.Id == survey.PresentationId);
-                db.Add(PresentationParticipant.Assign(entity, project, assignment, PresentationParticipantRole.Reviewer));
+                var syntheticPolicy = await db.Set<FeedbackInvitationPolicy>().SingleAsync(row => row.EventId == activity.Id);
+                syntheticPolicy.ApprovedForAutomaticApproval = true;
+                syntheticPolicy.VersionNo++;
                 await db.SaveChangesAsync();
+
+                var policyPending = await IssueAsync();
+                Assert.Equal("approvedEventPolicy", policyPending.GetProperty("approvalState").GetString());
+                await AssertInvitationDeniedAsync(recipient, feedback);
+                var policyActive = await AcceptAsync(policyPending);
+                Assert.Equal("active", policyActive.GetProperty("status").GetString());
+
+                var reviewer = PresentationParticipant.Assign(entity, project, membership, PresentationParticipantRole.Reviewer);
+                db.Add(reviewer);
+                await db.SaveChangesAsync();
+                Assert.Equal("revoked", (await EndAsync(host.Client, policyActive, "revoke")).GetProperty("status").GetString());
 
                 using (var ownAssignment = await GetDataAsync(recipient, feedback))
                     Assert.NotEmpty(ownAssignment.RootElement.GetProperty("data").GetProperty("items").EnumerateArray());
-                Assert.Equal(3, await db.Set<FeedbackViewerGrant>().CountAsync(grant =>
+                db.Remove(reviewer);
+                await db.SaveChangesAsync();
+                await AssertInvitationDeniedAsync(recipient, feedback);
+                Assert.Equal(4, await db.Set<FeedbackViewerGrant>().CountAsync(grant =>
                     grant.PresentationId == survey.PresentationId &&
                     (grant.Status == FeedbackViewerGrantStatus.Revoked || grant.Status == FeedbackViewerGrantStatus.Declined)));
+                Assert.Single(await db.Set<FeedbackViewerGrant>().Where(grant =>
+                    grant.PresentationId == survey.PresentationId && grant.Status == FeedbackViewerGrantStatus.Expired).ToListAsync());
 
                 async Task<JsonElement> IssueAsync()
                 {
