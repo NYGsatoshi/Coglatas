@@ -133,9 +133,10 @@ public sealed class AqMigrationCompatibilityPostgreSqlTests
                 var current = Assert.Single(Assert.IsType<AttendanceResponse[]>(attendance), row => row.UserId == host.Actor.Id);
                 Assert.Equal(AttendanceStatus.Maybe, current.Status);
                 Assert.Equal("Synthetic updated attendance", current.Comment);
+                var actorId = host.Actor.Id;
                 await using var attendanceDb = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
                 Assert.Equal(AttendanceStatus.Maybe, await attendanceDb.EventAttendances
-                    .Where(row => row.EventId == fixture.ActivityId && row.UserId == host.Actor.Id)
+                    .Where(row => row.EventId == fixture.ActivityId && row.UserId == actorId)
                     .Select(row => row.Status).SingleAsync());
             });
 
