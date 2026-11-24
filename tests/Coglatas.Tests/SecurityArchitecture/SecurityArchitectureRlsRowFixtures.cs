@@ -153,10 +153,11 @@ internal static partial class SecurityArchitectureRlsRowFixtures
 
     private static IEnumerable<IEntityType> SourceParents(IEntityType type, object row, bool historicalForms)
     {
+        var orderOptionalParents = row is InternalForm
+            || !historicalForms && (SurveySourceTypes.Contains(type.ClrType) || row is ActivityEvent);
         foreach (var key in type.GetForeignKeys())
         {
-            if (key.IsRequired || (!historicalForms
-                && (SurveySourceTypes.Contains(type.ClrType) || row is ActivityEvent or InternalForm)
+            if (key.IsRequired || (orderOptionalParents
                 && key.Properties.All(property => property.PropertyInfo?.GetValue(row) is not null)))
             {
                 yield return key.PrincipalEntityType;
@@ -240,6 +241,9 @@ internal static partial class SecurityArchitectureRlsRowFixtures
         var workspace = ((Workspace)rows["workspaces"]).Id;
         var project = ((Project)rows["projects"]).Id;
         var task = ((TaskItem)rows["task_items"]).Id;
+        // A legacy form must already have one owning scope before the canonical cutover.
+        ((InternalForm)rows["internal_forms"]).ProjectId = project;
+        ((FormAnswer)rows["form_answers"]).AnswerText = "Synthetic ordinary answer";
         foreach (var row in rows.Values)
         {
             // Several persisted duplicated scope fields deliberately have no standalone FK.
