@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Coglatas.Web;
 using Coglatas.Web.Configuration;
 using Coglatas.Web.Middleware;
@@ -100,6 +101,64 @@ public sealed class AngularSpaFallbackTests : IDisposable
         Assert.Contains("application/json", context.Response.ContentType);
         Assert.Contains("\"code\":\"NotFound\"", body);
         Assert.DoesNotContain("Angular", body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    [Trait("Feature", "AQ")]
+    public async Task AqRouteFallbackUsesTheDocumentedNotFoundEnvelope()
+    {
+        WriteAngularBuild();
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseUrls("http://127.0.0.1:0");
+        builder.Services.AddHttpClient();
+        await using var app = builder.Build();
+        app.UseMiddleware<SecurityHeadersMiddleware>();
+        app.MapGet("/api/v1/core/events/{eventId:guid}/presentations", Results.NoContent);
+        app.MapGet("/api/v1/core/events/{eventId:guid}/feedback-settings", () =>
+            Results.Json(new { code = "DomainNotFound" }, statusCode: StatusCodes.Status404NotFound));
+        AngularSpaFallback.MapEndpointFallback(app, _webRootPath);
+        await app.StartAsync();
+
+        using var client = app.Services.GetRequiredService<IHttpClientFactory>().CreateClient();
+        client.BaseAddress = new Uri(app.Urls.Single());
+        string[] unmatchedSurveyPaths =
+        [
+            "/api/v1/core/events/malformed-resource-id/presentations",
+            "/api/v1/core/presentations/malformed-resource-id/feedback-settings",
+            "/api/v1/public/surveys/synthetic-code/unknown-action"
+        ];
+        foreach (var path in unmatchedSurveyPaths)
+        {
+            using var response = await client.GetAsync(path);
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+            Assert.True(response.Headers.CacheControl?.NoStore);
+            Assert.Equal("no-referrer", Assert.Single(response.Headers.GetValues("Referrer-Policy")));
+
+            using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            var envelope = body.RootElement;
+            Assert.False(string.IsNullOrEmpty(envelope.GetProperty("requestId").GetString()));
+            Assert.False(string.IsNullOrEmpty(envelope.GetProperty("traceId").GetString()));
+            Assert.Equal((int)HttpStatusCode.NotFound, envelope.GetProperty("status").GetInt32());
+            var error = envelope.GetProperty("error");
+            Assert.Equal("NotFound", error.GetProperty("code").GetString());
+            Assert.Equal("Endpoint not found.", error.GetProperty("message").GetString());
+            Assert.Equal(JsonValueKind.Null, error.GetProperty("target").ValueKind);
+            Assert.Empty(error.GetProperty("details").EnumerateArray());
+            Assert.False(error.GetProperty("redactionApplied").GetBoolean());
+        }
+
+        using var ordinary = await client.GetAsync("/api/v1/core/ordinary/not-found");
+        Assert.Equal(HttpStatusCode.NotFound, ordinary.StatusCode);
+        using var ordinaryBody = JsonDocument.Parse(await ordinary.Content.ReadAsStringAsync());
+        Assert.Equal("NotFound", ordinaryBody.RootElement.GetProperty("code").GetString());
+        Assert.False(ordinaryBody.RootElement.TryGetProperty("error", out _));
+
+        var resourceId = Guid.NewGuid();
+        using var domainNotFound = await client.GetAsync($"/api/v1/core/events/{resourceId:D}/feedback-settings");
+        Assert.Equal(HttpStatusCode.NotFound, domainNotFound.StatusCode);
+        using var domainBody = JsonDocument.Parse(await domainNotFound.Content.ReadAsStringAsync());
+        Assert.Equal("DomainNotFound", domainBody.RootElement.GetProperty("code").GetString());
     }
 
     [Fact]

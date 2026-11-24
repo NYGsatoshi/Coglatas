@@ -121,12 +121,16 @@ public sealed class GlobalExceptionHandlingMiddleware(
                 unsupportedMediaType ? "UnsupportedMediaType" : "MalformedJson",
                 "The public survey request is invalid."));
         }
-        return context.Response.WriteAsJsonAsync(new ErrorResponse(
-            unsupportedMediaType ? "UnsupportedMediaType" : "InvalidRequest",
-            unsupportedMediaType
-                ? "The request Content-Type is not supported."
-                : "The request body is invalid.",
-            context.TraceIdentifier));
+        var code = unsupportedMediaType ? "UnsupportedMediaType" : "InvalidRequest";
+        var message = unsupportedMediaType
+            ? "The request Content-Type is not supported."
+            : "The request body is invalid.";
+        if (!unsupportedMediaType && AqPublicRoutes.IsProtectedSurvey(context))
+        {
+            return context.Response.WriteAsJsonAsync(ApiEnvelope.Error(
+                context, context.Response.StatusCode, code, message));
+        }
+        return context.Response.WriteAsJsonAsync(new ErrorResponse(code, message, context.TraceIdentifier));
     }
 
     private static bool IsFormRequest(HttpRequest request) =>
