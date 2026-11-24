@@ -49,13 +49,17 @@ Authenticated auth/me controls pass before and after. These controls do not
 qualify each authorized endpoint operation, resource/tenant/capability denial
 or API-to-RLS integration.
 
-All seventeen documented operations without effective endpoint authorization
-now have explicit observations from their current handlers: eleven public
+The seventeen pre-AQ documented operations without effective endpoint
+authorization have explicit observations from their current handlers. These cover eleven public
 credential/token/status/CSRF/configuration/health operations and six operations
 with application-owned actor/resource authorization (Gantt, dependencies,
 progress and schedule). Their source interpretation remains Draft with approved
 normative classification UNVERIFIED. Actual-host controls assert typed 401
 authentication errors for all six with valid CSRF and valid request shapes.
+
+The composed inventory checks the three AQ guest operations by exact method and
+path. The existing anonymous-denial verifier exercises every protected HTTP
+operation, including the authenticated AQ controllers, with valid CSRF.
 Public credential/token rejection and a dependency-readiness 503, if observed,
 are classified separately and receive no protected-endpoint denial credit.
 

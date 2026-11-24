@@ -2,12 +2,30 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Xml.Linq;
+using Coglatas.Application.SurveyFeedback;
 using Coglatas.Web.Controllers;
 
 namespace Coglatas.Tests.SecurityArchitecture;
 
 public sealed class SecurityArchitectureApiInventoryTests
 {
+    private const int PreAqProtectedHttpEndpointCount = 387;
+
+    private static readonly (Type Controller, int EndpointCount)[] AqProtectedControllers =
+    [
+        (typeof(AqRosterImportController), 2),
+        (typeof(AqSurveyEntryCodesController), 5),
+        (typeof(AqSurveyManagementController), 26),
+        (typeof(FeedbackCsvController), 4),
+        (typeof(FeedbackInvitationsController), 8),
+        (typeof(FeedbackModerationController), 8),
+        (typeof(FeedbackNotesController), 4),
+        (typeof(PresentationFeedbackController), 5)
+    ];
+
+    internal static int ExpectedProtectedHttpEndpointCount =>
+        PreAqProtectedHttpEndpointCount + AqProtectedControllers.Sum(controller => controller.EndpointCount);
+
     [Fact]
     public async Task ActualComposedHostInventoryPreservesAnonymousAndProtectedMetadataWithoutAcceptance() =>
         await ObserveAsync();
@@ -134,8 +152,24 @@ public sealed class SecurityArchitectureApiInventoryTests
                 Assert.True(channelOperation.GetProperty("authenticatedUserRequired").GetBoolean());
                 Assert.False(channelOperation.GetProperty("allowAnonymous").GetBoolean());
             }
-            Assert.Equal(387, endpoints.Count(row => row.GetProperty("authorizationRequired").GetBoolean() &&
-                row.GetProperty("kind").GetString() != "HUB"));
+            var protectedHttp = endpoints.Where(row => row.GetProperty("authorizationRequired").GetBoolean() &&
+                row.GetProperty("kind").GetString() != "HUB").ToArray();
+            var aqControllers = AqProtectedControllers.Select(controller => controller.Controller.FullName!).ToHashSet(StringComparer.Ordinal);
+            Assert.Equal(PreAqProtectedHttpEndpointCount,
+                protectedHttp.Count(row => !aqControllers.Contains(row.GetProperty("controller").GetString()!)));
+            foreach (var (controller, count) in AqProtectedControllers)
+            {
+                var operations = endpoints.Where(row => row.GetProperty("controller").GetString() == controller.FullName).ToArray();
+                Assert.Equal(count, operations.Length);
+                Assert.All(operations, row =>
+                {
+                    Assert.StartsWith("/api/v1/core/", row.GetProperty("normalizedPath").GetString());
+                    Assert.False(row.GetProperty("allowAnonymous").GetBoolean());
+                    Assert.True(row.GetProperty("authorizationRequired").GetBoolean());
+                    Assert.True(row.GetProperty("authenticatedUserRequired").GetBoolean());
+                });
+            }
+            Assert.Equal(ExpectedProtectedHttpEndpointCount, protectedHttp.Length);
             Assert.Equal(28, endpoints.Count(row => row.GetProperty("authorizationRequired").GetBoolean() &&
                 !row.GetProperty("authenticatedUserRequired").GetBoolean()));
             var openApi = report.GetProperty("openApi");
@@ -194,8 +228,15 @@ public sealed class SecurityArchitectureApiInventoryTests
                 Assert.NotEqual("UNKNOWN_REQUIRES_REVIEW", row.GetProperty("observedBoundary").GetString());
                 Assert.Empty(row.GetProperty("specIds").EnumerateArray());
             });
-            Assert.Equal(15, realtime.GetProperty("events").GetArrayLength());
-            Assert.All(realtime.GetProperty("events").EnumerateArray(), row =>
+            Assert.Equal("AQ_ADDITIVE_V2", realtime.GetProperty("eventCatalogueGeneration").GetString());
+            var realtimeEvents = realtime.GetProperty("events").EnumerateArray().ToArray();
+            var aqInvalidation = Assert.Single(realtimeEvents,
+                row => row.GetProperty("eventType").GetString() == SurveyFeedbackInvalidation.EventName);
+            Assert.Equal(15, realtimeEvents.Length - 1);
+            Assert.Equal(1, aqInvalidation.GetProperty("payloadSchemaVersion").GetInt32());
+            Assert.Equal("CURRENT_SESSION_USER_ROUTE_AND_CURRENT_PRESENTATION_FEEDBACK_AUTHORITY_METADATA_ONLY",
+                aqInvalidation.GetProperty("observedDeliveryBoundary").GetString());
+            Assert.All(realtimeEvents, row =>
             {
                 Assert.NotEqual("UNKNOWN_REQUIRES_REVIEW", row.GetProperty("observedDeliveryBoundary").GetString());
                 Assert.Equal("UNVERIFIED", row.GetProperty("runtimeOutcome").GetString());
