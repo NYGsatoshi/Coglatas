@@ -336,8 +336,9 @@ public sealed class EfAqPublicSurveyStore(
                       select user.Id).AnyAsync(token);
     }
 
-    private Task LockSubmissionAuthorityAsync(PublicCodeBinding code, CancellationToken token) =>
-        context.Database.ExecuteSqlInterpolatedAsync($"""
+    private async Task LockSubmissionAuthorityAsync(PublicCodeBinding code, CancellationToken token)
+    {
+        await context.Database.ExecuteSqlInterpolatedAsync($"""
             SELECT 1 FROM survey_public_codes AS code
             JOIN survey_targets AS target
                 ON target."Id" = code."SurveyTargetId" AND target."TenantId" = code."TenantId"
@@ -359,6 +360,22 @@ public sealed class EfAqPublicSurveyStore(
             WHERE code."Id" = {code.Id} AND code."TenantId" = {code.TenantId}
             FOR SHARE OF code, target, campaign, presentation, form, settings, activity, project, workspace, tenant
             """, token);
+
+        // A Project may have a Group parent. The locked Project row keeps
+        // that optional reference stable, and the Group cannot close during
+        // the admission validated below.
+        await context.Database.ExecuteSqlInterpolatedAsync($"""
+            SELECT 1 FROM survey_targets AS target
+            JOIN activity_events AS activity
+                ON activity."Id" = target."EventId" AND activity."TenantId" = target."TenantId"
+            JOIN projects AS project
+                ON project."Id" = activity."ProjectId" AND project."TenantId" = target."TenantId"
+            JOIN groups AS parent_group
+                ON parent_group."Id" = project."GroupId" AND parent_group."TenantId" = target."TenantId"
+            WHERE target."Id" = {code.SurveyTargetId} AND target."TenantId" = {code.TenantId}
+            FOR SHARE OF parent_group
+            """, token);
+    }
 
     private async Task<bool> TryLockKeyAsync(Guid targetId, string keyDigest, CancellationToken token)
     {
