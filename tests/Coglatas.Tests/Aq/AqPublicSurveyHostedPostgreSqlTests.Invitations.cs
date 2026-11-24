@@ -161,7 +161,8 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
     private static async Task<(User Operator, Guid OtherPresentationId)> SeedInvitationActorsAsync(
         string database, AdmissionHost host, Project project, ActivityEvent activity)
     {
-        var hasher = host.Services.GetRequiredService<IPasswordHasher>();
+        await using var services = host.Services.CreateAsyncScope();
+        var hasher = services.ServiceProvider.GetRequiredService<IPasswordHasher>();
         var passwordHash = hasher.HashPassword(AdmissionHost.Password);
         var email = $"synthetic-invitation-operator-{Guid.NewGuid():N}@example.test";
         var operatorAccount = new User
