@@ -154,7 +154,28 @@ public sealed class SecurityArchitectureApiInventoryTests
             var runtimeOnlyKeys = runtimeOnly.Select(row => (row.GetProperty("path").GetString(), row.GetProperty("method").GetString())).ToHashSet();
             var noPolicyOperations = endpoints.Where(row => !row.GetProperty("authorizationRequired").GetBoolean() &&
                 !runtimeOnlyKeys.Contains((row.GetProperty("normalizedPath").GetString(), row.GetProperty("method").GetString()))).ToArray();
-            Assert.Equal(17, noPolicyOperations.Length);
+            var aqPublicOperations = new[]
+            {
+                ("/api/v1/public/events/{code}/presentations", "GET", "PUBLIC_SURVEY_PUBLISHED_PROJECTION", "SURVEY_STORE_TYPED_CODE_CURRENT_PUBLICATION"),
+                ("/api/v1/public/surveys/{code}", "GET", "PUBLIC_SURVEY_PUBLISHED_PROJECTION", "SURVEY_STORE_TYPED_CODE_CURRENT_PUBLICATION"),
+                ("/api/v1/public/surveys/{code}/submissions", "POST", "PUBLIC_SURVEY_GUEST_SUBMISSION", "SURVEY_STORE_TYPED_CODE_CURRENT_ADMISSION_AND_ANTIFORGERY")
+            };
+            var aqPublic = noPolicyOperations.Where(row =>
+                row.GetProperty("controller").GetString() == typeof(AqPublicSurveyController).FullName).ToArray();
+            Assert.Equal(aqPublicOperations.Length, aqPublic.Length);
+            Assert.Equal(17, noPolicyOperations.Length - aqPublic.Length);
+            foreach (var (route, method, accessPath, authority) in aqPublicOperations)
+            {
+                var operation = Assert.Single(aqPublic, row => row.GetProperty("normalizedPath").GetString() == route &&
+                    row.GetProperty("method").GetString() == method);
+                Assert.True(operation.GetProperty("allowAnonymous").GetBoolean());
+                Assert.False(operation.GetProperty("authenticatedUserRequired").GetBoolean());
+                Assert.Equal("ANONYMOUS_BYPASS", operation.GetProperty("policySource").GetString());
+                Assert.Equal(JsonValueKind.Null, operation.GetProperty("effectivePolicy").ValueKind);
+                var access = operation.GetProperty("accessPathObservation");
+                Assert.Equal(accessPath, access.GetProperty("observedAccessPath").GetString());
+                Assert.Equal(authority, access.GetProperty("authenticationAuthority").GetString());
+            }
             Assert.Equal(6, noPolicyOperations.Count(row => row.GetProperty("accessPathObservation")
                 .GetProperty("observedAccessPath").GetString() == "APPLICATION_OWNED_AUTHENTICATION_AND_RESOURCE_AUTHORIZATION"));
             Assert.All(noPolicyOperations, row =>
