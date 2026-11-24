@@ -39,6 +39,10 @@ interface QuestionSummary {
   distribution?: { optionKey: string; responses: number }[];
 }
 interface Note { body: string }
+interface ReportQueueEntry {
+  report: { reportId: string; state: 'open' | 'resolved' | 'dismissed'; versionNo: number };
+  openedAtUtc: string;
+}
 interface Recipient { recipientRef: string; label: string }
 interface ExportRequest { exportRequestId: string }
 interface ExportStatus { state: 'queued' | 'building' | 'ready' | 'failed' | 'expired' }
@@ -282,6 +286,30 @@ export class AqFeedbackHome {
             <button type="button" [disabled]="!recipient() || actionBusy()" (click)="invite()">承認待ちの招待を送る</button>
           } @else { <p>招待できる参加者は表示されていません。</p> }
         }
+        @if (reportQueue().length) {
+          <h2>未解決の通報</h2>
+          <ul class="aq-list">
+            @for (entry of reportQueue(); track entry.report.reportId) {
+              <li>
+                <time [attr.datetime]="entry.openedAtUtc">{{ entry.openedAtUtc | date:'medium' }}</time>
+                <button type="button" [disabled]="actionBusy()" (click)="reviewReport(entry)">通報を確認する</button>
+              </li>
+            }
+          </ul>
+          @if (reportUnderReview(); as entry) {
+            <p class="aq-panel">{{ reportOriginalReason() }}</p>
+            <form class="aq-panel" (submit)="resolveReport($event, entry)">
+              <label>処理の理由 <textarea required [value]="resolutionReason()" (input)="resolutionReason.set($any($event.target).value)"></textarea></label>
+              <label>処理結果
+                <select [value]="resolution()" (change)="resolution.set($any($event.target).value)">
+                  <option value="resolve">対応済みにする</option>
+                  <option value="dismiss">通報を却下する</option>
+                </select>
+              </label>
+              <button type="submit" [disabled]="actionBusy()">処理結果を保存</button>
+            </form>
+          }
+        }
         @if (capabilities()?.privateNote || capabilities()?.share) {
           <h2>レビュー</h2>
           <form (submit)="writeNote($event)">
@@ -335,6 +363,11 @@ export class AqFeedbackDetail {
   protected readonly moderating = signal<FeedbackAnswer | null>(null);
   protected readonly moderationReason = signal('');
   protected readonly hiddenBody = signal('');
+  protected readonly reportQueue = signal<ReportQueueEntry[]>([]);
+  protected readonly reportUnderReview = signal<ReportQueueEntry | null>(null);
+  protected readonly reportOriginalReason = signal('');
+  protected readonly resolutionReason = signal('');
+  protected readonly resolution = signal<'resolve' | 'dismiss'>('resolve');
   protected readonly reason = signal('');
   protected readonly noteBody = signal('');
   protected readonly noteKind = signal('private-notes');
@@ -388,7 +421,15 @@ export class AqFeedbackDetail {
           this.summary.set(data.summary);
           this.more.set(data.rows.nextCursor ?? '');
           this.loading.set(false);
-          if (!cursor) this.loadActions(generation);
+          if (!cursor) {
+            this.loadActions(generation);
+            if (data.rows.items.some(row => row.answers.some(answer => answer.visibilityVersionNo))) {
+              this.api.read<Page<ReportQueueEntry>>(path + '/feedback-reports', { state: 'open' })
+                .pipe(catchError(() => EMPTY), takeUntilDestroyed(this.destroyRef)).subscribe(result => {
+                  if (this.generation === generation) this.reportQueue.set(result.items);
+                });
+            }
+          }
         },
         error: () => {
           if (generation !== this.generation) return;
@@ -428,6 +469,23 @@ export class AqFeedbackDetail {
   protected readHidden(answer: FeedbackAnswer): void {
     this.perform(this.api.read<{ body: string }>('feedback/answers/' + aqSegment(answer.id) + '/moderation-detail'),
       '非表示の原文を確認しています。', value => this.hiddenBody.set(value.body));
+  }
+
+  protected reviewReport(entry: ReportQueueEntry): void {
+    this.perform(this.api.read<{ reason: string }>('feedback/reports/' + aqSegment(entry.report.reportId)),
+      '通報の内容を表示しています。', detail => {
+        this.reportOriginalReason.set(detail.reason);
+        this.reportUnderReview.set(entry);
+      });
+  }
+
+  protected resolveReport(event: Event, entry: ReportQueueEntry): void {
+    event.preventDefault();
+    const reason = this.resolutionReason().trim();
+    if (!reason) return;
+    this.perform(this.api.command('POST', 'feedback/reports/' + aqSegment(entry.report.reportId) + '/resolve', {
+      expectedVersionNo: entry.report.versionNo, resolution: this.resolution(), reason,
+    }), '通報の処理結果を保存しました。', () => this.load());
   }
 
   protected invite(): void {
@@ -533,6 +591,11 @@ export class AqFeedbackDetail {
     this.moderating.set(null);
     this.moderationReason.set('');
     this.hiddenBody.set('');
+    this.reportQueue.set([]);
+    this.reportUnderReview.set(null);
+    this.reportOriginalReason.set('');
+    this.resolutionReason.set('');
+    this.resolution.set('resolve');
     this.noteBody.set('');
     this.actionBusy.set(false);
     this.rows.set([]);
