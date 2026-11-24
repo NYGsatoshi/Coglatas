@@ -31,7 +31,10 @@
       { "method": "get", "path": "/api/tasks/{taskItemId}/dependencies" },
       { "method": "post", "path": "/api/tasks/{taskItemId}/dependencies" },
       { "method": "delete", "path": "/api/tasks/{taskItemId}/dependencies/{dependencyId}" },
-      { "method": "get", "path": "/api/security/csrf-token" }
+      { "method": "get", "path": "/api/security/csrf-token" },
+      { "method": "get", "path": "/api/v1/public/events/{code}/presentations" },
+      { "method": "get", "path": "/api/v1/public/surveys/{code}" },
+      { "method": "post", "path": "/api/v1/public/surveys/{code}/submissions" }
     ]
   },
   "requiredOperations": [
