@@ -55,6 +55,9 @@ public sealed class Presentation : AuditableEntity, ITenantEntity
         VersionNo = nextVersion;
     }
 
+    public void AdvanceParticipantsVersion(long expectedVersionNo) =>
+        VersionNo = SurveyVersion.Next(VersionNo, expectedVersionNo);
+
     private void SetSchedule(string title, string? venue, DateTimeOffset startsAt, DateTimeOffset endsAt)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
@@ -183,8 +186,7 @@ public sealed class EventFeedbackSettings : AuditableEntity, ITenantEntity
         long expectedVersionNo, SurveyNameMode nameMode, SurveyAccountBinding accountBinding)
     {
         var nextVersion = SurveyVersion.Next(VersionNo, expectedVersionNo);
-        if (!Enum.IsDefined(nameMode) || !Enum.IsDefined(accountBinding))
-            throw new ArgumentException("Unknown participation policy.");
+        ValidateParticipationPolicy(nameMode, accountBinding);
 
         NameMode = nameMode;
         AccountBinding = accountBinding;
@@ -194,18 +196,46 @@ public sealed class EventFeedbackSettings : AuditableEntity, ITenantEntity
     public void SetProgram(
         long expectedVersionNo, bool published, SurveyProgramFields programFields, bool presenterNamesApproved)
     {
+        var nextVersion = SurveyVersion.Next(VersionNo, expectedVersionNo);
+        ValidateProgram(published, programFields, presenterNamesApproved);
+
+        IsProgramPublished = published;
+        ProgramFields = programFields;
+        VersionNo = nextVersion;
+    }
+
+    public void Configure(long expectedVersionNo, DateTimeOffset startsAt, DateTimeOffset endsAt, string timeZoneId,
+        bool receptionStopped, bool resultsStopped, SurveyNameMode nameMode, SurveyAccountBinding accountBinding,
+        bool programPublished, SurveyProgramFields programFields, bool presenterNamesApproved)
+    {
+        var nextVersion = SurveyVersion.Next(VersionNo, expectedVersionNo);
+        ValidateParticipationPolicy(nameMode, accountBinding);
+        ValidateProgram(programPublished, programFields, presenterNamesApproved);
+        SetWindow(startsAt, endsAt, timeZoneId);
+        ReceptionStopped = receptionStopped;
+        ResultsStopped = resultsStopped;
+        NameMode = nameMode;
+        AccountBinding = accountBinding;
+        IsProgramPublished = programPublished;
+        ProgramFields = programFields;
+        VersionNo = nextVersion;
+    }
+
+    private static void ValidateParticipationPolicy(SurveyNameMode nameMode, SurveyAccountBinding accountBinding)
+    {
+        if (!Enum.IsDefined(nameMode) || !Enum.IsDefined(accountBinding))
+            throw new ArgumentException("Unknown participation policy.");
+    }
+
+    private static void ValidateProgram(bool published, SurveyProgramFields programFields, bool presenterNamesApproved)
+    {
         const SurveyProgramFields allowedFields = SurveyProgramFields.Title | SurveyProgramFields.Time
             | SurveyProgramFields.Venue | SurveyProgramFields.PresenterNames | SurveyProgramFields.TimeZone;
-        var nextVersion = SurveyVersion.Next(VersionNo, expectedVersionNo);
         if ((programFields & ~allowedFields) != 0
             || published && programFields.HasFlag(SurveyProgramFields.PresenterNames) && !presenterNamesApproved)
         {
             throw new ArgumentException("The public field selection lacks the applicable publishing approval.");
         }
-
-        IsProgramPublished = published;
-        ProgramFields = programFields;
-        VersionNo = nextVersion;
     }
 
     private void SetWindow(DateTimeOffset startsAt, DateTimeOffset endsAt, string timeZoneId)
@@ -327,6 +357,18 @@ public sealed class SurveyCampaign : AuditableEntity, ITenantEntity
         var nextVersion = SurveyVersion.Next(VersionNo, expectedVersionNo);
         IsEnabled = enabled;
         IsPublished = published;
+        VersionNo = nextVersion;
+    }
+
+    public void Configure(long expectedVersionNo, bool enabled, bool published, Guid retentionPolicyId)
+    {
+        var nextVersion = SurveyVersion.Next(VersionNo, expectedVersionNo);
+        if (retentionPolicyId == Guid.Empty)
+            throw new ArgumentException("A retention policy reference is required.", nameof(retentionPolicyId));
+
+        IsEnabled = enabled;
+        IsPublished = published;
+        RetentionPolicyId = retentionPolicyId;
         VersionNo = nextVersion;
     }
 

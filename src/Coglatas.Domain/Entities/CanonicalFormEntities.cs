@@ -54,6 +54,14 @@ public sealed class FormDefinition : SoftDeletableEntity, ITenantEntity
             Description = description
         };
     }
+
+    public void AdvancePublicationVersion(long expectedVersionNo)
+    {
+        if (IsDeleted || Status == FormStatus.Archived)
+            throw new InvalidOperationException("An archived form cannot publish another version.");
+
+        VersionNo = SurveyVersion.Next(VersionNo, expectedVersionNo);
+    }
 }
 
 public sealed class FormVersion : AuditableEntity, ITenantEntity
@@ -92,7 +100,7 @@ public sealed class FormVersion : AuditableEntity, ITenantEntity
             SnapshotJson = SurveySchemaSnapshot.Write(fields),
             PublishedAtUtc = publishedAt.ToUniversalTime()
         };
-        version.fields.AddRange(fields.Select((field, order) =>
+        version.fields.AddRange(SurveySchemaSnapshot.ReadPart<SurveyField[]>(version.SnapshotJson).Select((field, order) =>
             FormFieldDefinition.Create(version.TenantId, version.Id, null, field, order)));
         return version;
     }
@@ -134,7 +142,7 @@ public sealed class TargetQuestionSetVersion : AuditableEntity, ITenantEntity
             SnapshotJson = SurveySchemaSnapshot.Write(fields),
             PublishedAtUtc = publishedAt.ToUniversalTime()
         };
-        version.fields.AddRange(fields.Select((field, order) =>
+        version.fields.AddRange(SurveySchemaSnapshot.ReadPart<SurveyField[]>(version.SnapshotJson).Select((field, order) =>
             FormFieldDefinition.Create(version.TenantId, null, version.Id, field, order)));
         return version;
     }
