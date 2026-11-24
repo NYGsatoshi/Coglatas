@@ -177,6 +177,12 @@
       </div>
     }
     <h2>閲覧招待の承認</h2>
+    <form (submit)="saveInvitationPolicy($event)">
+      <label><input type="checkbox" [checked]="invitesEnabled()" (change)="invitesEnabled.set($any($event.target).checked)"> 運営者が個別に承認する閲覧招待を許可</label>
+      <label>承認・同意の期限（日） <input type="number" min="1" required [value]="decisionDays()" (input)="decisionDays.set($any($event.target).value)"></label>
+      <label>閲覧できる最大日数 <input type="number" min="1" required [value]="durationDays()" (input)="durationDays.set($any($event.target).value)"></label>
+      <button type="submit" [disabled]="busy()">閲覧招待の設定を保存</button>
+    </form>
     <ul class="aq-list">
       @for (approval of approvals(); track approval.invitation.id) {
         <li>

@@ -10,6 +10,7 @@ interface EventSettings {
   accountBindingAllowed: boolean;
   publicFields: string[];
   programTargets: { presentationId: string; targetId: string }[];
+  invitationPolicy?: { enabled: boolean; decisionWindowSeconds: number; maximumActiveSeconds: number };
   receptionStopped: boolean;
   resultsStopped: boolean;
   programPublished: boolean;
@@ -78,6 +79,9 @@ export class AqManagement {
   protected readonly versionReason = signal('');
   protected readonly timeZone = signal(Intl.DateTimeFormat().resolvedOptions().timeZone);
   protected readonly publicEntry = signal('');
+  protected readonly invitesEnabled = signal(false);
+  protected readonly decisionDays = signal('7');
+  protected readonly durationDays = signal('30');
   private id = '';
   private generation = 0;
   private targetGeneration = 0;
@@ -126,6 +130,10 @@ export class AqManagement {
       next: result => {
         if (generation !== this.generation) return;
         this.data.set(result.data);
+        const invitations = result.data?.settings.invitationPolicy;
+        this.invitesEnabled.set(invitations?.enabled ?? false);
+        this.decisionDays.set(invitations ? String(invitations.decisionWindowSeconds / 86400) : '7');
+        this.durationDays.set(invitations ? String(invitations.maximumActiveSeconds / 86400) : '30');
         this.presentations.set(result.presentations.items);
         this.campaigns.set(result.campaigns.items);
         if (this.campaignId()) this.reloadTargets(this.campaignId());
@@ -180,6 +188,22 @@ export class AqManagement {
       this.start.set('');
       this.end.set('');
     });
+  }
+
+  protected saveInvitationPolicy(event: Event): void {
+    event.preventDefault();
+    const current = this.data();
+    const decisionWindowSeconds = Number(this.decisionDays()) * 86400;
+    const maximumActiveSeconds = Number(this.durationDays()) * 86400;
+    if (!current || !Number.isSafeInteger(decisionWindowSeconds) || decisionWindowSeconds <= 0 ||
+        !Number.isSafeInteger(maximumActiveSeconds) || maximumActiveSeconds <= 0) {
+      this.failed.set(true);
+      return;
+    }
+    this.act(this.api.command('PATCH', this.eventPath() + '/feedback-settings', {
+      expectedVersionNo: current.versionNo,
+      invitationPolicy: { enabled: this.invitesEnabled(), decisionWindowSeconds, maximumActiveSeconds },
+    }), '閲覧招待の設定を更新しました。');
   }
 
   protected setNameMode(value: EventSettings['nameMode']): void {
