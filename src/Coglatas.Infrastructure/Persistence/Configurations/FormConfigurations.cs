@@ -82,6 +82,7 @@ public sealed class FormResponseConfiguration : IEntityTypeConfiguration<FormRes
         builder.ConfigureAuditableEntity();
 
         builder.Property(response => response.SubmittedAt).IsRequired();
+        builder.Property(response => response.MaskRespondent).HasDefaultValue(false).ValueGeneratedOnAdd();
 
         builder.HasIndex(response => response.FormId);
         builder.HasIndex(response => response.RespondentUserId);

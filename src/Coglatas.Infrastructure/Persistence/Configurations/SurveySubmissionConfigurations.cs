@@ -20,6 +20,7 @@ public sealed class FormSubmissionConfiguration : IEntityTypeConfiguration<FormS
         builder.Property(submission => submission.Status).HasEnumStringConversion().IsRequired();
         builder.Property(submission => submission.VersionNo).IsConcurrencyToken();
         builder.Property(submission => submission.FieldLockSnapshotJson).HasColumnType("jsonb").IsRequired();
+        builder.Property<bool>("LegacyMaskRespondent").HasDefaultValue(false);
         builder.HasAlternateKey(submission => new { submission.Id, submission.TenantId });
         builder.HasIndex(submission => new { submission.Id, submission.TenantId, submission.PublishedSurveySchemaId }).IsUnique()
             .HasDatabaseName("IX_form_submissions_schema_identity");

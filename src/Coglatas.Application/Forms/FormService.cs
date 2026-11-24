@@ -173,6 +173,11 @@ public sealed class FormService(
             return Result<FormDetailResponse>.Failure("A form must have at least one question before it can be opened.");
         }
 
+        if (form.IsAnonymous && request.IsAnonymous is false && await forms.HasResponsesAsync(form.Id, cancellationToken))
+        {
+            return Result<FormDetailResponse>.Failure("An anonymous form with responses cannot change to identified responses.");
+        }
+
         var previousStatus = form.Status;
         form.WorkspaceId = nextWorkspaceId;
         form.GroupId = nextGroupId;
@@ -405,6 +410,7 @@ public sealed class FormService(
         {
             FormId = form.Id,
             RespondentUserId = userId,
+            MaskRespondent = form.IsAnonymous,
             SubmittedAt = clock.UtcNow
         };
 
@@ -422,7 +428,7 @@ public sealed class FormService(
         await auditLogger.LogUserActionAsync(userId, "FormResponseSubmitted", "InternalForm", form.Id, "Form response submitted.", cancellationToken: cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return Result<FormResponseDetailResponse>.Success(ToResponse(response, form, revealRespondent: !form.IsAnonymous));
+        return Result<FormResponseDetailResponse>.Success(ToResponse(response, form));
     }
 
     public async Task<Result<PagedResponse<FormResponseDetailResponse>>> ListResponsesAsync(Guid formId, int page = 1, int pageSize = 20, CancellationToken cancellationToken = default)
@@ -445,7 +451,7 @@ public sealed class FormService(
         var items = allResponses
             .Skip((int)Math.Min(offset, allResponses.Count))
             .Take(pageSize)
-            .Select(response => ToResponse(response, form, revealRespondent: !form.IsAnonymous))
+            .Select(response => ToResponse(response, form))
             .ToList();
 
         return Result<PagedResponse<FormResponseDetailResponse>>.Success(new PagedResponse<FormResponseDetailResponse>(items, page, pageSize, allResponses.Count));
@@ -465,7 +471,7 @@ public sealed class FormService(
         }
 
         var response = await forms.GetResponseForUserAsync(form.Id, userId, cancellationToken);
-        return Result<FormResponseDetailResponse?>.Success(response is null ? null : ToResponse(response, form, revealRespondent: !form.IsAnonymous));
+        return Result<FormResponseDetailResponse?>.Success(response is null ? null : ToResponse(response, form));
     }
 
     public async Task<Result<FormSummaryResponse>> GetSummaryAsync(Guid formId, CancellationToken cancellationToken = default)
@@ -983,8 +989,9 @@ public sealed class FormService(
             IsChoiceQuestion(question.QuestionType) ? ParseOptions(question.OptionsJson) : null);
     }
 
-    private static FormResponseDetailResponse ToResponse(FormResponse response, InternalForm form, bool revealRespondent)
+    private static FormResponseDetailResponse ToResponse(FormResponse response, InternalForm form)
     {
+        var revealRespondent = !form.IsAnonymous && !response.MaskRespondent;
         return new FormResponseDetailResponse(
             response.Id,
             response.FormId,
