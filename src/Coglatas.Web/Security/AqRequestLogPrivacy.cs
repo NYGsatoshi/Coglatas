@@ -98,49 +98,30 @@ public static class AqRequestLogPrivacy
             return "/app/aq/{public-entry}";
         if (path.StartsWithSegments("/app/aq/feedback") || path.StartsWithSegments("/app/aq/manage"))
             return "/app/aq/{aq-workspace}";
-        return IsAqCorePath(path) ? "/api/v1/core/{aq-resource}" : null;
-    }
-
-    private static bool IsAqCorePath(PathString path)
-    {
-        // Native request-start logging runs before endpoint metadata exists.
-        // The AQ route families here also scope the Sakura proxy error sink.
-        if (!path.StartsWithSegments("/api/v1/core", out var relative))
-            return false;
-
-        var segments = relative.Value?.ToLowerInvariant().Split('/', StringSplitOptions.RemoveEmptyEntries);
-        return segments switch
-        {
-            ["feedback" or "feedback-invitations" or "forms" or "presentations" or
-                "presentation-feedback-exports" or "survey-campaigns" or "survey-targets", ..] => true,
-            ["events", _, "presentations" or "program-code" or "feedback-settings" or "survey-campaigns" or
-                "feedback-summary" or "feedback-invitations" or "feedback-invitation-policy", ..] => true,
-            ["me", "presentation-feedback" or "feedback-invitations", ..] => true,
-            _ => false
-        };
+        return AqPublicRoutes.IsCoreSurveyPath(path) ? "/api/v1/core/{aq-resource}" : null;
     }
 
     private sealed class RedactedRequestState : IReadOnlyList<KeyValuePair<string, object?>>
     {
-        private readonly List<KeyValuePair<string, object?>> fields;
+        private readonly List<KeyValuePair<string, object?>> _fields;
 
         public RedactedRequestState(string route, IReadOnlyList<KeyValuePair<string, object?>> original)
         {
-            fields = [new("RequestPath", route)];
+            _fields = [new("RequestPath", route)];
             foreach (var field in original)
             {
                 if (IsSafe(field))
-                    fields.Add(field);
+                    _fields.Add(field);
             }
         }
 
-        public int Count => fields.Count;
-        public KeyValuePair<string, object?> this[int index] => fields[index];
-        public IEnumerator<KeyValuePair<string, object?>> GetEnumerator() => fields.GetEnumerator();
+        public int Count => _fields.Count;
+        public KeyValuePair<string, object?> this[int index] => _fields[index];
+        public IEnumerator<KeyValuePair<string, object?>> GetEnumerator() => _fields.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
         public override string ToString() =>
-            "AQ HTTP request " + string.Join(" ", fields.Select(field => $"{field.Key}={field.Value}"));
+            "AQ HTTP request " + string.Join(" ", _fields.Select(field => $"{field.Key}={field.Value}"));
 
         private static bool IsSafe(KeyValuePair<string, object?> field) => field.Key switch
         {
