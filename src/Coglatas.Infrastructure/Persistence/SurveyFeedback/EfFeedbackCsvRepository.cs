@@ -99,15 +99,17 @@ public sealed class EfFeedbackCsvRepository(AppDbContext dbContext) : IFeedbackC
             activityEvent.TenantId == scope.TenantId && activityEvent.Id == scope.EventId &&
             project.TenantId == scope.TenantId && project.Id == scope.ProjectId && project.WorkspaceId == scope.WorkspaceId &&
             !activityEvent.DeletedAt.HasValue && !project.DeletedAt.HasValue && activityEvent.ProjectId == project.Id
-        let eventSettings = dbContext.Set<EventFeedbackSettings>().Where(settings =>
-            settings.TenantId == scope.TenantId && settings.EventId == activityEvent.Id)
-        let presentationSettings = dbContext.Set<PresentationFeedbackSettings>().Where(settings =>
-            settings.TenantId == scope.TenantId && settings.PresentationId == presentation.Id)
-        where !eventSettings.Any(settings => settings.ResultsStopped) &&
-            !presentationSettings.Any(settings => settings.ResultsStopped)
+        where !dbContext.Set<EventFeedbackSettings>().Any(settings =>
+                settings.TenantId == scope.TenantId && settings.EventId == activityEvent.Id && settings.ResultsStopped) &&
+            !dbContext.Set<PresentationFeedbackSettings>().Any(settings =>
+                settings.TenantId == scope.TenantId && settings.PresentationId == presentation.Id && settings.ResultsStopped)
         select new SettingsVersions(presentation.VersionNo,
-            eventSettings.Select(settings => settings.VersionNo).FirstOrDefault(),
-            presentationSettings.Select(settings => settings.VersionNo).FirstOrDefault());
+            dbContext.Set<EventFeedbackSettings>()
+                .Where(settings => settings.TenantId == scope.TenantId && settings.EventId == activityEvent.Id)
+                .Select(settings => settings.VersionNo).FirstOrDefault(),
+            dbContext.Set<PresentationFeedbackSettings>()
+                .Where(settings => settings.TenantId == scope.TenantId && settings.PresentationId == presentation.Id)
+                .Select(settings => settings.VersionNo).FirstOrDefault());
 
     private static Result<FeedbackCsvSnapshot> TooLarge() => Result<FeedbackCsvSnapshot>.Failure(
         new ApplicationErrorDetail("ExportTooLarge", "The export exceeds the supported bounds."));
