@@ -1,9 +1,11 @@
 using System.Net;
+using Coglatas.Application.Events;
 using Coglatas.Application.Forms;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Coglatas.Tests.PostgreSql;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using AdmissionHost = Coglatas.Tests.PostgreSql.ConversationAdmissionHostedHttpTests.AdmissionHost;
 
 namespace Coglatas.Tests.Aq;
@@ -26,6 +28,7 @@ public sealed class AqMigrationCompatibilityPostgreSqlTests
                 var fixture = await SeedPredecessorAsync(database, host);
 
                 await PostgreSqlMigrationTestDatabase.MigrateAsync(database);
+                await AssertCutoverReconciliationAsync(database);
                 await using (var verification = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
                 {
                     var applied = (await verification.Database.GetAppliedMigrationsAsync()).ToArray();
@@ -113,11 +116,72 @@ public sealed class AqMigrationCompatibilityPostgreSqlTests
                     var sourceCopies = await PostgreSqlMigrationTestDatabase.ScalarAsync<long>(database,
                         """SELECT count(*) FROM pre_aq_form_responses WHERE "Id" = @id""", ("id", stored.Id));
                     Assert.Equal(0, sourceCopies);
+                    var legacyValues = await PostgreSqlMigrationTestDatabase.ScalarAsync<long>(database,
+                        """SELECT count(*) FROM pre_aq_form_answers WHERE "FormResponseId" = @id""", ("id", stored.Id));
+                    Assert.Equal(0, legacyValues);
+                    Assert.Equal(1, await verification.Set<FormSubmissionValue>().CountAsync(row => row.FormSubmissionId == stored.Id));
                 }
 
-                using var activity = await host.Client.GetAsync($"/api/events/{fixture.ActivityId:D}");
-                Assert.Equal(HttpStatusCode.OK, activity.StatusCode);
+                var eventRoute = $"/api/events/{fixture.ActivityId:D}";
+                var activity = await host.Client.GetFromJsonAsync<EventDetailResponse>(eventRoute);
+                Assert.NotNull(activity);
+                Assert.Equal(AttendanceStatus.Attending, activity.CurrentUserAttendance?.Status);
+                using var updated = await host.PostAsync(eventRoute + "/attendance/me",
+                    new UpdateMyAttendanceRequest(AttendanceStatus.Maybe, "Synthetic updated attendance"));
+                Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+                var attendance = await host.Client.GetFromJsonAsync<AttendanceResponse[]>(eventRoute + "/attendance");
+                var current = Assert.Single(Assert.IsType<AttendanceResponse[]>(attendance), row => row.UserId == host.Actor.Id);
+                Assert.Equal(AttendanceStatus.Maybe, current.Status);
+                Assert.Equal("Synthetic updated attendance", current.Comment);
+                await using var attendanceDb = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+                Assert.Equal(AttendanceStatus.Maybe, await attendanceDb.EventAttendances
+                    .Where(row => row.EventId == fixture.ActivityId && row.UserId == host.Actor.Id)
+                    .Select(row => row.Status).SingleAsync());
             });
+
+    private static async Task AssertCutoverReconciliationAsync(string database)
+    {
+        var responseDifference = await PostgreSqlMigrationTestDatabase.ScalarAsync<long>(database, """
+            WITH source AS (
+                SELECT "Id", "TenantId", "FormId", "RespondentUserId" FROM pre_aq_form_responses
+            ), target AS (
+                SELECT "Id", "TenantId", "FormDefinitionId", "RespondentUserId" FROM form_submissions
+            ), differences AS (
+                (SELECT * FROM source EXCEPT ALL SELECT * FROM target)
+                UNION ALL
+                (SELECT * FROM target EXCEPT ALL SELECT * FROM source)
+            )
+            SELECT count(*) FROM differences
+            """);
+        Assert.Equal(0, responseDifference);
+
+        var answerDifference = await PostgreSqlMigrationTestDatabase.ScalarAsync<long>(database, """
+            WITH source AS (
+                SELECT "Id", "TenantId", "FormResponseId", "FormQuestionId" FROM pre_aq_form_answers
+            ), target AS (
+                SELECT "Id", "TenantId", "FormSubmissionId", "LegacyQuestionId" FROM form_submission_values
+            ), differences AS (
+                (SELECT * FROM source EXCEPT ALL SELECT * FROM target)
+                UNION ALL
+                (SELECT * FROM target EXCEPT ALL SELECT * FROM source)
+            )
+            SELECT count(*) FROM differences
+            """);
+        Assert.Equal(0, answerDifference);
+
+        var orphanedAnswers = await PostgreSqlMigrationTestDatabase.ScalarAsync<long>(database, """
+            SELECT count(*) FROM form_submission_values AS value
+            LEFT JOIN form_submissions AS submission
+                ON submission."Id" = value."FormSubmissionId" AND submission."TenantId" = value."TenantId"
+            WHERE submission."Id" IS NULL
+            """);
+        Assert.Equal(0, orphanedAnswers);
+
+        var staleWrite = await Assert.ThrowsAsync<PostgresException>(() =>
+            PostgreSqlMigrationTestDatabase.ExecuteAsync(database,
+                """UPDATE pre_aq_form_responses SET "UpdatedAt" = "UpdatedAt" """));
+        Assert.Equal(PostgresErrorCodes.CheckViolation, staleWrite.SqlState);
+    }
 
     private static async Task<PredecessorFixture> SeedPredecessorAsync(
         string database, AdmissionHost host)
