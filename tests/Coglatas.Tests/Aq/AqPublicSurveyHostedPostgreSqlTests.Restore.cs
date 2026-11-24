@@ -1,11 +1,13 @@
 using System.Text.Json;
 using Coglatas.Application.Common.Tenancy;
+using Coglatas.Application.SurveyFeedback;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Persistence;
 using Coglatas.Infrastructure.Persistence.SurveyFeedback;
 using Coglatas.Tests.PostgreSql;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using AdmissionHost = Coglatas.Tests.PostgreSql.ConversationAdmissionHostedHttpTests.AdmissionHost;
 
 namespace Coglatas.Tests.Aq;
@@ -30,7 +32,13 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
                 using var guest = AqPostgreSqlScenario.CreateGuestClient(host);
                 using var accepted = await SubmitAsync(guest, survey.TargetCode, "restore-before-decisions", Payload(survey));
                 await ReadMinimalReceiptAsync(accepted);
-                scope = await SeedRestoreScopeAsync(original, host, activity.Id, survey);
+                scope = await SeedRestoreScopeAsync(original, host, project, activity.Id, survey);
+                await using var services = host.Services.CreateAsyncScope();
+                services.ServiceProvider.GetRequiredService<CurrentTenantService>().SetTenant(host.Tenant.Id, host.Tenant.Slug);
+                var authorization = services.ServiceProvider.GetRequiredService<SurveyFeedbackAuthorization>();
+                var access = await authorization.ReadAccessAsync(new FeedbackActor(scope.TenantId, scope.RecipientId),
+                    scope.PresentationId, default);
+                Assert.True(access is { CanRead: true, Granted: true, Presenter: false, Reviewer: false, Operator: false });
             }
 
             await AssertRestoreProjectionAsync(original, scope, restricted: false);
@@ -64,8 +72,8 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
         });
     }
 
-    private static async Task<RestoreScope> SeedRestoreScopeAsync(string database, AdmissionHost host, Guid eventId,
-        SeededSurvey survey)
+    private static async Task<RestoreScope> SeedRestoreScopeAsync(string database, AdmissionHost host, Project project,
+        Guid eventId, SeededSurvey survey)
     {
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
         var submission = await db.Set<FormSubmission>().SingleAsync(row => row.SurveyTargetId == survey.TargetId);
@@ -80,7 +88,20 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
             activeDurationSeconds: null, now);
         grant.Approve(policy, host.Actor.Id, grant.VersionNo, now);
         grant.Accept(policy, grant.VersionNo, now);
-        await db.AddRangeAsync(policy, grant);
+        db.AddRange(policy, grant, new ProjectMember
+        {
+            TenantId = host.Tenant.Id, ProjectId = project.Id, UserId = host.Recipient.Id, Role = ProjectRole.Viewer,
+            JoinedAt = now
+        });
+        foreach (var capability in new[] { "feedback.invite.create", "feedback.invite.approve" })
+        {
+            db.Add(new CapabilityGrant
+            {
+                TenantId = host.Tenant.Id, SubjectUserId = host.Actor.Id, GrantedByUserId = host.Actor.Id,
+                ScopeType = CapabilityScopeType.Workspace, ScopeId = project.WorkspaceId,
+                CapabilityKey = capability, GrantedAt = now.AddMinutes(-1), ExpiresAt = now.AddHours(1)
+            });
+        }
         await db.SaveChangesAsync();
 
         return new RestoreScope(host.Tenant.Id, host.Actor.Id, host.Recipient.Id, survey.PresentationId,
