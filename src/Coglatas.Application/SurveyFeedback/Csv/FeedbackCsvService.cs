@@ -250,18 +250,10 @@ public sealed class FeedbackCsvService(
         if (access is not { CanRead: true })
             return SurveyFeedbackService.NotFound<PresentationFeedbackScope>();
 
-        var capability = mode switch
-        {
-            "aggregate" when access.Presenter => "feedback.export.aggregate",
-            "detail" when access.Reviewer || access.Operator => "feedback.export.detail",
-            "aggregate" or "detail" => "",
-            _ => null
-        };
-        if (capability is null)
+        if (mode is not ("aggregate" or "detail"))
             return SurveyFeedbackService.Invalid<PresentationFeedbackScope>();
 
-        return capability.Length > 0 &&
-            await authorization.HasCapabilityAsync(actor, access.Scope, capability, cancellationToken)
+        return await authorization.CanExportAsync(actor, access, detail: mode == "detail", cancellationToken)
             ? Result<PresentationFeedbackScope>.Success(access.Scope)
             : Failure<PresentationFeedbackScope>("CapabilityDenied", "The current scope does not permit this export.");
     }

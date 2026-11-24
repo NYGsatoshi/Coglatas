@@ -100,7 +100,7 @@ public sealed class FeedbackCsvLifecycleTests
     }
 
     private sealed class Fixture : ICurrentTenant, ICurrentUser, IClock, IProjectAuthorizationService,
-        ITenantRepository, ICapabilityGrantEvaluator, ISurveyFeedbackRepository, IFeedbackCsvRepository,
+        ITenantRepository, IWorkspaceRepository, ICapabilityGrantEvaluator, ISurveyFeedbackRepository, IFeedbackCsvRepository,
         ISessionRepository, ICreateIdempotencyCoordinator, IUnitOfWork, IAuditLogger
     {
         private readonly Dictionary<(string Operation, string Key), CreateIdempotencyContext> claims = [];
@@ -141,7 +141,7 @@ public sealed class FeedbackCsvLifecycleTests
         public DateTimeOffset UtcNow { get; } = DateTimeOffset.UnixEpoch.AddYears(50);
 
         public FeedbackCsvService CreateService() =>
-            new(new SurveyFeedbackAuthorization(this, this, this, this, this, this, this),
+            new(new SurveyFeedbackAuthorization(this, this, this, this, this, this, this, this),
                 this, this, this, this, this, this, new CanonicalRedactionService(), this);
 
         public Task<TenantUser?> GetTenantUserAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken) =>
@@ -230,6 +230,18 @@ public sealed class FeedbackCsvLifecycleTests
         public Task<IReadOnlyList<TenantUser>> ListUserTenantMembershipsAsync(Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task AddTenantUserAsync(TenantUser tenantUser, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<User?> GetUserAsync(Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<Workspace>> ListForUserAsync(Guid userId, bool includeAll, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+        public Task<Workspace?> GetByIdAsync(Guid workspaceId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+        public Task<WorkspaceMember?> GetMemberAsync(Guid workspaceId, Guid userId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+        public Task<IReadOnlyList<WorkspaceMember>> ListMembersAsync(Guid workspaceId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+        public Task AddAsync(Workspace workspace, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task AddMemberAsync(WorkspaceMember member, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> IsInvitationEnabledAsync(Guid tenantId, Guid eventId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
         public Task<FeedbackEventScope?> GetEventScopeAsync(Guid tenantId, Guid eventId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<PresentationFeedbackScope>> GetCandidateScopesAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<SurveyFeedbackSnapshot>> ReadAsync(Guid tenantId, Guid presentationId, string? fieldKey,
