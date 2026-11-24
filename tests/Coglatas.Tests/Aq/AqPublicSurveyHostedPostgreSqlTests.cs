@@ -294,11 +294,18 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
 
     private static async Task<SeededSurvey> SeedAsync(
         string database, AdmissionHost host, Project project, ActivityEvent activity, bool presenterFeedbackFixture = false,
-        SurveyField? additionalQuestion = null)
+        SurveyField? additionalQuestion = null, Guid? existingSettingsId = null)
     {
-        var settings = EventFeedbackSettings.Create(activity, activity.StartsAt, activity.EndsAt, "UTC");
-        settings.SetProgram(settings.VersionNo, true, SurveyProgramFields.Title | SurveyProgramFields.TimeZone,
-            presenterNamesApproved: false);
+        await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+        var settings = existingSettingsId is Guid settingsId
+            ? await db.Set<EventFeedbackSettings>().SingleAsync(row => row.Id == settingsId && row.EventId == activity.Id)
+            : EventFeedbackSettings.Create(activity, activity.StartsAt, activity.EndsAt, "UTC");
+        if (existingSettingsId is null)
+        {
+            settings.SetProgram(settings.VersionNo, true, SurveyProgramFields.Title | SurveyProgramFields.TimeZone,
+                presenterNamesApproved: false);
+            db.Add(settings);
+        }
         var definition = FormDefinition.Create(activity.TenantId, host.Actor.Id, null, null,
             project.Id, FormPurpose.Survey, "Synthetic audience feedback");
         var presentation = Presentation.Create(activity, "Synthetic presentation", "Unselected room",
@@ -316,11 +323,9 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
         var programCode = Guid.NewGuid().ToString("N");
         var targetCode = Guid.NewGuid().ToString("N");
         var codec = host.Services.GetRequiredService<IAqPublicProjectionCodec>();
-        var publicProgram = SurveyPublicCode.ForProgram(settings, AqPublicSurveyService.Hash(programCode), null);
         var publicTarget = SurveyPublicCode.ForTarget(target, AqPublicSurveyService.Hash(targetCode), codec.ProtectEntry(targetCode));
 
-        await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
-        db.AddRange(settings, definition, presentation, campaign, target, common, extra);
+        db.AddRange(definition, presentation, campaign, target, common, extra);
         if (presenterFeedbackFixture)
         {
             var membership = await db.WorkspaceMembers.SingleAsync(row =>
@@ -331,7 +336,9 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
         db.Add(schema);
         await db.SaveChangesAsync();
         target.Publish(target.VersionNo, schema);
-        db.AddRange(SurveyProgramEntry.Select(presentation, target), publicProgram, publicTarget);
+        if (existingSettingsId is null)
+            db.Add(SurveyPublicCode.ForProgram(settings, AqPublicSurveyService.Hash(programCode), null));
+        db.AddRange(SurveyProgramEntry.Select(presentation, target), publicTarget);
         await db.SaveChangesAsync();
 
         return new SeededSurvey(programCode, targetCode, settings.Id, presentation.Id, target.Id, schema.Id,
