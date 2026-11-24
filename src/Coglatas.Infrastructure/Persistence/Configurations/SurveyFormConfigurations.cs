@@ -75,6 +75,11 @@ public sealed class FormFieldDefinitionConfiguration : IEntityTypeConfiguration<
         {
             table.HasCheckConstraint("CK_form_field_definitions_version", "num_nonnulls(\"FormVersionId\", \"TargetQuestionSetVersionId\") = 1");
             table.HasCheckConstraint("CK_form_field_definitions_order", "\"SortOrder\" >= 0");
+            table.HasCheckConstraint("CK_form_field_definitions_compatibility", """
+                ("CompatiblePreviousFieldId" IS NULL AND "CompatibilityRootFieldId" IS NULL) OR
+                ("CompatiblePreviousFieldId" IS NOT NULL AND "CompatibilityRootFieldId" IS NOT NULL AND
+                    "CompatiblePreviousFieldId" <> "Id" AND "CompatibilityRootFieldId" <> "Id")
+                """);
         });
         builder.ConfigureEntity();
         builder.Property(field => field.FieldKey).HasMaxLength(128).IsRequired();
@@ -83,6 +88,13 @@ public sealed class FormFieldDefinitionConfiguration : IEntityTypeConfiguration<
         builder.Property(field => field.OptionsJson).HasColumnType("jsonb").IsRequired();
         builder.Property(field => field.ConstraintsJson).HasColumnType("jsonb");
         builder.HasAlternateKey(field => new { field.Id, field.TenantId });
+        builder.HasAlternateKey(field => new { field.Id, field.TenantId, field.FieldKey });
+        builder.HasOne<FormFieldDefinition>().WithMany()
+            .HasForeignKey(field => new { field.CompatiblePreviousFieldId, field.TenantId, field.FieldKey })
+            .HasPrincipalKey(field => new { field.Id, field.TenantId, field.FieldKey }).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<FormFieldDefinition>().WithMany()
+            .HasForeignKey(field => new { field.CompatibilityRootFieldId, field.TenantId, field.FieldKey })
+            .HasPrincipalKey(field => new { field.Id, field.TenantId, field.FieldKey }).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(field => new { field.TenantId, field.FormVersionId, field.SortOrder }).IsUnique()
             .HasFilter("\"FormVersionId\" IS NOT NULL");
         builder.HasIndex(field => new { field.TenantId, field.TargetQuestionSetVersionId, field.SortOrder }).IsUnique()

@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Forms.PublicSurveys;
+using Coglatas.Application.SurveyFeedback;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +16,8 @@ public sealed class EfAqPublicSurveyStore(
     AppDbContext context,
     ICurrentTenantAccessor currentTenant,
     IAqPublicProjectionCodec codec,
-    IClock clock) : IAqPublicSurveyStore
+    IClock clock,
+    ISurveyFeedbackInvalidation invalidation) : IAqPublicSurveyStore
 {
     public Task<AqPublicProgram?> ReadProgramAsync(
         string codeDigest, string? cursor, int pageSize, CancellationToken cancellationToken) =>
@@ -178,6 +180,7 @@ public sealed class EfAqPublicSurveyStore(
                 if (decision.Plan is { } plan)
                 {
                     PersistSubmission(target, keyDigest, previous, plan);
+                    await invalidation.InvalidateAsync(target.Target.TenantId, target.Target.PresentationId, token);
                 }
                 if (decision.Plan is not null || expired)
                 {

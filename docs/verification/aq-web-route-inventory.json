@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "scope": "current-web-only",
+  "avaloniaPromotion": false,
+  "routes": [
+    {
+      "path": "/aq/events/:code",
+      "kind": "screen",
+      "component": "AqPublicProgram",
+      "ownerPath": "frontend/src/app/features/aq/aq-public-program.ts",
+      "stateOwners": [
+        "AqPublicProgram",
+        "AqApi"
+      ],
+      "access": "public"
+    },
+    {
+      "path": "/aq/feedback",
+      "kind": "screen",
+      "component": "AqFeedbackHome",
+      "ownerPath": "frontend/src/app/features/aq/aq-feedback.ts",
+      "stateOwners": [
+        "AqFeedbackHome",
+        "AqApi",
+        "RealtimeFacade"
+      ],
+      "access": "signed-in"
+    },
+    {
+      "path": "/aq/feedback/:presentationId",
+      "kind": "screen",
+      "component": "AqFeedbackDetail",
+      "ownerPath": "frontend/src/app/features/aq/aq-feedback.ts",
+      "stateOwners": [
+        "AqFeedbackDetail",
+        "AqApi",
+        "RealtimeFacade"
+      ],
+      "access": "signed-in"
+    },
+    {
+      "path": "/aq/feedback/inbox",
+      "kind": "screen",
+      "component": "AqFeedbackInbox",
+      "ownerPath": "frontend/src/app/features/aq/aq-feedback.ts",
+      "stateOwners": [
+        "AqFeedbackInbox",
+        "AqApi",
+        "RealtimeFacade"
+      ],
+      "access": "signed-in"
+    },
+    {
+      "path": "/aq/manage",
+      "kind": "screen",
+      "component": "AqManagementIndex",
+      "ownerPath": "frontend/src/app/features/aq/aq-management.ts",
+      "stateOwners": [
+        "AqManagementIndex",
+        "AqApi"
+      ],
+      "access": "signed-in"
+    },
+    {
+      "path": "/aq/manage/:eventId",
+      "kind": "screen",
+      "component": "AqManagement",
+      "ownerPath": "frontend/src/app/features/aq/aq-management.ts",
+      "stateOwners": [
+        "AqManagement",
+        "AqApi"
+      ],
+      "access": "signed-in"
+    },
+    {
+      "path": "/aq/surveys/:code",
+      "kind": "screen",
+      "component": "AqPublicSurvey",
+      "ownerPath": "frontend/src/app/features/aq/aq-public-survey.ts",
+      "stateOwners": [
+        "AqPublicSurvey",
+        "AqApi"
+      ],
+      "access": "public"
+    }
+  ],
+  "stateOwners": [
+    {
+      "name": "AqPublicProgram",
+      "sourcePath": "frontend/src/app/features/aq/aq-public-program.ts",
+      "kind": "component-local"
+    },
+    {
+      "name": "AqFeedbackHome",
+      "sourcePath": "frontend/src/app/features/aq/aq-feedback.ts",
+      "kind": "component-local"
+    },
+    {
+      "name": "AqFeedbackDetail",
+      "sourcePath": "frontend/src/app/features/aq/aq-feedback.ts",
+      "kind": "component-local"
+    },
+    {
+      "name": "AqFeedbackInbox",
+      "sourcePath": "frontend/src/app/features/aq/aq-feedback.ts",
+      "kind": "component-local"
+    },
+    {
+      "name": "AqManagementIndex",
+      "sourcePath": "frontend/src/app/features/aq/aq-management.ts",
+      "kind": "component-local"
+    },
+    {
+      "name": "AqManagement",
+      "sourcePath": "frontend/src/app/features/aq/aq-management.ts",
+      "kind": "component-local"
+    },
+    {
+      "name": "AqPublicSurvey",
+      "sourcePath": "frontend/src/app/features/aq/aq-public-survey.ts",
+      "kind": "component-local"
+    },
+    {
+      "name": "AqApi",
+      "sourcePath": "frontend/src/app/features/aq/aq-api.ts",
+      "kind": "http-service"
+    }
+  ]
+}

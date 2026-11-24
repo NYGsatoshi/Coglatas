@@ -9,6 +9,14 @@ import { AppPermissionDeniedComponent } from './shared/permission/app-permission
 
 export const routes: Routes = [
   {
+    path: 'aq/events/:code',
+    loadComponent: () => import('./features/aq/aq-public-program').then(module => module.AqPublicProgram),
+  },
+  {
+    path: 'aq/surveys/:code',
+    loadComponent: () => import('./features/aq/aq-public-survey').then(module => module.AqPublicSurvey),
+  },
+  {
     path: 'signin',
     pathMatch: 'full',
     redirectTo: 'login'
@@ -43,6 +51,26 @@ export const routes: Routes = [
         path: '',
         pathMatch: 'full',
         redirectTo: 'workspaces'
+      },
+      {
+        path: 'aq/feedback',
+        loadComponent: () => import('./features/aq/aq-feedback').then(module => module.AqFeedbackHome),
+      },
+      {
+        path: 'aq/feedback/inbox',
+        loadComponent: () => import('./features/aq/aq-feedback').then(module => module.AqFeedbackInbox),
+      },
+      {
+        path: 'aq/feedback/:presentationId',
+        loadComponent: () => import('./features/aq/aq-feedback').then(module => module.AqFeedbackDetail),
+      },
+      {
+        path: 'aq/manage',
+        loadComponent: () => import('./features/aq/aq-management').then(module => module.AqManagementIndex),
+      },
+      {
+        path: 'aq/manage/:eventId',
+        loadComponent: () => import('./features/aq/aq-management').then(module => module.AqManagement),
       },
       {
         path: 'home',

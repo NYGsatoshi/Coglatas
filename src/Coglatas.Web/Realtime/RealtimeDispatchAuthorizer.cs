@@ -3,6 +3,7 @@ using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Messaging;
 using Coglatas.Application.Projects;
 using Coglatas.Application.Realtime;
+using Coglatas.Application.SurveyFeedback;
 using Coglatas.Application.Workspaces;
 using Coglatas.Application.Files;
 using Coglatas.Application.Notifications;
@@ -17,7 +18,8 @@ public sealed class RealtimeDispatchAuthorizer(
     IFileRepository files,
     IFileAuthorizationService fileAuthorization,
     INotificationTargetResolver notifications,
-    IRealtimeEventTargetResolver eventTargets) : IRealtimeDispatchAuthorizer
+    IRealtimeEventTargetResolver eventTargets,
+    SurveyFeedbackAuthorization? feedback = null) : IRealtimeDispatchAuthorizer
 {
     public async Task<bool> CanReceiveAsync(HubSubscription subscription, RealtimeSubscriptionType targetType, Guid targetResourceId, DurableEventEnvelope envelope, CancellationToken cancellationToken = default)
     {
@@ -49,6 +51,17 @@ public sealed class RealtimeDispatchAuthorizer(
         if (!session.IsValid)
         {
             return false;
+        }
+
+        if (envelope.EventType == SurveyFeedbackInvalidation.EventName)
+        {
+            return feedback is not null && targetType == RealtimeSubscriptionType.User &&
+                targetResourceId == subscription.UserId &&
+                envelope.AggregateType == "Presentation" && envelope.Actor == RealtimeActor.System() &&
+                envelope.Payload.ValueKind == System.Text.Json.JsonValueKind.Object &&
+                !envelope.Payload.EnumerateObject().Any() &&
+                await feedback.ReadAccessAsync(new FeedbackActor(subscription.TenantId, subscription.UserId),
+                    envelope.AggregateId, cancellationToken) is { CanRead: true };
         }
 
         if (envelope.EventType == "Notifications.NotificationCreated.v1")

@@ -1,0 +1,36 @@
+.aq-page {
+  max-inline-size: 50rem;
+  margin-inline: auto;
+  padding: clamp(1rem, 4vw, 2.5rem);
+  line-height: 1.65;
+}
+.aq-page h1 { line-height: 1.25; margin-block: 0 1rem; overflow-wrap: anywhere; }
+.aq-page form, .aq-grid { display: grid; gap: 1rem; }
+.aq-page fieldset, .aq-panel, .aq-list > li {
+  border: 1px solid currentColor;
+  border-radius: 0.6rem;
+  margin: 0;
+  padding: 0.8rem 1rem;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.aq-page legend { padding-inline: 0.25rem; }
+.aq-page label { display: block; }
+.aq-page input:not([type=checkbox], [type=radio]), .aq-page textarea, .aq-page select {
+  display: block;
+  inline-size: 100%;
+  box-sizing: border-box;
+  min-block-size: 2.75rem;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 0.25rem;
+  padding: 0.35rem 0.5rem;
+}
+.aq-page textarea { min-block-size: 5rem; resize: vertical; }
+.aq-page button { font: inherit; padding: 0.35rem 0.9rem; min-block-size: 2.75rem; }
+.aq-page :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.aq-list { list-style: none; display: grid; gap: 0.75rem; padding: 0; }
+.aq-list p, .aq-panel p { margin-block: 0.25rem; white-space: pre-wrap; }
+.aq-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using Coglatas.Application.Common;
 using Coglatas.Application.Common.Interfaces;
+using Coglatas.Application.SurveyFeedback;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 
@@ -55,6 +56,13 @@ public sealed class TransactionalOutbox(
             return Result<Guid>.Failure("The durable realtime event routing contract is invalid.");
         }
 
+        if (envelope.EventType == SurveyFeedbackInvalidation.EventName &&
+            (envelope.AggregateType != "Presentation" || envelope.Actor != RealtimeActor.System() ||
+             envelope.Payload.ValueKind != JsonValueKind.Object || envelope.Payload.EnumerateObject().Any()))
+        {
+            return Result<Guid>.Failure("The feedback invalidation is not an approved projection.");
+        }
+
         var payloadJson = JsonSerializer.Serialize(envelope, JsonOptions);
         var routingJson = JsonSerializer.Serialize(routingTargets, JsonOptions);
         if (payloadJson.Length > 65536 ||
@@ -94,7 +102,7 @@ public sealed class TransactionalOutbox(
             return routingTargets.All(target => target.SubscriptionType is RealtimeSubscriptionType.Conversation or RealtimeSubscriptionType.User);
         }
 
-        if (eventType is "Messaging.ConversationUnreadChanged.v1" or "Notifications.NotificationCreated.v1" or "Notifications.NotificationReadStateChanged.v1" or "Security.AuthorizationStateChanged.v1")
+        if (eventType is "Messaging.ConversationUnreadChanged.v1" or "Notifications.NotificationCreated.v1" or "Notifications.NotificationReadStateChanged.v1" or "Security.AuthorizationStateChanged.v1" or SurveyFeedbackInvalidation.EventName)
         {
             return routingTargets.All(target => target.SubscriptionType == RealtimeSubscriptionType.User);
         }

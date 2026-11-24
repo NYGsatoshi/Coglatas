@@ -13,6 +13,11 @@ internal static partial class SecurityArchitectureRlsRowFixtures
     private static readonly HashSet<Type> SurveySourceTypes =
     [
         typeof(EventFeedbackSettings),
+        typeof(AnswerVisibilityDecision),
+        typeof(FeedbackInvitationPolicy),
+        typeof(FeedbackReadState),
+        typeof(FeedbackReportCase),
+        typeof(FeedbackViewerGrant),
         typeof(FormDefinition),
         typeof(FormFieldDefinition),
         typeof(FormSubmission),
@@ -23,17 +28,21 @@ internal static partial class SecurityArchitectureRlsRowFixtures
         typeof(PresentationParticipant),
         typeof(PublishedSurveySchema),
         typeof(PublishedSurveySchemaField),
+        typeof(SharedTeacherFeedback),
         typeof(SubmissionIdempotency),
         typeof(SurveyCampaign),
+        typeof(SurveyFeedbackExportGrant),
+        typeof(SurveyFeedbackExportRequest),
         typeof(SurveyProgramEntry),
         typeof(SurveyPublicCode),
         typeof(SurveyRespondentIdentity),
         typeof(SurveyTarget),
-        typeof(TargetQuestionSetVersion)
+        typeof(TargetQuestionSetVersion),
+        typeof(TeacherPrivateNote)
     ];
 
     private sealed record SurveySourceRows(
-        IReadOnlyList<AuditableEntity> Rows, SurveyTarget PublishedTarget);
+        IReadOnlyList<AuditableEntity> Rows, SurveyTarget PublishedTarget, User FeedbackRecipient);
 
     private static SurveySourceRows CreateSurveySourceRows(Dictionary<string, object> rows, Guid tenant)
     {
@@ -76,6 +85,15 @@ internal static partial class SecurityArchitectureRlsRowFixtures
             ?? throw new InvalidOperationException("The named survey fixture requires an identity record.");
         var receipt = SubmissionIdempotency.Record(submission, SurveyDigest(tenant, "key"), SurveyDigest(tenant, "intent"),
             JsonSerializer.Serialize(new { submissionId = submission.Id }));
+        var recipientEmail = $"synthetic-feedback-{tenant:N}@example.invalid";
+        var recipient = new User
+        {
+            DisplayName = "Synthetic feedback recipient",
+            Email = recipientEmail,
+            NormalizedEmail = recipientEmail.ToUpperInvariant(),
+            PasswordHash = user.PasswordHash,
+            CreatedAt = startsAt
+        };
         AuditableEntity[] entities =
         [
             eventSettings, definition, version, version.Fields.Single(), submission, submission.Values.Single(),
@@ -83,12 +101,59 @@ internal static partial class SecurityArchitectureRlsRowFixtures
             PresentationParticipant.PendingPresenter(presentation, "synthetic-roster"),
             schema, schema.Fields.Single(), receipt, campaign, SurveyProgramEntry.Select(presentation, publishedTarget),
             SurveyPublicCode.ForTarget(publishedTarget, SurveyDigest(tenant, "code"), protectedReprintValue: null),
-            identity, target, targetVersion
+            identity, target, targetVersion,
+            .. CreateFeedbackSourceRows(tenant, activityEvent, presentation, submission, user, recipient)
         ];
         foreach (var entity in entities)
             entity.CreatedAt = startsAt;
         publishedTarget.CreatedAt = target.CreatedAt;
-        return new SurveySourceRows(entities, publishedTarget);
+        return new SurveySourceRows(entities, publishedTarget, recipient);
+    }
+
+    private static IReadOnlyList<AuditableEntity> CreateFeedbackSourceRows(Guid tenant, ActivityEvent activityEvent,
+        Presentation presentation, FormSubmission submission, User author, User recipient)
+    {
+        var answer = submission.Values.Single();
+        var now = submission.SubmittedAtUtc;
+        var policy = new FeedbackInvitationPolicy
+        {
+            TenantId = tenant,
+            EventId = activityEvent.Id,
+            Enabled = true,
+            DecisionWindowSeconds = 60,
+            MaximumActiveSeconds = 3600
+        };
+        var invitation = FeedbackViewerGrant.Issue(presentation.Id, author.Id, recipient.Id, policy, 600, now);
+        var visibility = new AnswerVisibilityDecision { TenantId = tenant, FormSubmissionValueId = answer.Id };
+        visibility.Decide(hide: true, author.Id, "Synthetic visibility decision", visibility.VersionNo);
+        var export = SurveyFeedbackExportRequest.Prepare(Guid.NewGuid(), tenant, presentation.Id, author.Id, "aggregate",
+            "[\"responseCount\"]", SurveyDigest(tenant, "export"), "synthetic-export", now.AddMinutes(5));
+
+        return
+        [
+            visibility, policy, invitation, export,
+            SurveyFeedbackExportGrant.Issue(Guid.NewGuid(), export, "synthetic-grant", now.AddMinutes(1)),
+            new FeedbackReadState
+            {
+                TenantId = tenant, UserId = author.Id, FormSubmissionId = submission.Id,
+                ObservedRevision = 1, IsRead = true
+            },
+            new FeedbackReportCase
+            {
+                TenantId = tenant, PresentationId = presentation.Id, FormSubmissionValueId = answer.Id,
+                ReporterUserId = author.Id, Reason = "Synthetic moderation report"
+            },
+            new TeacherPrivateNote
+            {
+                TenantId = tenant, PresentationId = presentation.Id, AuthorUserId = author.Id,
+                Text = "Synthetic private note"
+            },
+            new SharedTeacherFeedback
+            {
+                TenantId = tenant, PresentationId = presentation.Id, AuthorUserId = author.Id,
+                Text = "Synthetic shared feedback"
+            }
+        ];
     }
 
     private static Task PublishSurveyTargetAsync(string database, SurveySourceRows survey) =>

@@ -64,8 +64,16 @@ public static class AngularSpaFallback
         if (IsApiPath(context.Request.Path))
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;
-            await context.Response.WriteAsJsonAsync(
-                new ErrorResponse("NotFound", "Endpoint not found.", context.TraceIdentifier));
+            const string message = "Endpoint not found.";
+            if (AqPublicRoutes.IsProtectedSurvey(context) || AqPublicRoutes.IsPublicSurvey(context.Request.Path))
+            {
+                await context.Response.WriteAsJsonAsync(ApiEnvelope.Error(
+                    context, StatusCodes.Status404NotFound, "NotFound", message), context.RequestAborted);
+            }
+            else
+            {
+                await context.Response.WriteAsJsonAsync(new ErrorResponse("NotFound", message, context.TraceIdentifier));
+            }
             return;
         }
 

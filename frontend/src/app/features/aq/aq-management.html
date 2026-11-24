@@ -1,0 +1,195 @@
+<section lang="ja" class="aq-page">
+  <a routerLink="/aq/feedback">発表一覧へ</a>
+  <h1>発表イベントの運営</h1>
+  @if (busy()) { <p role="status">処理中…</p> }
+  @if (failed()) { <p role="alert">操作を完了できませんでした。アクセス権や現在の設定を確認してください。</p> }
+  @if (outcome()) { <p role="status">{{ outcome() }}</p> }
+  <button type="button" [disabled]="busy()" (click)="load()">更新</button>
+  @if (!busy() && !failed() && !data()) {
+    <h2>受付の初期設定</h2>
+    <form (submit)="initializeReception($event)">
+      <label>受付開始（この端末の時間帯） <input type="datetime-local" required [value]="start()" (input)="start.set($any($event.target).value)"></label>
+      <label>受付終了（この端末の時間帯） <input type="datetime-local" required [value]="end()" (input)="end.set($any($event.target).value)"></label>
+      <label>公開プログラムの時間帯 <input type="text" required [value]="timeZone()" (input)="timeZone.set($any($event.target).value)"></label>
+      <button type="submit">受付を設定</button>
+    </form>
+  }
+  @if (data(); as event) {
+    <h2>公開と受付</h2>
+    <fieldset [disabled]="busy()">
+      <label><input type="checkbox" [checked]="event.settings.programPublished" (change)="setEventSetting('programPublished', $any($event.target).checked)"> 発表一覧を公開</label>
+      <label><input type="checkbox" [checked]="event.settings.receptionStopped" (change)="setEventSetting('receptionStopped', $any($event.target).checked)"> 回答受付を停止</label>
+      <label><input type="checkbox" [checked]="event.settings.resultsStopped" (change)="setEventSetting('resultsStopped', $any($event.target).checked)"> 結果の閲覧を停止</label>
+      <label>回答者名
+        <select [value]="event.settings.nameMode" (change)="setNameMode($any($event.target).value)">
+          <option value="anonymous">匿名</option>
+          <option value="optionalName">お名前は任意</option>
+          <option value="requiredName">お名前は必須</option>
+        </select>
+      </label>
+      @if (event.settings.nameMode !== 'anonymous') {
+        <label><input type="checkbox" [checked]="event.settings.accountBindingAllowed" (change)="setEventSetting('accountBindingAllowed', $any($event.target).checked)"> 同意によるアカウント連携を許可</label>
+      }
+      <button type="button" (click)="rotateProgram()">発表一覧リンクを発行または更新</button>
+      @if (programCode()) { <p><a [routerLink]="['/aq/events', programCode()]">発表一覧の公開リンク</a></p> }
+    </fieldset>
+    <h2>発表</h2>
+    <ul class="aq-list">
+      @for (row of presentations(); track row.presentation.id) {
+        <li><a [routerLink]="['/aq/feedback', row.presentation.id]">{{ row.presentation.title }}</a></li>
+      } @empty { <li>発表はまだ登録されていません。</li> }
+    </ul>
+    <form (submit)="createPresentation($event)">
+      <label>発表名 <input type="text" required [value]="title()" (input)="title.set($any($event.target).value)"></label>
+      <label>会場 <input type="text" [value]="venue()" (input)="venue.set($any($event.target).value)"></label>
+      <label>開始日時（この端末の時間帯）
+        <input type="datetime-local" required [value]="start()" (input)="start.set($any($event.target).value)">
+      </label>
+      <label>終了日時（この端末の時間帯）
+        <input type="datetime-local" required [value]="end()" (input)="end.set($any($event.target).value)">
+      </label>
+      <button type="submit" [disabled]="busy()">発表を追加</button>
+    </form>
+    <h2>名簿の取り込み</h2>
+    <p>UTF-8 のCSVを使用します。列は presentationId、role、personRef、pendingRosterRef の順です。</p>
+    <label>CSVファイル <input type="file" accept=".csv,text/csv" [disabled]="busy()" (change)="upload($event)"></label>
+    @if (preview(); as result) {
+      <p>確認待ちの割り当て {{ result.proposedAssignments.length }}件</p>
+      @for (diagnostic of result.diagnostics; track $index) { <p>{{ diagnostic.row }}行目 · {{ diagnostic.code }}</p> }
+      <p>取り込みを確定すると、CSVに含まれる発表の割り当てが置き換わります。</p>
+      <button type="button" [disabled]="busy() || !result.expectedSourceVersions?.length || !!result.diagnostics.length || !result.proposedAssignments.length" (click)="commitImport()">内容を確認して取り込む</button>
+    }
+    <h2>共通フォームと設問</h2>
+    @if (projectId()) {
+      <form (submit)="createForm($event)">
+        <label>新しいフォーム名 <input type="text" required [value]="formTitle()" (input)="formTitle.set($any($event.target).value)"></label>
+        <button type="submit" [disabled]="busy()">共通フォームを追加</button>
+      </form>
+    }
+    <label>共通フォーム
+      <select [value]="formId()" (change)="selectForm($any($event.target).value)">
+        <option value="">選択してください</option>
+        @for (form of forms(); track form.id) { <option [value]="form.id">{{ form.title }}</option> }
+      </select>
+    </label>
+    @if (formId()) {
+      <h3>{{ editingKind() === 'common' ? '共通設問の編集' : '発表の追加設問の編集' }}</h3>
+      @if (editingKind() === 'target') {
+        <button type="button" [disabled]="busy()" (click)="editQuestions('common')">共通設問の編集に戻る</button>
+      }
+      @if (versions().length && editingKind() === 'common') {
+        <label>編集用に読み込む公開版
+          <select (change)="loadVersion($any($event.target).value)">
+            <option value="">選択してください</option>
+            @for (version of versions(); track version.id) {
+              <option [value]="version.id">第 {{ version.versionNo }} 版</option>
+            }
+          </select>
+        </label>
+      }
+      <ul class="aq-list">
+        @for (field of fields(); track field.fieldKey; let i = $index) {
+          <li>
+            <label>設問 {{ i + 1 }} <input type="text" [value]="field.label" (input)="renameField(field.fieldKey, $any($event.target).value)"></label>
+            @if (field.options?.length) { <p>選択肢 {{ field.options?.length }}件</p> }
+            <button type="button" (click)="removeField(field.fieldKey)">この設問を削除</button>
+          </li>
+        } @empty { <li>編集する設問はありません。</li> }
+      </ul>
+      <form (submit)="addField($event)">
+        <label>質問文 <input type="text" required [value]="questionLabel()" (input)="questionLabel.set($any($event.target).value)"></label>
+        <label>回答の種類
+          <select [value]="questionKind()" (change)="questionKind.set($any($event.target).value)">
+            <option value="text">自由記述</option><option value="number">数値</option><option value="scale">評価</option>
+            <option value="date">日付</option><option value="boolean">はい・いいえ</option>
+            <option value="singleChoice">単一選択</option><option value="multipleChoice">複数選択</option>
+          </select>
+        </label>
+        @if (questionKind() === 'singleChoice' || questionKind() === 'multipleChoice') {
+          <label>選択肢（1行に1件）
+            <textarea required [value]="options()" (input)="options.set($any($event.target).value)"></textarea>
+          </label>
+        }
+        <label><input type="checkbox" [checked]="questionRequired()" (change)="questionRequired.set($any($event.target).checked)"> 必須</label>
+        <button type="submit" [disabled]="busy()">設問を追加</button>
+      </form>
+      <label>版を更新する理由 <input type="text" [value]="versionReason()" (input)="versionReason.set($any($event.target).value)"></label>
+      <div class="aq-actions">
+        @if (editingKind() === 'common') {
+          <button type="button" [disabled]="busy() || !fields().length" (click)="publishQuestions('common')">共通設問を公開</button>
+        } @else {
+          <button type="button" [disabled]="busy() || !targetId()" (click)="publishQuestions('target')">この発表の追加設問を公開</button>
+        }
+        <button type="button" [disabled]="busy()" (click)="createCampaign()">このフォームでアンケートを作る</button>
+      </div>
+    }
+    <h2>アンケートの割り当てとQR資料</h2>
+    <label>アンケート
+      <select [value]="campaignId()" (change)="selectCampaign($any($event.target).value)">
+        <option value="">選択してください</option>
+        @for (campaign of campaigns(); track campaign.id; let i = $index) {
+          <option [value]="campaign.id">アンケート {{ i + 1 }} · {{ campaign.published ? '公開中' : '未公開' }}</option>
+        }
+      </select>
+    </label>
+    @if (campaignId()) {
+      <button type="button" [disabled]="busy()" (click)="publishCampaign()">アンケートを公開</button>
+      <div class="aq-panel aq-grid">
+        <label>割り当て先の発表
+          <select [value]="targetPresentation()" (change)="targetPresentation.set($any($event.target).value)">
+            <option value="">選択してください</option>
+            @for (row of presentations(); track row.presentation.id) {
+              <option [value]="row.presentation.id">{{ row.presentation.title }}</option>
+            }
+          </select>
+        </label>
+        <label>共通フォーム公開版
+          <select [value]="commonVersion()" (change)="commonVersion.set($any($event.target).value)">
+            <option value="">選択してください</option>
+            @for (version of versions(); track version.id) {
+              <option [value]="version.id">第 {{ version.versionNo }} 版</option>
+            }
+          </select>
+        </label>
+        <button type="button" [disabled]="busy() || !targetPresentation() || !commonVersion()" (click)="createTarget()">発表に割り当てる</button>
+      </div>
+      <label>発表
+        <select [value]="targetId()" (change)="targetId.set($any($event.target).value)">
+          <option value="">選択してください</option>
+          @for (target of targets(); track target.id) {
+            <option [value]="target.id">{{ presentationTitle(target.presentationId) }}</option>
+          }
+        </select>
+      </label>
+      @if (targetId()) {
+        <div class="aq-panel aq-grid">
+          <p>追加設問を使わない場合は、空の版を公開してください。</p>
+          <button type="button" [disabled]="busy()" (click)="editQuestions('target')">この発表の追加設問を編集</button>
+          <button type="button" [disabled]="busy()" (click)="rotateTarget()">回答リンクを発行または更新</button>
+          <button type="button" [disabled]="busy()" (click)="addProgramTarget()">回答リンクを発表一覧に追加</button>
+          @if (publicEntry()) { <p><a [routerLink]="['/aq/surveys', publicEntry()]">アンケートの公開リンク</a></p> }
+        </div>
+      }
+      <div class="aq-actions">
+        <button type="button" [disabled]="busy() || !targetId()" (click)="download('png')">QR画像 PNG</button>
+        <button type="button" [disabled]="busy() || !targetId()" (click)="download('svg')">QR画像 SVG</button>
+        <button type="button" [disabled]="busy()" (click)="download('pdf')">印刷用PDF</button>
+      </div>
+    }
+    <h2>閲覧招待の承認</h2>
+    <form (submit)="saveInvitationPolicy($event)">
+      <label><input type="checkbox" [checked]="invitesEnabled()" (change)="invitesEnabled.set($any($event.target).checked)"> 運営者が個別に承認する閲覧招待を許可</label>
+      <label>承認・同意の期限（日） <input type="number" min="1" required [value]="decisionDays()" (input)="decisionDays.set($any($event.target).value)"></label>
+      <label>閲覧できる最大日数 <input type="number" min="1" required [value]="durationDays()" (input)="durationDays.set($any($event.target).value)"></label>
+      <button type="submit" [disabled]="busy()">閲覧招待の設定を保存</button>
+    </form>
+    <ul class="aq-list">
+      @for (approval of approvals(); track approval.invitation.id) {
+        <li>
+          <p>{{ approval.presentationLabel }} · {{ approval.inviterLabel }} → {{ approval.recipientLabel }}</p>
+          <button type="button" [disabled]="busy()" (click)="approve(approval)">承認する</button>
+        </li>
+      } @empty { <li>承認待ちの招待はありません。</li> }
+    </ul>
+  }
+</section>

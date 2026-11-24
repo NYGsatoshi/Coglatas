@@ -23,7 +23,7 @@ public sealed class SecurityArchitectureApiAuthorizationTests
                 contentTypes = row.GetProperty("requestContentTypes").EnumerateArray()
                     .Select(item => item.GetString()).ToArray()
             }).ToArray();
-        Assert.Equal(387, protectedEndpoints.Length);
+        Assert.Equal(SecurityArchitectureApiInventoryTests.ExpectedProtectedHttpEndpointCount, protectedEndpoints.Length);
         await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
             PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
         {

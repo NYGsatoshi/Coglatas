@@ -16,7 +16,8 @@ public sealed class SecurityHeadersMiddleware(RequestDelegate next)
             headers["Permissions-Policy"] = HttpSecurityPolicy.PermissionsPolicy;
             headers["Content-Security-Policy"] = HttpSecurityPolicy.BuildContentSecurityPolicy(context.Request);
 
-            if (AqPublicRoutes.IsPublicSurvey(context.Request.Path) || AqPublicRoutes.IsProtectedSurvey(context.Request.Path))
+            if (AqPublicRoutes.IsPublicSurvey(context.Request.Path) ||
+                AqPublicRoutes.IsPublicSurveyPage(context.Request.Path) || AqPublicRoutes.IsProtectedSurvey(context))
             {
                 headers["Referrer-Policy"] = "no-referrer";
                 headers["Cache-Control"] = "no-store";

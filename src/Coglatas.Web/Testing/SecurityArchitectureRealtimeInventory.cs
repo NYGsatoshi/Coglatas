@@ -1,5 +1,6 @@
 using System.Reflection;
 using Coglatas.Application.Realtime;
+using Coglatas.Application.SurveyFeedback;
 using Coglatas.Web.Realtime;
 using Microsoft.AspNetCore.Authorization;
 
@@ -27,6 +28,7 @@ internal static class SecurityArchitectureRealtimeInventory
             }).ToArray(),
         subscriptionTypes = Enum.GetNames<RealtimeSubscriptionType>(),
         serverEvents = new[] { "DurableEvent" },
+        eventCatalogueGeneration = "AQ_ADDITIVE_V2",
         events = RealtimeEventCatalog.EventTypes.Order(StringComparer.Ordinal).Select(eventType => new
         {
             eventType, payloadSchemaVersion = RealtimeEventCatalog.PayloadSchemaVersion1,
@@ -44,6 +46,7 @@ internal static class SecurityArchitectureRealtimeInventory
 
     private static string DeliveryBoundary(string eventType) => eventType switch
     {
+        SurveyFeedbackInvalidation.EventName => "CURRENT_SESSION_USER_ROUTE_AND_CURRENT_PRESENTATION_FEEDBACK_AUTHORITY_METADATA_ONLY",
         "Security.AuthorizationStateChanged.v1" => "TENANT_MATCH_AND_CURRENT_RECIPIENT_INVALIDATION_TARGET_NO_PROTECTED_PAYLOAD",
         "Notifications.NotificationCreated.v1" => "CURRENT_SESSION_USER_ROUTE_AND_CURRENT_NOTIFICATION_TARGET",
         "Notifications.NotificationReadStateChanged.v1" => "CURRENT_SESSION_USER_ROUTE_AND_CURRENT_READ_STATE_TARGET",

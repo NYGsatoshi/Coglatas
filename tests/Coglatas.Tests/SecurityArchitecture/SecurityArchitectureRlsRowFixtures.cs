@@ -84,6 +84,12 @@ internal static partial class SecurityArchitectureRlsRowFixtures
             type => SourceParents(type, rows[type], historicalForms).ToHashSet());
         var target = insertTarget is null ? null : rows.Keys.SingleOrDefault(type => type.GetTableName() == insertTarget);
         var pending = target is null ? rows.Keys.ToList() : Ancestors(target, parents).Where(type => type != target).ToList();
+        var viewerGrantType = db.Model.FindEntityType(typeof(FeedbackViewerGrant))!;
+        if (survey is not null && (pending.Contains(viewerGrantType) || target == viewerGrantType))
+        {
+            var userType = db.Model.FindEntityType(typeof(User))!;
+            await InsertAsync(database, InsertCommand(userType, survey.FeedbackRecipient, historicalForms));
+        }
         var saved = new HashSet<IEntityType>();
         var failed = new HashSet<IEntityType>();
         var errors = new List<string>();

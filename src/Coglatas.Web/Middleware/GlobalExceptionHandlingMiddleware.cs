@@ -50,9 +50,11 @@ public sealed class GlobalExceptionHandlingMiddleware(
         }
         catch (Exception exception)
         {
-            if (AqPublicRoutes.IsPublicSurvey(context.Request.Path))
+            var surveyRequest = AqPublicRoutes.IsPublicSurvey(context.Request.Path) ||
+                AqPublicRoutes.IsProtectedSurvey(context);
+            if (surveyRequest)
             {
-                logger.LogError("Unhandled public survey failure. TraceId: {TraceId}", context.TraceIdentifier);
+                logger.LogError("Unhandled survey failure. TraceId: {TraceId}", context.TraceIdentifier);
             }
             else
             {
@@ -61,8 +63,7 @@ public sealed class GlobalExceptionHandlingMiddleware(
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
             context.Response.ContentType = "application/json";
 
-            if (IsWpcPath(context.Request.Path.Value) || AqPublicRoutes.IsPublicSurvey(context.Request.Path) ||
-                AqPublicRoutes.IsProtectedSurvey(context.Request.Path))
+            if (IsWpcPath(context.Request.Path.Value) || surveyRequest)
             {
                 await context.Response.WriteAsJsonAsync(ApiEnvelope.Error(
                     context,
@@ -120,12 +121,16 @@ public sealed class GlobalExceptionHandlingMiddleware(
                 unsupportedMediaType ? "UnsupportedMediaType" : "MalformedJson",
                 "The public survey request is invalid."));
         }
-        return context.Response.WriteAsJsonAsync(new ErrorResponse(
-            unsupportedMediaType ? "UnsupportedMediaType" : "InvalidRequest",
-            unsupportedMediaType
-                ? "The request Content-Type is not supported."
-                : "The request body is invalid.",
-            context.TraceIdentifier));
+        var code = unsupportedMediaType ? "UnsupportedMediaType" : "InvalidRequest";
+        var message = unsupportedMediaType
+            ? "The request Content-Type is not supported."
+            : "The request body is invalid.";
+        if (!unsupportedMediaType && AqPublicRoutes.IsProtectedSurvey(context))
+        {
+            return context.Response.WriteAsJsonAsync(ApiEnvelope.Error(
+                context, context.Response.StatusCode, code, message));
+        }
+        return context.Response.WriteAsJsonAsync(new ErrorResponse(code, message, context.TraceIdentifier));
     }
 
     private static bool IsFormRequest(HttpRequest request) =>

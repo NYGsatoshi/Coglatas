@@ -86,6 +86,7 @@ public sealed class FormVersion : AuditableEntity, ITenantEntity
     public int Number { get; private set; }
     public string SnapshotJson { get; private set; } = string.Empty;
     public DateTimeOffset PublishedAtUtc { get; private set; }
+    public string? CompatibilityChangeReason { get; private set; }
     public IReadOnlyList<FormFieldDefinition> Fields => _fields.AsReadOnly();
 
     public static FormVersion Publish(
@@ -102,6 +103,24 @@ public sealed class FormVersion : AuditableEntity, ITenantEntity
         };
         version._fields.AddRange(SurveySchemaSnapshot.ReadPart<SurveyField[]>(version.SnapshotJson).Select((field, order) =>
             FormFieldDefinition.Create(version.TenantId, version.Id, null, field, order)));
+        return version;
+    }
+
+    public static FormVersion PublishCorrection(
+        FormDefinition definition, FormVersion previous, int number, IReadOnlyList<SurveyField> fields,
+        DateTimeOffset publishedAt, string changeReason)
+    {
+        if (definition.Purpose != FormPurpose.Survey || previous.TenantId != definition.TenantId ||
+            previous.FormDefinitionId != definition.Id || previous.Number != number - 1 ||
+            previous.PublishedAtUtc > publishedAt)
+        {
+            throw new ArgumentException("A common correction must directly follow a version of its own Survey form.");
+        }
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(changeReason);
+        var version = Publish(definition, number, fields, publishedAt);
+        FormFieldDefinition.LinkCorrections(previous.Fields, version._fields);
+        version.CompatibilityChangeReason = changeReason.Trim();
         return version;
     }
 }
@@ -128,6 +147,7 @@ public sealed class TargetQuestionSetVersion : AuditableEntity, ITenantEntity
     public int Number { get; private set; }
     public string SnapshotJson { get; private set; } = string.Empty;
     public DateTimeOffset PublishedAtUtc { get; private set; }
+    public string? CompatibilityChangeReason { get; private set; }
     public IReadOnlyList<FormFieldDefinition> Fields => _fields.AsReadOnly();
 
     public static TargetQuestionSetVersion Publish(
@@ -144,6 +164,23 @@ public sealed class TargetQuestionSetVersion : AuditableEntity, ITenantEntity
         };
         version._fields.AddRange(SurveySchemaSnapshot.ReadPart<SurveyField[]>(version.SnapshotJson).Select((field, order) =>
             FormFieldDefinition.Create(version.TenantId, null, version.Id, field, order)));
+        return version;
+    }
+
+    public static TargetQuestionSetVersion PublishCorrection(
+        SurveyTarget target, TargetQuestionSetVersion previous, int number, IReadOnlyList<SurveyField> fields,
+        DateTimeOffset publishedAt, string changeReason)
+    {
+        if (previous.TenantId != target.TenantId || previous.SurveyTargetId != target.Id ||
+            previous.Number >= number || previous.PublishedAtUtc > publishedAt)
+        {
+            throw new ArgumentException("A correction must follow a version of the same Survey target.");
+        }
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(changeReason);
+        var version = Publish(target, number, fields, publishedAt);
+        FormFieldDefinition.LinkCorrections(previous.Fields, version._fields);
+        version.CompatibilityChangeReason = changeReason.Trim();
         return version;
     }
 }
@@ -173,6 +210,11 @@ public sealed class FormFieldDefinition : AuditableEntity, ITenantEntity
     public bool IsRequired { get; private set; }
     public string OptionsJson { get; private set; } = string.Empty;
     public string? ConstraintsJson { get; private set; }
+    public Guid? CompatiblePreviousFieldId { get; private set; }
+    public Guid? CompatibilityRootFieldId { get; private set; }
+
+    public bool IsCompatibleCorrectionOf(SurveyField field) =>
+        HasSameAnswerContract(ToSurveyField(), field);
 
     internal static FormFieldDefinition Create(
         Guid tenantId, Guid? commonVersionId, Guid? additionalVersionId, SurveyField field, int order) =>
@@ -189,6 +231,33 @@ public sealed class FormFieldDefinition : AuditableEntity, ITenantEntity
             OptionsJson = SurveySchemaSnapshot.WritePart(field.Options),
             ConstraintsJson = field.Constraints is null ? null : SurveySchemaSnapshot.WritePart(field.Constraints)
         };
+
+    internal static void LinkCorrections(IReadOnlyList<FormFieldDefinition> previous, IReadOnlyList<FormFieldDefinition> next)
+    {
+        if (previous.Count != next.Count)
+        {
+            throw new ArgumentException("A correction must keep the published field set.");
+        }
+
+        var previousByOrder = previous.OrderBy(field => field.SortOrder).ToArray();
+        for (var index = 0; index < next.Count; index++)
+        {
+            var prior = previousByOrder[index];
+            var field = next[index];
+            if (!prior.IsCompatibleCorrectionOf(field.ToSurveyField()))
+            {
+                throw new ArgumentException("A correction must preserve the published answer contract.");
+            }
+            field.CompatiblePreviousFieldId = prior.Id;
+            field.CompatibilityRootFieldId = prior.CompatibilityRootFieldId ?? prior.Id;
+        }
+    }
+
+    private static bool HasSameAnswerContract(SurveyField previous, SurveyField next) =>
+        string.Equals(previous.FieldKey, next.FieldKey, StringComparison.Ordinal) &&
+        previous.Type == next.Type && previous.Required == next.Required && previous.Constraints == next.Constraints &&
+        previous.Options.Select(option => option.OptionKey).SequenceEqual(
+            next.Options.Select(option => option.OptionKey), StringComparer.Ordinal);
 
     public SurveyField ToSurveyField() =>
         new(FieldKey, Label, FieldType, IsRequired,

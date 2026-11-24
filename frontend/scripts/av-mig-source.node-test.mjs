@@ -85,6 +85,8 @@ const values = { failure: 1, loginIndex: 1, ownerIndex: 0, success: 0 };
       ['local state authorization promotion', (inventory, freeze, target, current) => { current.stateClassifications[1].authorizationAuthority = true; }, values.failure],
       ['current Web adapter source drift', (inventory, freeze, target, current) => { current.stateClassifications[0].adapterSourcePath = 'frontend/src/app/features/files/file-stars.repository.ts'; }, values.failure],
       ['missing current NgRx import fact', (inventory, freeze, target, current) => { current.ngrx.currentProductionImports = []; }, values.failure],
+      ['AQ Web Avalonia promotion', (inventory, freeze, target, current, aq) => { aq.avaloniaPromotion = true; }, values.failure, /AQ Web cannot promote Avalonia/u],
+      ['AQ Web owner removal', (inventory, freeze, target, current, aq) => { aq.routes[0].stateOwners.pop(); }, values.failure, /directly injected state owner drift/u],
     ],
     runProbe = (directory, mutate) => {
       const data = inputs(),
@@ -94,12 +96,13 @@ const values = { failure: 1, loginIndex: 1, ownerIndex: 0, success: 0 };
       writeFileSync(path, JSON.stringify(data));
       return spawnSync(process.execPath, [script, path], { encoding: 'utf8' });
     };
-  for (const [name, mutate, expected] of cases) {
+  for (const [name, mutate, expected, error] of cases) {
     test(`production source inventory CLI: ${name}`, () => {
       const directory = mkdtempSync(resolve(tmpdir(), 'av-mig-'));
       try {
         const result = runProbe(directory, mutate);
         assert.equal(result.status, expected, result.stderr);
+        if (error) { assert.match(result.stderr, error); }
       } finally {
         rmSync(directory, { force: true, recursive: true });
       }
@@ -131,9 +134,28 @@ const values = { failure: 1, loginIndex: 1, ownerIndex: 0, success: 0 };
       ['synchronized current Web route deletion',
         (source) => source.replace(/      \{\r?\n        path: 'drafts',[\s\S]*?\r?\n      \},\r?\n/u, ''),
         (data) => { data[3].routes = data[3].routes.filter((route) => route.path !== '/drafts'); }],
+      ['AQ Web lazy export selected from another object',
+        (source) => source.replace('module => module.AqPublicSurvey', 'module => unrelated.AqPublicSurvey'),
+        undefined, /Unsupported dynamic route component binding/u],
+      ['AQ Web wrong lazy export',
+        (source) => source.replace('module => module.AqFeedbackInbox', 'module => module.AqFeedbackDetail'),
+        undefined, /current Web component binding drift/u],
+      ['AQ Web wrong lazy module',
+        (source) => source.replace("import('./features/aq/aq-public-survey')", "import('./features/aq/aq-public-program')"),
+        undefined, /current Web component module drift/u],
+      ['AQ Web signed-in route without its inherited guard',
+        (source) => source.replace('canActivate: [authSessionGuard],', ''),
+        undefined, /AQ Web guard binding drift/u],
+      ['AQ Web public route with a session guard',
+        (source) => source.replace("path: 'aq/surveys/:code',", "path: 'aq/surveys/:code', canActivate: [authSessionGuard],"),
+        undefined, /AQ Web guard binding drift/u],
+      ['synchronized AQ Web route deletion',
+        (source) => source.replace(/      \{\r?\n        path: 'aq\/feedback\/inbox',[\s\S]*?\r?\n      \},\r?\n/u, ''),
+        (data) => { data[4].routes = data[4].routes.filter((route) => route.path !== '/aq/feedback/inbox'); },
+        /AQ Web route addendum drift/u],
     ];
 
-  for (const [name, mutate, mutateData] of cases) {
+  for (const [name, mutate, mutateData, error] of cases) {
 // Node's test runner owns completion and reports callback failures.
     void test(`production source inventory CLI rejects ${name}`, () => {
       const directory = mkdtempSync(resolve(tmpdir(), 'av-mig-route-'));
@@ -149,6 +171,7 @@ const values = { failure: 1, loginIndex: 1, ownerIndex: 0, success: 0 };
         writeFileSync(routePath, mutated);
         const result = spawnSync(process.execPath, [script, dataPath, routePath], { encoding: 'utf8' });
         assert.equal(result.status, values.failure, result.stderr);
+        if (error) { assert.match(result.stderr, error); }
       } finally {
         rmSync(directory, { force: true, recursive: true });
       }
@@ -157,19 +180,24 @@ const values = { failure: 1, loginIndex: 1, ownerIndex: 0, success: 0 };
 }
 /* eslint-enable one-var, sort-vars */
 
-void test('production source inventory CLI rejects an absent current Web addendum', () => {
-  const directory = mkdtempSync(resolve(tmpdir(), 'av-mig-no-web-'));
-  try {
-    const dataPath = resolve(directory, 'inputs.json');
-    writeFileSync(dataPath, JSON.stringify(inputs().slice(0, 3)));
-    const script = fileURLToPath(new URL('./check-av-mig-source.mjs', import.meta.url));
-    const result = spawnSync(process.execPath, [script, dataPath], { encoding: 'utf8' });
-    assert.equal(result.status, values.failure);
-    assert.match(result.stderr, /Missing current Web addendum/u);
-  } finally {
-    rmSync(directory, { force: true, recursive: true });
-  }
-});
+for (const [addendum, presentCount, error] of [
+  ['current Web addendum', 3, /Missing current Web addendum/u],
+  ['AQ Web addendum', 4, /Missing AQ Web addendum/u],
+]) {
+  void test(`production source inventory CLI rejects an absent ${addendum}`, () => {
+    const directory = mkdtempSync(resolve(tmpdir(), 'av-mig-no-web-'));
+    try {
+      const dataPath = resolve(directory, 'inputs.json');
+      writeFileSync(dataPath, JSON.stringify(inputs().slice(0, presentCount)));
+      const script = fileURLToPath(new URL('./check-av-mig-source.mjs', import.meta.url));
+      const result = spawnSync(process.execPath, [script, dataPath], { encoding: 'utf8' });
+      assert.equal(result.status, values.failure);
+      assert.match(result.stderr, error);
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
+  });
+}
 
 void test('current Web direct owner bindings reject a different imported source and a missing injection', () => {
   const previousRoot = SourceInventory.root;

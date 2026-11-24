@@ -424,6 +424,50 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.ToTable("announcement_reads", (string)null);
                 });
 
+            modelBuilder.Entity("Coglatas.Domain.Entities.AnswerVisibilityDecision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ChangedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("FormSubmissionValueId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsHidden")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("VersionNo")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "FormSubmissionValueId")
+                        .IsUnique();
+
+                    b.ToTable("answer_visibility_decisions", (string)null);
+                });
+
             modelBuilder.Entity("Coglatas.Domain.Entities.ApiToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2367,6 +2411,235 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.ToTable("feedback", (string)null);
                 });
 
+            modelBuilder.Entity("Coglatas.Domain.Entities.FeedbackInvitationPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("ApprovedForAutomaticApproval")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DecisionWindowSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("MaximumActiveSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("VersionNo")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "EventId")
+                        .IsUnique();
+
+                    b.ToTable("feedback_invitation_policies", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_feedback_invitation_policy_windows", "\"DecisionWindowSeconds\" > 0 AND \"MaximumActiveSeconds\" > 0");
+                        });
+                });
+
+            modelBuilder.Entity("Coglatas.Domain.Entities.FeedbackReadState", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("FormSubmissionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<long>("ObservedRevision")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "FormSubmissionId");
+
+                    b.HasIndex("TenantId", "UserId", "FormSubmissionId")
+                        .IsUnique();
+
+                    b.ToTable("feedback_read_states", (string)null);
+                });
+
+            modelBuilder.Entity("Coglatas.Domain.Entities.FeedbackReportCase", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DisposedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DisposedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DispositionReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid>("FormSubmissionValueId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PresentationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid>("ReporterUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("VersionNo")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "FormSubmissionValueId");
+
+                    b.HasIndex("TenantId", "PresentationId", "Status");
+
+                    b.ToTable("feedback_report_cases", (string)null);
+                });
+
+            modelBuilder.Entity("Coglatas.Domain.Entities.FeedbackViewerGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ActiveDurationSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("ApprovedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ApprovedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("DecisionDeadlineUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("InvitationPolicyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("InvitationPolicyVersion")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("InviterUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PresentationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("RecipientAcceptedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RecipientUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TerminationReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("VersionNo")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("InviterUserId");
+
+                    b.HasIndex("RecipientUserId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "InvitationPolicyId");
+
+                    b.HasIndex("TenantId", "PresentationId", "RecipientUserId")
+                        .IsUnique()
+                        .HasFilter("\"Status\" IN (0, 1)");
+
+                    b.HasIndex("TenantId", "RecipientUserId", "PresentationId", "Status");
+
+                    b.ToTable("feedback_viewer_grants", (string)null);
+                });
+
             modelBuilder.Entity("Coglatas.Domain.Entities.FileAccessGrant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3059,6 +3332,12 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("CompatibilityRootFieldId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CompatiblePreviousFieldId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("ConstraintsJson")
                         .HasColumnType("jsonb");
 
@@ -3110,6 +3389,10 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TargetQuestionSetVersionId", "TenantId");
 
+                    b.HasIndex("CompatibilityRootFieldId", "TenantId", "FieldKey");
+
+                    b.HasIndex("CompatiblePreviousFieldId", "TenantId", "FieldKey");
+
                     b.HasIndex("TenantId", "FormVersionId", "FieldKey")
                         .IsUnique()
                         .HasFilter("\"FormVersionId\" IS NOT NULL");
@@ -3129,6 +3412,8 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
 
                     b.ToTable("form_field_definitions", null, t =>
                         {
+                            t.HasCheckConstraint("CK_form_field_definitions_compatibility", "(\"CompatiblePreviousFieldId\" IS NULL AND \"CompatibilityRootFieldId\" IS NULL) OR\n(\"CompatiblePreviousFieldId\" IS NOT NULL AND \"CompatibilityRootFieldId\" IS NOT NULL AND\n    \"CompatiblePreviousFieldId\" <> \"Id\" AND \"CompatibilityRootFieldId\" <> \"Id\")");
+
                             t.HasCheckConstraint("CK_form_field_definitions_order", "\"SortOrder\" >= 0");
 
                             t.HasCheckConstraint("CK_form_field_definitions_version", "num_nonnulls(\"FormVersionId\", \"TargetQuestionSetVersionId\") = 1");
@@ -3382,6 +3667,9 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("CompatibilityChangeReason")
+                        .HasColumnType("text");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -5766,6 +6054,43 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.ToTable("sessions", (string)null);
                 });
 
+            modelBuilder.Entity("Coglatas.Domain.Entities.SharedTeacherFeedback", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuthorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("PresentationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(10000)
+                        .HasColumnType("character varying(10000)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "PresentationId");
+
+                    b.ToTable("shared_teacher_feedback", (string)null);
+                });
+
             modelBuilder.Entity("Coglatas.Domain.Entities.StudentRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5973,6 +6298,110 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.HasIndex("FormDefinitionId", "TenantId");
 
                     b.ToTable("survey_campaigns", (string)null);
+                });
+
+            modelBuilder.Entity("Coglatas.Domain.Entities.SurveyFeedbackExportGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ExportRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ReceiptRequestId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("RecipientUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("ExportRequestId", "TenantId", "RecipientUserId");
+
+                    b.HasIndex("TenantId", "RecipientUserId", "ExpiresAtUtc");
+
+                    b.ToTable("survey_feedback_export_grants", (string)null);
+                });
+
+            modelBuilder.Entity("Coglatas.Domain.Entities.SurveyFeedbackExportRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ColumnsJson")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("character varying(240)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("PresentationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ReceiptRequestId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("RequesterId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SourceDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("RequesterId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("PresentationId", "TenantId");
+
+                    b.HasIndex("TenantId", "RequesterId", "ExpiresAtUtc");
+
+                    b.ToTable("survey_feedback_export_requests", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_survey_feedback_export_requests_mode", "\"Mode\"::text = ANY(ARRAY['aggregate'::text, 'detail'::text])");
+                        });
                 });
 
             modelBuilder.Entity("Coglatas.Domain.Entities.SurveyProgramEntry", b =>
@@ -6238,6 +6667,9 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("CompatibilityChangeReason")
+                        .HasColumnType("text");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -7262,6 +7694,43 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Coglatas.Domain.Entities.TeacherPrivateNote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuthorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("PresentationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(10000)
+                        .HasColumnType("character varying(10000)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "PresentationId", "AuthorUserId");
+
+                    b.ToTable("teacher_private_notes", (string)null);
+                });
+
             modelBuilder.Entity("Coglatas.Domain.Entities.Tenant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -8144,6 +8613,16 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Coglatas.Domain.Entities.AnswerVisibilityDecision", b =>
+                {
+                    b.HasOne("Coglatas.Domain.Entities.FormSubmissionValue", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "FormSubmissionValueId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Coglatas.Domain.Entities.ApiToken", b =>
                 {
                     b.HasOne("Coglatas.Domain.Entities.User", "CreatedByUser")
@@ -8670,6 +9149,72 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.Navigation("Workspace");
                 });
 
+            modelBuilder.Entity("Coglatas.Domain.Entities.FeedbackInvitationPolicy", b =>
+                {
+                    b.HasOne("Coglatas.Domain.Entities.ActivityEvent", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "EventId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Coglatas.Domain.Entities.FeedbackReadState", b =>
+                {
+                    b.HasOne("Coglatas.Domain.Entities.FormSubmission", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "FormSubmissionId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Coglatas.Domain.Entities.FeedbackReportCase", b =>
+                {
+                    b.HasOne("Coglatas.Domain.Entities.FormSubmissionValue", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "FormSubmissionValueId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Coglatas.Domain.Entities.Presentation", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "PresentationId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Coglatas.Domain.Entities.FeedbackViewerGrant", b =>
+                {
+                    b.HasOne("Coglatas.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("InviterUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Coglatas.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("RecipientUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Coglatas.Domain.Entities.FeedbackInvitationPolicy", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "InvitationPolicyId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Coglatas.Domain.Entities.Presentation", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "PresentationId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Coglatas.Domain.Entities.FileAccessGrant", b =>
                 {
                     b.HasOne("Coglatas.Domain.Entities.FileObject", "FileObject")
@@ -8879,6 +9424,18 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                         .WithMany("Fields")
                         .HasForeignKey("TargetQuestionSetVersionId", "TenantId")
                         .HasPrincipalKey("Id", "TenantId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Coglatas.Domain.Entities.FormFieldDefinition", null)
+                        .WithMany()
+                        .HasForeignKey("CompatibilityRootFieldId", "TenantId", "FieldKey")
+                        .HasPrincipalKey("Id", "TenantId", "FieldKey")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Coglatas.Domain.Entities.FormFieldDefinition", null)
+                        .WithMany()
+                        .HasForeignKey("CompatiblePreviousFieldId", "TenantId", "FieldKey")
+                        .HasPrincipalKey("Id", "TenantId", "FieldKey")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
@@ -9622,6 +10179,16 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Coglatas.Domain.Entities.SharedTeacherFeedback", b =>
+                {
+                    b.HasOne("Coglatas.Domain.Entities.Presentation", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "PresentationId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Coglatas.Domain.Entities.StudentRecord", b =>
                 {
                     b.HasOne("Coglatas.Domain.Entities.Workspace", "Workspace")
@@ -9681,6 +10248,32 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.HasOne("Coglatas.Domain.Entities.FormDefinition", null)
                         .WithMany()
                         .HasForeignKey("FormDefinitionId", "TenantId")
+                        .HasPrincipalKey("Id", "TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Coglatas.Domain.Entities.SurveyFeedbackExportGrant", b =>
+                {
+                    b.HasOne("Coglatas.Domain.Entities.SurveyFeedbackExportRequest", null)
+                        .WithMany()
+                        .HasForeignKey("ExportRequestId", "TenantId", "RecipientUserId")
+                        .HasPrincipalKey("Id", "TenantId", "RequesterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Coglatas.Domain.Entities.SurveyFeedbackExportRequest", b =>
+                {
+                    b.HasOne("Coglatas.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("RequesterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Coglatas.Domain.Entities.Presentation", null)
+                        .WithMany()
+                        .HasForeignKey("PresentationId", "TenantId")
                         .HasPrincipalKey("Id", "TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -10059,6 +10652,16 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Definition");
+                });
+
+            modelBuilder.Entity("Coglatas.Domain.Entities.TeacherPrivateNote", b =>
+                {
+                    b.HasOne("Coglatas.Domain.Entities.Presentation", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "PresentationId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Coglatas.Domain.Entities.TenantSettings", b =>
