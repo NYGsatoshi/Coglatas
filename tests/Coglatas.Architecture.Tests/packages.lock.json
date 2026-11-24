@@ -310,6 +310,11 @@
         "resolved": "0.11.6",
         "contentHash": "f33RkDtZO8VlGXCtmQIviOtxgnUdym9xx/b1p9h91CRGOsJFxCFOFK1FDbVt1OCf1aWwYejUFa2MOQyFWTFjbA=="
       },
+      "Net.Codecrete.QrCodeGenerator": {
+        "type": "Transitive",
+        "resolved": "3.2.1",
+        "contentHash": "MLseDo4x2T8+7gbXDt5vLjC4b6v4SavtrwoM+adKjlicnTHAqII4zAWy8VL5D94oB3VA8qz7bvMyOxfVLJnARg=="
+      },
       "Newtonsoft.Json": {
         "type": "Transitive",
         "resolved": "13.0.4",
@@ -414,7 +419,8 @@
         "dependencies": {
           "Coglatas.Application": "[1.0.0, )",
           "Coglatas.Infrastructure": "[1.0.0, )",
-          "Microsoft.AspNetCore.OpenApi": "[11.0.0, )"
+          "Microsoft.AspNetCore.OpenApi": "[11.0.0, )",
+          "Net.Codecrete.QrCodeGenerator": "[3.2.1, )"
         }
       }
     }
