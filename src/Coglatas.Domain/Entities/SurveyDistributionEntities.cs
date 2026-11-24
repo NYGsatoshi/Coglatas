@@ -152,6 +152,9 @@ public sealed class EventFeedbackSettings : AuditableEntity, ITenantEntity
     public SurveyProgramFields ProgramFields { get; private set; }
     public long VersionNo { get; private set; } = 1;
 
+    public void AdvancePublicEntryVersion(long expectedVersionNo) =>
+        VersionNo = SurveyVersion.Next(VersionNo, expectedVersionNo);
+
     public static EventFeedbackSettings Create(
         ActivityEvent activityEvent, DateTimeOffset startsAt, DateTimeOffset endsAt, string timeZoneId)
     {
@@ -410,6 +413,9 @@ public sealed class SurveyTarget : AuditableEntity, ITenantEntity
     public bool ResultsStopped { get; private set; }
     public string LocalMarkerKey { get; private set; } = string.Empty;
     public long VersionNo { get; private set; } = 1;
+
+    public void AdvancePublicEntryVersion(long expectedVersionNo) =>
+        VersionNo = SurveyVersion.Next(VersionNo, expectedVersionNo);
 
     public static SurveyTarget Create(SurveyCampaign campaign, Presentation presentation, string localMarkerKey)
     {
