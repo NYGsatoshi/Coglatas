@@ -9,8 +9,12 @@ public static class AqQrDocuments
     public static byte[] Png(string surveyUrl) =>
         Encode(surveyUrl).ToPngBitmap(4, 8, QrCode.RgbColor(0, 0, 0), QrCode.RgbColor(255, 255, 255));
 
-    public static byte[] Svg(string surveyUrl) =>
-        Encoding.UTF8.GetBytes(Encode(surveyUrl).ToSvgString(4, foreground: "#000000", background: "#ffffff"));
+    public static byte[] Svg(string surveyUrl)
+    {
+        var svg = Encode(surveyUrl).ToSvgString(4, foreground: "#000000", background: "#ffffff");
+        // Ship the self-contained element without the renderer's external DTD.
+        return Encoding.UTF8.GetBytes(svg[svg.IndexOf("<svg ", StringComparison.Ordinal)..]);
+    }
 
     public static byte[] Pdf(IReadOnlyList<(string Title, string SurveyUrl)> entries)
     {
