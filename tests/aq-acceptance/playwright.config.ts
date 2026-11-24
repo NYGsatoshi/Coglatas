@@ -20,7 +20,8 @@ if (
 
 export default defineConfig({
   testDir: '.',
-  testMatch: 'public-survey.spec.ts',
+  testMatch: process.env.COGLATAS_AQ_BROWSER_SUITE === 'protected'
+    ? 'protected-feedback.spec.ts' : 'public-survey.spec.ts',
   timeout: 45_000,
   workers: 1,
   forbidOnly: true,
