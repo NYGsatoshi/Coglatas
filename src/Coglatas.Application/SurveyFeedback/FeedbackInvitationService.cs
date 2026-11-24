@@ -100,7 +100,7 @@ public sealed class FeedbackInvitationService(
             foreach (var candidate in candidates)
             {
                 if (!await authorization.IsEligibleRecipientAsync(
-                        new FeedbackActor(actor.TenantId, candidate.RecipientRef), access.Scope, cancellationToken))
+                        actor with { UserId = candidate.RecipientRef }, access.Scope, cancellationToken))
                 {
                     continue;
                 }
@@ -165,9 +165,9 @@ public sealed class FeedbackInvitationService(
                 position = new FeedbackPagePosition(invite.CreatedAt, invite.Id);
                 var access = await authorization.ReadAccessAsync(actor, invite.PresentationId, cancellationToken);
                 if (access is null || access.Scope.EventId != eventId || access.Scope.ResultsStopped ||
-                    !await authorization.IsEligibleInviterAsync(new FeedbackActor(actor.TenantId, invite.InviterUserId),
+                    !await authorization.IsEligibleInviterAsync(actor with { UserId = invite.InviterUserId },
                         access.Scope, cancellationToken) ||
-                    !await authorization.IsEligibleRecipientAsync(new FeedbackActor(actor.TenantId, invite.RecipientUserId),
+                    !await authorization.IsEligibleRecipientAsync(actor with { UserId = invite.RecipientUserId },
                         access.Scope, cancellationToken))
                 {
                     continue;
@@ -209,7 +209,7 @@ public sealed class FeedbackInvitationService(
             }
 
             if (actor.UserId == recipientId || !await authorization.IsEligibleRecipientAsync(
-                    new FeedbackActor(actor.TenantId, recipientId), access.Scope, token))
+                    actor with { UserId = recipientId }, access.Scope, token))
             {
                 return SurveyFeedbackService.Invalid<FeedbackInvitationDto>();
             }
@@ -230,7 +230,7 @@ public sealed class FeedbackInvitationService(
                     continue;
                 }
 
-                var originalIssuer = new FeedbackActor(actor.TenantId, grant.InviterUserId);
+                var originalIssuer = actor with { UserId = grant.InviterUserId };
                 if (grant.InvitationPolicyId == policy.Id && grant.InvitationPolicyVersion == policy.VersionNo &&
                     await authorization.IsEligibleInviterAsync(originalIssuer, access.Scope, token))
                 {
@@ -296,9 +296,9 @@ public sealed class FeedbackInvitationService(
             if (decision is "accept" or "approve")
             {
                 if (policy is not { Enabled: true } || access.Scope.ResultsStopped ||
-                    !await authorization.IsEligibleInviterAsync(new FeedbackActor(actor.TenantId, invitation.InviterUserId),
+                    !await authorization.IsEligibleInviterAsync(actor with { UserId = invitation.InviterUserId },
                         access.Scope, token) ||
-                    !await authorization.IsEligibleRecipientAsync(new FeedbackActor(actor.TenantId, invitation.RecipientUserId),
+                    !await authorization.IsEligibleRecipientAsync(actor with { UserId = invitation.RecipientUserId },
                         access.Scope, token))
                 {
                     return Conflict("InvalidStateTransition");

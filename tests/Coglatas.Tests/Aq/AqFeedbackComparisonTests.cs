@@ -83,7 +83,7 @@ public sealed class AqFeedbackComparisonTests
 
         Assert.False(released.Suppressed);
         Assert.Equal(4, released.SampleSize);
-        Assert.Equal(new[] { new FeedbackOptionCount("a", 2), new FeedbackOptionCount("b", 2) },
+        Assert.Equal([new FeedbackOptionCount("a", 2), new FeedbackOptionCount("b", 2)],
             released.Distribution);
         Assert.Null(released.Mean);
     }
@@ -101,8 +101,8 @@ public sealed class AqFeedbackComparisonTests
             Sample("[\"b\",\"c\"]", SurveyFieldType.MultipleChoice),
             Sample("[\"c\",\"b\"]", SurveyFieldType.MultipleChoice));
         Assert.False(released.Suppressed);
-        Assert.Equal(new[] { new FeedbackOptionCount("a", 2), new FeedbackOptionCount("b", 2),
-            new FeedbackOptionCount("c", 2) }, released.Distribution);
+        Assert.Equal([new FeedbackOptionCount("a", 2), new FeedbackOptionCount("b", 2),
+            new FeedbackOptionCount("c", 2)], released.Distribution);
     }
 
     private static ApprovedFeedbackComparisonPolicy Policy(SurveyFieldType type) =>
