@@ -283,17 +283,30 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
                 Assert.Equal(4m, score.GetProperty("mean").GetDecimal());
             }
 
+            const string voidReason = "Synthetic void";
             using (var voided = await host.PostAsync($"/api/v1/core/feedback/submissions/{submissionId:D}/void", new
-                   { expectedVersionNo = 1L, reason = "Synthetic void" }))
+                   { expectedVersionNo = 1L, reason = $" {voidReason} " }))
+            {
                 Assert.Equal(HttpStatusCode.OK, voided.StatusCode);
+                Assert.DoesNotContain(voidReason, await voided.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+            }
             await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
             {
                 var persisted = await db.Set<FormSubmission>().AsNoTracking().SingleAsync(submission => submission.Id == submissionId);
                 Assert.Equal(FormSubmissionStatus.Voided, persisted.Status);
                 Assert.Equal(2, persisted.VersionNo);
+                var audit = await db.AuditLogs.AsNoTracking().SingleAsync(entry =>
+                    entry.Action == "Feedback.SubmissionVoided" && entry.EntityId == submissionId);
+                Assert.Equal(host.Actor.Id, audit.ActorUserId);
+                Assert.Equal(host.Tenant.Id, audit.TenantId);
+                using var metadata = JsonDocument.Parse(Assert.IsType<string>(audit.MetadataJson));
+                Assert.Equal(voidReason, metadata.RootElement.GetProperty("reason").GetString());
+                Assert.Equal("feedback.submission.void", metadata.RootElement.GetProperty("policyBasis").GetString());
             }
             using (var afterVoid = await GetDataAsync(host.Client, feedbackRoute + "-summary"))
                 Assert.Equal(0, afterVoid.RootElement.GetProperty("data").GetProperty("responses").GetInt64());
+            using (var detail = await GetDataAsync(host.Client, feedbackRoute))
+                Assert.Empty(detail.RootElement.GetProperty("data").GetProperty("items").EnumerateArray());
         });
 
     private static async Task<SeededSurvey> SeedAsync(
