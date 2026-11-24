@@ -76,7 +76,7 @@
         <ul class="aq-list" aria-label="確認する割り当て">
           @for (assignment of result.proposedAssignments; track assignment.row) {
             <li>
-              <p>{{ assignment.row }}行目 · {{ presentationTitle(assignment.presentationId, assignment.presentationId) }}</p>
+              <p>{{ assignment.row }}行目 · {{ presentationTitle(assignment.presentationId) }} · {{ assignment.presentationId }}</p>
               @if (assignment.personRef) {
                 <p>{{ assignment.role === 'presenter' ? '発表者' : '評価者' }} · {{ assignment.personRef }}</p>
               } @else {
