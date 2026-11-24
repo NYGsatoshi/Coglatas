@@ -47,7 +47,16 @@ public sealed class EfAqPublicSurveyStore(
                             schema.FormDefinitionId == definition.Id && campaign.IsPublished &&
                             targetCode.EventId == null && targetCode.RevokedAtUtc == null &&
                             targetCode.ProtectedReprintValue != null
-                        select new ProgramRow(presentation, targetCode.ProtectedReprintValue!, targetCode.CodeDigest);
+                        select new
+                        {
+                            PresentationId = presentation.Id,
+                            presentation.Title,
+                            presentation.Venue,
+                            presentation.StartsAtUtc,
+                            presentation.EndsAtUtc,
+                            ProtectedEntryCode = targetCode.ProtectedReprintValue!,
+                            EntryDigest = targetCode.CodeDigest
+                        };
 
             if (cursor is not null)
             {
@@ -56,18 +65,18 @@ public sealed class EfAqPublicSurveyStore(
                 {
                     throw new AqInvalidProgramCursorException();
                 }
-                query = query.Where(row => row.Presentation.StartsAtUtc > decoded.StartsAtUtc ||
-                    row.Presentation.StartsAtUtc == decoded.StartsAtUtc &&
-                    row.Presentation.Id.CompareTo(decoded.PresentationId) > 0);
+                query = query.Where(row => row.StartsAtUtc > decoded.StartsAtUtc ||
+                    row.StartsAtUtc == decoded.StartsAtUtc &&
+                    row.PresentationId.CompareTo(decoded.PresentationId) > 0);
             }
 
-            var rows = await query.OrderBy(row => row.Presentation.StartsAtUtc).ThenBy(row => row.Presentation.Id)
+            var rows = await query.OrderBy(row => row.StartsAtUtc).ThenBy(row => row.PresentationId)
                 .Take(pageSize + 1).ToArrayAsync(token);
             var visible = rows.Take(pageSize).ToArray();
             var zone = TimeZoneInfo.FindSystemTimeZoneById(settings.TimeZoneId);
             var fields = settings.ProgramFields;
             var presenterNames = fields.HasFlag(SurveyProgramFields.PresenterNames)
-                ? await ReadProgramPresenterNamesAsync(visible.Select(row => row.Presentation.Id).ToArray(),
+                ? await ReadProgramPresenterNamesAsync(visible.Select(row => row.PresentationId).ToArray(),
                     parent.WorkspaceId, token)
                 : null;
             var projected = new List<AqPublicProgramEntry>(visible.Length);
@@ -81,18 +90,18 @@ public sealed class EfAqPublicSurveyStore(
                 }
                 projected.Add(new AqPublicProgramEntry(
                     entryCode,
-                    fields.HasFlag(SurveyProgramFields.Title) ? row.Presentation.Title : null,
+                    fields.HasFlag(SurveyProgramFields.Title) ? row.Title : null,
                     fields.HasFlag(SurveyProgramFields.Time)
-                        ? TimeZoneInfo.ConvertTime(row.Presentation.StartsAtUtc, zone) : null,
+                        ? TimeZoneInfo.ConvertTime(row.StartsAtUtc, zone) : null,
                     fields.HasFlag(SurveyProgramFields.Time)
-                        ? TimeZoneInfo.ConvertTime(row.Presentation.EndsAtUtc, zone) : null,
-                    fields.HasFlag(SurveyProgramFields.Venue) ? row.Presentation.Venue : null,
-                    presenterNames?.GetValueOrDefault(row.Presentation.Id)));
+                        ? TimeZoneInfo.ConvertTime(row.EndsAtUtc, zone) : null,
+                    fields.HasFlag(SurveyProgramFields.Venue) ? row.Venue : null,
+                    presenterNames?.GetValueOrDefault(row.PresentationId)));
             }
 
             var last = visible.LastOrDefault();
             var next = rows.Length > pageSize && last is not null
-                ? codec.ProtectCursor(new AqProgramCursor(eventId, code.Id, last.Presentation.StartsAtUtc, last.Presentation.Id))
+                ? codec.ProtectCursor(new AqProgramCursor(eventId, code.Id, last.StartsAtUtc, last.PresentationId))
                 : null;
             return new AqPublicProgram(
                 fields.HasFlag(SurveyProgramFields.Title) ? parent.EventTitle : null,
@@ -390,7 +399,6 @@ public sealed class EfAqPublicSurveyStore(
 
     private sealed record PublicCodeBinding(Guid Id, Guid TenantId, Guid? EventId, Guid? SurveyTargetId);
     private sealed record PublicParent(string EventTitle, Guid ProjectId, Guid WorkspaceId, bool CanReceive);
-    private sealed record ProgramRow(Presentation Presentation, string ProtectedEntryCode, string EntryDigest);
     private sealed record PublicTargetRow(
         SurveyTarget Target, SurveyCampaign Campaign, EventFeedbackSettings Settings, PublishedSurveySchema Schema,
         FormDefinition Definition, Guid ProjectId);
