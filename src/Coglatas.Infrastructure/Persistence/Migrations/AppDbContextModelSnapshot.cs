@@ -3197,6 +3197,11 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("FormId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("MaskRespondent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<Guid?>("RespondentUserId")
                         .HasColumnType("uuid");
 
@@ -3248,6 +3253,11 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("FormVersionId")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("LegacyMaskRespondent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<Guid?>("PublishedSurveySchemaId")
                         .HasColumnType("uuid");
