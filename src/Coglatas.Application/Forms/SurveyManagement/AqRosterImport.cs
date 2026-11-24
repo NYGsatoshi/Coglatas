@@ -150,6 +150,8 @@ public sealed partial class AqSurveyManagementService
                 changes.Add((presentation, prior, replacements));
             }
 
+            var affected = changes.Select(change => change.Presentation.Id).ToArray();
+            var readers = await CaptureFeedbackAccessAsync(affected, token);
             foreach (var change in changes)
             {
                 change.Presentation.AdvanceParticipantsVersion(change.Presentation.VersionNo);
@@ -168,6 +170,7 @@ public sealed partial class AqSurveyManagementService
                 TenantId = currentTenant.TenantId, ActorUserId = scope.Actor, Operation = RosterOperation,
                 KeyHash = keyDigest, RequestHash = requestDigest, ResourceType = "AqEventRoster", ResourceId = eventId,
             });
+            await PublishFeedbackAccessChangesAsync(affected, readers, token);
             return Success(new AqRosterReceipt(changes.Count, roster.Length));
         }, cancellationToken);
 

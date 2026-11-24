@@ -124,7 +124,7 @@ public sealed class AqRosterImportController(
             {
                 return JsonSerializer.Deserialize<AqRosterPreviewState>(protector.Unprotect(value));
             }
-            catch (Exception error) when (error is CryptographicException or JsonException)
+            catch (Exception error) when (error is CryptographicException or JsonException or FormatException)
             {
                 return null;
             }
