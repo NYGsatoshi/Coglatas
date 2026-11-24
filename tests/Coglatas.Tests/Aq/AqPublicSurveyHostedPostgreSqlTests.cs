@@ -17,7 +17,7 @@ namespace Coglatas.Tests.Aq;
 
 [Trait("Feature", "AQ")]
 [Trait("Category", "PostgreSQLIntegration")]
-public sealed class AqPublicSurveyHostedPostgreSqlTests
+public sealed partial class AqPublicSurveyHostedPostgreSqlTests
 {
     private const string SurveyRoute = "/api/v1/public/surveys/";
     private const string FieldKey = "comment";
