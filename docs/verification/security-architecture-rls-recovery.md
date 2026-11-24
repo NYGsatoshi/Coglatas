@@ -8,9 +8,14 @@ failed recovery rollback, exact canonical recovery, live security mutations
 and committed incomplete recovery. No product migration, role or activation
 changes. **PRE-AVALONIA SEC-ARCH: BLOCKED.**
 
-All 114 current migrated tables receive row-count/multiset SHA-256 and native
-schema/security catalogue identities. Every table in the existing proposed
-105-table scope must have seeded rows. Unseeded tables remain explicitly empty;
+Every physical table in the versioned catalogue receives row-count/multiset
+SHA-256 and native schema/security catalogue identities. The historical
+114-table and 105-policy recovery scenarios remain in the verifier. The AQ
+schema runs the same recovery controls against the 102 retained physical
+tables with existing fixture authority, and captures all physical relations,
+including fenced archives and current AQ tables. See the
+[AQ relation catalogue transition](security-architecture-fixtures.md#aq-relation-catalogue-transition).
+Every table in the selected policy scope must have seeded rows. Unseeded tables remain explicitly empty;
 their fingerprints are preservation identities, not row-operation evidence.
 The deny-all policy and NOLOGIN fixture role only exercise DDL/recovery
 mechanics. Actual application/worker policy semantics and identity/root

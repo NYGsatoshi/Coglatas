@@ -16,13 +16,15 @@ public sealed class SecurityArchitectureRlsCatalogTests
         var password = Guid.NewGuid().ToString("N");
         try
         {
-            await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(root, async database =>
+            await SecurityArchitectureRlsRelationCatalogue.WithHistoricalDatabaseAsync(root, async database =>
             {
-                var tables = await TenantTablesAsync(database);
-                Assert.Equal(103, tables.Count);
-                Assert.Equal(102, tables.Count(row => row.Type == "uuid"));
-                Assert.Single(tables, row => row.Type == "text");
-                var predicates = tables.ToDictionary(row => row.Table,
+                var catalogue = await SecurityArchitectureRlsRelationCatalogue.AssertMigratedAsync(database);
+                Assert.Equal(SecurityArchitectureRlsRelationCatalogue.HistoricalVersion, catalogue.Version);
+                var tables = SecurityArchitectureRlsRelationCatalogue.TenantColumnTables(catalogue).ToArray();
+                Assert.Equal(103, tables.Length);
+                Assert.Equal(102, tables.Count(row => row.TenantColumnType == "uuid"));
+                Assert.Single(tables, row => row.TenantColumnType == "text");
+                var predicates = tables.ToDictionary(row => row.Name,
                     _ => "\"TenantId\"::text=current_setting('coglatas.tenant_id',true)", StringComparer.Ordinal);
                 predicates.Add("file_selection_snapshot_items", """
                     EXISTS (SELECT 1 FROM public.file_selection_snapshots parent
@@ -119,27 +121,8 @@ public sealed class SecurityArchitectureRlsCatalogTests
         }
     }
 
-    private sealed record TenantTable(string Table, string Type);
     private sealed record PolicyRow(string Table, bool Enabled, bool Forced, bool NonOwner,
         string Command, bool RoleMatches, string Using, string WithCheck);
-
-    private static async Task<List<TenantTable>> TenantTablesAsync(string database)
-    {
-        await using var connection = new NpgsqlConnection(database);
-        await connection.OpenAsync();
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
-            SELECT c.relname,format_type(a.atttypid,a.atttypmod)
-            FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-            JOIN pg_attribute a ON a.attrelid=c.oid
-            WHERE n.nspname='public' AND c.relkind IN ('r','p')
-                AND a.attname='TenantId' AND NOT a.attisdropped ORDER BY c.relname
-            """;
-        await using var reader = await command.ExecuteReaderAsync();
-        var rows = new List<TenantTable>();
-        while (await reader.ReadAsync()) rows.Add(new(reader.GetString(0), reader.GetString(1)));
-        return rows;
-    }
 
     private static async Task<List<PolicyRow>> PolicySnapshotAsync(string database, string role)
     {
@@ -269,7 +252,8 @@ public sealed class SecurityArchitectureRlsCatalogTests
             FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, useAsync: true);
         await JsonSerializer.SerializeAsync(output, new
         {
-            SchemaVersion = 1, Approval = "DRAFT", OwnerApproval = (string?)null,
+            SchemaVersion = 1, RelationCatalogue = SecurityArchitectureRlsRelationCatalogue.HistoricalReceiptIdentity,
+            Approval = "DRAFT", OwnerApproval = (string?)null,
             ExecutedAtUtc = DateTimeOffset.UtcNow,
             TestAssemblyDigest = assemblyDigest,
             ExecutionScope = "ISOLATED_SYNTHETIC_CATALOGUE", StructuralPolicyCount = rows.Count,

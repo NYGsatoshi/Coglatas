@@ -15,13 +15,11 @@ public sealed class SecurityArchitectureRlsSourceReferenceTests
     [PostgreSqlFact]
     public async Task FreshMigratedCatalogueIndependentlyBindsEveryNativeSourceAndUnavailableDirectOperation()
     {
-        await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+        await SecurityArchitectureRlsRelationCatalogue.WithHistoricalDatabaseAsync(PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
         {
-            var names = await PostgreSqlMigrationTestDatabase.QueryAsync(database, """
-                SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-                WHERE n.nspname='public' AND c.relkind IN ('r','p') ORDER BY c.relname COLLATE "C"
-                """, reader => reader.GetString(0));
-            Assert.Equal(114, names.Count);
+            var historical = await SecurityArchitectureRlsRelationCatalogue.AssertMigratedAsync(database);
+            Assert.Equal(SecurityArchitectureRlsRelationCatalogue.HistoricalVersion, historical.Version);
+            Assert.Equal(114, historical.Relations.Count);
             Assert.Equal(0L, await PostgreSqlMigrationTestDatabase.ScalarAsync<long>(database, """
                 SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
                 WHERE n.nspname='public' AND c.relkind IN ('r','p') AND (c.relrowsecurity OR c.relforcerowsecurity)
@@ -30,8 +28,9 @@ public sealed class SecurityArchitectureRlsSourceReferenceTests
             var blockedDirectOperations = 0;
             var sourceGuardedProbeCount = 0;
             var sourceOperationDispositionCount = 0;
-            foreach (var name in names)
+            foreach (var relation in historical.Relations)
             {
+                var name = relation.Name;
                 var native = await SecurityArchitectureRlsSchemaIdentity.CaptureAsync(database, name);
                 AssertNativeIdentity(native, name);
                 var unavailable = await SecurityArchitectureRlsUnavailableOperations.BindAsync(name, native);
@@ -65,10 +64,35 @@ public sealed class SecurityArchitectureRlsSourceReferenceTests
             var environment = await EnvironmentAsync(database);
             await WritePrivateAsync("draft-rls-source-reference.json", new
             {
-                schemaVersion = 1, candidateSha = Candidate(), testAssemblyDigest = await AssemblyDigestAsync(),
+                schemaVersion = 1, relationCatalogue = SecurityArchitectureRlsRelationCatalogue.HistoricalReceiptIdentity,
+                candidateSha = Candidate(), testAssemblyDigest = await AssemblyDigestAsync(),
                 approval = "DRAFT", ownerApproval = (string?)null, environment,
                 environmentFingerprint = Digest(JsonSerializer.Serialize(environment)),
                 executionScope = "ISOLATED_MIGRATED_SCHEMA_REFERENCE", productRlsAppliedCount = 0, tables
+            });
+
+            var sourceTenant = Guid.NewGuid();
+            await SecurityArchitectureRlsRowFixtures.SeedAsync(database, sourceTenant, historicalForms: true);
+            var sourceIds = await SecurityArchitectureRlsRelationCatalogue.CapturePreCutoverFormIdsAsync(database, sourceTenant);
+            await PostgreSqlMigrationTestDatabase.MigrateAsync(database);
+            var current = await SecurityArchitectureRlsRelationCatalogue.AssertMigratedAsync(database);
+            Assert.NotEqual(historical.Version, current.Version);
+            await SecurityArchitectureRlsRelationCatalogue.AssertFormsCutoverAsync(database, sourceTenant, sourceIds);
+            var aqTables = await SecurityArchitectureRlsRelationCatalogue.AssertCurrentAqSourcesAsync(database, current);
+            var appliedRls = await PostgreSqlMigrationTestDatabase.ScalarAsync<long>(database, """
+                SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+                WHERE n.nspname='public' AND (c.relrowsecurity OR c.relforcerowsecurity)
+                """);
+            Assert.Equal(0L, appliedRls);
+            Assert.Equal(0L, await PostgreSqlMigrationTestDatabase.ScalarAsync<long>(database, """
+                SELECT count(*) FROM pg_policy p JOIN pg_class c ON c.oid=p.polrelid
+                JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public'
+                """));
+            await WritePrivateAsync("draft-rls-relation-catalogue-transition.json", new
+            {
+                schemaVersion = 1, candidateSha = Candidate(), testAssemblyDigest = await AssemblyDigestAsync(),
+                environment, approval = "DRAFT", ownerApproval = (string?)null, productRlsAppliedCount = appliedRls,
+                prior = historical, current, aqTables
             });
         });
     }
