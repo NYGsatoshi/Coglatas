@@ -5,6 +5,7 @@ using Coglatas.Application.Common;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Events;
 using Coglatas.Application.Forms.PublicSurveys;
+using Coglatas.Application.SurveyFeedback;
 using Coglatas.Application.Tenancy;
 using Coglatas.Domain.Common;
 using Coglatas.Domain.Entities;
@@ -22,7 +23,8 @@ public sealed partial class AqSurveyManagementService(
     ICapabilityGrantEvaluator capabilities,
     IAuditLogger audit,
     IClock clock,
-    IAqPublicProjectionCodec codec)
+    IAqPublicProjectionCodec codec,
+    ISurveyFeedbackInvalidation feedbackInvalidation)
 {
     private const string Manage = "survey.manage";
     private const string Assign = "presentation.assign";
@@ -147,6 +149,8 @@ public sealed partial class AqSurveyManagementService(
             if (current.Count > AssignmentLimit)
                 return Conflict<AqParticipantSettings>("The current assignment limit is exceeded.");
 
+            var affected = new[] { presentation.Id };
+            var readers = await CaptureFeedbackAccessAsync(affected, token);
             presentation.AdvanceParticipantsVersion(request.ExpectedVersionNo);
             foreach (var assigned in current)
                 store.Remove(assigned);
@@ -154,6 +158,7 @@ public sealed partial class AqSurveyManagementService(
             foreach (var assigned in replacements)
                 store.Add(assigned);
             await AuditAsync(scope.Actor, "aq.presentation.assignments.update", presentation.Id, token);
+            await PublishFeedbackAccessChangesAsync(affected, readers, token);
             return Success(ToParticipants(presentation, replacements));
         }, cancellationToken);
 
@@ -227,8 +232,13 @@ public sealed partial class AqSurveyManagementService(
             var binding = (request.AccountBindingAllowed ?? current?.AccountBinding == SurveyAccountBinding.ExplicitOptIn)
                 ? SurveyAccountBinding.ExplicitOptIn : SurveyAccountBinding.Off;
             var settings = current ?? EventFeedbackSettings.Create(scope.Event, start.Value, end.Value, zone);
+            var desiredResultsStop = request.ResultsStopped ?? settings.ResultsStopped;
+            var affected = desiredResultsStop != settings.ResultsStopped
+                ? await EventPresentationIdsAsync(eventId, token)
+                : [];
+            var readers = await CaptureFeedbackAccessAsync(affected, token);
             settings.Configure(request.ExpectedVersionNo, start.Value, end.Value, zone,
-                request.ReceptionStopped ?? settings.ReceptionStopped, request.ResultsStopped ?? settings.ResultsStopped,
+                request.ReceptionStopped ?? settings.ReceptionStopped, desiredResultsStop,
                 nameMode, binding, published, fields, presenterNamesApproved: false);
             if (current is null)
                 store.Add(settings);
@@ -243,6 +253,7 @@ public sealed partial class AqSurveyManagementService(
             }
 
             await AuditAsync(scope.Actor, "aq.event.settings.update", eventId, token);
+            await PublishFeedbackAccessChangesAsync(affected, readers, token);
             return Success(ToEventSettings(settings, entries));
         }, cancellationToken);
 
@@ -274,11 +285,14 @@ public sealed partial class AqSurveyManagementService(
                 return Invalid<AqPresentationResultsSettings>("Supply the desired result stop.");
 
             var settings = current ?? PresentationFeedbackSettings.Create(presentation);
+            var affected = stopped != settings.ResultsStopped ? new[] { presentation.Id } : [];
+            var readers = await CaptureFeedbackAccessAsync(affected, token);
             settings.SetResultsStop(request.ExpectedVersionNo, stopped);
             if (current is null)
                 store.Add(settings);
             var parent = await store.FindAsync<EventFeedbackSettings>(x => x.EventId == scope.Event.Id, token);
             await AuditAsync(scope.Actor, "aq.presentation.results.update", presentationId, token);
+            await PublishFeedbackAccessChangesAsync(affected, readers, token);
             return Success(ToResults(settings, parent));
         }, cancellationToken);
 

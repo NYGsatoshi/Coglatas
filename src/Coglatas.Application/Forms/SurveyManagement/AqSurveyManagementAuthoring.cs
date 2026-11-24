@@ -242,9 +242,13 @@ public sealed partial class AqSurveyManagementService
                 return Invalid<AqTargetSummary>("Target reception boundaries must be valid timestamps or null.");
 
             var publication = await CurrentPublicationAsync(target, token);
+            var desiredResultsStop = request.ResultsStopped ?? target.ResultsStopped;
+            var affected = desiredResultsStop != target.ResultsStopped ? new[] { target.PresentationId } : [];
+            var readers = await CaptureFeedbackAccessAsync(affected, token);
             target.Configure(request.ExpectedVersionNo, settings, start, end,
-                request.Enabled ?? target.IsEnabled, request.ResultsStopped ?? target.ResultsStopped);
+                request.Enabled ?? target.IsEnabled, desiredResultsStop);
             await AuditAsync(scope.Actor, "aq.target.settings.update", target.Id, token);
+            await PublishFeedbackAccessChangesAsync(affected, readers, token);
             return Success(ToTarget(target, publication, settings));
         }, cancellationToken);
 
