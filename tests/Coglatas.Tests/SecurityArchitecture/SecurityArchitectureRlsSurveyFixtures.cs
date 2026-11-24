@@ -46,10 +46,6 @@ internal static partial class SecurityArchitectureRlsRowFixtures
         activityEvent.StartsAt = startsAt;
         activityEvent.EndsAt = endsAt;
 
-        // The ordinary compatibility views need their own distinct owning form and source question.
-        ((InternalForm)rows["internal_forms"]).ProjectId = project.Id;
-        ((FormAnswer)rows["form_answers"]).AnswerText = "Synthetic ordinary answer";
-
         var definition = FormDefinition.Create(tenant, user.Id, null, null, project.Id, FormPurpose.Survey, "Synthetic survey");
         var presentation = Presentation.Create(activityEvent, "Synthetic presentation", null, startsAt, endsAt);
         var eventSettings = EventFeedbackSettings.Create(activityEvent, startsAt, endsAt, "UTC");

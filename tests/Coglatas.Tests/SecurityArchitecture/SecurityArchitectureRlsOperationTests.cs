@@ -59,7 +59,7 @@ public sealed partial class SecurityArchitectureRlsOperationTests
                 try
                 {
                     foreach (var table in tables)
-                        results.Add(await VerifyTableAsync(database, app, denied, role, table, tables, alpha, beta, historicalForms));
+                        results.Add(await VerifyTableAsync(database, app, denied, role, table, tables, alpha, beta, historicalForms, catalogue));
                     await AssertPoolResetAsync(app, tables, alpha, beta);
                     IReadOnlyList<OperationResult> currentQuestionReads = historicalForms ? [] :
                         await VerifyCurrentFormQuestionReadsAsync(database, app, denied, role, alpha, beta);
@@ -212,7 +212,8 @@ public sealed partial class SecurityArchitectureRlsOperationTests
     private sealed record RowCommand(string Sql, IReadOnlyList<(string Name, object Value, string Type)> Parameters);
 
     private static async Task<TableResult> VerifyTableAsync(string database, string app, string denied, string role,
-        TenantTable table, IReadOnlyList<TenantTable> tables, Guid alpha, Guid beta, bool historicalForms)
+        TenantTable table, IReadOnlyList<TenantTable> tables, Guid alpha, Guid beta, bool historicalForms,
+        SecurityArchitectureRlsRelationCatalogue.Snapshot catalogue)
     {
         var columns = await ColumnsAsync(database, table.Table);
         var first = columns.First(column => column.Primary).Name;
@@ -284,7 +285,7 @@ public sealed partial class SecurityArchitectureRlsOperationTests
                 {
                     precheckControls.Add(await VerifyPrecheckAsync(database, app, role, table, tables, ownershipProbe,
                         schema, alpha.ToString(), action, "UPDATE public." + Quote(table.Table) + " SET " +
-                        Quote(table.ScopeColumn) + "=" + foreignValue + " WHERE " + alphaWhere, [], positive.AffectedRows));
+                        Quote(table.ScopeColumn) + "=" + foreignValue + " WHERE " + alphaWhere, [], positive.AffectedRows, catalogue));
                 }
             }
             else operations.Add(new(action, "syntheticApplication", positive.DatabaseRole, "wrongOwnership", "UNSUPPORTED_OPERATION", "UNSUPPORTED_OPERATION", null,
@@ -299,7 +300,7 @@ public sealed partial class SecurityArchitectureRlsOperationTests
                         "invalidContext" => "invalid-context", _ => throw new InvalidOperationException("Unreviewed INSERT precheck.")
                     };
                     precheckControls.Add(await VerifyPrecheckAsync(database, app, role, table, tables, probe,
-                        schema, context, action, insert.Sql, insert.Parameters, positive.AffectedRows));
+                        schema, context, action, insert.Sql, insert.Parameters, positive.AffectedRows, catalogue));
                 }
             }
         }

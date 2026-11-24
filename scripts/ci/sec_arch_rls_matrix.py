@@ -19,6 +19,7 @@ MECHANISMS = {"RLS_FILTER", "RLS_WITH_CHECK", "GRANT_DENIAL", "TRIGGER_REJECTION
               "MISSING_FIXTURE", "UNSUPPORTED_OPERATION", "UNEXPECTED_ERROR", "ALLOWED"}
 RESULTS = {"PASS", "FAIL", "UNVERIFIED", "ERROR"}
 MAX_JSON = 16 * 1024 * 1024
+ENVIRONMENT_KEYS = ("dotnetVersion", "npgsqlVersion", "postgresVersion", "fixture")
 
 
 class MatrixError(ValueError):
@@ -55,6 +56,13 @@ def nonnegative_integer(value) -> bool:
     return type(value) is int and value >= 0
 
 
+def matches_environment_fingerprint(environment: dict, expected: str) -> bool:
+    canonical = json.dumps({key: environment[key] for key in ENVIRONMENT_KEYS}, separators=(",", ":"), ensure_ascii=False)
+    # System.Text.Json escapes the plus sign in PostgreSQL package version strings before hashing.
+    dotnet = canonical.replace("+", r"\u002B")
+    return any(hashlib.sha256(encoded.encode()).hexdigest() == expected for encoded in (canonical, dotnet))
+
+
 def reconcile(receipt: dict, inventory: dict, candidate: str, assembly_digest: str,
               environment_fingerprint: str, source_reference: dict | None = None, source_checkout: Path | None = None) -> dict:
     require(bool(re.fullmatch(r"[a-f0-9]{40}", candidate)) and
@@ -69,14 +77,12 @@ def reconcile(receipt: dict, inventory: dict, candidate: str, assembly_digest: s
             receipt.get("executionScope") == "ISOLATED_SYNTHETIC_MODEL_ROWS",
             "An isolated observation cannot assert approval, product activation or operational identity.")
     environment = receipt.get("environment")
-    environment_keys = ("dotnetVersion", "npgsqlVersion", "postgresVersion", "fixture")
-    require(isinstance(environment, dict) and set(environment) == set(environment_keys) and
-            all(isinstance(environment[key], str) and 0 < len(environment[key]) <= 100 for key in environment_keys) and
+    require(isinstance(environment, dict) and set(environment) == set(ENVIRONMENT_KEYS) and
+            all(isinstance(environment[key], str) and 0 < len(environment[key]) <= 100 for key in ENVIRONMENT_KEYS) and
             environment["fixture"] == "isolated-migrated-postgresql" and
             re.fullmatch(r"[a-f0-9]{64}", environment_fingerprint) is not None and
             receipt.get("environmentFingerprint") == environment_fingerprint and
-            hashlib.sha256(json.dumps({key: environment[key] for key in environment_keys},
-                                      separators=(",", ":"), ensure_ascii=False).encode()).hexdigest() == environment_fingerprint,
+            matches_environment_fingerprint(environment, environment_fingerprint),
             "Independent environment fingerprint or observed environment differs.")
     relation_catalogue = receipt.get("relationCatalogue")
     require("relationCatalogue" not in receipt or relation_catalogue == sources.HISTORICAL_CATALOGUE,
@@ -175,7 +181,7 @@ def reconcile(receipt: dict, inventory: dict, candidate: str, assembly_digest: s
         "UNVERIFIED" if missing or gaps else "PASS"))
     try:
         source_binding = sources.bind(tables, cells, classifications, source_reference, candidate, assembly_digest,
-                                      environment_fingerprint, source_checkout, relation_catalogue)
+                                      environment, environment_fingerprint, source_checkout, relation_catalogue)
     except sources.SourceError as error:
         raise MatrixError(str(error)) from None
     if source_binding["sourceBindingOutcome"] == "FAIL": observed = "FAIL"
