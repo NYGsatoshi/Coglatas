@@ -6,6 +6,10 @@ public partial class ProtectOrdinaryRespondentPrivacy : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)
     {
+        // Ordinary response writes lock the owning form before inserting a
+        // submission. Take these two table locks in the same order before DDL.
+        migrationBuilder.Sql("LOCK TABLE form_definitions, form_submissions IN ACCESS EXCLUSIVE MODE;");
+
         migrationBuilder.AddColumn<bool>(
             name: "LegacyMaskRespondent",
             table: "form_submissions",
@@ -14,8 +18,6 @@ public partial class ProtectOrdinaryRespondentPrivacy : Migration
             defaultValue: false);
 
         migrationBuilder.Sql("""
-            LOCK TABLE form_definitions, form_submissions IN ACCESS EXCLUSIVE MODE;
-
             -- Older Forms stored only the current form flag. Their submission-time
             -- anonymity is unknown, so imported owners stay linked and masked.
             UPDATE form_submissions AS submission
