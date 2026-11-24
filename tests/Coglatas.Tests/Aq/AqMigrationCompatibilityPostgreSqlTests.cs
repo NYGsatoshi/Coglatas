@@ -24,7 +24,7 @@ public sealed class AqMigrationCompatibilityPostgreSqlTests
             {
                 await PostgreSqlMigrationTestDatabase.MigrateAsync(database, Predecessor);
                 await using var host = await AdmissionHost.CreateAsync(database);
-                var (formId, questionId, responseId, activityId) = await SeedPredecessorAsync(database, host);
+                var fixture = await SeedPredecessorAsync(database, host);
 
                 await PostgreSqlMigrationTestDatabase.MigrateAsync(database);
                 await using (var verification = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
@@ -33,19 +33,44 @@ public sealed class AqMigrationCompatibilityPostgreSqlTests
                     Assert.Contains(Predecessor, applied);
                     Assert.NotEqual(Predecessor, applied[^1]);
                     Assert.Empty(await verification.Database.GetPendingMigrationsAsync());
+                    var form = await verification.Set<FormDefinition>().AsNoTracking().SingleAsync(row => row.Id == fixture.FormId);
+                    Assert.Equal(FormPurpose.Ordinary, form.Purpose);
+                    var response = await verification.Set<FormSubmission>().AsNoTracking().SingleAsync(row => row.Id == fixture.ResponseId);
+                    Assert.Equal(fixture.FormId, response.FormDefinitionId);
+                    Assert.Equal(host.Actor.Id, response.RespondentUserId);
+                    Assert.Null(response.SurveyTargetId);
+                    Assert.Null(response.PublishedSurveySchemaId);
+                    var observed = await verification.Set<FormVersion>().AsNoTracking()
+                        .Where(row => row.Id == response.FormVersionId)
+                        .Select(row => EF.Property<bool>(row, "IsLegacyObservedSnapshot")).SingleAsync();
+                    Assert.True(observed);
+                    var value = await verification.Set<FormSubmissionValue>().AsNoTracking()
+                        .Where(row => row.Id == fixture.AnswerId)
+                        .Select(row => new
+                        {
+                            row.FormSubmissionId,
+                            QuestionId = EF.Property<Guid?>(row, "LegacyQuestionId"),
+                            HistoricalText = EF.Property<string?>(row, "LegacyAnswerText"),
+                            Uninterpreted = EF.Property<bool>(row, "HasUninterpretedLegacyValue")
+                        }).SingleAsync();
+                    Assert.Equal(fixture.ResponseId, value.FormSubmissionId);
+                    Assert.Equal(fixture.QuestionId, value.QuestionId);
+                    Assert.Equal(HistoricalChoice, value.HistoricalText);
+                    Assert.True(value.Uninterpreted);
+                    Assert.False(await verification.Set<SurveyRespondentIdentity>().AnyAsync(identity => identity.FormSubmissionId == fixture.ResponseId));
                 }
 
                 await host.LoginAsync();
-                var formRoute = $"/api/forms/{formId:D}";
+                var formRoute = $"/api/forms/{fixture.FormId:D}";
                 var saved = await host.Client.GetFromJsonAsync<FormResponseDetailResponse>(formRoute + "/responses/me");
                 Assert.NotNull(saved);
-                Assert.Equal(responseId, saved.Id);
-                Assert.Equal(formId, saved.FormId);
+                Assert.Equal(fixture.ResponseId, saved.Id);
+                Assert.Equal(fixture.FormId, saved.FormId);
                 Assert.Null(saved.RespondentUserId);
                 Assert.Null(saved.RespondentEmail);
                 Assert.Null(saved.RespondentDisplayName);
                 var answer = Assert.Single(saved.Answers);
-                Assert.Equal(questionId, answer.FormQuestionId);
+                Assert.Equal(fixture.QuestionId, answer.FormQuestionId);
                 Assert.Equal(HistoricalChoice, answer.AnswerText);
 
                 var summary = await host.Client.GetFromJsonAsync<FormSummaryResponse>(formRoute + "/summary");
@@ -62,17 +87,36 @@ public sealed class AqMigrationCompatibilityPostgreSqlTests
                 Assert.Contains(unanswered, item => item.UserId == host.Recipient.Id);
 
                 using var duplicate = await host.PostAsync(formRoute + "/responses",
-                    new SubmitFormResponseRequest([new SubmitFormAnswerRequest(questionId, CurrentChoice)]));
+                    new SubmitFormResponseRequest([new SubmitFormAnswerRequest(fixture.QuestionId, CurrentChoice)]));
                 Assert.Equal(HttpStatusCode.BadRequest, duplicate.StatusCode);
                 Assert.Contains("already submitted", await duplicate.Content.ReadAsStringAsync(), StringComparison.Ordinal);
                 var summaryAfter = await host.Client.GetFromJsonAsync<FormSummaryResponse>(formRoute + "/summary");
                 Assert.Equal(1, summaryAfter?.TotalResponses);
 
-                using var activity = await host.Client.GetAsync($"/api/events/{activityId:D}");
+                var emptyFormRoute = $"/api/forms/{fixture.EmptyFormId:D}";
+                using var accepted = await host.PostAsync(emptyFormRoute + "/responses",
+                    new SubmitFormResponseRequest([new SubmitFormAnswerRequest(fixture.EmptyFormQuestionId, "Synthetic new answer")]));
+                Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+                var newResponse = await accepted.Content.ReadFromJsonAsync<FormResponseDetailResponse>();
+                Assert.NotNull(newResponse);
+                Assert.Null(newResponse.RespondentUserId);
+                await using (var verification = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+                {
+                    var stored = await verification.Set<FormSubmission>().AsNoTracking()
+                        .SingleAsync(row => row.FormDefinitionId == fixture.EmptyFormId);
+                    Assert.Equal(newResponse.Id, stored.Id);
+                    Assert.Equal(host.Actor.Id, stored.RespondentUserId);
+                    Assert.Null(stored.SurveyTargetId);
+                    var sourceCopies = await PostgreSqlMigrationTestDatabase.ScalarAsync<long>(database,
+                        """SELECT count(*) FROM pre_aq_form_responses WHERE "Id" = @id""", ("id", stored.Id));
+                    Assert.Equal(0, sourceCopies);
+                }
+
+                using var activity = await host.Client.GetAsync($"/api/events/{fixture.ActivityId:D}");
                 Assert.Equal(HttpStatusCode.OK, activity.StatusCode);
             });
 
-    private static async Task<(Guid FormId, Guid QuestionId, Guid ResponseId, Guid ActivityId)> SeedPredecessorAsync(
+    private static async Task<PredecessorFixture> SeedPredecessorAsync(
         string database, AdmissionHost host)
     {
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
@@ -121,7 +165,24 @@ public sealed class AqMigrationCompatibilityPostgreSqlTests
             EndsAt = now.AddHours(2),
             Status = EventStatus.Published
         };
-        db.AddRange(form, question, saved, answer, activity);
+        var empty = new InternalForm
+        {
+            TenantId = form.TenantId,
+            WorkspaceId = form.WorkspaceId,
+            CreatedByUserId = host.Actor.Id,
+            Title = "Synthetic form with no previous responses",
+            IsAnonymous = true,
+            FormType = FormType.Other,
+            Status = FormStatus.Open
+        };
+        var emptyQuestion = new FormQuestion
+        {
+            TenantId = form.TenantId,
+            FormId = empty.Id,
+            QuestionText = "Synthetic question",
+            QuestionType = FormQuestionType.ShortText
+        };
+        db.AddRange(form, question, saved, answer, activity, empty, emptyQuestion);
         db.EventAttendances.Add(new EventAttendance
         {
             TenantId = form.TenantId,
@@ -131,6 +192,9 @@ public sealed class AqMigrationCompatibilityPostgreSqlTests
             RespondedAt = now
         });
         await db.SaveChangesAsync();
-        return (form.Id, question.Id, saved.Id, activity.Id);
+        return new PredecessorFixture(form.Id, question.Id, saved.Id, answer.Id, activity.Id, empty.Id, emptyQuestion.Id);
     }
+
+    private sealed record PredecessorFixture(Guid FormId, Guid QuestionId, Guid ResponseId, Guid AnswerId, Guid ActivityId,
+        Guid EmptyFormId, Guid EmptyFormQuestionId);
 }
