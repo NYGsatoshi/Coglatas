@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using System.Text.Json.Serialization;
 using Coglatas.Application.Common;
+using Coglatas.Application.SurveyFeedback;
 using Coglatas.Domain.Common;
 using Coglatas.Domain.Entities;
 
@@ -42,12 +43,14 @@ public sealed record AqParticipantSettings(
 public sealed record AqSettingsUpdateRequest(
     long ExpectedVersionNo, DateTimeOffset? StartAt, DateTimeOffset? EndAt, string? TimeZone,
     bool? ReceptionStopped, bool? ResultsStopped, string? NameMode, bool? AccountBindingAllowed,
-    bool? ProgramPublished, IReadOnlyList<string>? PublicFields, IReadOnlyList<AqProgramTargetSelection>? ProgramTargets);
+    bool? ProgramPublished, IReadOnlyList<string>? PublicFields, IReadOnlyList<AqProgramTargetSelection>? ProgramTargets,
+    ManualFeedbackInvitationPolicy? InvitationPolicy = null);
 public sealed record AqProgramTargetSelection(Guid PresentationId, Guid TargetId);
 public sealed record AqEventSettings(
     DateTimeOffset StartAt, DateTimeOffset EndAt, string TimeZone, bool ReceptionStopped,
     bool ResultsStopped, string NameMode, bool AccountBindingAllowed, bool ProgramPublished,
-    IReadOnlyList<string> PublicFields, IReadOnlyList<AqProgramTargetSelection> ProgramTargets);
+    IReadOnlyList<string> PublicFields, IReadOnlyList<AqProgramTargetSelection> ProgramTargets,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] FeedbackInvitationPolicySettings? InvitationPolicy);
 public sealed record AqManagedEventSettings(AqEventSettings Settings, long VersionNo);
 public sealed record AqPresentationResultsUpdateRequest(long ExpectedVersionNo, bool? ResultsStopped);
 public sealed record AqPresentationResultsSettings(bool ResultsStopped, bool EffectiveResultsStopped, long VersionNo);

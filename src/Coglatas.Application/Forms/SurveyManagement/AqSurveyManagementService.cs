@@ -24,7 +24,8 @@ public sealed partial class AqSurveyManagementService(
     IAuditLogger audit,
     IClock clock,
     IAqPublicProjectionCodec codec,
-    ISurveyFeedbackInvalidation feedbackInvalidation)
+    ISurveyFeedbackInvalidation feedbackInvalidation,
+    FeedbackEventInvitationPolicyManagement invitationPolicies)
 {
     private const string Manage = "survey.manage";
     private const string Assign = "presentation.assign";
@@ -173,8 +174,11 @@ public sealed partial class AqSurveyManagementService(
             return NotFound<AqManagedEventSettings>();
 
         var entries = await ReadProgramEntriesAsync(eventId, cancellationToken);
-        return entries is null ? Conflict<AqManagedEventSettings>("The current program limit is exceeded.")
-            : Success(ToEventSettings(settings, entries));
+        if (entries is null)
+            return Conflict<AqManagedEventSettings>("The current program limit is exceeded.");
+
+        var invitationPolicy = await invitationPolicies.ReadAsync(settings.TenantId, eventId, cancellationToken);
+        return Success(ToEventSettings(settings, entries, invitationPolicy));
     }
 
     public Task<Result<AqManagedEventSettings>> UpdateEventSettingsAsync(
@@ -233,10 +237,24 @@ public sealed partial class AqSurveyManagementService(
                 ? SurveyAccountBinding.ExplicitOptIn : SurveyAccountBinding.Off;
             var settings = current ?? EventFeedbackSettings.Create(scope.Event, start.Value, end.Value, zone);
             var desiredResultsStop = request.ResultsStopped ?? settings.ResultsStopped;
-            var affected = desiredResultsStop != settings.ResultsStopped
+            var affected = desiredResultsStop != settings.ResultsStopped || request.InvitationPolicy is not null
                 ? await EventPresentationIdsAsync(eventId, token)
                 : [];
             var readers = await CaptureFeedbackAccessAsync(affected, token);
+
+            FeedbackInvitationPolicySettings? invitationPolicy;
+            if (request.InvitationPolicy is { } manualPolicy)
+            {
+                var staged = await invitationPolicies.StageManualAsync(settings.TenantId, eventId, manualPolicy, token);
+                if (!staged.IsSuccess)
+                    return Failure<AqManagedEventSettings>(staged.ErrorDetail!);
+                invitationPolicy = staged.Value!;
+            }
+            else
+            {
+                invitationPolicy = await invitationPolicies.ReadAsync(settings.TenantId, eventId, token);
+            }
+
             settings.Configure(request.ExpectedVersionNo, start.Value, end.Value, zone,
                 request.ReceptionStopped ?? settings.ReceptionStopped, desiredResultsStop,
                 nameMode, binding, published, fields, presenterNamesApproved: false);
@@ -254,7 +272,7 @@ public sealed partial class AqSurveyManagementService(
 
             await AuditAsync(scope.Actor, "aq.event.settings.update", eventId, token);
             await PublishFeedbackAccessChangesAsync(affected, readers, token);
-            return Success(ToEventSettings(settings, entries));
+            return Success(ToEventSettings(settings, entries, invitationPolicy));
         }, cancellationToken);
 
     public async Task<Result<AqPresentationResultsSettings>> GetPresentationResultsAsync(
@@ -435,12 +453,14 @@ public sealed partial class AqSurveyManagementService(
             assignments.Where(x => x.UserId.HasValue).Select(x => new AqParticipantAssignment(Wire(x.Role), x.UserId!.Value)).ToArray(),
             assignments.Where(x => x.PendingRosterRef is not null).Select(x => new AqPendingPresenter(x.PendingRosterRef!)).ToArray());
 
-    private static AqManagedEventSettings ToEventSettings(EventFeedbackSettings settings, IEnumerable<SurveyProgramEntry> entries) =>
+    private static AqManagedEventSettings ToEventSettings(EventFeedbackSettings settings, IEnumerable<SurveyProgramEntry> entries,
+        FeedbackInvitationPolicySettings? invitationPolicy) =>
         new(new AqEventSettings(settings.StartsAtUtc, settings.EndsAtUtc, settings.TimeZoneId,
             settings.ReceptionStopped, settings.ResultsStopped, Wire(settings.NameMode),
             settings.AccountBinding == SurveyAccountBinding.ExplicitOptIn, settings.IsProgramPublished,
             ProgramFieldNames.Where(x => settings.ProgramFields.HasFlag(x.Flag)).Select(x => x.Name).ToArray(),
-            entries.Select(x => new AqProgramTargetSelection(x.PresentationId, x.SurveyTargetId)).ToArray()), settings.VersionNo);
+            entries.Select(x => new AqProgramTargetSelection(x.PresentationId, x.SurveyTargetId)).ToArray(),
+            invitationPolicy), settings.VersionNo);
 
     private static AqPresentationResultsSettings ToResults(PresentationFeedbackSettings? settings, EventFeedbackSettings? parent) =>
         new(settings?.ResultsStopped ?? false, settings?.ResultsStopped == true || parent?.ResultsStopped == true, settings?.VersionNo ?? 1);
