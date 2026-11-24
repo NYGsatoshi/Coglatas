@@ -210,10 +210,11 @@ public sealed class EfFeedbackLifecycleRepository(AppDbContext dbContext) : IFee
     public Task<FeedbackSubmissionResource?> GetSubmissionAsync(Guid tenantId, Guid submissionId,
         CancellationToken cancellationToken) =>
         (from submission in dbContext.Set<FormSubmission>()
-         join target in dbContext.Set<SurveyTarget>().AsNoTracking() on submission.SurveyTargetId equals (Guid?)target.Id
+         join target in dbContext.Set<SurveyTarget>() on submission.SurveyTargetId equals (Guid?)target.Id
          where submission.TenantId == tenantId && submission.Id == submissionId && target.TenantId == tenantId &&
              !target.ResultsStopped
          select new FeedbackSubmissionResource(target.PresentationId, submission))
+        .AsTracking()
         .SingleOrDefaultAsync(cancellationToken);
 
     public Task<FeedbackReadState?> GetReadStateAsync(Guid tenantId, Guid submissionId, Guid userId,

@@ -275,6 +275,12 @@ public sealed class AqPublicSurveyHostedPostgreSqlTests
             using (var voided = await host.PostAsync($"/api/v1/core/feedback/submissions/{submissionId:D}/void", new
                    { expectedVersionNo = 1L, reason = "Synthetic void" }))
                 Assert.Equal(HttpStatusCode.OK, voided.StatusCode);
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+            {
+                var persisted = await db.Set<FormSubmission>().AsNoTracking().SingleAsync(row => row.Id == submissionId);
+                Assert.Equal(FormSubmissionStatus.Voided, persisted.Status);
+                Assert.Equal(2, persisted.VersionNo);
+            }
             using (var afterVoid = await GetDataAsync(host.Client, feedbackRoute + "-summary"))
                 Assert.Equal(0, afterVoid.RootElement.GetProperty("data").GetProperty("responses").GetInt64());
         });
