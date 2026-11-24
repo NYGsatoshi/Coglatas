@@ -155,7 +155,7 @@ public sealed class PublishedSurveySchema : AuditableEntity, ITenantEntity
     {
     }
 
-    private readonly List<PublishedSurveySchemaField> fields = [];
+    private readonly List<PublishedSurveySchemaField> _fields = [];
 
     public Guid TenantId { get; private init; }
     Guid ITenantEntity.TenantId
@@ -174,7 +174,7 @@ public sealed class PublishedSurveySchema : AuditableEntity, ITenantEntity
     public string VersionRef { get; private set; } = string.Empty;
     public string SchemaDigest { get; private set; } = string.Empty;
     public DateTimeOffset PublishedAtUtc { get; private set; }
-    public IReadOnlyList<PublishedSurveySchemaField> Fields => fields.AsReadOnly();
+    public IReadOnlyList<PublishedSurveySchemaField> Fields => _fields.AsReadOnly();
 
     public static PublishedSurveySchema Compose(
         SurveyTarget target, FormVersion common, TargetQuestionSetVersion additional,
@@ -208,7 +208,7 @@ public sealed class PublishedSurveySchema : AuditableEntity, ITenantEntity
             SchemaDigest = ComputeDigest(common.SnapshotJson, additional.SnapshotJson),
             PublishedAtUtc = publishedAt.ToUniversalTime()
         };
-        schema.fields.AddRange(orderedFields.Select((field, order) => new PublishedSurveySchemaField(schema, field, order)));
+        schema._fields.AddRange(orderedFields.Select((field, order) => PublishedSurveySchemaField.Create(schema, field, order)));
         return schema;
     }
 
@@ -241,14 +241,15 @@ public sealed class PublishedSurveySchemaField : AuditableEntity, ITenantEntity
     {
     }
 
-    internal PublishedSurveySchemaField(PublishedSurveySchema schema, FormFieldDefinition field, int order)
-    {
-        TenantId = schema.TenantId;
-        PublishedSurveySchemaId = schema.Id;
-        FormFieldDefinitionId = field.Id;
-        FormFieldDefinition = field;
-        SortOrder = order;
-    }
+    internal static PublishedSurveySchemaField Create(PublishedSurveySchema schema, FormFieldDefinition field, int order) =>
+        new()
+        {
+            TenantId = schema.TenantId,
+            PublishedSurveySchemaId = schema.Id,
+            FormFieldDefinitionId = field.Id,
+            FormFieldDefinition = field,
+            SortOrder = order
+        };
 
     public Guid TenantId { get; private init; }
     Guid ITenantEntity.TenantId
