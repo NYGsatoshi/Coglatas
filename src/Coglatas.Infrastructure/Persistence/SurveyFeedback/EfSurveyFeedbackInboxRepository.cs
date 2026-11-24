@@ -51,8 +51,17 @@ public sealed class EfSurveyFeedbackInboxRepository(AppDbContext dbContext) : IS
                 ((filters.Visibility == null && filters.FieldKey == null) || answers.Any(value =>
                     value.SubmissionId == submission.Id && (!value.IsHidden || moderate) &&
                     (filters.Visibility == null || value.IsHidden == (filters.Visibility == "hidden"))))
-            select new InboxProjection(submission.Id, target.PresentationId, submission.SubmittedAtUtc,
-                submission.VersionNo, isRead, hasReport, openReports, moderate);
+            select new
+            {
+                submission.Id,
+                target.PresentationId,
+                SubmittedAt = submission.SubmittedAtUtc,
+                Revision = submission.VersionNo,
+                IsRead = isRead,
+                HasReport = hasReport,
+                OpenReports = openReports,
+                CanModerate = moderate
+            };
 
         var unreadCount = await query.LongCountAsync(row => !row.IsRead, cancellationToken);
         var unresolved = moderatorScopes.Length == 0
@@ -94,12 +103,31 @@ public sealed class EfSurveyFeedbackInboxRepository(AppDbContext dbContext) : IS
         where answer.TenantId == tenantId && field.TenantId == tenantId &&
             (fieldKey == null || field.FieldKey == fieldKey)
         let hidden = decision != null && decision.IsHidden
-        select new AnswerProjection(answer.Id, answer.FormSubmissionId, field.CompatibilityRootFieldId ?? field.Id, field.FieldKey, field.Label, field.FieldType,
-            hidden ? "true" : answer.ValueJson, field.SortOrder, hidden, decision == null ? 1 : decision.VersionNo);
+        select new AnswerProjection
+        {
+            Id = answer.Id,
+            SubmissionId = answer.FormSubmissionId,
+            CompatibilityRootFieldId = field.CompatibilityRootFieldId ?? field.Id,
+            FieldKey = field.FieldKey,
+            Label = field.Label,
+            FieldType = field.FieldType,
+            ValueJson = hidden ? "true" : answer.ValueJson,
+            SortOrder = field.SortOrder,
+            IsHidden = hidden,
+            VisibilityVersionNo = decision == null ? 1 : decision.VersionNo
+        };
 
-    private sealed record InboxProjection(Guid Id, Guid PresentationId, DateTimeOffset SubmittedAt,
-        long Revision, bool IsRead, bool HasReport, int OpenReports, bool CanModerate);
-
-    private sealed record AnswerProjection(Guid Id, Guid SubmissionId, Guid CompatibilityRootFieldId, string FieldKey, string Label,
-        SurveyFieldType FieldType, string ValueJson, int SortOrder, bool IsHidden, long VisibilityVersionNo);
+    private sealed class AnswerProjection
+    {
+        public Guid Id { get; init; }
+        public Guid SubmissionId { get; init; }
+        public Guid CompatibilityRootFieldId { get; init; }
+        public required string FieldKey { get; init; }
+        public required string Label { get; init; }
+        public SurveyFieldType FieldType { get; init; }
+        public required string ValueJson { get; init; }
+        public int SortOrder { get; init; }
+        public bool IsHidden { get; init; }
+        public long VisibilityVersionNo { get; init; }
+    }
 }

@@ -90,7 +90,7 @@ public sealed class EfFeedbackLifecycleRepository(AppDbContext dbContext) : IFee
                 invitation.InvitationPolicyVersion == policy.VersionNo && policy.Enabled &&
                 !policy.ApprovedForAutomaticApproval && invitation.Status == FeedbackViewerGrantStatus.Pending &&
                 invitation.ApprovedAtUtc == null && invitation.DecisionDeadlineUtc > now
-            select new FeedbackApprovalCandidate(invitation, inviter.DisplayName, recipient.DisplayName);
+            select new { Invitation = invitation, InviterLabel = inviter.DisplayName, RecipientLabel = recipient.DisplayName };
         if (after is not null)
         {
             query = query.Where(row => row.Invitation.CreatedAt < after.SubmittedAt ||
@@ -98,7 +98,9 @@ public sealed class EfFeedbackLifecycleRepository(AppDbContext dbContext) : IFee
         }
 
         return await query.OrderByDescending(row => row.Invitation.CreatedAt)
-            .ThenByDescending(row => row.Invitation.Id).Take(take).ToListAsync(cancellationToken);
+            .ThenByDescending(row => row.Invitation.Id).Take(take)
+            .Select(row => new FeedbackApprovalCandidate(row.Invitation, row.InviterLabel, row.RecipientLabel))
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<EligibleFeedbackRecipient>> ReadRecipientCandidatesAsync(Guid tenantId,
@@ -113,13 +115,15 @@ public sealed class EfFeedbackLifecycleRepository(AppDbContext dbContext) : IFee
                 user.DisplayName != "" &&
                 dbContext.Set<TenantUser>().Any(tenantMember => tenantMember.TenantId == tenantId &&
                     tenantMember.UserId == member.UserId && tenantMember.Status == TenantUserStatus.Active)
-            select new EligibleFeedbackRecipient(member.UserId, user.DisplayName);
+            select new { RecipientRef = member.UserId, Label = user.DisplayName };
         if (after is { } last)
         {
             candidates = candidates.Where(candidate => candidate.RecipientRef.CompareTo(last) > 0);
         }
 
-        return await candidates.OrderBy(candidate => candidate.RecipientRef).Take(take).ToListAsync(cancellationToken);
+        return await candidates.OrderBy(candidate => candidate.RecipientRef).Take(take)
+            .Select(candidate => new EligibleFeedbackRecipient(candidate.RecipientRef, candidate.Label))
+            .ToListAsync(cancellationToken);
     }
 
     public Task<FeedbackViewerGrant?> GetInvitationAsync(Guid tenantId, Guid invitationId,

@@ -9,7 +9,7 @@ public sealed class EfSurveyFeedbackRepository(AppDbContext dbContext) : ISurvey
 {
     public Task<PresentationFeedbackScope?> GetScopeAsync(Guid tenantId, Guid presentationId,
         CancellationToken cancellationToken) =>
-        Scopes(tenantId).SingleOrDefaultAsync(scope => scope.Id == presentationId, cancellationToken);
+        Scopes(tenantId, presentationId).SingleOrDefaultAsync(cancellationToken);
 
     public Task<bool> IsInvitationEnabledAsync(Guid tenantId, Guid eventId, CancellationToken cancellationToken) =>
         dbContext.Set<FeedbackInvitationPolicy>().AsNoTracking().AnyAsync(policy => policy.TenantId == tenantId &&
@@ -96,12 +96,12 @@ public sealed class EfSurveyFeedbackRepository(AppDbContext dbContext) : ISurvey
         return new FeedbackSummaryInput(total, values.Select(ToValue).ToArray());
     }
 
-    private IQueryable<PresentationFeedbackScope> Scopes(Guid tenantId) =>
+    private IQueryable<PresentationFeedbackScope> Scopes(Guid tenantId, Guid? presentationId = null) =>
         from presentation in dbContext.Set<Presentation>().AsNoTracking()
         join activityEvent in dbContext.Set<ActivityEvent>().AsNoTracking() on presentation.EventId equals activityEvent.Id
         join project in dbContext.Set<Project>().AsNoTracking() on presentation.ProjectId equals project.Id
         where presentation.TenantId == tenantId && activityEvent.TenantId == tenantId && project.TenantId == tenantId &&
-            !activityEvent.DeletedAt.HasValue && !project.DeletedAt.HasValue && activityEvent.ProjectId == project.Id
+            (!presentationId.HasValue || presentation.Id == presentationId) && !activityEvent.DeletedAt.HasValue && !project.DeletedAt.HasValue && activityEvent.ProjectId == project.Id
         select new PresentationFeedbackScope(tenantId, presentation.Id, presentation.EventId, presentation.ProjectId,
             project.WorkspaceId, presentation.Title, presentation.StartsAtUtc, presentation.EndsAtUtc, presentation.Venue,
             dbContext.Set<EventFeedbackSettings>().Any(settings => settings.TenantId == tenantId &&
@@ -132,12 +132,34 @@ public sealed class EfSurveyFeedbackRepository(AppDbContext dbContext) : ISurvey
         where answer.TenantId == tenantId && field.TenantId == tenantId &&
             (fieldKey == null || field.FieldKey == fieldKey)
         let hidden = decision != null && decision.IsHidden
-        select new AnswerProjection(answer.Id, submission.Id, field.CompatibilityRootFieldId ?? field.Id, field.FieldKey, field.Label, field.FieldType,
-            hidden ? "true" : answer.ValueJson, field.SortOrder, hidden, decision == null ? 1 : decision.VersionNo);
+        select new AnswerProjection
+        {
+            Id = answer.Id,
+            SubmissionId = submission.Id,
+            CompatibilityRootFieldId = field.CompatibilityRootFieldId ?? field.Id,
+            FieldKey = field.FieldKey,
+            Label = field.Label,
+            FieldType = field.FieldType,
+            ValueJson = hidden ? "true" : answer.ValueJson,
+            SortOrder = field.SortOrder,
+            IsHidden = hidden,
+            VisibilityVersionNo = decision == null ? 1 : decision.VersionNo
+        };
 
     private static FeedbackValueSnapshot ToValue(AnswerProjection answer) =>
         new(answer.Id, answer.FieldKey, answer.FieldType.ToString(), answer.CompatibilityRootFieldId.ToString("D"), answer.ValueJson, answer.IsHidden, answer.VisibilityVersionNo, Label: answer.Label);
 
-    private sealed record AnswerProjection(Guid Id, Guid SubmissionId, Guid CompatibilityRootFieldId, string FieldKey, string Label,
-        SurveyFieldType FieldType, string ValueJson, int SortOrder, bool IsHidden, long VisibilityVersionNo);
+    private sealed class AnswerProjection
+    {
+        public Guid Id { get; init; }
+        public Guid SubmissionId { get; init; }
+        public Guid CompatibilityRootFieldId { get; init; }
+        public required string FieldKey { get; init; }
+        public required string Label { get; init; }
+        public SurveyFieldType FieldType { get; init; }
+        public required string ValueJson { get; init; }
+        public int SortOrder { get; init; }
+        public bool IsHidden { get; init; }
+        public long VisibilityVersionNo { get; init; }
+    }
 }
