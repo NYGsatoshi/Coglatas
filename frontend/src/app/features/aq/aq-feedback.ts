@@ -2,15 +2,24 @@ import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { EMPTY, catchError, distinctUntilChanged, filter, forkJoin, map, Observable } from 'rxjs';
+import { EMPTY, catchError, distinctUntilChanged, filter, forkJoin, fromEvent, interval, map, merge, Observable } from 'rxjs';
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { createCryptographicUuid, createLocalOpaqueId } from '../../core/security/client-id';
 import { AnswerValue, AqApi, Page, aqSegment } from './aq-api';
 
 type Relation = 'own' | 'assigned' | 'granted' | 'managed';
+interface ActionCapabilities {
+  report: boolean;
+  invite: boolean;
+  privateNote: boolean;
+  share: boolean;
+  exportAggregate: boolean;
+  exportDetail: boolean;
+}
 interface Workspace {
   presentation: { id: string; eventId: string; title: string };
   relations: Relation[];
+  capabilities?: ActionCapabilities;
 }
 interface Invitation {
   id: string;
@@ -26,7 +35,7 @@ interface QuestionSummary {
   fieldKey: string;
   denominator: number;
   mean?: number;
-  distribution?: { optionKey: string; count: number }[];
+  distribution?: { optionKey: string; responses: number }[];
 }
 interface Note { body: string }
 interface Recipient { recipientRef: string; label: string }
@@ -204,7 +213,7 @@ export class AqFeedbackHome {
               <strong>{{ question.fieldKey }}</strong> · 有効回答 {{ question.denominator }}
               @if (question.mean !== undefined) { · 平均 {{ question.mean }} }
               @for (option of question.distribution ?? []; track option.optionKey) {
-                <p>{{ option.optionKey }} · {{ option.count }}件</p>
+                <p>{{ option.optionKey }} · {{ option.responses }}件</p>
               }
             </li>
           }
@@ -237,7 +246,7 @@ export class AqFeedbackHome {
         }
         @if (actionMessage()) { <p role="status">{{ actionMessage() }}</p> }
         @if (actionFailed()) { <p role="alert">操作を完了できませんでした。</p> }
-        @if (relations().includes('own')) {
+        @if (capabilities()?.invite) {
           <h2>閲覧招待</h2>
           @if (recipients().length) {
             <label>招待する参加者
@@ -251,24 +260,26 @@ export class AqFeedbackHome {
             <button type="button" [disabled]="!recipient() || actionBusy()" (click)="invite()">承認待ちの招待を送る</button>
           } @else { <p>招待できる参加者は表示されていません。</p> }
         }
-        @if (relations().includes('assigned')) {
+        @if (capabilities()?.privateNote || capabilities()?.share) {
           <h2>レビュー</h2>
           <form (submit)="writeNote($event)">
             <label>コメント <textarea required [value]="noteBody()" (input)="noteBody.set($any($event.target).value)"></textarea></label>
             <label>公開範囲
               <select (change)="noteKind.set($any($event.target).value)">
-                <option value="private-notes">自分の非公開メモ</option>
-                <option value="shared-feedback">発表者に共有する講評</option>
+                @if (capabilities()?.privateNote) { <option value="private-notes">自分の非公開メモ</option> }
+                @if (capabilities()?.share) { <option value="shared-feedback">発表者に共有する講評</option> }
               </select>
             </label>
             <button type="submit" [disabled]="actionBusy()">保存</button>
           </form>
           @for (note of privateNotes(); track $index) { <p class="aq-panel">{{ note.body }}</p> }
         }
-        @if (relations().includes('own') || relations().includes('assigned') || relations().includes('managed')) {
+        @if (capabilities()?.exportAggregate || capabilities()?.exportDetail) {
           <h2>CSV出力</h2>
-          <button type="button" [disabled]="actionBusy()" (click)="requestCsv('aggregate')">集計CSVを準備</button>
-          @if (relations().includes('assigned') || relations().includes('managed')) {
+          @if (capabilities()?.exportAggregate) {
+            <button type="button" [disabled]="actionBusy()" (click)="requestCsv('aggregate')">集計CSVを準備</button>
+          }
+          @if (capabilities()?.exportDetail) {
             <button type="button" [disabled]="actionBusy()" (click)="requestCsv('detail')">詳細CSVを準備</button>
           }
           @if (exportId()) {
@@ -294,7 +305,7 @@ export class AqFeedbackDetail {
   protected readonly more = signal('');
   protected readonly loading = signal(false);
   protected readonly failed = signal(false);
-  protected readonly relations = signal<Relation[]>([]);
+  protected readonly capabilities = signal<ActionCapabilities | undefined>(undefined);
   protected readonly recipients = signal<Recipient[]>([]);
   protected readonly recipient = signal('');
   protected readonly privateNotes = signal<Note[]>([]);
@@ -364,7 +375,7 @@ export class AqFeedbackDetail {
   }
 
   protected mayReport(): boolean {
-    return this.relations().some(relation => relation !== 'granted');
+    return this.capabilities()?.report === true;
   }
 
   protected sendReport(event: Event): void {
@@ -453,15 +464,16 @@ export class AqFeedbackDetail {
       catchError(() => EMPTY), takeUntilDestroyed(this.destroyRef),
     ).subscribe(page => {
       if (this.generation !== generation || this.failed()) return;
-      const relations = page.items.find(item => item.presentation.id === this.id)?.relations ?? [];
-      this.relations.set(relations);
-      if (relations.includes('own')) {
+      const capabilities = page.items.find(item => item.presentation.id === this.id)?.capabilities;
+      this.capabilities.set(capabilities);
+      this.noteKind.set(capabilities?.privateNote ? 'private-notes' : 'shared-feedback');
+      if (capabilities?.invite) {
         this.api.read<Page<Recipient>>(this.presentationPath() + '/feedback-invitation-recipients')
           .pipe(catchError(() => EMPTY), takeUntilDestroyed(this.destroyRef)).subscribe(result => {
             if (this.generation === generation && !this.failed()) this.recipients.set(result.items);
           });
       }
-      if (relations.includes('assigned')) {
+      if (capabilities?.privateNote) {
         this.api.read<Page<Note>>(this.presentationPath() + '/private-notes')
           .pipe(catchError(() => EMPTY), takeUntilDestroyed(this.destroyRef)).subscribe(result => {
             if (this.generation === generation && !this.failed()) this.privateNotes.set(result.items);
@@ -471,7 +483,7 @@ export class AqFeedbackDetail {
   }
 
   private clear(): void {
-    this.relations.set([]);
+    this.capabilities.set(undefined);
     this.recipients.set([]);
     this.privateNotes.set([]);
     this.recipient.set('');
@@ -492,6 +504,10 @@ export function bindFeedbackRefresh(refresh: () => void, presentationId?: () => 
   const key = createLocalOpaqueId('aq');
   destroy.onDestroy(realtime.registerProtectedStateClearer(key, refresh));
   destroy.onDestroy(realtime.registerCatchUp(key, refresh));
+  merge(fromEvent(document, 'visibilitychange'), interval(30_000)).pipe(
+    filter(() => document.visibilityState === 'visible'),
+    takeUntilDestroyed(destroy),
+  ).subscribe(refresh);
   realtime.durableEvents$.pipe(
     filter(event => event.eventType === 'Feedback.PresentationInvalidated.v1' &&
       (!presentationId || presentationId() === event.aggregateId)),

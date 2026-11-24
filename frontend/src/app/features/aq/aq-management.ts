@@ -1,11 +1,15 @@
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { distinctUntilChanged, forkJoin, map, Observable } from 'rxjs';
-import { AqApi, Page, aqSegment } from './aq-api';
+import { catchError, distinctUntilChanged, forkJoin, map, Observable, of } from 'rxjs';
+import { AqApi, Page, SurveyField, aqSegment } from './aq-api';
 import { createCryptographicUuid } from '../../core/security/client-id';
 
 interface EventSettings {
+  nameMode: 'anonymous' | 'optionalName' | 'requiredName';
+  accountBindingAllowed: boolean;
+  publicFields: string[];
+  programTargets: { presentationId: string; targetId: string }[];
   receptionStopped: boolean;
   resultsStopped: boolean;
   programPublished: boolean;
@@ -16,8 +20,10 @@ interface Presentation {
   presentation: { id: string; title: string };
   versionNo: number;
 }
-interface Campaign { id: string; enabled: boolean; published: boolean; versionNo: number }
+interface Campaign { id: string; formDefinitionId: string; enabled: boolean; published: boolean; versionNo: number }
 interface Target { id: string; presentationId: string; versionNo: number; settings: { enabled: boolean; resultsStopped: boolean } }
+interface FormSummary { id: string; title: string; versionNo: number }
+interface QuestionVersion { id: string; versionNo: number; state: string }
 interface Approval {
   invitation: { id: string; versionNo: number };
   presentationLabel: string;
@@ -55,6 +61,23 @@ export class AqManagement {
   protected readonly venue = signal('');
   protected readonly start = signal('');
   protected readonly end = signal('');
+  protected readonly projectId = signal('');
+  protected readonly formTitle = signal('');
+  protected readonly forms = signal<FormSummary[]>([]);
+  protected readonly formId = signal('');
+  protected readonly targetPresentation = signal('');
+  protected readonly commonVersion = signal('');
+  protected readonly versions = signal<QuestionVersion[]>([]);
+  protected readonly fields = signal<SurveyField[]>([]);
+  protected readonly editingKind = signal<'common' | 'target'>('common');
+  protected readonly previousFieldKeys = signal<string[]>([]);
+  protected readonly questionLabel = signal('');
+  protected readonly questionKind = signal<SurveyField['type']>('text');
+  protected readonly options = signal('');
+  protected readonly questionRequired = signal(false);
+  protected readonly versionReason = signal('');
+  protected readonly timeZone = signal(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  protected readonly publicEntry = signal('');
   private id = '';
   private generation = 0;
   private targetGeneration = 0;
@@ -67,6 +90,12 @@ export class AqManagement {
       takeUntilDestroyed(),
     ).subscribe(id => {
       this.id = id;
+      ++this.targetGeneration;
+      this.projectId.set('');
+      this.formId.set('');
+      this.versions.set([]);
+      this.fields.set([]);
+      this.publicEntry.set('');
       this.preview.set(null);
       this.programCode.set('');
       this.campaignId.set('');
@@ -85,7 +114,12 @@ export class AqManagement {
     this.campaigns.set([]);
     this.approvals.set([]);
     forkJoin({
-      data: this.api.read<EventManagement>(root + '/feedback-settings'),
+      data: this.api.read<EventManagement>(root + '/feedback-settings').pipe(
+        catchError((error: { httpStatus?: number }) => {
+          if (error.httpStatus !== 404) throw error;
+          return of(null);
+        }),
+      ),
       presentations: this.api.read<Page<Presentation>>(root + '/presentations'),
       campaigns: this.api.read<Page<Campaign>>(root + '/survey-campaigns'),
     }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
@@ -94,12 +128,29 @@ export class AqManagement {
         this.data.set(result.data);
         this.presentations.set(result.presentations.items);
         this.campaigns.set(result.campaigns.items);
+        if (this.campaignId()) this.reloadTargets(this.campaignId());
         this.busy.set(false);
       },
       error: () => {
         if (generation !== this.generation) return;
         this.busy.set(false);
         this.failed.set(true);
+      },
+    });
+    this.api.eventScope(this.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: scope => {
+        if (generation === this.generation) this.projectId.set(scope.projectId ?? '');
+      },
+      error: () => {
+        if (generation === this.generation) this.projectId.set('');
+      },
+    });
+    this.api.read<Page<FormSummary>>('forms', { eventId: this.id }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: page => {
+        if (generation === this.generation) this.forms.set(page.items);
+      },
+      error: () => {
+        if (generation === this.generation) this.forms.set([]);
       },
     });
     this.api.read<Page<Approval>>(root + '/feedback-invitations/approval-queue')
@@ -113,7 +164,34 @@ export class AqManagement {
       });
   }
 
-  protected setEventSetting(name: keyof Pick<EventSettings, 'receptionStopped' | 'resultsStopped' | 'programPublished'>, checked: boolean): void {
+  protected initializeReception(event: Event): void {
+    event.preventDefault();
+    const start = new Date(this.start());
+    const end = new Date(this.end());
+    const zone = this.timeZone().trim();
+    if (!Number.isFinite(start.getTime()) || !(start < end) || !zone) {
+      this.failed.set(true);
+      return;
+    }
+    this.act(this.api.command('PATCH', this.eventPath() + '/feedback-settings', {
+      expectedVersionNo: 1, startAt: start.toISOString(), endAt: end.toISOString(),
+      timeZone: zone, publicFields: ['title', 'time', 'venue', 'timeZone'],
+    }), 'アンケートの受付を設定しました。', () => {
+      this.start.set('');
+      this.end.set('');
+    });
+  }
+
+  protected setNameMode(value: EventSettings['nameMode']): void {
+    const settings = this.data();
+    if (!settings) return;
+    this.act(this.api.command('PATCH', this.eventPath() + '/feedback-settings', {
+      expectedVersionNo: settings.versionNo, nameMode: value,
+      ...(value === 'anonymous' ? { accountBindingAllowed: false } : {}),
+    }), '回答者名の設定を更新しました。');
+  }
+
+  protected setEventSetting(name: keyof Pick<EventSettings, 'receptionStopped' | 'resultsStopped' | 'programPublished' | 'accountBindingAllowed'>, checked: boolean): void {
     const settings = this.data();
     if (!settings) return;
     this.act(this.api.command('PATCH', this.eventPath() + '/feedback-settings', {
@@ -151,15 +229,26 @@ export class AqManagement {
   }
 
   protected selectCampaign(id: string): void {
-    const generation = ++this.targetGeneration;
     this.campaignId.set(id);
     this.targetId.set('');
+    this.publicEntry.set('');
+    this.targetPresentation.set('');
+    this.commonVersion.set('');
+    const campaign = this.campaigns().find(item => item.id === id);
+    if (campaign) this.selectForm(campaign.formDefinitionId);
+    this.reloadTargets(id);
+  }
+
+  private reloadTargets(id: string): void {
+    const generation = ++this.targetGeneration;
     this.targets.set([]);
     if (!id) return;
     this.api.read<Page<Target>>('survey-campaigns/' + aqSegment(id) + '/targets')
       .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: page => {
-          if (generation === this.targetGeneration) this.targets.set(page.items);
+          if (generation !== this.targetGeneration) return;
+          this.targets.set(page.items);
+          if (!page.items.some(target => target.id === this.targetId())) this.targetId.set('');
         },
         error: () => {
           if (generation === this.targetGeneration) this.failed.set(true);
@@ -213,6 +302,166 @@ export class AqManagement {
       confirmedAssignments,
       expectedSourceVersions: preview.expectedSourceVersions,
     }, this.previewKey), '名簿を取り込みました。', () => this.preview.set(null));
+  }
+
+  protected createForm(event: Event): void {
+    event.preventDefault();
+    const title = this.formTitle().trim();
+    const scopeId = this.projectId();
+    if (!title || !scopeId) return;
+    this.act(this.api.command<{ id: string }>('POST', 'forms', {
+      owner: { scopeType: 'project', scopeId }, purpose: 'survey', title,
+    }), '共通フォームを追加しました。', created => {
+      this.formTitle.set('');
+      this.selectForm(created.id);
+    });
+  }
+
+  protected selectForm(id: string): void {
+    this.formId.set(id);
+    this.versions.set([]);
+    this.fields.set([]);
+    this.previousFieldKeys.set([]);
+    this.editingKind.set('common');
+    if (!id) return;
+    this.api.read<Page<QuestionVersion>>('forms/' + aqSegment(id) + '/versions', { pageSize: '100' })
+      .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: page => {
+          if (this.formId() === id) this.versions.set(page.items);
+        },
+        error: () => {
+          if (this.formId() === id) this.failed.set(true);
+        },
+      });
+  }
+
+  protected loadVersion(id: string): void {
+    const form = this.formId();
+    if (!form || !id) return;
+    this.act(this.api.read<{ fields: SurveyField[] }>('forms/' + aqSegment(form) + '/versions/' + aqSegment(id)),
+      '公開版を読み込みました。', version => {
+        this.editingKind.set('common');
+        this.fields.set(version.fields);
+        this.previousFieldKeys.set(version.fields.map(field => field.fieldKey));
+      }, false);
+  }
+
+  protected addField(event: Event): void {
+    event.preventDefault();
+    const label = this.questionLabel().trim();
+    const type = this.questionKind();
+    const options = this.options().split('\n').map(value => value.trim()).filter(Boolean);
+    const choice = type === 'singleChoice' || type === 'multipleChoice';
+    if (!label || (choice && options.length < 2)) {
+      this.failed.set(true);
+      return;
+    }
+    this.fields.update(fields => [...fields, {
+      fieldKey: createCryptographicUuid(), label, type, required: this.questionRequired(),
+      ...(choice ? { options: options.map(value => ({ optionKey: createCryptographicUuid(), label: value })) } : {}),
+      ...(type === 'scale' ? { constraints: { minimum: 1, maximum: 5, step: 1 } } : {}),
+    }]);
+    this.questionLabel.set('');
+    this.options.set('');
+  }
+
+  protected renameField(key: string, label: string): void {
+    this.fields.update(items => items.map(item => item.fieldKey === key ? { ...item, label } : item));
+  }
+
+  protected removeField(key: string): void {
+    this.fields.update(items => items.filter(item => item.fieldKey !== key));
+  }
+
+  protected editQuestions(kind: 'common' | 'target'): void {
+    this.editingKind.set(kind);
+    this.fields.set([]);
+    this.previousFieldKeys.set([]);
+    this.versionReason.set('');
+    if (kind !== 'target' || !this.targetId()) return;
+    const target = this.targetId();
+    const path = 'survey-targets/' + aqSegment(target) + '/question-set-versions';
+    this.api.read<Page<QuestionVersion>>(path, { pageSize: '100' }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: page => {
+        if (this.editingKind() !== 'target' || this.targetId() !== target) return;
+        const latest = [...page.items].sort((left, right) => right.versionNo - left.versionNo)[0];
+        if (!latest) return;
+        this.act(this.api.read<{ fields: SurveyField[] }>(path + '/' + aqSegment(latest.id)),
+          '発表の設問を読み込みました。', version => {
+            if (this.editingKind() === 'target' && this.targetId() === target) {
+              this.fields.set(version.fields);
+              this.previousFieldKeys.set(version.fields.map(field => field.fieldKey));
+            }
+          }, false);
+      },
+      error: () => this.failed.set(true),
+    });
+  }
+
+  protected publishQuestions(kind: 'common' | 'target'): void {
+    if (kind !== this.editingKind()) return;
+    const form = this.forms().find(item => item.id === this.formId());
+    const target = this.targets().find(item => item.id === this.targetId());
+    const version = kind === 'common' ? form?.versionNo : target?.versionNo;
+    if (!version || this.fields().some(field => !field.label.trim())) return;
+    const path = kind === 'common' ? 'forms/' + aqSegment(form!.id) + '/versions'
+      : 'survey-targets/' + aqSegment(target!.id) + '/question-set-versions';
+    const currentKeys = new Set(this.fields().map(field => field.fieldKey));
+    const compatibility = this.previousFieldKeys().filter(key => currentKeys.has(key))
+      .map(fieldKey => ({ previousFieldKey: fieldKey, fieldKey }));
+    const reason = this.versionReason().trim();
+    this.act(this.api.command('POST', path, {
+      expectedVersionNo: version, action: 'publish', fields: this.fields(),
+      ...(reason ? { changeReason: reason } : {}),
+      ...(reason && compatibility.length ? { compatibility } : {}),
+    }), '設問の版を公開しました。', () => {
+      if (kind === 'common') this.selectForm(this.formId());
+      this.versionReason.set('');
+    });
+  }
+
+  protected createCampaign(): void {
+    if (!this.formId()) return;
+    this.act(this.api.command<Campaign>('POST', this.eventPath() + '/survey-campaigns', {
+      formDefinitionId: this.formId(), policyRef: this.id,
+    }), 'アンケートを作成しました。', result => this.campaignId.set(result.id));
+  }
+
+  protected publishCampaign(): void {
+    const campaign = this.campaigns().find(item => item.id === this.campaignId());
+    if (!campaign) return;
+    this.act(this.api.command('PATCH', 'survey-campaigns/' + aqSegment(campaign.id), {
+      expectedVersionNo: campaign.versionNo, enabled: true, published: true,
+    }), 'アンケートを公開しました。');
+  }
+
+  protected createTarget(): void {
+    if (!this.campaignId() || !this.targetPresentation() || !this.commonVersion()) return;
+    this.act(this.api.command<Target>('POST', 'survey-campaigns/' + aqSegment(this.campaignId()) + '/targets', {
+      presentationId: this.targetPresentation(), commonVersionId: this.commonVersion(),
+      settings: { enabled: true, resultsStopped: false },
+    }), '発表にアンケートを割り当てました。', result => this.targetId.set(result.id));
+  }
+
+  protected rotateTarget(): void {
+    const target = this.targets().find(item => item.id === this.targetId());
+    if (!target) return;
+    this.act(this.api.command<{ entryRef: string }>('POST', 'survey-targets/' + aqSegment(target.id) + '/public-code/rotate', {
+      expectedVersionNo: target.versionNo,
+    }), '回答リンクを発行しました。', result => this.publicEntry.set(result.entryRef));
+  }
+
+  protected addProgramTarget(): void {
+    const target = this.targets().find(item => item.id === this.targetId());
+    const event = this.data();
+    if (!target || !event) return;
+    const programTargets = [
+      ...event.settings.programTargets.filter(entry => entry.presentationId !== target.presentationId),
+      { presentationId: target.presentationId, targetId: target.id },
+    ];
+    this.act(this.api.command('PATCH', this.eventPath() + '/feedback-settings', {
+      expectedVersionNo: event.versionNo, programTargets,
+    }), '発表一覧に回答リンクを追加しました。');
   }
 
   protected presentationTitle(id: string): string {

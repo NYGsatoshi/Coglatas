@@ -105,6 +105,10 @@ export class AqApi {
     );
   }
 
+  eventScope(id: string): Observable<{ projectId?: string }> {
+    return this.http.get<{ projectId?: string }>('/api/events/' + aqSegment(id));
+  }
+
   read<T>(path: string, params: Record<string, string> = {}): Observable<T> {
     return this.http.get<Envelope<T>>('/api/v1/core/' + path, { params }).pipe(map(response => response.data));
   }
