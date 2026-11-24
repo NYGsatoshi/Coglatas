@@ -37,8 +37,11 @@ test('guest program and direct survey resolve to the same form and commit an ans
   const presentationTitle = requiredFixtureSetting('COGLATAS_AQ_PRESENTATION_TITLE');
   const questionLabel = requiredFixtureSetting('COGLATAS_AQ_GUEST_QUESTION_LABEL');
   const targetPath = publicApi + target;
+  const programPath = `/api/v1/public/events/${program}/presentations`;
 
+  const programListing = page.waitForResponse(response => matchesResponse(response, 'GET', programPath));
   await page.goto(`/app/aq/events/${program}`);
+  expect((await programListing).status()).toBe(200);
   const listingSurvey = page.waitForResponse(response => matchesResponse(response, 'GET', targetPath));
   await page.getByRole('link', { name: presentationTitle, exact: true }).click();
   const programIdentity = await readSchemaIdentity(await listingSurvey);
