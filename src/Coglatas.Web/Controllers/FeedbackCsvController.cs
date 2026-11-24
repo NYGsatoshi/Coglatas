@@ -14,10 +14,20 @@ namespace Coglatas.Web.Controllers;
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 [EnableRateLimiting(HttpSecurityPolicy.TenantExportRateLimitPolicy)]
 [Route("api/v1/core")]
+[ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status401Unauthorized, "application/json")]
+[ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status403Forbidden, "application/json")]
+[ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status404NotFound, "application/json")]
+[ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status500InternalServerError, "application/json")]
+[ProducesResponseType<FeedbackCsvController.RateLimitResponse>(StatusCodes.Status429TooManyRequests, "application/json")]
 public sealed class FeedbackCsvController(FeedbackCsvService exports) : ControllerBase
 {
     [HttpPost("presentations/{id:guid}/feedback-export")]
     [RequestSizeLimit(4096)]
+    [ProducesResponseType<ApiSuccessEnvelope<FeedbackCsvQueued>>(StatusCodes.Status202Accepted, "application/json")]
+    [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status400BadRequest, "application/json")]
+    [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status409Conflict, "application/json")]
+    [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status413PayloadTooLarge, "application/json")]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status413PayloadTooLarge, "application/json")]
     public async Task<IActionResult> Create(Guid id, FeedbackCsvRequest request, CancellationToken cancellationToken)
     {
         var key = ReadKey();
@@ -32,6 +42,11 @@ public sealed class FeedbackCsvController(FeedbackCsvService exports) : Controll
     }
 
     [HttpGet("presentation-feedback-exports/{id:guid}")]
+    [ProducesResponseType<ApiSuccessEnvelope<FeedbackCsvStatus>>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status409Conflict, "application/json")]
+    [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status410Gone, "application/json")]
+    [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status413PayloadTooLarge, "application/json")]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status413PayloadTooLarge, "application/json")]
     public async Task<IActionResult> GetStatus(Guid id, CancellationToken cancellationToken)
     {
         var result = await exports.StatusAsync(id, cancellationToken);
@@ -40,6 +55,11 @@ public sealed class FeedbackCsvController(FeedbackCsvService exports) : Controll
 
     [HttpPost("presentation-feedback-exports/{id:guid}/download-grants")]
     [RequestSizeLimit(4096)]
+    [ProducesResponseType<ApiSuccessEnvelope<FeedbackCsvGrantReceipt>>(StatusCodes.Status201Created, "application/json")]
+    [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status400BadRequest, "application/json")]
+    [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status409Conflict, "application/json")]
+    [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status410Gone, "application/json")]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status413PayloadTooLarge, "application/json")]
     public async Task<IActionResult> CreateGrant(Guid id, CancellationToken cancellationToken)
     {
         var key = ReadKey();
@@ -54,6 +74,11 @@ public sealed class FeedbackCsvController(FeedbackCsvService exports) : Controll
     }
 
     [HttpGet("presentation-feedback-exports/{id:guid}/download-grants/{grantId:guid}/content")]
+    [ProducesResponseType<string>(StatusCodes.Status200OK, "text/csv",
+        Description = "UTF-8 CSV attachment named presentation-feedback.csv.")]
+    [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status410Gone, "application/json")]
+    [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status413PayloadTooLarge, "application/json")]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status413PayloadTooLarge, "application/json")]
     public async Task<IActionResult> Download(Guid id, Guid grantId, CancellationToken cancellationToken)
     {
         var result = await exports.DownloadAsync(id, grantId, cancellationToken);
@@ -61,6 +86,10 @@ public sealed class FeedbackCsvController(FeedbackCsvService exports) : Controll
             ? File(result.Value!.Content, "text/csv; charset=utf-8", "presentation-feedback.csv")
             : Fail(result);
     }
+
+    // The CSV endpoint uses the shared tenant-export rate-limit response.
+    private sealed record RateLimitResponse(string RequestId, RateLimitError Error);
+    private sealed record RateLimitError(string Code, string Message);
 
     private Result<string?> ReadKey()
     {

@@ -5,6 +5,9 @@ using Microsoft.AspNetCore.Mvc;
 namespace Coglatas.Web.Controllers;
 
 [AqProtectedEndpoint]
+[ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status401Unauthorized, "application/json")]
+[ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status403Forbidden, "application/json")]
+[ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status500InternalServerError, "application/json")]
 public abstract class SurveyFeedbackControllerBase : ControllerBase
 {
     protected IActionResult ToResponse<T>(Result<T> result, int successStatus = StatusCodes.Status200OK)
