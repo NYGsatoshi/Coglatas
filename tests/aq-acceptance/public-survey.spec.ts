@@ -62,6 +62,7 @@ test('guest program and direct survey resolve to the same form and commit an ans
 
   const answer = page.getByRole('textbox', { name: questionLabel, exact: true });
   await expect(answer).toBeVisible();
+  await expect(page.getByText('自由記述には個人情報を書かないでください。', { exact: false })).toBeVisible();
   const audit = await new AxeBuilder({ page }).include('main.aq-page')
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
   expect(audit.violations.map(violation => violation.id)).toEqual([]);
