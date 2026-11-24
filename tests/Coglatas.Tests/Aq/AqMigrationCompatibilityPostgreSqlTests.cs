@@ -58,6 +58,8 @@ public sealed class AqMigrationCompatibilityPostgreSqlTests
                     Assert.Equal(HistoricalChoice, value.HistoricalText);
                     Assert.True(value.Uninterpreted);
                     Assert.False(await verification.Set<SurveyRespondentIdentity>().AnyAsync(identity => identity.FormSubmissionId == fixture.ResponseId));
+                    Assert.True(await PostgreSqlMigrationTestDatabase.ScalarAsync<bool>(database,
+                        """SELECT "MaskRespondent" FROM form_responses WHERE "Id" = @id""", ("id", fixture.ResponseId)));
                 }
 
                 await host.LoginAsync();
@@ -107,6 +109,8 @@ public sealed class AqMigrationCompatibilityPostgreSqlTests
                     Assert.Equal(newResponse.Id, stored.Id);
                     Assert.Equal(host.Actor.Id, stored.RespondentUserId);
                     Assert.Null(stored.SurveyTargetId);
+                    Assert.True(await PostgreSqlMigrationTestDatabase.ScalarAsync<bool>(database,
+                        """SELECT "MaskRespondent" FROM form_responses WHERE "Id" = @id""", ("id", stored.Id)));
                     var sourceCopies = await PostgreSqlMigrationTestDatabase.ScalarAsync<long>(database,
                         """SELECT count(*) FROM pre_aq_form_responses WHERE "Id" = @id""", ("id", stored.Id));
                     Assert.Equal(0, sourceCopies);
@@ -127,7 +131,8 @@ public sealed class AqMigrationCompatibilityPostgreSqlTests
             WorkspaceId = host.Workspace.Id,
             CreatedByUserId = host.Actor.Id,
             Title = "Existing synthetic ordinary form",
-            IsAnonymous = true,
+            // The cutover can observe today's flag but cannot reconstruct the historical flag.
+            IsAnonymous = false,
             FormType = FormType.Survey,
             Status = FormStatus.Open,
             OpensAt = now.AddDays(-1),
