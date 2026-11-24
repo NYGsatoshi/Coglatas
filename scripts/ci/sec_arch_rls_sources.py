@@ -17,7 +17,6 @@ HISTORICAL_CATALOGUE = {"version": "pre-aq-v1",
                        "latestMigration": "20261101062657_StabilizeLogicalRecoveryConstraintExpressions"}
 REFERENCE_KEYS = {"schemaVersion", "candidateSha", "testAssemblyDigest", "approval", "ownerApproval", "environment",
                   "environmentFingerprint", "executionScope", "productRlsAppliedCount", "tables"}
-ENVIRONMENT_KEYS = ("dotnetVersion", "npgsqlVersion", "postgresVersion", "fixture")
 PROBE_KEYS = {"operation", "situation", "semanticReason", "classification", "rlsQualification", "authorityDisposition",
               "parentTables", "source", "guard"}
 IDENTIFIER = r"[A-Za-z_][A-Za-z0-9_]{0,62}"
@@ -221,7 +220,7 @@ def cell_rejection_matches(row: dict, declaration: dict) -> bool:
 
 
 def bind(tables: dict, cells: dict, classifications: dict, reference: dict | None, candidate: str,
-         assembly_digest: str, environment_fingerprint: str, checkout: Path | None,
+         assembly_digest: str, environment: dict, environment_fingerprint: str, checkout: Path | None,
          relation_catalogue: dict | None = None) -> dict:
     rejected = {key: row for key, row in cells.items() if row["observedMechanism"] in {"TRIGGER_REJECTION", "CONSTRAINT_REJECTION"}}
     if reference is None:
@@ -237,12 +236,7 @@ def bind(tables: dict, cells: dict, classifications: dict, reference: dict | Non
     require(isinstance(reference, dict) and set(reference) == reference_keys and checkout is not None and
             reference.get("relationCatalogue") == relation_catalogue and
             reference.get("testAssemblyDigest") == assembly_digest and
-            isinstance(reference.get("environment"), dict) and
-            set(reference["environment"]) == set(ENVIRONMENT_KEYS) and
-            all(isinstance(reference["environment"][key], str) and 0 < len(reference["environment"][key]) <= 100 for key in ENVIRONMENT_KEYS) and
-            reference["environment"]["fixture"] == "isolated-migrated-postgresql" and
-            hashlib.sha256(json.dumps({key: reference["environment"][key] for key in ENVIRONMENT_KEYS},
-                                      separators=(",", ":"), ensure_ascii=False).encode()).hexdigest() == environment_fingerprint and
+            reference.get("environment") == environment and
             type(reference.get("schemaVersion")) is int and reference["schemaVersion"] == 1 and
             reference.get("candidateSha") == candidate and reference.get("approval") == "DRAFT" and
             reference.get("ownerApproval") is None and reference.get("environmentFingerprint") == environment_fingerprint and
