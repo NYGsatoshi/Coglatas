@@ -184,8 +184,18 @@ public sealed class AqOperatorHostedPostgreSqlTests
             Assert.Equal(JsonValueKind.Null, duplicates.GetProperty("previewRef").ValueKind);
             Assert.Equal("DuplicateAssignment", Assert.Single(duplicates.GetProperty("diagnostics").EnumerateArray())
                 .GetProperty("code").GetString());
+            var invalid = await PreviewAsync(host.Client, eventRoute, header + $"{presentationId:D},unrecognized,{host.Actor.Id:D},\n");
+            Assert.Equal(JsonValueKind.Null, invalid.GetProperty("previewRef").ValueKind);
+            Assert.Equal("InvalidRosterRow", Assert.Single(invalid.GetProperty("diagnostics").EnumerateArray())
+                .GetProperty("code").GetString());
+
             var preview = await PreviewAsync(host.Client, eventRoute, header + row);
             Assert.Empty(preview.GetProperty("diagnostics").EnumerateArray());
+            var proposed = Assert.Single(preview.GetProperty("proposedAssignments").EnumerateArray());
+            Assert.Equal(2, proposed.GetProperty("row").GetInt32());
+            Assert.Equal(presentationId, proposed.GetProperty("presentationId").GetGuid());
+            Assert.Equal("reviewer", proposed.GetProperty("role").GetString());
+            Assert.Equal(host.Actor.Id, proposed.GetProperty("personRef").GetGuid());
             var version = Assert.Single(preview.GetProperty("expectedSourceVersions").EnumerateArray());
             Assert.Equal(originalVersion, version.GetProperty("versionNo").GetInt64());
             var untouched = await GetAsync(host.Client, participants);
