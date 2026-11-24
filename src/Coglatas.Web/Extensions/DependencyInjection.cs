@@ -1,3 +1,4 @@
+using Coglatas.Web.SurveyFeedback;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Common.Tenancy;
 using Coglatas.Application.Auth;
@@ -57,6 +58,7 @@ public static class DependencyInjection
         services.AddHostedService<HttpSecurityConfigurationValidator>();
         services.AddHostedService<AuditPackageExportWorker>();
         services.AddHttpContextAccessor();
+        services.AddSurveyFeedback();
         services.AddScoped<ICurrentUser, CurrentUserService>();
         services.AddScoped<DbSessionCookieAuthenticationEvents>();
         services.AddSingleton<IAuthorizationMiddlewareResultHandler, WpcAuthorizationMiddlewareResultHandler>();
