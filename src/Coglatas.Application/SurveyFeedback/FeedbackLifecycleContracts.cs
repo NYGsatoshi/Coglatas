@@ -36,7 +36,7 @@ public sealed record FeedbackReaderState(bool IsRead, long ObservedRevision);
 public interface IFeedbackLifecycleRepository
 {
     Task<Result<T>> InWriteTransactionAsync<T>(Func<CancellationToken, Task<Result<T>>> operation,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken, string concurrentErrorCode = "ConcurrentModification");
     Task FlushAsync(CancellationToken cancellationToken);
     Task<FeedbackInvitationPolicy?> ReadInvitationPolicyAsync(Guid tenantId, Guid eventId,
         CancellationToken cancellationToken);

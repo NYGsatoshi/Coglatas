@@ -101,7 +101,7 @@ public sealed class FeedbackModerationService(
             await invalidation.InvalidateAsync(actor.TenantId, answer.PresentationId, token);
             return Result<FeedbackVisibilityDto>.Success(new FeedbackVisibilityDto(answerId, hide ? "hidden" : "visible",
                 visibility.VersionNo));
-        }, cancellationToken);
+        }, cancellationToken, "RowVersionConflict");
 
     public async Task<Result<FeedbackReportDetail>> ReportDetailAsync(Guid reportId,
         CancellationToken cancellationToken)
@@ -161,7 +161,7 @@ public sealed class FeedbackModerationService(
                 metadata: new Dictionary<string, object?> { ["resolution"] = resolution }, cancellationToken: token);
             await invalidation.InvalidateAsync(actor.TenantId, report.PresentationId, token);
             return Result<FeedbackReportDto>.Success(ToDto(report));
-        }, cancellationToken);
+        }, cancellationToken, "RowVersionConflict");
 
     public Task<Result<HiddenAnswerModerationDetail>> HiddenDetailAsync(Guid answerId,
         CancellationToken cancellationToken) =>
@@ -231,7 +231,7 @@ public sealed class FeedbackModerationService(
             await invalidation.InvalidateAsync(actor.TenantId, resource.PresentationId, token);
             return Result<FeedbackSubmissionDto>.Success(new FeedbackSubmissionDto(submissionId, "voided",
                 resource.Submission.VersionNo));
-        }, cancellationToken);
+        }, cancellationToken, "RowVersionConflict");
 
     public Task<Result<FeedbackReaderState>> SetReadStateAsync(Guid submissionId, long observedRevision, bool read,
         CancellationToken cancellationToken) =>

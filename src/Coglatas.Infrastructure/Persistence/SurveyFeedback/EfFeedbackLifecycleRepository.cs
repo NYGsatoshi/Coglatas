@@ -11,7 +11,7 @@ namespace Coglatas.Infrastructure.Persistence.SurveyFeedback;
 public sealed class EfFeedbackLifecycleRepository(AppDbContext dbContext) : IFeedbackLifecycleRepository
 {
     public async Task<Result<T>> InWriteTransactionAsync<T>(Func<CancellationToken, Task<Result<T>>> operation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, string concurrentErrorCode = "ConcurrentModification")
     {
         await using var transaction = await dbContext.Database.BeginTransactionAsync(
             IsolationLevel.Serializable, cancellationToken);
@@ -39,7 +39,7 @@ public sealed class EfFeedbackLifecycleRepository(AppDbContext dbContext) : IFee
         catch (Exception exception) when (IsConcurrentFailure(exception))
         {
             dbContext.ChangeTracker.Clear();
-            return Conflict<T>("ConcurrentModification");
+            return Conflict<T>(concurrentErrorCode);
         }
     }
 

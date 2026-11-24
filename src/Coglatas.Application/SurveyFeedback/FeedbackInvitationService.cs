@@ -213,7 +213,7 @@ public sealed class FeedbackInvitationService(
             }
 
             return Result<FeedbackInvitationDto>.Success(ToDto(invitation, policy));
-        }, cancellationToken);
+        }, cancellationToken, "RowVersionConflict");
 
     private async Task<bool> CanDecideAsync(FeedbackActor actor, PresentationFeedbackAccess access,
         FeedbackViewerGrant invitation, string decision, CancellationToken cancellationToken)

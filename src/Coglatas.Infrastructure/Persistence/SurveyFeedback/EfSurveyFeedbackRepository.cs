@@ -114,7 +114,10 @@ public sealed class EfSurveyFeedbackRepository(AppDbContext dbContext) : ISurvey
         join target in dbContext.Set<SurveyTarget>().AsNoTracking() on submission.SurveyTargetId equals (Guid?)target.Id
         where submission.TenantId == tenantId && target.TenantId == tenantId &&
             target.PresentationId == presentationId && !target.ResultsStopped &&
-            Scopes(tenantId).Any(scope => scope.Id == presentationId && !scope.ResultsStopped) &&
+            !dbContext.Set<EventFeedbackSettings>().Any(settings => settings.TenantId == tenantId &&
+                settings.EventId == target.EventId && settings.ResultsStopped) &&
+            !dbContext.Set<PresentationFeedbackSettings>().Any(settings => settings.TenantId == tenantId &&
+                settings.PresentationId == target.PresentationId && settings.ResultsStopped) &&
             submission.Status == FormSubmissionStatus.Submitted
         select submission;
 
