@@ -24,7 +24,8 @@ public static class RealtimeEventCatalog
         "Projects.ProjectChanged.v1",
         "Announcements.AnnouncementChanged.v1",
         "Files.FileChanged.v1",
-        "Security.AuthorizationStateChanged.v1"
+        "Security.AuthorizationStateChanged.v1",
+        SurveyFeedback.SurveyFeedbackInvalidation.EventName
     };
 
     public static bool IsSupported(string eventType, int payloadSchemaVersion)
