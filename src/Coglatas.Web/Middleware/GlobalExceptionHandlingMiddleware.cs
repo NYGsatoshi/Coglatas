@@ -50,11 +50,19 @@ public sealed class GlobalExceptionHandlingMiddleware(
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "Unhandled request exception. TraceId: {TraceId}", context.TraceIdentifier);
+            if (AqPublicRoutes.IsPublicSurvey(context.Request.Path))
+            {
+                logger.LogError("Unhandled public survey failure. TraceId: {TraceId}", context.TraceIdentifier);
+            }
+            else
+            {
+                logger.LogError(exception, "Unhandled request exception. TraceId: {TraceId}", context.TraceIdentifier);
+            }
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
             context.Response.ContentType = "application/json";
 
-            if (IsWpcPath(context.Request.Path.Value))
+            if (IsWpcPath(context.Request.Path.Value) || AqPublicRoutes.IsPublicSurvey(context.Request.Path) ||
+                AqPublicRoutes.IsProtectedSurvey(context.Request.Path))
             {
                 await context.Response.WriteAsJsonAsync(ApiEnvelope.Error(
                     context,
@@ -105,6 +113,13 @@ public sealed class GlobalExceptionHandlingMiddleware(
             ? StatusCodes.Status415UnsupportedMediaType
             : StatusCodes.Status400BadRequest;
         context.Response.ContentType = "application/json";
+        if (AqPublicRoutes.IsPublicSurvey(context.Request.Path))
+        {
+            return context.Response.WriteAsJsonAsync(ApiEnvelope.Error(
+                context, context.Response.StatusCode,
+                unsupportedMediaType ? "UnsupportedMediaType" : "MalformedJson",
+                "The public survey request is invalid."));
+        }
         return context.Response.WriteAsJsonAsync(new ErrorResponse(
             unsupportedMediaType ? "UnsupportedMediaType" : "InvalidRequest",
             unsupportedMediaType

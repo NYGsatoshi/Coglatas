@@ -1,4 +1,5 @@
 using Coglatas.Web.Configuration;
+using Coglatas.Web.Models;
 
 namespace Coglatas.Web.Middleware;
 
@@ -15,7 +16,14 @@ public sealed class SecurityHeadersMiddleware(RequestDelegate next)
             headers["Permissions-Policy"] = HttpSecurityPolicy.PermissionsPolicy;
             headers["Content-Security-Policy"] = HttpSecurityPolicy.BuildContentSecurityPolicy(context.Request);
 
-            if (WorkspaceMemberManagementHttpPolicy.ReadOperation(context.Request) is not null)
+            if (AqPublicRoutes.IsPublicSurvey(context.Request.Path) || AqPublicRoutes.IsProtectedSurvey(context.Request.Path))
+            {
+                headers["Referrer-Policy"] = "no-referrer";
+                headers["Cache-Control"] = "no-store";
+                headers["Pragma"] = "no-cache";
+                headers["Expires"] = "0";
+            }
+            else if (WorkspaceMemberManagementHttpPolicy.ReadOperation(context.Request) is not null)
             {
                 headers["Cache-Control"] = "private, no-store";
                 headers["Pragma"] = "no-cache";
