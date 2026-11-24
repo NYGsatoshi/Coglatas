@@ -92,7 +92,11 @@ public static class HttpSecurityPolicy
         });
     }
 
-    public static void ConfigureRateLimiting(RateLimiterOptions options)
+    public static void ConfigureRateLimiting(RateLimiterOptions options) =>
+        ConfigureRateLimiting(options, aqReadPermitLimit: 4_800, aqSubmitPermitLimit: 2_400);
+
+    public static void ConfigureRateLimiting(
+        RateLimiterOptions options, int aqReadPermitLimit, int aqSubmitPermitLimit)
     {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
         options.OnRejected = async (rejection, cancellationToken) =>
@@ -125,8 +129,8 @@ public static class HttpSecurityPolicy
 
         // Audience members can share a school NAT, including at the planned
         // synthetic concurrency. Avoid low per-session limits on that origin.
-        AddFixedWindowPolicy(options, AqPublicReadRateLimitPolicy, 4_800, TimeSpan.FromMinutes(1));
-        AddFixedWindowPolicy(options, AqPublicSubmitRateLimitPolicy, 2_400, TimeSpan.FromMinutes(1));
+        AddFixedWindowPolicy(options, AqPublicReadRateLimitPolicy, aqReadPermitLimit, TimeSpan.FromMinutes(1));
+        AddFixedWindowPolicy(options, AqPublicSubmitRateLimitPolicy, aqSubmitPermitLimit, TimeSpan.FromMinutes(1));
         AddFixedWindowPolicy(options, LoginRateLimitPolicy, 10, TimeSpan.FromMinutes(1));
         AddFixedWindowPolicy(options, InviteRateLimitPolicy, 10, TimeSpan.FromMinutes(1));
         AddFixedWindowPolicy(options, FileUploadRateLimitPolicy, 20, TimeSpan.FromMinutes(1));

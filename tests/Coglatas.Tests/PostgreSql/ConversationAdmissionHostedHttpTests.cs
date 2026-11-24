@@ -20,6 +20,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -100,7 +101,8 @@ public sealed class ConversationAdmissionHostedHttpTests
         public static async Task<AdmissionHost> CreateAsync(
             string database,
             ILoggerProvider? logProvider = null,
-            IReadOnlyDictionary<string, string?>? configurationOverrides = null)
+            IReadOnlyDictionary<string, string?>? configurationOverrides = null,
+            Action<RateLimiterOptions>? configureRateLimiting = null)
         {
             var temporaryRoot = Path.Combine(Path.GetTempPath(), "coglatas-admission-http", Guid.NewGuid().ToString("N"));
             var keyPath = Path.Combine(temporaryRoot, "keys");
@@ -142,12 +144,21 @@ public sealed class ConversationAdmissionHostedHttpTests
                 options.EventsType = typeof(DbSessionCookieAuthenticationEvents);
             });
             builder.Services.AddAuthorization();
+            var rateLimitingEnabled = builder.Configuration.GetValue<bool>("Security:EnableRateLimiting");
+            if (rateLimitingEnabled)
+            {
+                builder.Services.AddRateLimiter(configureRateLimiting ?? HttpSecurityPolicy.ConfigureRateLimiting);
+            }
             var app = builder.Build();
             app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
             app.UseMiddleware<SecurityHeadersMiddleware>();
             app.UseMiddleware<WorkspaceMemberManagementReadLoggingMiddleware>();
             app.UseMiddleware<TenantResolutionMiddleware>();
             app.UseAuthentication();
+            if (rateLimitingEnabled)
+            {
+                app.UseRateLimiter();
+            }
             app.Services.GetRequiredService<CsrfProtectionState>().MarkMiddlewareActive();
             app.UseMiddleware<CsrfProtectionMiddleware>();
             app.UseAuthorization();
