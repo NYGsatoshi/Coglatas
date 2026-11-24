@@ -38,6 +38,10 @@ public sealed class AqPublicProgramPaginationHostedPostgreSqlTests
 
             using var invalid = await guest.GetAsync(route + "&cursor=invalid-protected-cursor");
             Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+            using var repeatedPageSize = await guest.GetAsync(route + "&pageSize=1");
+            Assert.Equal(HttpStatusCode.BadRequest, repeatedPageSize.StatusCode);
+            using var unknown = await guest.GetAsync(route + "&unknown=1");
+            Assert.Equal(HttpStatusCode.BadRequest, unknown.StatusCode);
         });
 
     private static async Task<(string Code, string[] TargetCodes)> SeedProgramAsync(
