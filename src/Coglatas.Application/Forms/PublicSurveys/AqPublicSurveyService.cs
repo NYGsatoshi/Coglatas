@@ -12,6 +12,7 @@ public sealed class AqPublicSurveyService(IAqPublicSurveyStore store, ICurrentUs
 {
     public const int DefaultPageSize = 25;
     public const int MaximumPageSize = 100;
+    private const int MaximumRespondentNameLength = 120;
     private static readonly JsonSerializerOptions PublicFieldOptions = new(JsonSerializerDefaults.Web)
     {
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
@@ -111,7 +112,7 @@ public sealed class AqPublicSurveyService(IAqPublicSurveyStore store, ICurrentUs
         }
         if (survey.Settings.NameMode == SurveyNameMode.Anonymous && input.Name is not null ||
             survey.Settings.NameMode == SurveyNameMode.RequiredName && string.IsNullOrWhiteSpace(input.Name) ||
-            input.Name is not null && (string.IsNullOrWhiteSpace(input.Name) || input.Name.Length > 256))
+            input.Name is not null && (string.IsNullOrWhiteSpace(input.Name) || input.Name.Length > MaximumRespondentNameLength))
         {
             return Reject("ValidationFailed");
         }

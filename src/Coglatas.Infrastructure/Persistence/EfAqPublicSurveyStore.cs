@@ -252,8 +252,8 @@ public sealed class EfAqPublicSurveyStore(
                           project.DeletedAt == null && project.Status != ProjectStatus.Suspended &&
                           project.Status != ProjectStatus.Archived && project.Status != ProjectStatus.Deleted &&
                           workspace.Status == WorkspaceStatus.Active && workspace.DeletedAt == null &&
-                          (project.GroupId == null || context.Groups.Any(group => group.Id == project.GroupId &&
-                              group.WorkspaceId == workspace.Id && group.Status == GroupStatus.Active && group.DeletedAt == null)) &&
+                          (project.GroupId == null || context.Groups.Any(parentGroup => parentGroup.Id == project.GroupId &&
+                              parentGroup.WorkspaceId == workspace.Id && parentGroup.Status == GroupStatus.Active && parentGroup.DeletedAt == null)) &&
                           tenant.Id == tenantId && tenant.Status == TenantStatus.Active && tenant.DeletedAt == null
                       select new PublicParent(activity.Title, project.Id, project.WorkspaceId,
                           activity.Status == EventStatus.Published && project.Status != ProjectStatus.Completed))

@@ -79,6 +79,7 @@ public static class DependencyInjection
         {
             options.AddSchemaTransformer<SecurityOpenApiSchemaTransformer>();
             options.AddOperationTransformer<SecurityOpenApiOperationTransformer>();
+            options.AddOperationTransformer<AqPublicOpenApiOperationTransformer>();
         });
 
         services.AddControllers(options =>
