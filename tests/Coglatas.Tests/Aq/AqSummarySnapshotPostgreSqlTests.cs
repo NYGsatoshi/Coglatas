@@ -66,7 +66,7 @@ public sealed class AqSummarySnapshotPostgreSqlTests
 
             var next = await repository.ReadSummaryAsync(host.Tenant.Id, presentation.Id, null, CancellationToken.None);
             Assert.Equal(2L, next.Count);
-            Assert.Equal(new[] { "1", "4" }, next.Values.Select(value => value.ValueJson).Order());
+            Assert.Equal(["1", "4"], next.Values.Select(value => value.ValueJson).Order());
 
             FormSubmission NewSubmission(int value)
             {

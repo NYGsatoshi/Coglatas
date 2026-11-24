@@ -239,7 +239,7 @@ public sealed class FeedbackInvitationService(
 
                 grant.Terminate(decline: false, "Invitation eligibility changed.", grant.VersionNo, now);
                 await WriteAuditAsync(actor, grant, "EligibilityEnded", token);
-                await invalidation.InvalidateAccessAsync(actor.TenantId, presentationId, recipientId, token);
+                await invalidation.InvalidateAccessAsync(actor.TenantId, recipientId, token);
             }
 
             FeedbackViewerGrant invitation;
@@ -329,13 +329,11 @@ public sealed class FeedbackInvitationService(
             await WriteAuditAsync(actor, invitation, decision, token);
             if (invitation.Status == FeedbackViewerGrantStatus.Active)
             {
-                await invalidation.InvalidateAccessAsync(actor.TenantId, invitation.PresentationId,
-                    invitation.RecipientUserId, token);
+                await invalidation.InvalidateAccessAsync(actor.TenantId, invitation.RecipientUserId, token);
             }
             else if (invitation.Status == FeedbackViewerGrantStatus.Revoked)
             {
-                await invalidation.InvalidateAccessAsync(actor.TenantId, invitation.PresentationId,
-                    invitation.RecipientUserId, token);
+                await invalidation.InvalidateAccessAsync(actor.TenantId, invitation.RecipientUserId, token);
             }
 
             return Result<FeedbackInvitationDto>.Success(ToDto(invitation, policy));

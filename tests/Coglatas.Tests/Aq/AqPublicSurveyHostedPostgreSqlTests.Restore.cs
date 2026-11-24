@@ -39,7 +39,7 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
                 services.ServiceProvider.GetRequiredService<CurrentTenantService>().SetTenant(host.Tenant.Id, host.Tenant.Slug);
                 var authorization = services.ServiceProvider.GetRequiredService<SurveyFeedbackAuthorization>();
                 var access = await authorization.ReadAccessAsync(new FeedbackActor(scope.TenantId, scope.RecipientId),
-                    scope.PresentationId, default);
+                    scope.PresentationId, CancellationToken.None);
                 Assert.True(access is { CanRead: true, Granted: true, Presenter: false, Reviewer: false, Operator: false });
             }
 
@@ -238,8 +238,8 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
         await using var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(database).Options, tenant);
         var repository = new EfSurveyFeedbackRepository(db);
         var eligibleIssuers = await repository.GetActiveGrantIssuersAsync(scope.TenantId, scope.PresentationId,
-            scope.RecipientId, DateTimeOffset.UtcNow, default);
-        var rows = await repository.ReadAsync(scope.TenantId, scope.PresentationId, null, "visible", null, 5, default);
+            scope.RecipientId, DateTimeOffset.UtcNow, CancellationToken.None);
+        var rows = await repository.ReadAsync(scope.TenantId, scope.PresentationId, null, "visible", null, 5, CancellationToken.None);
         var row = Assert.Single(rows, row => row.Id == scope.SubmissionId);
         Assert.Equal(restricted ? 1 : 2, rows.Count);
         if (restricted)

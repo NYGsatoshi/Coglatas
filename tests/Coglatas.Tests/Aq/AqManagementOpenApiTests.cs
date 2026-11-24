@@ -65,7 +65,7 @@ public sealed class AqManagementOpenApiTests
         var qr = paths.GetProperty("/api/v1/core/survey-campaigns/{campaignId}/qr-export")
             .GetProperty("get").GetProperty("responses");
         var media = qr.GetProperty("200").GetProperty("content");
-        Assert.Equal(new[] { "application/pdf", "image/png", "image/svg+xml" },
+        Assert.Equal(["application/pdf", "image/png", "image/svg+xml"],
             media.EnumerateObject().Select(item => item.Name).Order(StringComparer.Ordinal));
         foreach (var item in media.EnumerateObject())
         {

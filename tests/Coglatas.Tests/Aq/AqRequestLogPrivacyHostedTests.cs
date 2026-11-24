@@ -47,9 +47,9 @@ public sealed class AqRequestLogPrivacyHostedTests
         await app.StopAsync();
         var records = sink.Records.ToArray();
         Assert.DoesNotContain(records, record => record.Text.Contains("synthetic-aq-", StringComparison.Ordinal));
-        Assert.Contains(records, record => record.Category == "Microsoft.AspNetCore.Hosting.Diagnostics" && record.Id == 1 &&
+        Assert.Contains(records, record => record is { Category: "Microsoft.AspNetCore.Hosting.Diagnostics", Id: 1 } &&
             record.Text.Contains("/api/v1/public/surveys/{code}/submissions", StringComparison.Ordinal));
-        Assert.Contains(records, record => record.Category == "Microsoft.AspNetCore.Hosting.Diagnostics" && record.Id == 2 &&
+        Assert.Contains(records, record => record is { Category: "Microsoft.AspNetCore.Hosting.Diagnostics", Id: 2 } &&
             record.Text.Contains("/api/v1/core/{aq-resource}", StringComparison.Ordinal) &&
             record.Text.Contains("StatusCode=200", StringComparison.Ordinal));
         Assert.Contains(records, record => record.Category == "Microsoft.AspNetCore.Routing.EndpointMiddleware" &&

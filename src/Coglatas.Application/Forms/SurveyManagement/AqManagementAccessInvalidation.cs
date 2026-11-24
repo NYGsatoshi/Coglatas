@@ -38,8 +38,8 @@ public sealed partial class AqSurveyManagementService
 
         await store.FlushAsync(token);
         await AddFeedbackRecipientsAsync(recipients, presentationIds, token);
-        foreach (var (userId, presentationId) in recipients)
-            await feedbackInvalidation.InvalidateAccessAsync(currentTenant.TenantId, presentationId, userId, token);
+        foreach (var userId in recipients.Keys)
+            await feedbackInvalidation.InvalidateAccessAsync(currentTenant.TenantId, userId, token);
     }
 
     private async Task AddFeedbackRecipientsAsync(

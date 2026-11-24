@@ -137,13 +137,13 @@ public sealed class AqPublicSurveyService(IAqPublicSurveyStore store, ICurrentUs
         survey.Settings.AccountBinding == SurveyAccountBinding.ExplicitOptIn;
 
     private static bool IsOpen(AqPublicSurveyTarget survey, DateTimeOffset now) =>
-        survey.ParentCanReceive && !survey.Settings.ReceptionStopped && survey.Campaign.IsEnabled && survey.Target.IsEnabled &&
+        survey is { ParentCanReceive: true, Settings.ReceptionStopped: false, Campaign.IsEnabled: true, Target.IsEnabled: true } &&
         survey.Settings.StartsAtUtc <= now && now < survey.Settings.EndsAtUtc &&
         (survey.Target.StartsAtUtc is not { } start || start <= now) &&
         (survey.Target.EndsAtUtc is not { } end || now < end);
 
     private AqPublicSession? GetSession() =>
-        currentUser.IsAuthenticated && currentUser.UserId is { } userId && currentUser.SessionId is { } sessionId
+        currentUser is { IsAuthenticated: true, UserId: { } userId, SessionId: { } sessionId }
             ? new AqPublicSession(userId, sessionId)
             : null;
 

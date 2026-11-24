@@ -58,15 +58,15 @@ public sealed class AqResponseOpenApiTests
         AssertOptionalFields(schemas, "FeedbackAnswer", "visibility", "value", "visibilityVersionNo", "label");
         AssertOptionalFields(schemas, "FeedbackQuestionSummary", "denominator", "distribution", "mean");
 
-        Assert.Equal(new[] { "items", "unreadCount" }, schemas.GetProperty("FeedbackInboxPage")
+        Assert.Equal(["items", "unreadCount"], schemas.GetProperty("FeedbackInboxPage")
             .GetProperty("required").EnumerateArray().Select(name => name.GetString()).Order(StringComparer.Ordinal));
-        Assert.Equal(new[] { "readerState", "submission" }, schemas.GetProperty("FeedbackInboxRow")
+        Assert.Equal(["readerState", "submission"], schemas.GetProperty("FeedbackInboxRow")
             .GetProperty("required").EnumerateArray().Select(name => name.GetString()).Order(StringComparer.Ordinal));
 
         var publicSubmission = document.RootElement.GetProperty("paths")
             .GetProperty("/api/v1/public/surveys/{code}/submissions").GetProperty("post")
             .GetProperty("requestBody").GetProperty("content").GetProperty("application/json").GetProperty("schema");
-        Assert.Equal(new[] { "answers", "schemaDigest", "versionRef" }, publicSubmission.GetProperty("required")
+        Assert.Equal(["answers", "schemaDigest", "versionRef"], publicSubmission.GetProperty("required")
             .EnumerateArray().Select(name => name.GetString()).Order(StringComparer.Ordinal));
     }
 

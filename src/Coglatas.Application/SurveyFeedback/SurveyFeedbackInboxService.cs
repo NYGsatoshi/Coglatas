@@ -51,7 +51,7 @@ public sealed class SurveyFeedbackInboxService(
 
         Guid[] candidates = filters.PresentationId is { } id
             ? [id]
-            : (await repository.GetCandidateScopesAsync(actor.TenantId, actor.UserId, cancellationToken))
+            : (await repository.GetCandidateScopesAsync(actor.TenantId, cancellationToken))
                 .Select(scope => scope.Id).Distinct().ToArray();
         var visible = new List<Guid>();
         var moderation = new List<Guid>();

@@ -116,15 +116,10 @@ public static class HttpSecurityPolicy
                     "Too many requests. Retry after the indicated interval."), cancellationToken);
                 return;
             }
-            await rejection.HttpContext.Response.WriteAsJsonAsync(new
-            {
-                requestId = rejection.HttpContext.TraceIdentifier,
-                error = new
-                {
-                    code = "RateLimitExceeded",
-                    message = "Too many requests. Retry after the indicated interval."
-                }
-            }, cancellationToken);
+            await rejection.HttpContext.Response.WriteAsJsonAsync(
+                new RateLimitResponse(rejection.HttpContext.TraceIdentifier,
+                    new RateLimitError("RateLimitExceeded", "Too many requests. Retry after the indicated interval.")),
+                cancellationToken);
         };
 
         // Audience members can share a school NAT, including at the planned
@@ -379,3 +374,11 @@ public static class HttpSecurityPolicy
         return true;
     }
 }
+
+internal sealed record RateLimitResponse(
+    [property: System.Text.Json.Serialization.JsonPropertyName("requestId")] string RequestId,
+    [property: System.Text.Json.Serialization.JsonPropertyName("error")] RateLimitError Error);
+
+internal sealed record RateLimitError(
+    [property: System.Text.Json.Serialization.JsonPropertyName("code")] string Code,
+    [property: System.Text.Json.Serialization.JsonPropertyName("message")] string Message);

@@ -243,7 +243,7 @@ public sealed class FeedbackCsvLifecycleTests
         public Task<bool> IsInvitationEnabledAsync(Guid tenantId, Guid eventId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
         public Task<FeedbackEventScope?> GetEventScopeAsync(Guid tenantId, Guid eventId, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<IReadOnlyList<PresentationFeedbackScope>> GetCandidateScopesAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<PresentationFeedbackScope>> GetCandidateScopesAsync(Guid tenantId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<SurveyFeedbackSnapshot>> ReadAsync(Guid tenantId, Guid presentationId, string? fieldKey,
             string visibility, FeedbackPagePosition? after, int take, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<FeedbackSummaryInput> ReadSummaryAsync(Guid tenantId, Guid presentationId, string? fieldKey,

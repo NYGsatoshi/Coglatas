@@ -5,7 +5,7 @@ namespace Coglatas.Web.SurveyFeedback;
 
 public static class SurveyFeedbackDependencyInjection
 {
-    public static IServiceCollection AddSurveyFeedback(this IServiceCollection services) =>
+    public static void AddSurveyFeedback(this IServiceCollection services) =>
         services.AddScoped<SurveyFeedbackAuthorization>()
             .AddScoped<SurveyFeedbackService>()
             .AddScoped<SurveyFeedbackComparisonService>()

@@ -89,10 +89,6 @@ public sealed class FeedbackCsvController(FeedbackCsvService exports) : Controll
             : Fail(result);
     }
 
-    // The CSV endpoint uses the shared tenant-export rate-limit response.
-    public sealed record RateLimitResponse(string RequestId, RateLimitError Error);
-    public sealed record RateLimitError(string Code, string Message);
-
     private IActionResult Fail<T>(Result<T> result)
     {
         var detail = result.ErrorDetail ?? new ApplicationErrorDetail("UnexpectedError", "The export could not be completed.");

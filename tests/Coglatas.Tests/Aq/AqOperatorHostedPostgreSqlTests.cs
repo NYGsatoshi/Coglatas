@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using Coglatas.Application.Forms.SurveyManagement;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Coglatas.Tests.PostgreSql;
@@ -65,7 +66,7 @@ public sealed class AqOperatorHostedPostgreSqlTests
 
             var form = await WriteAsync(host.Client, HttpMethod.Post, core + "/forms", new
             {
-                owner = new { scopeType = "project", scopeId = project.Id },
+                owner = new AqFormOwnerRequest("project", project.Id),
                 purpose = "survey",
                 title = "Synthetic AQ form"
             }, HttpStatusCode.Created);
@@ -84,6 +85,12 @@ public sealed class AqOperatorHostedPostgreSqlTests
             }, HttpStatusCode.Created);
             var campaignId = campaign.GetProperty("id").GetGuid();
             var campaignRoute = $"{core}/survey-campaigns/{campaignId:D}";
+            using (var deniedRetention = await SendAsync(host.Client, HttpMethod.Patch, campaignRoute,
+                new AqUpdateCampaignRequest(campaign.GetProperty("versionNo").GetInt64(), Enabled: null,
+                    Published: null, Retention: new AqRetentionPolicyRequest(Guid.NewGuid(), "Synthetic unapproved policy"))))
+            {
+                Assert.Equal(HttpStatusCode.Conflict, deniedRetention.StatusCode);
+            }
             await WriteAsync(host.Client, HttpMethod.Patch, campaignRoute, new
             {
                 expectedVersionNo = campaign.GetProperty("versionNo").GetInt64(),
@@ -205,7 +212,10 @@ public sealed class AqOperatorHostedPostgreSqlTests
             var accepted = new
             {
                 previewRef = preview.GetProperty("previewRef").GetString(),
-                confirmedAssignments = new[] { new { row = 2, assignment = new { role = "reviewer", personRef = host.Actor.Id } } },
+                confirmedAssignments = new[]
+                {
+                    new AqRosterConfirmation(2, new AqParticipantAssignment("reviewer", host.Actor.Id), PendingPresenter: null)
+                },
                 expectedSourceVersions = preview.GetProperty("expectedSourceVersions")
             };
             var commitRoute = eventRoute + "/presentations/import-commit";
@@ -244,7 +254,7 @@ public sealed class AqOperatorHostedPostgreSqlTests
     private static async Task GrantOperatorAsync(string database, AdmissionHost host, Project project)
     {
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
-        foreach (var capability in new[] { "survey.manage", "survey.questions.edit", "presentation.assign" })
+        foreach (var capability in new[] { "survey.manage", "survey.questions.edit", "presentation.assign", "survey.retention.manage" })
         {
             db.Set<CapabilityGrant>().Add(new CapabilityGrant
             {
@@ -264,7 +274,7 @@ public sealed class AqOperatorHostedPostgreSqlTests
     private static Task<JsonElement> CreatePresentationAsync(HttpClient client, string eventRoute, ActivityEvent activity, string title) =>
         WriteAsync(client, HttpMethod.Post, eventRoute + "/presentations", new
         {
-            schedule = new { title, startAt = activity.StartsAt, endAt = activity.EndsAt }
+            schedule = new AqPresentationSchedule(title, activity.StartsAt, activity.EndsAt, Venue: null)
         }, HttpStatusCode.Created);
 
     private static async Task<JsonElement> GetAsync(HttpClient client, string path)

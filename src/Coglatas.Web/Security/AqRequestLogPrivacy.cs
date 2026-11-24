@@ -9,7 +9,7 @@ namespace Coglatas.Web.Security;
 /// </summary>
 public static class AqRequestLogPrivacy
 {
-    public static IServiceCollection AddAqRequestLogPrivacy(this IServiceCollection services)
+    public static void AddAqRequestLogPrivacy(this IServiceCollection services)
     {
         services.AddLogging();
         var factory = services.Last(descriptor => descriptor.ServiceType == typeof(ILoggerFactory));
@@ -19,7 +19,6 @@ public static class AqRequestLogPrivacy
             (ILoggerFactory?)factory.ImplementationFactory?.Invoke(provider) ??
             (ILoggerFactory)ActivatorUtilities.CreateInstance(provider, factory.ImplementationType!),
             ownsFactory: factory.ImplementationInstance is null));
-        return services;
     }
 
     private sealed class RedactingLoggerFactory(ILoggerFactory inner, bool ownsFactory) : ILoggerFactory
@@ -128,8 +127,7 @@ public static class AqRequestLogPrivacy
             "Method" => field.Value is "GET" or "POST" or "PUT" or "PATCH" or "DELETE" or "HEAD" or "OPTIONS",
             "StatusCode" => field.Value is int,
             "ElapsedMilliseconds" => field.Value is double or long,
-            "RequestId" => field.Value is string requestId &&
-                requestId.Length <= 64 && requestId.All(character => char.IsAsciiLetterOrDigit(character) || character == ':'),
+            "RequestId" => field.Value is string { Length: <= 64 } requestId && requestId.All(character => char.IsAsciiLetterOrDigit(character) || character == ':'),
             _ => false
         };
     }

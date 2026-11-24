@@ -28,7 +28,7 @@ public sealed class SurveyFeedbackService(
             return Invalid<FeedbackPage<PresentationWorkspace>>();
         }
 
-        var candidates = await repository.GetCandidateScopesAsync(actor.TenantId, actor.UserId, cancellationToken);
+        var candidates = await repository.GetCandidateScopesAsync(actor.TenantId, cancellationToken);
         var result = new List<PresentationWorkspace>();
         var accepted = candidates.OrderBy(scope => scope.Id)
             .Where(scope => after is null || scope.Id.CompareTo(after.Id) > 0);

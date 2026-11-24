@@ -106,7 +106,7 @@ public sealed class AqSurveyManagementRepository(AppDbContext db, ICurrentTenant
     private IQueryable<T> Rows<T>() where T : Entity, ITenantEntity
     {
         var tenantId = currentTenant.TenantId;
-        var tenantAvailable = currentTenant.IsAvailable && !currentTenant.IsPlatformScope;
+        var tenantAvailable = currentTenant is { IsAvailable: true, IsPlatformScope: false };
         var rows = db.Set<T>().Where(x => tenantAvailable && EF.Property<Guid>(x, nameof(ITenantEntity.TenantId)) == tenantId);
         return _writing ? rows : rows.AsNoTracking();
     }

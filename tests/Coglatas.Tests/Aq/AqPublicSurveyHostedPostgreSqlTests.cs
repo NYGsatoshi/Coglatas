@@ -156,7 +156,7 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
             Assert.Equal(host.Actor.Id, linkedIdentity.AccountUserId);
             Assert.NotNull(linkedIdentity.AccountConsentAtUtc);
             Assert.Null(linkedIdentity.EnteredName);
-            Assert.Equal(new[] { "Synthetic guest", "Synthetic required guest" }, identities
+            Assert.Equal(["Synthetic guest", "Synthetic required guest"], identities
                 .Where(row => row.AccountUserId is null).Select(row => row.EnteredName).Order(StringComparer.Ordinal));
         });
 
