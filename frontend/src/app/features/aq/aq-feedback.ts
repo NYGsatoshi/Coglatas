@@ -29,10 +29,11 @@ interface Invitation {
   versionNo: number;
   expiresAt?: string;
 }
-interface FeedbackAnswer { id: string; fieldKey: string; visibility: 'visible' | 'hidden'; value?: AnswerValue; visibilityVersionNo?: number }
+interface FeedbackAnswer { id: string; fieldKey: string; label?: string; visibility: 'visible' | 'hidden'; value?: AnswerValue; visibilityVersionNo?: number }
 interface FeedbackRow { id: string; presentationId: string; submittedAt: string; answers: FeedbackAnswer[] }
 interface QuestionSummary {
   fieldKey: string;
+  label?: string;
   denominator: number;
   mean?: number;
   distribution?: { optionKey: string; responses: number }[];
@@ -210,7 +211,7 @@ export class AqFeedbackHome {
         <ul class="aq-list">
           @for (question of totals.questions; track question.fieldKey) {
             <li>
-              <strong>{{ question.fieldKey }}</strong> · 有効回答 {{ question.denominator }}
+              <strong>{{ question.label ?? question.fieldKey }}</strong> · 有効回答 {{ question.denominator }}
               @if (question.mean !== undefined) { · 平均 {{ question.mean }} }
               @for (option of question.distribution ?? []; track option.optionKey) {
                 <p>{{ option.optionKey }} · {{ option.responses }}件</p>
@@ -225,10 +226,18 @@ export class AqFeedbackHome {
               <time [attr.datetime]="response.submittedAt">{{ response.submittedAt | date:'medium' }}</time>
               @for (answer of response.answers; track answer.id) {
                 @if (answer.visibility === 'visible') {
-                  <p><strong>{{ answer.fieldKey }}</strong> {{ display(answer.value) }}</p>
+                  <p><strong>{{ answer.label ?? answer.fieldKey }}</strong> {{ display(answer.value) }}</p>
                   @if (mayReport()) {
                     <button type="button" [disabled]="actionBusy()" (click)="reportAnswer.set(answer.id)">この回答を通報</button>
                   }
+                } @else if (answer.visibilityVersionNo) {
+                  <p>{{ answer.label ?? answer.fieldKey }} · 非表示</p>
+                  <button type="button" [disabled]="actionBusy()" (click)="readHidden(answer)">監査記録付きで原文を確認</button>
+                }
+                @if (answer.visibilityVersionNo) {
+                  <button type="button" [disabled]="actionBusy()" (click)="moderating.set(answer)">
+                    {{ answer.visibility === 'visible' ? '非表示にする' : '表示を再開する' }}
+                  </button>
                 }
               }
             </li>
@@ -241,6 +250,19 @@ export class AqFeedbackHome {
             <div class="aq-actions">
               <button type="submit" [disabled]="actionBusy()">通報する</button>
               <button type="button" (click)="reportAnswer.set('')">キャンセル</button>
+            </div>
+          </form>
+        }
+        @if (hiddenBody()) {
+          <p class="aq-panel">{{ hiddenBody() }}</p>
+          <button type="button" (click)="hiddenBody.set('')">原文を閉じる</button>
+        }
+        @if (moderating(); as answer) {
+          <form class="aq-panel" (submit)="moderate($event, answer)">
+            <label>表示設定の変更理由 <textarea required [value]="moderationReason()" (input)="moderationReason.set($any($event.target).value)"></textarea></label>
+            <div class="aq-actions">
+              <button type="submit" [disabled]="actionBusy()">変更を確定する</button>
+              <button type="button" (click)="moderating.set(null)">キャンセル</button>
             </div>
           </form>
         }
@@ -310,6 +332,9 @@ export class AqFeedbackDetail {
   protected readonly recipient = signal('');
   protected readonly privateNotes = signal<Note[]>([]);
   protected readonly reportAnswer = signal('');
+  protected readonly moderating = signal<FeedbackAnswer | null>(null);
+  protected readonly moderationReason = signal('');
+  protected readonly hiddenBody = signal('');
   protected readonly reason = signal('');
   protected readonly noteBody = signal('');
   protected readonly noteKind = signal('private-notes');
@@ -387,6 +412,22 @@ export class AqFeedbackDetail {
         this.reportAnswer.set('');
         this.reason.set('');
       });
+  }
+
+  protected moderate(event: Event, answer: FeedbackAnswer): void {
+    event.preventDefault();
+    const reason = this.moderationReason().trim();
+    if (!answer.visibilityVersionNo || !reason) return;
+    this.perform(this.api.command('PATCH', 'feedback/answers/' + aqSegment(answer.id) + '/visibility', {
+      expectedVersionNo: answer.visibilityVersionNo,
+      action: answer.visibility === 'visible' ? 'hide' : 'restore',
+      reason,
+    }), '回答の表示設定を更新しました。', () => this.load());
+  }
+
+  protected readHidden(answer: FeedbackAnswer): void {
+    this.perform(this.api.read<{ body: string }>('feedback/answers/' + aqSegment(answer.id) + '/moderation-detail'),
+      '非表示の原文を確認しています。', value => this.hiddenBody.set(value.body));
   }
 
   protected invite(): void {
@@ -489,6 +530,9 @@ export class AqFeedbackDetail {
     this.recipient.set('');
     this.reportAnswer.set('');
     this.reason.set('');
+    this.moderating.set(null);
+    this.moderationReason.set('');
+    this.hiddenBody.set('');
     this.noteBody.set('');
     this.actionBusy.set(false);
     this.rows.set([]);

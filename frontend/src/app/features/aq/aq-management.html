@@ -51,10 +51,12 @@
       <button type="submit" [disabled]="busy()">発表を追加</button>
     </form>
     <h2>名簿の取り込み</h2>
+    <p>UTF-8 のCSVを使用します。列は presentationId、role、personRef、pendingRosterRef の順です。</p>
     <label>CSVファイル <input type="file" accept=".csv,text/csv" [disabled]="busy()" (change)="upload($event)"></label>
     @if (preview(); as result) {
       <p>確認待ちの割り当て {{ result.proposedAssignments.length }}件</p>
       @for (diagnostic of result.diagnostics; track $index) { <p>{{ diagnostic.row }}行目 · {{ diagnostic.code }}</p> }
+      <p>取り込みを確定すると、CSVに含まれる発表の割り当てが置き換わります。</p>
       <button type="button" [disabled]="busy() || !result.expectedSourceVersions?.length || !!result.diagnostics.length || !result.proposedAssignments.length" (click)="commitImport()">内容を確認して取り込む</button>
     }
     <h2>共通フォームと設問</h2>
