@@ -35,7 +35,7 @@ interface Approval {
 interface Preview {
   previewRef: string;
   diagnostics: { row: number; code: string }[];
-  proposedAssignments: { row: number; role: 'presenter' | 'reviewer'; personRef?: string; pendingRosterRef?: string }[];
+  proposedAssignments: { row: number; presentationId: string; role: 'presenter' | 'reviewer'; personRef?: string; pendingRosterRef?: string }[];
   expectedSourceVersions?: { sourceRef: string; versionNo: number }[];
 }
 
@@ -489,8 +489,8 @@ export class AqManagement {
     }), '発表一覧に回答リンクを追加しました。');
   }
 
-  protected presentationTitle(id: string): string {
-    return this.presentations().find(row => row.presentation.id === id)?.presentation.title ?? '発表';
+  protected presentationTitle(id: string, fallback = '発表'): string {
+    return this.presentations().find(row => row.presentation.id === id)?.presentation.title ?? fallback;
   }
 
   private eventPath(): string {

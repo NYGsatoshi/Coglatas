@@ -55,7 +55,37 @@
     <label>CSVファイル <input type="file" accept=".csv,text/csv" [disabled]="busy()" (change)="upload($event)"></label>
     @if (preview(); as result) {
       <p>確認待ちの割り当て {{ result.proposedAssignments.length }}件</p>
-      @for (diagnostic of result.diagnostics; track $index) { <p>{{ diagnostic.row }}行目 · {{ diagnostic.code }}</p> }
+      @if (result.diagnostics.length) {
+        <ul class="aq-list" aria-label="取り込みエラー">
+          @for (diagnostic of result.diagnostics; track $index) {
+            <li>
+              {{ diagnostic.row }}行目
+              @switch (diagnostic.code) {
+                @case ('DuplicateAssignment') { 同じ割り当てが重複しています。 }
+                @case ('InvalidRosterRow') { 列の数や値を確認してください。 }
+                @case ('InvalidPersonReference') { 参加者の参照IDを確認してください。 }
+                @case ('PresentationUnavailable') { この発表は取り込めません。 }
+                @case ('AssignmentUnavailable') { この参加者は割り当てられません。 }
+                @default { この行は取り込めません。 }
+              }
+            </li>
+          }
+        </ul>
+      }
+      @if (result.proposedAssignments.length) {
+        <ul class="aq-list" aria-label="確認する割り当て">
+          @for (assignment of result.proposedAssignments; track assignment.row) {
+            <li>
+              <p>{{ assignment.row }}行目 · {{ presentationTitle(assignment.presentationId, assignment.presentationId) }}</p>
+              @if (assignment.personRef) {
+                <p>{{ assignment.role === 'presenter' ? '発表者' : '評価者' }} · {{ assignment.personRef }}</p>
+              } @else {
+                <p>登録待ちの発表者 · {{ assignment.pendingRosterRef }}</p>
+              }
+            </li>
+          }
+        </ul>
+      }
       <p>取り込みを確定すると、CSVに含まれる発表の割り当てが置き換わります。</p>
       <button type="button" [disabled]="busy() || !result.expectedSourceVersions?.length || !!result.diagnostics.length || !result.proposedAssignments.length" (click)="commitImport()">内容を確認して取り込む</button>
     }
