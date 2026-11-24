@@ -261,7 +261,7 @@ internal static class SecurityArchitectureRlsRelationCatalogue
     internal static async Task<IReadOnlyList<AqSource>> AssertCurrentAqSourcesAsync(string database, Snapshot catalogue)
     {
         var hasFeedback = catalogue.Version == FeedbackVersion;
-        var tables = hasFeedback ? FoundationTables.Concat(FeedbackTables) : FoundationTables;
+        var tables = hasFeedback ? FoundationTables.Concat(FeedbackTables).ToArray() : FoundationTables;
         var sources = new List<AqSource>();
         foreach (var table in tables)
         {

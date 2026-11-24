@@ -26,6 +26,7 @@ TOOLING_GROUPS = {"SecurityArchitectureCliTests", "SecurityArchitectureSpecRegis
 INVENTORY_GROUPS = {"SecurityArchitectureApiInventoryTests", "SecurityArchitectureInventoryTests"}
 RUNTIME_GROUPS = {"SecurityArchitectureRlsTests", "SecurityArchitectureRlsCatalogTests", "SecurityArchitectureParentRlsTests",
                   "SecurityArchitectureRlsOperationTests", "SecurityArchitectureRlsDispositionTests", "SecurityArchitectureRlsSourceReferenceTests",
+                  "SecurityArchitectureRlsSurveyFixtureTests",
                   "SecurityArchitectureRlsNativeLifecycleTests", "SecurityArchitectureRlsTaskRuntimeTests", "SecurityArchitectureRlsAuditExportTests",
                   "SecurityArchitectureRlsFileVersionAdapterTests",
                   "SecurityArchitectureRlsRuntimeTests", "SecurityArchitectureRlsRecoveryTests", "SecurityArchitectureRlsAdapterTests", "SecurityArchitectureRlsComposedHostTests",
