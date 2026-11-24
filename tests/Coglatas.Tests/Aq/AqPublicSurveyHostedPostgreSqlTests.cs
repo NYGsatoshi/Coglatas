@@ -234,6 +234,13 @@ public sealed class AqPublicSurveyHostedPostgreSqlTests
             using (var stillVisible = await GetDataAsync(host.Client, feedbackRoute))
                 Assert.Contains(AnswerText, stillVisible.RootElement.GetRawText(), StringComparison.Ordinal);
 
+            var inboxRoute = $"/api/v1/core/feedback/inbox?presentationId={survey.PresentationId:D}";
+            await AssertInboxCountsAsync(host.Client, inboxRoute, unread: 1, unresolved: 1);
+            using (var read = await PatchAsync(host.Client, $"/api/v1/core/feedback/submissions/{submissionId:D}/read-state", new
+                   { observedRevision = 1L, isRead = true }))
+                Assert.Equal(HttpStatusCode.OK, read.StatusCode);
+            await AssertInboxCountsAsync(host.Client, inboxRoute, unread: 0, unresolved: 1);
+
             using (var hide = await PatchAsync(host.Client, answerRoute + "/visibility", new
                    { expectedVersionNo = 1L, action = "hide", reason = "Synthetic hide" }))
                 Assert.Equal(HttpStatusCode.OK, hide.StatusCode);
@@ -243,6 +250,15 @@ public sealed class AqPublicSurveyHostedPostgreSqlTests
             using (var dismiss = await host.PostAsync($"/api/v1/core/feedback/reports/{reportId:D}/resolve", new
                    { expectedVersionNo = 1L, resolution = "dismiss", reason = "Synthetic dismissal" }))
                 Assert.Equal(HttpStatusCode.OK, dismiss.StatusCode);
+            await AssertInboxCountsAsync(host.Client, inboxRoute, unread: 0, unresolved: 0);
+
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+            {
+                var permission = await db.Set<CapabilityGrant>().SingleAsync(grant =>
+                    grant.SubjectUserId == host.Actor.Id && grant.CapabilityKey == "feedback.moderate");
+                permission.RevokedAt = DateTimeOffset.UtcNow;
+                await db.SaveChangesAsync();
+            }
             using (var hidden = await GetDataAsync(host.Client, feedbackRoute))
                 Assert.DoesNotContain(AnswerText, hidden.RootElement.GetRawText(), StringComparison.Ordinal);
 
@@ -358,6 +374,15 @@ public sealed class AqPublicSurveyHostedPostgreSqlTests
             });
         }
         await db.SaveChangesAsync();
+    }
+
+    private static async Task AssertInboxCountsAsync(HttpClient client, string route, long unread, long unresolved)
+    {
+        using var response = await GetDataAsync(client, route);
+        var data = response.RootElement.GetProperty("data");
+        Assert.Single(data.GetProperty("items").EnumerateArray());
+        Assert.Equal(unread, data.GetProperty("unreadCount").GetInt64());
+        Assert.Equal(unresolved, data.GetProperty("unresolvedReportCount").GetInt64());
     }
 
     private static async Task<(HttpResponseMessage[] Outcomes, bool SawConcurrentRequests)> SubmitAcrossDatabaseBarrierAsync(
