@@ -1,8 +1,10 @@
 import { expect, test, type Response } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 
 const publicApi = '/api/v1/public/surveys/';
 const submitText = '送信';
 const successText = '視聴者向けフォームの回答を受け付けました';
+const alreadySentText = 'このブラウザーでは、このアンケートの回答を送信済みです。';
 
 function requiredFixtureSetting(key: string): string {
   const value = process.env[key];
@@ -54,11 +56,20 @@ test('guest program and direct survey resolve to the same form and commit an ans
 
   const answer = page.getByRole('textbox', { name: questionLabel, exact: true });
   await expect(answer).toBeVisible();
+  const audit = await new AxeBuilder({ page }).include('main.aq-page')
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
+  expect(audit.violations.map(violation => violation.id)).toEqual([]);
   await answer.focus();
   await expect(answer).toBeFocused();
   await page.keyboard.insertText('Synthetic audience response');
   const submission = page.waitForResponse(response => matchesResponse(response, 'POST', targetPath + '/submissions'));
   await page.getByRole('button', { name: submitText, exact: true }).press('Enter');
   expect((await submission).status()).toBe(201);
-  await expect(page.getByText(successText, { exact: true })).toBeVisible();
+  const outcome = page.getByRole('status').filter({ hasText: successText });
+  await expect(outcome).toBeVisible();
+  await expect(outcome).toBeFocused();
+
+  await page.reload();
+  await expect(page.getByText(alreadySentText, { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: submitText, exact: true })).toHaveCount(0);
 });
