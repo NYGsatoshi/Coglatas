@@ -41,6 +41,7 @@ var browserSmokeResponseGateEnabled =
 builder.Services
     .AddApplication()
     .AddInfrastructure(builder.Configuration)
+    .AddAqSurveyManagement()
     .AddWebServices(builder.Configuration);
 if (browserSmokeResponseGateEnabled)
 {
