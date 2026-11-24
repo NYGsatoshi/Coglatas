@@ -1,4 +1,5 @@
 using Coglatas.Domain.Entities;
+using Coglatas.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -13,7 +14,7 @@ public sealed class FormDefinitionConfiguration : IEntityTypeConfiguration<FormD
         builder.ConfigureSoftDeletableEntity();
         builder.Property(form => form.Title).HasMaxLength(240).IsRequired();
         builder.Property(form => form.Description).HasMaxLength(4000);
-        builder.Property(form => form.Purpose).HasEnumStringConversion().HasDefaultValue(Coglatas.Domain.Enums.FormPurpose.Ordinary).IsRequired();
+        builder.Property(form => form.Purpose).HasEnumStringConversion().HasDefaultValue(FormPurpose.Ordinary).IsRequired();
         // The authenticated Forms contract continues to use the existing metadata.
         builder.Property<string>("LegacyFormType").HasMaxLength(40);
         builder.Property<DateTimeOffset?>("LegacyOpensAt");

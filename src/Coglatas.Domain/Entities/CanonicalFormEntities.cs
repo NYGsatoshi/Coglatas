@@ -70,7 +70,7 @@ public sealed class FormVersion : AuditableEntity, ITenantEntity
     {
     }
 
-    private readonly List<FormFieldDefinition> fields = [];
+    private readonly List<FormFieldDefinition> _fields = [];
 
     public Guid TenantId { get; private init; }
     Guid ITenantEntity.TenantId
@@ -87,7 +87,7 @@ public sealed class FormVersion : AuditableEntity, ITenantEntity
     public string SnapshotJson { get; private set; } = string.Empty;
     public DateTimeOffset PublishedAtUtc { get; private set; }
     public string? CompatibilityChangeReason { get; private set; }
-    public IReadOnlyList<FormFieldDefinition> Fields => fields.AsReadOnly();
+    public IReadOnlyList<FormFieldDefinition> Fields => _fields.AsReadOnly();
 
     public static FormVersion Publish(
         FormDefinition definition, int number, IReadOnlyList<SurveyField> fields, DateTimeOffset publishedAt)
@@ -101,7 +101,7 @@ public sealed class FormVersion : AuditableEntity, ITenantEntity
             SnapshotJson = SurveySchemaSnapshot.Write(fields),
             PublishedAtUtc = publishedAt.ToUniversalTime()
         };
-        version.fields.AddRange(SurveySchemaSnapshot.ReadPart<SurveyField[]>(version.SnapshotJson).Select((field, order) =>
+        version._fields.AddRange(SurveySchemaSnapshot.ReadPart<SurveyField[]>(version.SnapshotJson).Select((field, order) =>
             FormFieldDefinition.Create(version.TenantId, version.Id, null, field, order)));
         return version;
     }
@@ -119,7 +119,7 @@ public sealed class FormVersion : AuditableEntity, ITenantEntity
 
         ArgumentException.ThrowIfNullOrWhiteSpace(changeReason);
         var version = Publish(definition, number, fields, publishedAt);
-        FormFieldDefinition.LinkCorrections(previous.Fields, version.fields);
+        FormFieldDefinition.LinkCorrections(previous.Fields, version._fields);
         version.CompatibilityChangeReason = changeReason.Trim();
         return version;
     }
@@ -131,7 +131,7 @@ public sealed class TargetQuestionSetVersion : AuditableEntity, ITenantEntity
     {
     }
 
-    private readonly List<FormFieldDefinition> fields = [];
+    private readonly List<FormFieldDefinition> _fields = [];
 
     public Guid TenantId { get; private init; }
     Guid ITenantEntity.TenantId
@@ -148,7 +148,7 @@ public sealed class TargetQuestionSetVersion : AuditableEntity, ITenantEntity
     public string SnapshotJson { get; private set; } = string.Empty;
     public DateTimeOffset PublishedAtUtc { get; private set; }
     public string? CompatibilityChangeReason { get; private set; }
-    public IReadOnlyList<FormFieldDefinition> Fields => fields.AsReadOnly();
+    public IReadOnlyList<FormFieldDefinition> Fields => _fields.AsReadOnly();
 
     public static TargetQuestionSetVersion Publish(
         SurveyTarget target, int number, IReadOnlyList<SurveyField> fields, DateTimeOffset publishedAt)
@@ -162,7 +162,7 @@ public sealed class TargetQuestionSetVersion : AuditableEntity, ITenantEntity
             SnapshotJson = SurveySchemaSnapshot.Write(fields),
             PublishedAtUtc = publishedAt.ToUniversalTime()
         };
-        version.fields.AddRange(SurveySchemaSnapshot.ReadPart<SurveyField[]>(version.SnapshotJson).Select((field, order) =>
+        version._fields.AddRange(SurveySchemaSnapshot.ReadPart<SurveyField[]>(version.SnapshotJson).Select((field, order) =>
             FormFieldDefinition.Create(version.TenantId, null, version.Id, field, order)));
         return version;
     }
@@ -179,7 +179,7 @@ public sealed class TargetQuestionSetVersion : AuditableEntity, ITenantEntity
 
         ArgumentException.ThrowIfNullOrWhiteSpace(changeReason);
         var version = Publish(target, number, fields, publishedAt);
-        FormFieldDefinition.LinkCorrections(previous.Fields, version.fields);
+        FormFieldDefinition.LinkCorrections(previous.Fields, version._fields);
         version.CompatibilityChangeReason = changeReason.Trim();
         return version;
     }

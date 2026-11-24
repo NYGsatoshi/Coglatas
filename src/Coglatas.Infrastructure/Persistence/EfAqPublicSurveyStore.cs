@@ -37,8 +37,8 @@ public sealed class EfAqPublicSurveyStore(
                         join target in context.Set<SurveyTarget>() on entry.SurveyTargetId equals target.Id
                         join campaign in context.Set<SurveyCampaign>() on target.CampaignId equals campaign.Id
                         join definition in context.Set<FormDefinition>() on target.FormDefinitionId equals definition.Id
-                        join schema in context.Set<PublishedSurveySchema>() on target.PublishedSchemaId equals (Guid?)schema.Id
-                        join targetCode in context.Set<SurveyPublicCode>() on (Guid?)target.Id equals targetCode.SurveyTargetId
+                        join schema in context.Set<PublishedSurveySchema>() on target.PublishedSchemaId equals schema.Id
+                        join targetCode in context.Set<SurveyPublicCode>() on target.Id equals targetCode.SurveyTargetId
                         where entry.EventId == eventId && presentation.EventId == eventId &&
                             presentation.ProjectId == parent.ProjectId && target.EventId == eventId &&
                             target.PresentationId == presentation.Id && campaign.EventId == eventId &&
@@ -113,7 +113,7 @@ public sealed class EfAqPublicSurveyStore(
         Guid[] presentationIds, Guid workspaceId, CancellationToken token)
     {
         var rows = await (from participant in context.Set<PresentationParticipant>().AsNoTracking()
-                          join user in context.Users on participant.UserId equals (Guid?)user.Id
+                          join user in context.Users on participant.UserId equals user.Id
                           join member in context.TenantUsers on user.Id equals member.UserId
                           join workspaceMember in context.WorkspaceMembers on user.Id equals workspaceMember.UserId
                           where presentationIds.Contains(participant.PresentationId) &&
@@ -256,7 +256,7 @@ public sealed class EfAqPublicSurveyStore(
     {
         var tenantId = currentTenant.TenantId;
         return await (from activity in context.ActivityEvents.AsNoTracking()
-                      join project in context.Projects on activity.ProjectId equals (Guid?)project.Id
+                      join project in context.Projects on activity.ProjectId equals project.Id
                       join workspace in context.Workspaces on project.WorkspaceId equals workspace.Id
                       join tenant in context.Tenants on activity.TenantId equals tenant.Id
                       where activity.Id == eventId && activity.DeletedAt == null && activity.GroupId == null && activity.WorkspaceId == null &&
@@ -284,7 +284,7 @@ public sealed class EfAqPublicSurveyStore(
                             join campaign in context.Set<SurveyCampaign>() on target.CampaignId equals campaign.Id
                             join settings in context.Set<EventFeedbackSettings>() on target.EventId equals settings.EventId
                             join schema in context.Set<PublishedSurveySchema>().Include(row => row.Fields)
-                                .ThenInclude(link => link.FormFieldDefinition) on target.PublishedSchemaId equals (Guid?)schema.Id
+                                .ThenInclude(link => link.FormFieldDefinition) on target.PublishedSchemaId equals schema.Id
                             join definition in context.Set<FormDefinition>() on target.FormDefinitionId equals definition.Id
                             join presentation in context.Set<Presentation>() on target.PresentationId equals presentation.Id
                             where target.Id == code.SurveyTargetId && target.EventId == campaign.EventId &&

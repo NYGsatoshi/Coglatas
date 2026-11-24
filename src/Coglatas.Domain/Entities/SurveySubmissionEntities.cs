@@ -6,7 +6,7 @@ namespace Coglatas.Domain.Entities;
 
 public class FormSubmission : AuditableEntity, ITenantEntity
 {
-    private readonly List<FormSubmissionValue> values = [];
+    private readonly List<FormSubmissionValue> _values = [];
 
     protected FormSubmission()
     {
@@ -31,7 +31,7 @@ public class FormSubmission : AuditableEntity, ITenantEntity
     public FormSubmissionStatus Status { get; private set; } = FormSubmissionStatus.Submitted;
     public long VersionNo { get; private set; } = 1;
     public string FieldLockSnapshotJson { get; private set; } = string.Empty;
-    public IReadOnlyList<FormSubmissionValue> Values => values.AsReadOnly();
+    public IReadOnlyList<FormSubmissionValue> Values => _values.AsReadOnly();
 
     public static FormSubmission SubmitSurvey(
         FormDefinition definition, SurveyTarget target, PublishedSurveySchema schema,
@@ -122,7 +122,7 @@ public class FormSubmission : AuditableEntity, ITenantEntity
             if (!field.ToSurveyField().Accepts(value))
                 throw new ArgumentException("An answer does not match its published field.", nameof(answers));
 
-            values.Add(new FormSubmissionValue(this, field, value));
+            _values.Add(new FormSubmissionValue(this, field, value));
         }
 
         if (byKey.Count != 0)

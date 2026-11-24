@@ -42,6 +42,19 @@ public sealed class AqPublicSurveyReplayTests
         Assert.Equal(0, store.Commits);
     }
 
+    [Theory]
+    [InlineData("null")]
+    [InlineData("[null]")]
+    public async Task NullAnswerListAndEntriesDoNotCreateAReceipt(string answers)
+    {
+        var (service, store) = Create();
+
+        var result = await SubmitAsync(service, store, "retry-key-3", "request-null-answers", answers);
+
+        Assert.Equal("ValidationFailed", result.ErrorCode);
+        Assert.Equal(0, store.Commits);
+    }
+
     private static Task<AqPublicCommandResult> SubmitAsync(
         AqPublicSurveyService service, ReceiptStore store, string key, string requestId, string answers)
     {
@@ -91,7 +104,7 @@ public sealed class AqPublicSurveyReplayTests
 
     private sealed class ReceiptStore(AqPublicSurveyTarget survey) : IAqPublicSurveyStore
     {
-        private SubmissionIdempotency? receipt;
+        private SubmissionIdempotency? _receipt;
 
         public AqPublicSurveyTarget Survey => survey;
         public int Commits { get; private set; }
@@ -107,11 +120,11 @@ public sealed class AqPublicSurveyReplayTests
             Func<AqPublicSurveyTarget, SubmissionIdempotency?, AqPublicWriteDecision> decide,
             CancellationToken cancellationToken)
         {
-            var decision = decide(survey, receipt);
+            var decision = decide(survey, _receipt);
             if (decision.Plan is { } plan)
             {
                 var submission = FormSubmission.SubmitSurvey(survey.Definition, survey.Target, survey.Schema, plan.Answers, plan.SubmittedAt);
-                receipt = SubmissionIdempotency.Record(submission, keyDigest, plan.IntentDigest,
+                _receipt = SubmissionIdempotency.Record(submission, keyDigest, plan.IntentDigest,
                     JsonSerializer.Serialize(new AqPublicReceipt(plan.RequestId)));
                 Commits++;
             }

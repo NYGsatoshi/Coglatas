@@ -323,6 +323,30 @@ class RlsSourceBindingTests(unittest.TestCase):
         self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
         self.assertIsNone(result["ownerApproval"])
 
+    def test_versioned_historical_receipt_requires_a_matching_independent_catalogue(self):
+        catalogue = sources.HISTORICAL_CATALOGUE
+        legacy = self.reconcile()
+        self.assertNotIn("relationCatalogue", legacy)
+        receipt = dict(self.receipt, relationCatalogue=catalogue)
+        reference = dict(self.reference, relationCatalogue=catalogue)
+        result = self.reconcile(receipt, reference)
+        self.assertEqual(catalogue, result["relationCatalogue"])
+        self.assertEqual(legacy["observedMatrixOutcome"], result["observedMatrixOutcome"])
+        self.assertEqual(legacy["sourceBindingOutcome"], result["sourceBindingOutcome"])
+
+        changed_migration = dict(catalogue, latestMigration="20990101000000_SyntheticChange")
+        for matrix_receipt, independent_reference in (
+            (receipt, self.reference),
+            (self.receipt, reference),
+            (receipt, dict(reference, relationCatalogue=changed_migration)),
+            (dict(receipt, relationCatalogue=changed_migration),
+             dict(reference, relationCatalogue=changed_migration)),
+        ):
+            with self.subTest(matrix_catalogue=matrix_receipt.get("relationCatalogue"),
+                              source_catalogue=independent_reference.get("relationCatalogue")):
+                with self.assertRaises(matrix.MatrixError):
+                    self.reconcile(matrix_receipt, independent_reference)
+
     def applicable_fixture(self, guarded=False):
         receipt, reference = self.guarded_fixture() if guarded else (copy.deepcopy(self.receipt), copy.deepcopy(self.reference))
         table = receipt["tables"][0]

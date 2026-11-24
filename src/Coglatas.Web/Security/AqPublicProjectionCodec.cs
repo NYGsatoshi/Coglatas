@@ -7,16 +7,16 @@ namespace Coglatas.Web.Security;
 
 public sealed class AqPublicProjectionCodec(IDataProtectionProvider provider) : IAqPublicProjectionCodec
 {
-    private readonly IDataProtector entryProtector = provider.CreateProtector("Coglatas.Aq.PublicEntry.v1");
-    private readonly IDataProtector cursorProtector = provider.CreateProtector("Coglatas.Aq.PublicProgramCursor.v1");
+    private readonly IDataProtector _entryProtector = provider.CreateProtector("Coglatas.Aq.PublicEntry.v1");
+    private readonly IDataProtector _cursorProtector = provider.CreateProtector("Coglatas.Aq.PublicProgramCursor.v1");
 
-    public string ProtectEntry(string code) => entryProtector.Protect(code);
+    public string ProtectEntry(string code) => _entryProtector.Protect(code);
 
     public string? UnprotectEntry(string protectedCode)
     {
         try
         {
-            return entryProtector.Unprotect(protectedCode);
+            return _entryProtector.Unprotect(protectedCode);
         }
         catch (Exception exception) when (exception is CryptographicException or FormatException)
         {
@@ -24,13 +24,13 @@ public sealed class AqPublicProjectionCodec(IDataProtectionProvider provider) : 
         }
     }
 
-    public string ProtectCursor(AqProgramCursor cursor) => cursorProtector.Protect(JsonSerializer.Serialize(cursor));
+    public string ProtectCursor(AqProgramCursor cursor) => _cursorProtector.Protect(JsonSerializer.Serialize(cursor));
 
     public AqProgramCursor? UnprotectCursor(string protectedCursor)
     {
         try
         {
-            return JsonSerializer.Deserialize<AqProgramCursor>(cursorProtector.Unprotect(protectedCursor));
+            return JsonSerializer.Deserialize<AqProgramCursor>(_cursorProtector.Unprotect(protectedCursor));
         }
         catch (Exception exception) when (exception is CryptographicException or FormatException)
         {

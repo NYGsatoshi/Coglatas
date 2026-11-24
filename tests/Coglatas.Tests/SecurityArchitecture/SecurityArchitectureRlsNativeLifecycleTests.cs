@@ -84,7 +84,7 @@ public sealed class SecurityArchitectureRlsNativeLifecycleTests
                 "SELECT count(*) FROM task_execution_scope_overrides WHERE \"TaskItemId\"=@task", ("task", task.Id)));
             Assert.False(await PostgreSqlMigrationTestDatabase.ScalarAsync<bool>(fixture.Database,
                 "SELECT \"DeletedAt\" IS NOT NULL FROM file_objects WHERE \"Id\"=@file", ("file", file.Id)));
-            await WritePrivateAsync(fixture, "canonical-and-persistence", 105,
+            await WritePrivateAsync(fixture, "canonical-and-persistence",
                 ["ActualCanonicalAppend", "ActualRevisionAdvance", "ForeignCoordinatorPositiveBeforeWithCheckDenial", "CanonicalStagedRollback",
                  "PersistentProjectPolicyUpdate", "TaskOverrideClearMeansInheritance", "FileSoftDeletePreservesImmutableVersions", "PersistenceRollback"],
                 ["AppendOnlyRowsHaveNoDirectUpdateOrDeleteLifecycle", "ConcreteApplicationResourceAuthorityUnverified", "FullComposedHostStartupUnverified"]);
@@ -95,7 +95,7 @@ public sealed class SecurityArchitectureRlsNativeLifecycleTests
     public async Task ActualSecurityStoreTerminalizesOnceWithCurrentAuthorizationAndScopedRuleAppend()
     {
         // Authorization reads precede this adapter's owned transaction. Its identity/member/project dependencies
-        // deliberately retain the inactive product semantics; this proves two selected policies, not all105 startup.
+        // deliberately retain the inactive product semantics; this proves two selected policies, not full catalogue startup.
         await WithFixtureAsync(allPolicies: false, async fixture =>
         {
             foreach (var seed in new[] { fixture.Alpha, fixture.Beta })
@@ -140,15 +140,16 @@ public sealed class SecurityArchitectureRlsNativeLifecycleTests
             await using (var context = Context(fixture, fixture.Alpha.Tenant))
                 Assert.Equal(SecurityTerminalizationResult.Terminalized, await Store(context, fixture.Alpha).TerminalizeAsync(revoked, decision));
             Assert.Equal(("Completed", 1L), await EvaluationStateAsync(fixture.Database, revoked.Request.EvaluationId));
-            await WritePrivateAsync(fixture, "security-terminalization", 2,
+            await WritePrivateAsync(fixture, "security-terminalization",
                 ["ActualPendingRunCreation", "ActualScopedRuleAppendBeforeTerminalization", "TerminalizeOnce", "ForeignPositiveBeforeScopeDenial",
                  "CurrentWorkspaceMembershipRevocationPreservesPendingRun", "RestoredMembershipPositive"],
-                ["PreTransactionIdentityAndProjectAuthorizationRemainUnprotected", "All105PolicyStartupUnverified", "FutureRetentionOperatorAuthorityUnverified"]);
+                ["PreTransactionIdentityAndProjectAuthorizationRemainUnprotected", "FullCataloguePolicyStartupUnverified", "FutureRetentionOperatorAuthorityUnverified"]);
         });
     }
 
     private sealed record Fixture(string Database, string Connection, string Role, SecurityArchitectureRlsRowFixtures.Seed Alpha,
-        SecurityArchitectureRlsRowFixtures.Seed Beta, SecurityArchitectureRlsRuntimeContext.Recorder Recorder);
+        SecurityArchitectureRlsRowFixtures.Seed Beta, SecurityArchitectureRlsRuntimeContext.Recorder Recorder,
+        SecurityArchitectureRlsRelationCatalogue.Snapshot Catalogue, int PolicyCount, bool AllPolicies);
 
     private static async Task WithFixtureAsync(bool allPolicies, Func<Fixture, Task> scenario)
     {
@@ -165,13 +166,14 @@ public sealed class SecurityArchitectureRlsNativeLifecycleTests
                     CREATE ROLE "{role}" LOGIN PASSWORD '{password}' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOINHERIT;
                     GRANT USAGE ON SCHEMA public TO "{role}";
                     """);
-                var tables = await PostgreSqlMigrationTestDatabase.QueryAsync(database, """
-                    SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_attribute a ON a.attrelid=c.oid
-                    WHERE n.nspname='public' AND c.relkind IN ('r','p') AND a.attname='TenantId' AND NOT a.attisdropped ORDER BY c.relname
-                    """, reader => reader.GetString(0));
-                Assert.Equal(103, tables.Count);
-                if (!allPolicies) tables = ["security_evaluation_runs", "security_evaluation_rule_results"];
-                foreach (var table in tables)
+                var catalogue = await SecurityArchitectureRlsRelationCatalogue.AssertMigratedAsync(database);
+                IReadOnlyList<string> tables = allPolicies
+                    ? SecurityArchitectureRlsRelationCatalogue.ExistingActiveDraftPolicyTables(catalogue)
+                    : ["security_evaluation_runs", "security_evaluation_rule_results"];
+                var scopedTables = allPolicies
+                    ? tables.Where(table => table is not ("file_selection_snapshot_items" or "coglatas_ui_canonical_change_journal"))
+                    : tables;
+                foreach (var table in scopedTables)
                     await PostgreSqlMigrationTestDatabase.ExecuteAsync(database, $"""
                         ALTER TABLE public."{table}" ENABLE ROW LEVEL SECURITY;
                         ALTER TABLE public."{table}" FORCE ROW LEVEL SECURITY;
@@ -212,7 +214,7 @@ public sealed class SecurityArchitectureRlsNativeLifecycleTests
                 var connection = new NpgsqlConnectionStringBuilder(database) { Username = role, Password = password, MaxPoolSize = 1 }.ConnectionString;
                 try
                 {
-                    await scenario(new(database, connection, role, alpha, beta, new()));
+                    await scenario(new(database, connection, role, alpha, beta, new(), catalogue, tables.Count, allPolicies));
                 }
                 finally
                 {
@@ -270,7 +272,7 @@ public sealed class SecurityArchitectureRlsNativeLifecycleTests
     }
     private sealed class Clock : IClock { public DateTimeOffset UtcNow => DateTimeOffset.UtcNow; }
 
-    private static async Task WritePrivateAsync(Fixture fixture, string name, int policyCount, string[] controls, string[] holds)
+    private static async Task WritePrivateAsync(Fixture fixture, string name, string[] controls, string[] holds)
     {
         await using var observed = new NpgsqlConnection(fixture.Connection);
         await observed.OpenAsync();
@@ -292,12 +294,12 @@ public sealed class SecurityArchitectureRlsNativeLifecycleTests
             SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
             WHERE n.nspname='public' AND c.relkind IN ('r','p') AND has_table_privilege(@role,c.oid,'SELECT')
             """, ("role", role));
-        Assert.Equal(policyCount == 105 ? 6L : 11L, readTables);
+        Assert.Equal(fixture.AllPolicies ? 6L : 11L, readTables);
         Assert.NotEmpty(fixture.Recorder.Transactions);
         Assert.All(fixture.Recorder.Transactions, observation => Assert.Equal("syntheticSuppliedLifecycleAuthority", observation.AuthorityKind));
         var actualPolicies = await PostgreSqlMigrationTestDatabase.ScalarAsync<long>(fixture.Database,
             "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relrowsecurity AND c.relforcerowsecurity");
-        Assert.Equal(policyCount, actualPolicies);
+        Assert.Equal(fixture.PolicyCount, actualPolicies);
         var directory = Environment.GetEnvironmentVariable("COGLATAS_SEC_ARCH_PRIVATE_INVENTORY_DIRECTORY");
         if (string.IsNullOrWhiteSpace(directory)) return;
         Directory.CreateDirectory(directory);
@@ -308,6 +310,7 @@ public sealed class SecurityArchitectureRlsNativeLifecycleTests
         {
             schemaVersion = 1, candidateSha = Environment.GetEnvironmentVariable("COGLATAS_SEC_ARCH_CANDIDATE_SHA"), testAssemblyDigest = assemblyDigest,
             approval = "DRAFT", ownerApproval = (string?)null, executedAtUtc = DateTimeOffset.UtcNow,
+            relationCatalogue = new { fixture.Catalogue.Version, fixture.Catalogue.LatestMigration },
             executionScope = "ISOLATED_CURRENT_NATIVE_ADAPTER_LIFECYCLES", observedDraftPolicyCount = actualPolicies,
             databaseRole = role, isSuperuser = false, bypassRls = false, authorityKind = "syntheticSuppliedLifecycleAuthority",
             observedSelectTableCount = readTables, membershipCount = 0, protectedTableOwnershipCount = 0,
