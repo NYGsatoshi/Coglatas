@@ -206,6 +206,63 @@ public sealed class AqPublicSurveyHostedPostgreSqlTests
             Assert.Equal("open", openSurvey.RootElement.GetProperty("data").GetProperty("receptionState").GetString());
         });
 
+    [PostgreSqlFact]
+    public Task ReportingAndHidingDoNotVoidNumericFeedbackAndStaleVisibilityCannotOverwrite() =>
+        AqPostgreSqlScenario.WithHostedEventAsync(async (database, host, project, activity) =>
+        {
+            var survey = await SeedAsync(database, host, project, activity, presenterFeedbackFixture: true);
+            await AssignModerationAsync(database, host, project, survey);
+            using var guest = AqPostgreSqlScenario.CreateGuestClient(host);
+            await host.LoginAsync();
+            using (var first = await SubmitAsync(guest, survey.TargetCode, "moderated-first", Payload(survey, score: 4)))
+                await ReadMinimalReceiptAsync(first);
+
+            var feedbackRoute = $"/api/v1/core/presentations/{survey.PresentationId:D}/feedback";
+            using var initial = await GetDataAsync(host.Client, feedbackRoute);
+            var row = Assert.Single(initial.RootElement.GetProperty("data").GetProperty("items").EnumerateArray());
+            var comment = Assert.Single(row.GetProperty("answers").EnumerateArray(),
+                answer => answer.GetProperty("fieldKey").GetString() == FieldKey);
+            Assert.Equal(AnswerText, comment.GetProperty("value").GetString());
+            var submissionId = row.GetProperty("id").GetGuid();
+            var answerId = comment.GetProperty("id").GetGuid();
+            var answerRoute = $"/api/v1/core/feedback/answers/{answerId:D}";
+
+            using var reported = await host.PostAsync(answerRoute + "/reports", new { reason = "Synthetic report" });
+            Assert.Equal(HttpStatusCode.Created, reported.StatusCode);
+            using var reportBody = JsonDocument.Parse(await reported.Content.ReadAsStringAsync());
+            var reportId = reportBody.RootElement.GetProperty("data").GetProperty("reportId").GetGuid();
+            using (var stillVisible = await GetDataAsync(host.Client, feedbackRoute))
+                Assert.Contains(AnswerText, stillVisible.RootElement.GetRawText(), StringComparison.Ordinal);
+
+            using (var hide = await PatchAsync(host.Client, answerRoute + "/visibility", new
+                   { expectedVersionNo = 1L, action = "hide", reason = "Synthetic hide" }))
+                Assert.Equal(HttpStatusCode.OK, hide.StatusCode);
+            using (var stale = await PatchAsync(host.Client, answerRoute + "/visibility", new
+                   { expectedVersionNo = 1L, action = "restore", reason = "Synthetic stale decision" }))
+                await AssertErrorAsync(stale, HttpStatusCode.Conflict, "RowVersionConflict");
+            using (var dismiss = await host.PostAsync($"/api/v1/core/feedback/reports/{reportId:D}/resolve", new
+                   { expectedVersionNo = 1L, resolution = "dismiss", reason = "Synthetic dismissal" }))
+                Assert.Equal(HttpStatusCode.OK, dismiss.StatusCode);
+            using (var hidden = await GetDataAsync(host.Client, feedbackRoute))
+                Assert.DoesNotContain(AnswerText, hidden.RootElement.GetRawText(), StringComparison.Ordinal);
+
+            using (var aggregate = await GetDataAsync(host.Client, feedbackRoute + "-summary"))
+            {
+                var data = aggregate.RootElement.GetProperty("data");
+                Assert.Equal(1, data.GetProperty("responses").GetInt64());
+                var score = Assert.Single(data.GetProperty("questions").EnumerateArray(),
+                    question => question.GetProperty("fieldKey").GetString() == "score");
+                Assert.Equal(1, score.GetProperty("denominator").GetInt64());
+                Assert.Equal(4m, score.GetProperty("mean").GetDecimal());
+            }
+
+            using (var voided = await host.PostAsync($"/api/v1/core/feedback/submissions/{submissionId:D}/void", new
+                   { expectedVersionNo = 1L, reason = "Synthetic void" }))
+                Assert.Equal(HttpStatusCode.OK, voided.StatusCode);
+            using (var afterVoid = await GetDataAsync(host.Client, feedbackRoute + "-summary"))
+                Assert.Equal(0, afterVoid.RootElement.GetProperty("data").GetProperty("responses").GetInt64());
+        });
+
     private static async Task<SeededSurvey> SeedAsync(
         string database, AdmissionHost host, Project project, ActivityEvent activity, bool presenterFeedbackFixture = false)
     {
@@ -278,6 +335,31 @@ public sealed class AqPublicSurveyHostedPostgreSqlTests
         await db.SaveChangesAsync();
     }
 
+    private static async Task AssignModerationAsync(string database, AdmissionHost host, Project project, SeededSurvey survey)
+    {
+        await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+        var membership = await db.WorkspaceMembers.SingleAsync(row =>
+            row.TenantId == project.TenantId && row.WorkspaceId == project.WorkspaceId && row.UserId == host.Actor.Id);
+        var presentation = await db.Set<Presentation>().SingleAsync(row => row.Id == survey.PresentationId);
+        db.Add(PresentationParticipant.Assign(presentation, project, membership, PresentationParticipantRole.Reviewer));
+        var now = DateTimeOffset.UtcNow;
+        foreach (var capability in new[] { "feedback.report", "feedback.moderate", "feedback.submission.void" })
+        {
+            db.Add(new CapabilityGrant
+            {
+                TenantId = host.Tenant.Id,
+                SubjectUserId = host.Actor.Id,
+                GrantedByUserId = host.Actor.Id,
+                ScopeType = CapabilityScopeType.Workspace,
+                ScopeId = project.WorkspaceId,
+                CapabilityKey = capability,
+                GrantedAt = now.AddMinutes(-1),
+                ExpiresAt = now.AddHours(1)
+            });
+        }
+        await db.SaveChangesAsync();
+    }
+
     private static async Task<(HttpResponseMessage[] Outcomes, bool SawConcurrentRequests)> SubmitAcrossDatabaseBarrierAsync(
         string database, SeededSurvey survey, HttpClient firstGuest, HttpClient secondGuest,
         string key, AqPublicSubmissionInput payload)
@@ -343,14 +425,24 @@ public sealed class AqPublicSurveyHostedPostgreSqlTests
             Content = JsonContent.Create(payload)
         };
         request.Headers.Add("Idempotency-Key", key);
-        if (includeCsrf)
-        {
-            using var bootstrap = await client.GetAsync("/api/security/csrf-token");
-            bootstrap.EnsureSuccessStatusCode();
-            var token = await bootstrap.Content.ReadFromJsonAsync<CsrfTokenResponse>();
-            Assert.NotNull(token);
-            request.Headers.Add(SecurityOptions.CsrfHeaderName, token.Token);
-        }
+        return await SendAsync(client, request, includeCsrf);
+    }
+
+    private static async Task<HttpResponseMessage> PatchAsync<T>(HttpClient client, string route, T payload)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Patch, route) { Content = JsonContent.Create(payload) };
+        return await SendAsync(client, request, includeCsrf: true);
+    }
+
+    private static async Task<HttpResponseMessage> SendAsync(HttpClient client, HttpRequestMessage request, bool includeCsrf)
+    {
+        if (!includeCsrf) return await client.SendAsync(request);
+
+        using var bootstrap = await client.GetAsync("/api/security/csrf-token");
+        bootstrap.EnsureSuccessStatusCode();
+        var token = await bootstrap.Content.ReadFromJsonAsync<CsrfTokenResponse>();
+        Assert.NotNull(token);
+        request.Headers.Add(SecurityOptions.CsrfHeaderName, token.Token);
         return await client.SendAsync(request);
     }
 
