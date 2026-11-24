@@ -102,7 +102,8 @@ public sealed class ConversationAdmissionHostedHttpTests
             string database,
             ILoggerProvider? logProvider = null,
             IReadOnlyDictionary<string, string?>? configurationOverrides = null,
-            Action<RateLimiterOptions>? configureRateLimiting = null)
+            Action<RateLimiterOptions>? configureRateLimiting = null,
+            IClock? clock = null)
         {
             var temporaryRoot = Path.Combine(Path.GetTempPath(), "coglatas-admission-http", Guid.NewGuid().ToString("N"));
             var keyPath = Path.Combine(temporaryRoot, "keys");
@@ -134,6 +135,8 @@ public sealed class ConversationAdmissionHostedHttpTests
             if (configurationOverrides is not null) builder.Configuration.AddInMemoryCollection(configurationOverrides);
             builder.Services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(keyPath));
             builder.Services.AddApplication().AddInfrastructure(builder.Configuration).AddWebServices(builder.Configuration);
+            if (clock is not null)
+                builder.Services.AddSingleton<IClock>(clock);
             builder.Services.AddControllers().AddApplicationPart(typeof(ConversationsController).Assembly);
             builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(options =>
             {
