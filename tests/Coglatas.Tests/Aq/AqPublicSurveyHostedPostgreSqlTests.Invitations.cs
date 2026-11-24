@@ -124,6 +124,10 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
                 Assert.Equal(1, aggregate.RootElement.GetProperty("data").GetProperty("responses").GetInt64());
             await AssertInvitationDeniedAsync(recipient, $"/api/v1/core/presentations/{otherPresentationId:D}/feedback");
             await AssertInvitationDeniedAsync(recipient, presentation + "/private-notes");
+            await AssertInvitationDeniedAsync(recipient, presentation + "/shared-feedback");
+            using (var note = await AdmissionHost.PostAsync(recipient, presentation + "/private-notes",
+                       new { body = "Synthetic grant-only note attempt" }))
+                await AssertErrorAsync(note, HttpStatusCode.NotFound, "NotFound");
             using (var onward = await AdmissionHost.PostAsync(recipient, presentation + "/feedback-invitations",
                        new { recipientRef = operatorAccount.Id }))
                 await AssertErrorAsync(onward, HttpStatusCode.NotFound, "NotFound");
