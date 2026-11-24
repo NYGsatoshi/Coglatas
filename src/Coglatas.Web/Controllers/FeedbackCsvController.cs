@@ -22,6 +22,7 @@ namespace Coglatas.Web.Controllers;
 public sealed class FeedbackCsvController(FeedbackCsvService exports) : ControllerBase
 {
     [HttpPost("presentations/{id:guid}/feedback-export")]
+    [RequiresAqProtectedIdempotencyKey]
     [RequestSizeLimit(4096)]
     [ProducesResponseType<ApiSuccessEnvelope<FeedbackCsvQueued>>(StatusCodes.Status202Accepted, "application/json")]
     [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status400BadRequest, "application/json")]
@@ -30,7 +31,7 @@ public sealed class FeedbackCsvController(FeedbackCsvService exports) : Controll
     [ProducesResponseType<ErrorResponse>(StatusCodes.Status413PayloadTooLarge, "application/json")]
     public async Task<IActionResult> Create(Guid id, FeedbackCsvRequest request, CancellationToken cancellationToken)
     {
-        var key = ReadKey();
+        var key = AqProtectedIdempotencyKey.Read(Request.Headers);
         if (!key.IsSuccess)
             return Fail(key);
 
@@ -54,6 +55,7 @@ public sealed class FeedbackCsvController(FeedbackCsvService exports) : Controll
     }
 
     [HttpPost("presentation-feedback-exports/{id:guid}/download-grants")]
+    [RequiresAqProtectedIdempotencyKey]
     [RequestSizeLimit(4096)]
     [ProducesResponseType<ApiSuccessEnvelope<FeedbackCsvGrantReceipt>>(StatusCodes.Status201Created, "application/json")]
     [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status400BadRequest, "application/json")]
@@ -62,7 +64,7 @@ public sealed class FeedbackCsvController(FeedbackCsvService exports) : Controll
     [ProducesResponseType<ErrorResponse>(StatusCodes.Status413PayloadTooLarge, "application/json")]
     public async Task<IActionResult> CreateGrant(Guid id, CancellationToken cancellationToken)
     {
-        var key = ReadKey();
+        var key = AqProtectedIdempotencyKey.Read(Request.Headers);
         if (!key.IsSuccess)
             return Fail(key);
 
@@ -90,17 +92,6 @@ public sealed class FeedbackCsvController(FeedbackCsvService exports) : Controll
     // The CSV endpoint uses the shared tenant-export rate-limit response.
     private sealed record RateLimitResponse(string RequestId, RateLimitError Error);
     private sealed record RateLimitError(string Code, string Message);
-
-    private Result<string?> ReadKey()
-    {
-        if (!Request.Headers.TryGetValue("Idempotency-Key", out var keys))
-            return Result<string?>.Success(null);
-
-        return keys.Count == 1
-            ? Result<string?>.Success(keys[0])
-            : Result<string?>.Failure(new ApplicationErrorDetail(
-                "InvalidIdempotencyKey", "The Idempotency-Key header is invalid.", Target: "header.Idempotency-Key"));
-    }
 
     private IActionResult Fail<T>(Result<T> result)
     {

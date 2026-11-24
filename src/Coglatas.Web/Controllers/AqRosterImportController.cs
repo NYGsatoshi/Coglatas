@@ -91,6 +91,7 @@ public sealed class AqRosterImportController(
     }
 
     [HttpPost("import-commit")]
+    [RequiresAqProtectedIdempotencyKey]
     [RequestSizeLimit(MaximumBytes)]
     [ProducesResponseType<ApiSuccessEnvelope<AqRosterReceipt>>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status409Conflict, "application/json")]
@@ -98,10 +99,11 @@ public sealed class AqRosterImportController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status415UnsupportedMediaType, "application/problem+json")]
     public async Task<IActionResult> Commit(Guid eventId, AqCommitRosterRequest request, CancellationToken cancellationToken)
     {
-        var keys = Request.Headers["Idempotency-Key"];
-        if (keys.Count != 1)
-            return Failure(StatusCodes.Status400BadRequest, "MissingIdempotencyKey", "A single idempotency key is required.");
-        return Respond(await management.CommitRosterAsync(eventId, request, keys[0] ?? "", previewCodec, cancellationToken));
+        var key = AqProtectedIdempotencyKey.Read(Request.Headers);
+        if (key.ErrorDetail is { } error)
+            return Failure(StatusCodes.Status400BadRequest, error.Code, error.Message, error.Target);
+
+        return Respond(await management.CommitRosterAsync(eventId, request, key.Value!, previewCodec, cancellationToken));
     }
 
     private IActionResult Respond<T>(Result<T> result)
@@ -122,8 +124,8 @@ public sealed class AqRosterImportController(
 
     private IActionResult Invalid(string message) => Failure(StatusCodes.Status400BadRequest, "ValidationFailed", message);
 
-    private IActionResult Failure(int status, string code, string message) =>
-        StatusCode(status, ApiEnvelope.Error(HttpContext, status, code, message));
+    private IActionResult Failure(int status, string code, string message, string? target = null) =>
+        StatusCode(status, ApiEnvelope.Error(HttpContext, status, code, message, target));
 
     private sealed class PreviewCodec(IDataProtectionProvider protection) : IAqRosterPreviewCodec
     {
