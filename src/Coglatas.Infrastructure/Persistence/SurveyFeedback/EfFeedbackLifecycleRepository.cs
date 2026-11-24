@@ -48,6 +48,22 @@ public sealed class EfFeedbackLifecycleRepository(AppDbContext dbContext) : IFee
         dbContext.Set<FeedbackInvitationPolicy>().AsNoTracking()
             .SingleOrDefaultAsync(policy => policy.TenantId == tenantId && policy.EventId == eventId, cancellationToken);
 
+    public async Task<IReadOnlyList<FeedbackViewerGrant>> ReadInvitationsAsync(Guid tenantId, Guid userId,
+        string? direction, FeedbackPagePosition? after, CancellationToken cancellationToken)
+    {
+        var query = dbContext.Set<FeedbackViewerGrant>().AsNoTracking()
+            .Where(grant => grant.TenantId == tenantId &&
+                (direction != "received" && grant.InviterUserId == userId ||
+                 direction != "issued" && grant.RecipientUserId == userId));
+        if (after is not null)
+        {
+            query = query.Where(grant => grant.CreatedAt < after.SubmittedAt ||
+                grant.CreatedAt == after.SubmittedAt && grant.Id.CompareTo(after.Id) < 0);
+        }
+        return await query.OrderByDescending(grant => grant.CreatedAt).ThenByDescending(grant => grant.Id)
+            .ToListAsync(cancellationToken);
+    }
+
     public Task<FeedbackViewerGrant?> GetInvitationAsync(Guid tenantId, Guid invitationId,
         CancellationToken cancellationToken) =>
         dbContext.Set<FeedbackViewerGrant>()
@@ -125,6 +141,39 @@ public sealed class EfFeedbackLifecycleRepository(AppDbContext dbContext) : IFee
                     grant.Status == FeedbackViewerGrantStatus.Active)
                 .Select(grant => grant.RecipientUserId))
             .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<TeacherPrivateNote>> ReadPrivateNotesAsync(Guid tenantId, Guid presentationId,
+        Guid authorId, FeedbackPagePosition? after, int take, CancellationToken cancellationToken)
+    {
+        var query = dbContext.Set<TeacherPrivateNote>().AsNoTracking()
+            .Where(note => note.TenantId == tenantId && note.PresentationId == presentationId && note.AuthorUserId == authorId);
+        if (after is not null)
+        {
+            query = query.Where(note => note.CreatedAt < after.SubmittedAt ||
+                note.CreatedAt == after.SubmittedAt && note.Id.CompareTo(after.Id) < 0);
+        }
+        return await query.OrderByDescending(note => note.CreatedAt).ThenByDescending(note => note.Id)
+            .Take(take).ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<SharedTeacherFeedback>> ReadSharedFeedbackAsync(Guid tenantId, Guid presentationId,
+        Guid? authorId, FeedbackPagePosition? after, int take, CancellationToken cancellationToken)
+    {
+        var query = dbContext.Set<SharedTeacherFeedback>().AsNoTracking()
+            .Where(note => note.TenantId == tenantId && note.PresentationId == presentationId &&
+                (!authorId.HasValue || note.AuthorUserId == authorId));
+        if (after is not null)
+        {
+            query = query.Where(note => note.CreatedAt < after.SubmittedAt ||
+                note.CreatedAt == after.SubmittedAt && note.Id.CompareTo(after.Id) < 0);
+        }
+        return await query.OrderByDescending(note => note.CreatedAt).ThenByDescending(note => note.Id)
+            .Take(take).ToListAsync(cancellationToken);
+    }
+
+    public void AddPrivateNote(TeacherPrivateNote note) => dbContext.Set<TeacherPrivateNote>().Add(note);
+
+    public void AddSharedFeedback(SharedTeacherFeedback note) => dbContext.Set<SharedTeacherFeedback>().Add(note);
 
     public void AddInvitation(FeedbackViewerGrant invitation) => dbContext.Set<FeedbackViewerGrant>().Add(invitation);
 

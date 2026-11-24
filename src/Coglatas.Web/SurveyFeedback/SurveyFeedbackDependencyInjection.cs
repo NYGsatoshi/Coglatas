@@ -8,8 +8,11 @@ public static class SurveyFeedbackDependencyInjection
     public static IServiceCollection AddSurveyFeedback(this IServiceCollection services) =>
         services.AddScoped<SurveyFeedbackAuthorization>()
             .AddScoped<SurveyFeedbackService>()
+            .AddScoped<SurveyFeedbackInboxService>()
+            .AddScoped<ISurveyFeedbackInboxRepository, EfSurveyFeedbackInboxRepository>()
             .AddScoped<FeedbackInvitationService>()
             .AddScoped<FeedbackModerationService>()
+            .AddScoped<FeedbackNotesService>()
             .AddScoped<IFeedbackLifecycleRepository, EfFeedbackLifecycleRepository>()
             .AddScoped<ISurveyFeedbackInvalidation, SurveyFeedbackInvalidation>()
             .AddScoped<ISurveyFeedbackRepository, EfSurveyFeedbackRepository>()

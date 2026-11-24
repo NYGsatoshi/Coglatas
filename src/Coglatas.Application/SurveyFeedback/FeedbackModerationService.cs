@@ -103,6 +103,29 @@ public sealed class FeedbackModerationService(
                 visibility.VersionNo));
         }, cancellationToken);
 
+    public async Task<Result<FeedbackReportDetail>> ReportDetailAsync(Guid reportId,
+        CancellationToken cancellationToken)
+    {
+        var actor = await authorization.ReadActorAsync(cancellationToken);
+        if (actor is null)
+        {
+            return SurveyFeedbackService.AuthenticationRequired<FeedbackReportDetail>();
+        }
+
+        var report = await repository.GetReportAsync(actor.TenantId, reportId, cancellationToken);
+        var access = report is null ? null : await authorization.ReadAccessAsync(actor, report.PresentationId,
+            cancellationToken);
+        if (report is null || !await CanModerateAsync(actor, access, cancellationToken))
+        {
+            return SurveyFeedbackService.NotFound<FeedbackReportDetail>();
+        }
+
+        var answer = await repository.FindAnswerAsync(actor.TenantId, report.FormSubmissionValueId, cancellationToken);
+        return Result<FeedbackReportDetail>.Success(new FeedbackReportDetail(ToDto(report), report.PresentationId,
+            report.Reason, report.CreatedAt, answer is null ? null : answer.IsHidden ? "hidden" : "visible",
+            report.DispositionReason, report.DisposedAtUtc));
+    }
+
     public Task<Result<FeedbackReportDto>> ResolveAsync(Guid reportId, string resolution, string? reason,
         long expectedVersionNo, CancellationToken cancellationToken) =>
         repository.InWriteTransactionAsync(async token =>

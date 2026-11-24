@@ -11,6 +11,11 @@ namespace Coglatas.Web.Controllers;
 [Route("api/v1/core")]
 public sealed class FeedbackInvitationsController(FeedbackInvitationService invitations) : SurveyFeedbackControllerBase
 {
+    [HttpGet("me/feedback-invitations")]
+    public async Task<IActionResult> List(string? cursor, string? direction, string? status, int pageSize = 25,
+        CancellationToken cancellationToken = default) =>
+        ToResponse(await invitations.ListAsync(cursor, direction, status, pageSize, cancellationToken));
+
     [HttpPost("presentations/{id:guid}/feedback-invitations")]
     public async Task<IActionResult> Issue(Guid id, IssueInvitationRequest request, CancellationToken cancellationToken) =>
         ToResponse(await invitations.IssueAsync(id, request.RecipientRef, request.RequestedActiveDurationSeconds,

@@ -17,7 +17,7 @@ public abstract class SurveyFeedbackControllerBase : ControllerBase
         var status = code switch
         {
             "AuthenticationRequired" => StatusCodes.Status401Unauthorized,
-            "CapabilityDenied" => StatusCodes.Status403Forbidden,
+            "CapabilityDenied" or "RestrictedFieldDenied" => StatusCodes.Status403Forbidden,
             "NotFound" => StatusCodes.Status404NotFound,
             "ValidationFailed" => StatusCodes.Status400BadRequest,
             "ConcurrentModification" or "InvalidStateTransition" or "RowVersionConflict" =>

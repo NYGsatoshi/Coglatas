@@ -9,8 +9,62 @@ public sealed class FeedbackInvitationService(
     IFeedbackLifecycleRepository repository,
     ISurveyFeedbackInvalidation invalidation,
     IAuditLogger audit,
+    ISurveyFeedbackCursor cursors,
     IClock clock)
 {
+    public async Task<Result<FeedbackPage<FeedbackInvitationSummary>>> ListAsync(string? cursor, string? direction,
+        string? status, int pageSize, CancellationToken cancellationToken)
+    {
+        var actor = await authorization.ReadActorAsync(cancellationToken);
+        if (actor is null)
+        {
+            return SurveyFeedbackService.AuthenticationRequired<FeedbackPage<FeedbackInvitationSummary>>();
+        }
+
+        var cursorScope = new FeedbackCursorScope(actor.TenantId, actor.UserId, null, $"invitations/{direction}/{status}");
+        FeedbackPagePosition? after = null;
+        if (pageSize is < 1 or > 100 || direction is not (null or "issued" or "received") ||
+            status is not (null or "pending" or "active" or "declined" or "revoked" or "expired") ||
+            cursor is not null && !cursors.TryRead(cursor, cursorScope, out after))
+        {
+            return SurveyFeedbackService.Invalid<FeedbackPage<FeedbackInvitationSummary>>();
+        }
+
+        var now = clock.UtcNow;
+        var invitations = await repository.ReadInvitationsAsync(actor.TenantId, actor.UserId, direction, after,
+            cancellationToken);
+        var rows = new List<FeedbackInvitationSummary>();
+        FeedbackPagePosition? next = null;
+        foreach (var invitation in invitations)
+        {
+            var expired = invitation.Status == FeedbackViewerGrantStatus.Pending && invitation.DecisionDeadlineUtc <= now ||
+                invitation.Status == FeedbackViewerGrantStatus.Active && invitation.ExpiresAtUtc <= now;
+            var state = expired ? "expired" : invitation.Status.ToString().ToLowerInvariant();
+            if (status is not null && state != status)
+            {
+                continue;
+            }
+
+            var access = await authorization.ReadAccessAsync(actor, invitation.PresentationId, cancellationToken);
+            if (access is null)
+            {
+                continue;
+            }
+
+            if (rows.Count == pageSize)
+            {
+                return Result<FeedbackPage<FeedbackInvitationSummary>>.Success(new(rows, cursors.Write(cursorScope, next!)));
+            }
+
+            rows.Add(new FeedbackInvitationSummary(invitation.Id, access.Scope.Title,
+                invitation.InviterUserId == actor.UserId ? "issued" : "received", state,
+                invitation.VersionNo, invitation.DecisionDeadlineUtc, invitation.ExpiresAtUtc));
+            next = new FeedbackPagePosition(invitation.CreatedAt, invitation.Id);
+        }
+
+        return Result<FeedbackPage<FeedbackInvitationSummary>>.Success(new(rows));
+    }
+
     public Task<Result<FeedbackInvitationDto>> IssueAsync(Guid presentationId, Guid recipientId,
         int? durationSeconds, CancellationToken cancellationToken) =>
         repository.InWriteTransactionAsync(async token =>

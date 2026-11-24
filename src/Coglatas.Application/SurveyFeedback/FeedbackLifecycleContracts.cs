@@ -9,6 +9,10 @@ public sealed record FeedbackAnswerResource(Guid PresentationId, Guid Submission
 
 public sealed record FeedbackSubmissionResource(Guid PresentationId, FormSubmission Submission);
 
+public sealed record FeedbackInvitationSummary(Guid Id, string PresentationLabel, string Direction, string Status,
+    long VersionNo, DateTimeOffset DecisionDeadline,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTimeOffset? ExpiresAt);
+
 public sealed record FeedbackInvitationDto(Guid Id, Guid PresentationId, string Status, long VersionNo,
     string ApprovalState, bool RecipientAccepted, DateTimeOffset DecisionDeadline,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTimeOffset? ExpiresAt);
@@ -18,6 +22,12 @@ public sealed record HiddenAnswerModerationDetail(Guid AnswerId, string Visibili
 public sealed record FeedbackVisibilityDto(Guid AnswerId, string Visibility, long VersionNo);
 
 public sealed record FeedbackReportDto(Guid ReportId, string State, long VersionNo);
+
+public sealed record FeedbackReportDetail(FeedbackReportDto Report, Guid PresentationId, string Reason,
+    DateTimeOffset OpenedAtUtc,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Visibility,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? DispositionReason,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTimeOffset? DisposedAtUtc);
 
 public sealed record FeedbackSubmissionDto(Guid SubmissionId, string Status, long VersionNo);
 
@@ -29,6 +39,8 @@ public interface IFeedbackLifecycleRepository
         CancellationToken cancellationToken);
     Task<FeedbackInvitationPolicy?> ReadInvitationPolicyAsync(Guid tenantId, Guid eventId,
         CancellationToken cancellationToken);
+    Task<IReadOnlyList<FeedbackViewerGrant>> ReadInvitationsAsync(Guid tenantId, Guid userId, string? direction,
+        FeedbackPagePosition? after, CancellationToken cancellationToken);
     Task<FeedbackViewerGrant?> GetInvitationAsync(Guid tenantId, Guid invitationId,
         CancellationToken cancellationToken);
     Task<IReadOnlyList<FeedbackViewerGrant>> GetLiveInvitationsAsync(Guid tenantId, Guid presentationId,
@@ -43,6 +55,12 @@ public interface IFeedbackLifecycleRepository
         CancellationToken cancellationToken);
     Task<IReadOnlyList<Guid>> ReadInvalidationCandidatesAsync(Guid tenantId, Guid presentationId,
         CancellationToken cancellationToken);
+    Task<IReadOnlyList<TeacherPrivateNote>> ReadPrivateNotesAsync(Guid tenantId, Guid presentationId, Guid authorId,
+        FeedbackPagePosition? after, int take, CancellationToken cancellationToken);
+    Task<IReadOnlyList<SharedTeacherFeedback>> ReadSharedFeedbackAsync(Guid tenantId, Guid presentationId, Guid? authorId,
+        FeedbackPagePosition? after, int take, CancellationToken cancellationToken);
+    void AddPrivateNote(TeacherPrivateNote note);
+    void AddSharedFeedback(SharedTeacherFeedback note);
     void AddInvitation(FeedbackViewerGrant invitation);
     void AddVisibility(AnswerVisibilityDecision decision);
     void AddReport(FeedbackReportCase report);
