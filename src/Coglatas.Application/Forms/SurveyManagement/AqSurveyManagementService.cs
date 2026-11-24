@@ -44,7 +44,7 @@ public sealed partial class AqSurveyManagementService(
     public async Task<Result<AqManagementPage<AqManagedPresentation>>> ListPresentationsAsync(
         Guid eventId, string? cursor, int pageSize, CancellationToken cancellationToken)
     {
-        var scope = await RequireEventAsync<AqManagementPage<AqManagedPresentation>>(eventId, Manage, cancellationToken);
+        var scope = await RequireEventAsync(eventId, Manage, cancellationToken);
         return scope.IsSuccess
             ? await PageAsync<Presentation, AqManagedPresentation>(item => item.EventId == eventId,
                 eventId, cursor, pageSize, ToPresentation, cancellationToken)
@@ -54,7 +54,7 @@ public sealed partial class AqSurveyManagementService(
     public async Task<Result<AqManagedPresentation>> GetPresentationAsync(
         Guid eventId, Guid presentationId, CancellationToken cancellationToken)
     {
-        var scope = await RequireEventAsync<AqManagedPresentation>(eventId, Manage, cancellationToken);
+        var scope = await RequireEventAsync(eventId, Manage, cancellationToken);
         if (!scope.IsSuccess)
             return Failure<AqManagedPresentation>(scope.ErrorDetail!);
 
@@ -100,7 +100,7 @@ public sealed partial class AqSurveyManagementService(
         if (!scope.IsSuccess)
             return Failure<AqParticipantSettings>(scope.ErrorDetail!);
 
-        var item = scope.Value!.Presentation;
+        var item = scope.Value.Presentation;
         var assignments = await store.PageAsync<PresentationParticipant>(
             x => x.PresentationId == presentationId, null, AssignmentLimit + 1, cancellationToken);
         return assignments.Count > AssignmentLimit
@@ -115,7 +115,7 @@ public sealed partial class AqSurveyManagementService(
             var scoped = await RequirePresentationAsync(presentationId, Assign, token);
             if (!scoped.IsSuccess)
                 return Failure<AqParticipantSettings>(scoped.ErrorDetail!);
-            var (scope, presentation) = scoped.Value!;
+            var (scope, presentation) = scoped.Value;
             var versionError = CheckVersion<AqParticipantSettings>(presentation.VersionNo, request.ExpectedVersionNo);
             if (versionError is not null)
                 return versionError;
@@ -165,7 +165,7 @@ public sealed partial class AqSurveyManagementService(
 
     public async Task<Result<AqManagedEventSettings>> GetEventSettingsAsync(Guid eventId, CancellationToken cancellationToken)
     {
-        var scope = await RequireEventAsync<AqManagedEventSettings>(eventId, Manage, cancellationToken);
+        var scope = await RequireEventAsync(eventId, Manage, cancellationToken);
         if (!scope.IsSuccess)
             return Failure<AqManagedEventSettings>(scope.ErrorDetail!);
 
@@ -281,7 +281,7 @@ public sealed partial class AqSurveyManagementService(
         var scoped = await RequirePresentationAsync(presentationId, Manage, cancellationToken);
         if (!scoped.IsSuccess)
             return Failure<AqPresentationResultsSettings>(scoped.ErrorDetail!);
-        var (scope, presentation) = scoped.Value!;
+        var (scope, presentation) = scoped.Value;
         var settings = await store.FindAsync<PresentationFeedbackSettings>(x => x.PresentationId == presentation.Id, cancellationToken);
         var parent = await store.FindAsync<EventFeedbackSettings>(x => x.EventId == scope.Event.Id, cancellationToken);
         return Success(ToResults(settings, parent));
@@ -294,7 +294,7 @@ public sealed partial class AqSurveyManagementService(
             var scoped = await RequirePresentationAsync(presentationId, Manage, token);
             if (!scoped.IsSuccess)
                 return Failure<AqPresentationResultsSettings>(scoped.ErrorDetail!);
-            var (scope, presentation) = scoped.Value!;
+            var (scope, presentation) = scoped.Value;
             var current = await store.FindAsync<PresentationFeedbackSettings>(x => x.PresentationId == presentationId, token);
             var versionError = CheckVersion<AqPresentationResultsSettings>(current?.VersionNo ?? 1, request.ExpectedVersionNo);
             if (versionError is not null)
@@ -324,11 +324,11 @@ public sealed partial class AqSurveyManagementService(
         Guid eventId, string capability, Func<EventScope, CancellationToken, Task<Result<T>>> command, CancellationToken cancellationToken) =>
         store.WriteAsync(async token =>
         {
-            var scope = await RequireEventAsync<T>(eventId, capability, token);
+            var scope = await RequireEventAsync(eventId, capability, token);
             return scope.IsSuccess ? await command(scope.Value!, token) : Failure<T>(scope.ErrorDetail!);
         }, cancellationToken);
 
-    private async Task<Result<EventScope>> RequireEventAsync<T>(Guid eventId, string capability, CancellationToken cancellationToken)
+    private async Task<Result<EventScope>> RequireEventAsync(Guid eventId, string capability, CancellationToken cancellationToken)
     {
         if (!currentUser.IsAuthenticated || currentUser.UserId is not { } actor)
             return Failure<EventScope>(new("AuthenticationRequired", "Sign in to continue."));
@@ -356,7 +356,7 @@ public sealed partial class AqSurveyManagementService(
         var presentation = await store.FindAsync<Presentation>(x => x.Id == presentationId, cancellationToken);
         if (presentation is null)
             return NotFound<(EventScope, Presentation)>();
-        var scope = await RequireEventAsync<Presentation>(presentation.EventId, capability, cancellationToken);
+        var scope = await RequireEventAsync(presentation.EventId, capability, cancellationToken);
         return scope.IsSuccess
             ? Success((scope.Value!, presentation))
             : Failure<(EventScope, Presentation)>(scope.ErrorDetail!);
@@ -448,7 +448,7 @@ public sealed partial class AqSurveyManagementService(
     private static AqManagedPresentation ToPresentation(Presentation item) => new(
         new AqPresentationSummary(item.Id, item.EventId, item.Title, item.StartsAtUtc, item.EndsAtUtc, item.Venue), item.VersionNo);
 
-    private static AqParticipantSettings ToParticipants(Presentation item, IEnumerable<PresentationParticipant> assignments) =>
+    private static AqParticipantSettings ToParticipants(Presentation item, IReadOnlyList<PresentationParticipant> assignments) =>
         new(item.VersionNo,
             assignments.Where(x => x.UserId.HasValue).Select(x => new AqParticipantAssignment(Wire(x.Role), x.UserId!.Value)).ToArray(),
             assignments.Where(x => x.PendingRosterRef is not null).Select(x => new AqPendingPresenter(x.PendingRosterRef!)).ToArray());

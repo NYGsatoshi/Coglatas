@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Json;
 using Coglatas.Application.Forms.SurveyManagement;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
@@ -108,7 +107,8 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
     private static async Task<HttpResponseMessage> ReplaceParticipantsAsync(
         HttpClient client, string route, AqParticipantUpdateRequest payload)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Put, route) { Content = JsonContent.Create(payload) };
+        using var request = new HttpRequestMessage(HttpMethod.Put, route);
+        request.Content = JsonContent.Create(payload);
         return await SendAsync(client, request, includeCsrf: true);
     }
 

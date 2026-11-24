@@ -136,7 +136,7 @@ public sealed class ConversationAdmissionHostedHttpTests
             builder.Services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(keyPath));
             builder.Services.AddApplication().AddInfrastructure(builder.Configuration).AddWebServices(builder.Configuration);
             if (clock is not null)
-                builder.Services.AddSingleton<IClock>(clock);
+                builder.Services.AddSingleton(clock);
             builder.Services.AddControllers().AddApplicationPart(typeof(ConversationsController).Assembly);
             builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(options =>
             {

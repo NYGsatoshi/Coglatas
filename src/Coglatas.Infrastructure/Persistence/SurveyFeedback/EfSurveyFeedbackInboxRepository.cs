@@ -22,7 +22,7 @@ public sealed class EfSurveyFeedbackInboxRepository(AppDbContext dbContext) : IS
         var query =
             from submission in dbContext.Set<FormSubmission>().AsNoTracking()
             join target in dbContext.Set<SurveyTarget>().AsNoTracking()
-                on submission.SurveyTargetId equals (Guid?)target.Id
+                on submission.SurveyTargetId equals target.Id
             join readerState in dbContext.Set<FeedbackReadState>().AsNoTracking()
                 .Where(state => state.TenantId == tenantId && state.UserId == userId) on submission.Id
                 equals readerState.FormSubmissionId into readerStates

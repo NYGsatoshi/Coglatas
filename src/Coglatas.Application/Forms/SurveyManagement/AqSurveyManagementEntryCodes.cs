@@ -43,7 +43,7 @@ public sealed partial class AqSurveyManagementService
             var scoped = await RequireTargetAsync(targetId, Manage, token);
             if (!scoped.IsSuccess)
                 return Failure<AqChangedCode>(scoped.ErrorDetail!);
-            var (scope, target) = scoped.Value!;
+            var (scope, target) = scoped.Value;
             var versionError = CheckVersion<AqChangedCode>(target.VersionNo, request.ExpectedVersionNo);
             if (versionError is not null)
                 return versionError;

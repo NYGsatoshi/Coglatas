@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Coglatas.Domain.Entities;
@@ -222,10 +221,8 @@ public sealed class AqOperatorHostedPostgreSqlTests
     {
         using var multipart = new MultipartFormDataContent();
         multipart.Add(new StringContent(csv, Encoding.UTF8, "text/csv"), "file", "synthetic-roster.csv");
-        using var request = new HttpRequestMessage(HttpMethod.Post, eventRoute + "/presentations/import-preview")
-        {
-            Content = multipart
-        };
+        using var request = new HttpRequestMessage(HttpMethod.Post, eventRoute + "/presentations/import-preview");
+        request.Content = multipart;
         request.Headers.Add(SecurityOptions.CsrfHeaderName, await ReadCsrfAsync(client));
         using var response = await client.SendAsync(request);
         var body = await response.Content.ReadAsStringAsync();
@@ -283,7 +280,8 @@ public sealed class AqOperatorHostedPostgreSqlTests
     private static async Task<HttpResponseMessage> SendAsync<T>(
         HttpClient client, HttpMethod method, string path, T payload, string? idempotencyKey = null)
     {
-        using var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(payload) };
+        using var request = new HttpRequestMessage(method, path);
+        request.Content = JsonContent.Create(payload);
         request.Headers.Add(SecurityOptions.CsrfHeaderName, await ReadCsrfAsync(client));
         if (idempotencyKey is not null)
             request.Headers.Add("Idempotency-Key", idempotencyKey);

@@ -19,7 +19,7 @@ public sealed class EfSurveyFeedbackRepository(AppDbContext dbContext) : ISurvey
     public Task<FeedbackEventScope?> GetEventScopeAsync(Guid tenantId, Guid eventId,
         CancellationToken cancellationToken) =>
         (from activityEvent in dbContext.Set<ActivityEvent>().AsNoTracking()
-         join project in dbContext.Set<Project>().AsNoTracking() on activityEvent.ProjectId equals (Guid?)project.Id
+         join project in dbContext.Set<Project>().AsNoTracking() on activityEvent.ProjectId equals project.Id
          where activityEvent.Id == eventId && activityEvent.TenantId == tenantId && project.TenantId == tenantId &&
              !activityEvent.DeletedAt.HasValue && !project.DeletedAt.HasValue
          select new FeedbackEventScope(activityEvent.Id, project.Id, project.WorkspaceId))
@@ -120,7 +120,7 @@ public sealed class EfSurveyFeedbackRepository(AppDbContext dbContext) : ISurvey
 
     private IQueryable<FormSubmission> Submissions(Guid tenantId, Guid presentationId) =>
         from submission in dbContext.Set<FormSubmission>().AsNoTracking()
-        join target in dbContext.Set<SurveyTarget>().AsNoTracking() on submission.SurveyTargetId equals (Guid?)target.Id
+        join target in dbContext.Set<SurveyTarget>().AsNoTracking() on submission.SurveyTargetId equals target.Id
         where submission.TenantId == tenantId && target.TenantId == tenantId &&
             target.PresentationId == presentationId && !target.ResultsStopped &&
             !dbContext.Set<EventFeedbackSettings>().Any(settings => settings.TenantId == tenantId &&

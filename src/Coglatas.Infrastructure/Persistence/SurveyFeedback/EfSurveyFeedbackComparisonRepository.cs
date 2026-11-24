@@ -30,7 +30,7 @@ public sealed class EfSurveyFeedbackComparisonRepository(AppDbContext dbContext)
         var values =
             from submission in dbContext.Set<FormSubmission>().AsNoTracking()
             join target in dbContext.Set<SurveyTarget>().AsNoTracking()
-                on submission.SurveyTargetId equals (Guid?)target.Id
+                on submission.SurveyTargetId equals target.Id
             join answer in dbContext.Set<FormSubmissionValue>().AsNoTracking()
                 on submission.Id equals answer.FormSubmissionId
             join field in dbContext.Set<FormFieldDefinition>().AsNoTracking()

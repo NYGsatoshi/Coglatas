@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Coglatas.Application.Forms.PublicSurveys;
 using Coglatas.Domain.Entities;
@@ -289,7 +288,7 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
                 Assert.Equal(HttpStatusCode.OK, voided.StatusCode);
             await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
             {
-                var persisted = await db.Set<FormSubmission>().AsNoTracking().SingleAsync(row => row.Id == submissionId);
+                var persisted = await db.Set<FormSubmission>().AsNoTracking().SingleAsync(submission => submission.Id == submissionId);
                 Assert.Equal(FormSubmissionStatus.Voided, persisted.Status);
                 Assert.Equal(2, persisted.VersionNo);
             }
@@ -302,7 +301,7 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
         SurveyField? additionalQuestion = null, Guid? existingSettingsId = null)
     {
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
-        var settings = existingSettingsId is Guid settingsId
+        var settings = existingSettingsId is { } settingsId
             ? await db.Set<EventFeedbackSettings>().SingleAsync(row => row.Id == settingsId && row.EventId == activity.Id)
             : EventFeedbackSettings.Create(activity, activity.StartsAt, activity.EndsAt, "UTC");
         if (existingSettingsId is null)
@@ -487,17 +486,16 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
     private static async Task<HttpResponseMessage> SubmitAsync(
         HttpClient client, string code, string key, AqPublicSubmissionInput payload, bool includeCsrf = true)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, SurveyRoute + code + "/submissions")
-        {
-            Content = JsonContent.Create(payload)
-        };
+        using var request = new HttpRequestMessage(HttpMethod.Post, SurveyRoute + code + "/submissions");
+        request.Content = JsonContent.Create(payload);
         request.Headers.Add("Idempotency-Key", key);
         return await SendAsync(client, request, includeCsrf);
     }
 
     private static async Task<HttpResponseMessage> PatchAsync<T>(HttpClient client, string route, T payload)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Patch, route) { Content = JsonContent.Create(payload) };
+        using var request = new HttpRequestMessage(HttpMethod.Patch, route);
+        request.Content = JsonContent.Create(payload);
         return await SendAsync(client, request, includeCsrf: true);
     }
 
@@ -527,9 +525,15 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
         return requestId;
     }
 
+    private static void AssertStatus(HttpResponseMessage response, HttpStatusCode expected)
+    {
+        var diagnostic = $"Expected HTTP {(int)expected} ({expected}), got {(int)response.StatusCode} ({response.StatusCode}).";
+        Assert.True(response.StatusCode == expected, diagnostic);
+    }
+
     private static async Task AssertErrorAsync(HttpResponseMessage response, HttpStatusCode status, string code)
     {
-        Assert.Equal(status, response.StatusCode);
+        AssertStatus(response, status);
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Equal(code, body.RootElement.GetProperty("error").GetProperty("code").GetString());
     }

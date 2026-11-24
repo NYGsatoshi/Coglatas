@@ -148,7 +148,7 @@ public sealed class EfFeedbackLifecycleRepository(AppDbContext dbContext) : IFee
             join submission in dbContext.Set<FormSubmission>().AsNoTracking()
                 on answer.FormSubmissionId equals submission.Id
             join target in dbContext.Set<SurveyTarget>().AsNoTracking()
-                on submission.SurveyTargetId equals (Guid?)target.Id
+                on submission.SurveyTargetId equals target.Id
             where answer.TenantId == tenantId && field.TenantId == tenantId && submission.TenantId == tenantId &&
                 target.TenantId == tenantId && answer.Id == answerId && !target.ResultsStopped &&
                 submission.Status == FormSubmissionStatus.Submitted
@@ -201,7 +201,7 @@ public sealed class EfFeedbackLifecycleRepository(AppDbContext dbContext) : IFee
         from report in dbContext.Set<FeedbackReportCase>()
         join answer in dbContext.Set<FormSubmissionValue>() on report.FormSubmissionValueId equals answer.Id
         join submission in dbContext.Set<FormSubmission>() on answer.FormSubmissionId equals submission.Id
-        join target in dbContext.Set<SurveyTarget>() on submission.SurveyTargetId equals (Guid?)target.Id
+        join target in dbContext.Set<SurveyTarget>() on submission.SurveyTargetId equals target.Id
         where report.TenantId == tenantId && answer.TenantId == tenantId &&
             submission.TenantId == tenantId && target.TenantId == tenantId &&
             target.PresentationId == report.PresentationId && !target.ResultsStopped
@@ -210,7 +210,7 @@ public sealed class EfFeedbackLifecycleRepository(AppDbContext dbContext) : IFee
     public Task<FeedbackSubmissionResource?> GetSubmissionAsync(Guid tenantId, Guid submissionId,
         CancellationToken cancellationToken) =>
         (from submission in dbContext.Set<FormSubmission>()
-         join target in dbContext.Set<SurveyTarget>() on submission.SurveyTargetId equals (Guid?)target.Id
+         join target in dbContext.Set<SurveyTarget>() on submission.SurveyTargetId equals target.Id
          where submission.TenantId == tenantId && submission.Id == submissionId && target.TenantId == tenantId &&
              !target.ResultsStopped
          select new FeedbackSubmissionResource(target.PresentationId, submission))

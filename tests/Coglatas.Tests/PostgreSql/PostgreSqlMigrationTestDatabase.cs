@@ -13,8 +13,8 @@ internal static class PostgreSqlMigrationTestDatabase
     private const string TemporaryDatabasePrefix = "coglatas_taskv1_migration_";
     private const string UseMigratedTemplateEnvironmentVariable = "COGLATAS_TEST_USE_MIGRATED_TEMPLATE";
     private static readonly SemaphoreSlim MigratedTemplateGate = new(1, 1);
-    private static string? migratedTemplateDatabaseName;
-    private static string? migratedTemplateServerIdentity;
+    private static string? _migratedTemplateDatabaseName;
+    private static string? _migratedTemplateServerIdentity;
 
     public static Task WithTemporaryDatabaseAsync(string connectionString, Func<string, Task> scenario) =>
         WithTemporaryDatabaseCoreAsync(connectionString, templateDatabaseName: null, scenario);
@@ -91,13 +91,13 @@ internal static class PostgreSqlMigrationTestDatabase
         await MigratedTemplateGate.WaitAsync();
         try
         {
-            if (migratedTemplateDatabaseName is not null)
+            if (_migratedTemplateDatabaseName is not null)
             {
-                if (!string.Equals(migratedTemplateServerIdentity, serverIdentity, StringComparison.Ordinal))
+                if (!string.Equals(_migratedTemplateServerIdentity, serverIdentity, StringComparison.Ordinal))
                     throw new InvalidOperationException(
                         "The migrated PostgreSQL test template cannot be reused across different server identities.");
 
-                return migratedTemplateDatabaseName;
+                return _migratedTemplateDatabaseName;
             }
 
             var templateDatabaseName = $"coglatas_test_template_{Environment.ProcessId}_{Guid.NewGuid():N}";
@@ -121,8 +121,8 @@ internal static class PostgreSqlMigrationTestDatabase
                 throw;
             }
 
-            migratedTemplateDatabaseName = templateDatabaseName;
-            migratedTemplateServerIdentity = serverIdentity;
+            _migratedTemplateDatabaseName = templateDatabaseName;
+            _migratedTemplateServerIdentity = serverIdentity;
             return templateDatabaseName;
         }
         finally

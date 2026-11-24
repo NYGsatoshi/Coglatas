@@ -17,6 +17,8 @@ namespace Coglatas.Tests.Aq;
 [Trait("Feature", "AQ")]
 public sealed class AqProtectedIdempotencyTests
 {
+    private static readonly HttpClient Http = new();
+
     [Fact]
     public async Task GeneratedDocumentRequiresTheKeyOnlyOnTheThreeProtectedCommands()
     {
@@ -37,8 +39,8 @@ public sealed class AqProtectedIdempotencyTests
         host.MapOpenApi();
         await host.StartAsync();
 
-        using var client = new HttpClient { BaseAddress = new Uri(host.Urls.Single()) };
-        using var document = JsonDocument.Parse(await client.GetStringAsync("/openapi/v1.json"));
+        var documentUri = new Uri(new Uri(host.Urls.Single()), "/openapi/v1.json");
+        using var document = JsonDocument.Parse(await Http.GetStringAsync(documentUri));
         var paths = document.RootElement.GetProperty("paths");
         const string api = "/api/v1/core";
         const string roster = api + "/events/{eventId}/presentations";

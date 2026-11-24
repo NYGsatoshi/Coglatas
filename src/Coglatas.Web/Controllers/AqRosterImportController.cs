@@ -27,7 +27,7 @@ public sealed class AqRosterImportController(
 {
     private const int MaximumBytes = 64 * 1024;
     private static readonly string[] Columns = ["presentationId", "role", "personRef", "pendingRosterRef"];
-    private readonly IAqRosterPreviewCodec previewCodec = new PreviewCodec(protection);
+    private readonly IAqRosterPreviewCodec _previewCodec = new PreviewCodec(protection);
 
     [HttpPost("import-preview")]
     [Consumes("multipart/form-data")]
@@ -43,12 +43,10 @@ public sealed class AqRosterImportController(
         var rows = new List<AqRosterInput>();
         var diagnostics = new List<AqRosterDiagnostic>();
         using var stream = file.OpenReadStream();
-        using var parser = new TextFieldParser(stream, new UTF8Encoding(false, true), detectEncoding: false)
-        {
-            TextFieldType = FieldType.Delimited,
-            HasFieldsEnclosedInQuotes = true,
-            TrimWhiteSpace = false,
-        };
+        using var parser = new TextFieldParser(stream, new UTF8Encoding(false, true), detectEncoding: false);
+        parser.TextFieldType = FieldType.Delimited;
+        parser.HasFieldsEnclosedInQuotes = true;
+        parser.TrimWhiteSpace = false;
         parser.SetDelimiters(",");
         try
         {
@@ -87,7 +85,7 @@ public sealed class AqRosterImportController(
             return Invalid("The roster CSV must use well-formed UTF-8 and quoted CSV syntax.");
         }
 
-        return Respond(await management.PreviewRosterAsync(eventId, rows, diagnostics, previewCodec, cancellationToken));
+        return Respond(await management.PreviewRosterAsync(eventId, rows, diagnostics, _previewCodec, cancellationToken));
     }
 
     [HttpPost("import-commit")]
@@ -103,7 +101,7 @@ public sealed class AqRosterImportController(
         if (key.ErrorDetail is { } error)
             return Failure(StatusCodes.Status400BadRequest, error.Code, error.Message, error.Target);
 
-        return Respond(await management.CommitRosterAsync(eventId, request, key.Value!, previewCodec, cancellationToken));
+        return Respond(await management.CommitRosterAsync(eventId, request, key.Value!, _previewCodec, cancellationToken));
     }
 
     private IActionResult Respond<T>(Result<T> result)
@@ -129,15 +127,15 @@ public sealed class AqRosterImportController(
 
     private sealed class PreviewCodec(IDataProtectionProvider protection) : IAqRosterPreviewCodec
     {
-        private readonly IDataProtector protector = protection.CreateProtector("Coglatas.AQ.RosterPreview.v1");
+        private readonly IDataProtector _protector = protection.CreateProtector("Coglatas.AQ.RosterPreview.v1");
 
-        public string Protect(AqRosterPreviewState preview) => protector.Protect(JsonSerializer.Serialize(preview));
+        public string Protect(AqRosterPreviewState preview) => _protector.Protect(JsonSerializer.Serialize(preview));
 
         public AqRosterPreviewState? Unprotect(string value)
         {
             try
             {
-                return JsonSerializer.Deserialize<AqRosterPreviewState>(protector.Unprotect(value));
+                return JsonSerializer.Deserialize<AqRosterPreviewState>(_protector.Unprotect(value));
             }
             catch (Exception error) when (error is CryptographicException or JsonException or FormatException)
             {

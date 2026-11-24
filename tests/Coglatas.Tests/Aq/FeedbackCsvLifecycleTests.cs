@@ -103,15 +103,15 @@ public sealed class FeedbackCsvLifecycleTests
         ITenantRepository, IWorkspaceRepository, ICapabilityGrantEvaluator, ISurveyFeedbackRepository, IFeedbackCsvRepository,
         ISessionRepository, ICreateIdempotencyCoordinator, IUnitOfWork, IAuditLogger
     {
-        private readonly Dictionary<(string Operation, string Key), CreateIdempotencyContext> claims = [];
-        private readonly Guid requester = Guid.NewGuid();
-        private readonly Guid issuer = Guid.NewGuid();
+        private readonly Dictionary<(string Operation, string Key), CreateIdempotencyContext> _claims = [];
+        private readonly Guid _requester = Guid.NewGuid();
+        private readonly Guid _issuer = Guid.NewGuid();
 
         public Fixture()
         {
             Scope = new PresentationFeedbackScope(TenantId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
                 Guid.NewGuid(), "Synthetic presentation", UtcNow, UtcNow.AddHours(1), null, false);
-            Session = new Session { UserId = requester, ExpiresAt = UtcNow.AddDays(1), User = new User() };
+            Session = new Session { UserId = _requester, ExpiresAt = UtcNow.AddDays(1), User = new User() };
             var submission = new FeedbackCsvSubmission(Guid.NewGuid(), UtcNow, 1);
             Snapshot = new FeedbackCsvSnapshot(1, 1, 1, [], [submission],
                 [new FeedbackCsvAnswer(Guid.NewGuid(), submission.Id, Guid.NewGuid(), "comment", "Comment",
@@ -133,7 +133,7 @@ public sealed class FeedbackCsvLifecycleTests
         public bool IsAvailable => true;
         public bool IsPlatformScope => false;
         public string TenantSlug => "fixture";
-        public Guid? UserId => requester;
+        public Guid? UserId => _requester;
         public Guid? SessionId => Session.Id;
         public string? Email => null;
         public SystemRole? SystemRole => null;
@@ -145,7 +145,7 @@ public sealed class FeedbackCsvLifecycleTests
                 this, this, this, this, this, this, new CanonicalRedactionService(), this);
 
         public Task<TenantUser?> GetTenantUserAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken) =>
-            Task.FromResult<TenantUser?>(tenantId == TenantId
+            Task.FromResult(tenantId == TenantId
                 ? new TenantUser
                 {
                     TenantId = TenantId,
@@ -159,18 +159,18 @@ public sealed class FeedbackCsvLifecycleTests
             Task.FromResult(projectId == Scope.ProjectId);
         public Task<bool> HasActiveGrantAsync(Guid subjectUserId, Guid tenantId, string capabilityKey,
             CapabilityScopeType scopeType, Guid? scopeId, CancellationToken cancellationToken) =>
-            Task.FromResult(capabilityKey == "feedback.export.detail" && subjectUserId == requester ||
-                capabilityKey == "feedback.invite.create" && subjectUserId == issuer);
+            Task.FromResult(capabilityKey == "feedback.export.detail" && subjectUserId == _requester ||
+                capabilityKey == "feedback.invite.create" && subjectUserId == _issuer);
         public Task<PresentationFeedbackScope?> GetScopeAsync(Guid tenantId, Guid presentationId, CancellationToken cancellationToken) =>
             Task.FromResult(tenantId == TenantId && presentationId == Scope.Id ? Scope : null);
         public Task<(bool Presenter, bool Reviewer)> GetAssignmentsAsync(
             Guid tenantId, Guid presentationId, Guid userId, CancellationToken cancellationToken) =>
-            Task.FromResult((userId == issuer, userId == requester && Reviewer));
+            Task.FromResult((userId == _issuer, userId == _requester && Reviewer));
         public Task<IReadOnlyList<Guid>> GetActiveGrantIssuersAsync(
             Guid tenantId, Guid presentationId, Guid userId, DateTimeOffset now, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<Guid>>(GrantOnly ? [issuer] : []);
+            Task.FromResult<IReadOnlyList<Guid>>(GrantOnly ? [_issuer] : []);
         public Task<Session?> GetByIdWithUserAsync(Guid sessionId, CancellationToken cancellationToken) =>
-            Task.FromResult<Session?>(sessionId == Session.Id ? Session : null);
+            Task.FromResult(sessionId == Session.Id ? Session : null);
 
         public Task<Result<FeedbackCsvSnapshot>> ReadVisibleAsync(PresentationFeedbackScope scope, int maximum,
             CancellationToken cancellationToken)
@@ -205,7 +205,7 @@ public sealed class FeedbackCsvLifecycleTests
             CancellationToken cancellationToken = default) where T : class
         {
             var identity = (context.Operation, context.ClientRequestIdentity);
-            if (claims.TryGetValue(identity, out var previous))
+            if (_claims.TryGetValue(identity, out var previous))
             {
                 if (context.RequestHash != previous.RequestHash)
                     return new(IdempotentCreateDisposition.RequestMismatch, null);
@@ -215,7 +215,7 @@ public sealed class FeedbackCsvLifecycleTests
             }
 
             var created = await stageCreation(cancellationToken);
-            claims.Add(identity, context);
+            _claims.Add(identity, context);
             return new(IdempotentCreateDisposition.Created, created);
         }
 

@@ -10,7 +10,7 @@ public sealed partial class AqSurveyManagementService
     public async Task<Result<AqManagementPage<AqFormSummary>>> ListFormsAsync(
         Guid eventId, string? cursor, int pageSize, CancellationToken cancellationToken)
     {
-        var result = await RequireEventAsync<AqManagementPage<AqFormSummary>>(eventId, Manage, cancellationToken);
+        var result = await RequireEventAsync(eventId, Manage, cancellationToken);
         if (!result.IsSuccess)
             return Failure<AqManagementPage<AqFormSummary>>(result.ErrorDetail!);
         var project = result.Value!.Project;
@@ -103,7 +103,7 @@ public sealed partial class AqSurveyManagementService
     public async Task<Result<AqManagementPage<AqCampaignSummary>>> ListCampaignsAsync(
         Guid eventId, string? cursor, int pageSize, CancellationToken cancellationToken)
     {
-        var scope = await RequireEventAsync<AqManagementPage<AqCampaignSummary>>(eventId, Manage, cancellationToken);
+        var scope = await RequireEventAsync(eventId, Manage, cancellationToken);
         return scope.IsSuccess
             ? await PageAsync<SurveyCampaign, AqCampaignSummary>(x => x.EventId == eventId,
                 eventId, cursor, pageSize, ToCampaign, cancellationToken)
@@ -114,7 +114,7 @@ public sealed partial class AqSurveyManagementService
     {
         var scoped = await RequireCampaignAsync(campaignId, Manage, cancellationToken);
         return scoped.IsSuccess
-            ? Success(ToCampaign(scoped.Value!.Campaign))
+            ? Success(ToCampaign(scoped.Value.Campaign))
             : Failure<AqCampaignSummary>(scoped.ErrorDetail!);
     }
 
@@ -144,7 +144,7 @@ public sealed partial class AqSurveyManagementService
             var scoped = await RequireCampaignAsync(campaignId, Manage, token);
             if (!scoped.IsSuccess)
                 return Failure<AqCampaignSummary>(scoped.ErrorDetail!);
-            var (scope, item) = scoped.Value!;
+            var (scope, item) = scoped.Value;
             var versionError = CheckVersion<AqCampaignSummary>(item.VersionNo, request.ExpectedVersionNo);
             if (versionError is not null)
                 return versionError;
@@ -170,7 +170,7 @@ public sealed partial class AqSurveyManagementService
         if (pageSize is < 1 or > 100 || !TryReadCursor<SurveyTarget>(cursor, campaignId, out var after))
             return Invalid<AqManagementPage<AqTargetSummary>>("The cursor or page size is invalid.");
 
-        var settings = await store.FindAsync<EventFeedbackSettings>(x => x.EventId == scoped.Value!.Campaign.EventId, cancellationToken);
+        var settings = await store.FindAsync<EventFeedbackSettings>(x => x.EventId == scoped.Value.Campaign.EventId, cancellationToken);
         var rows = await store.PageAsync<SurveyTarget>(x => x.CampaignId == campaignId, after, pageSize + 1, cancellationToken);
         var publishedIds = rows.Take(pageSize).Select(x => x.PublishedSchemaId).OfType<Guid>().ToArray();
         var schemas = await store.PageAsync<PublishedSurveySchema>(x => publishedIds.Contains(x.Id), null, pageSize, cancellationToken);
@@ -186,7 +186,7 @@ public sealed partial class AqSurveyManagementService
         var scoped = await RequireTargetAsync(targetId, Manage, cancellationToken);
         if (!scoped.IsSuccess)
             return Failure<AqTargetSummary>(scoped.ErrorDetail!);
-        var item = scoped.Value!.Target;
+        var item = scoped.Value.Target;
         var settings = await store.FindAsync<EventFeedbackSettings>(x => x.EventId == item.EventId, cancellationToken);
         var publication = await CurrentPublicationAsync(item, cancellationToken);
         return Success(ToTarget(item, publication, settings));
@@ -199,7 +199,7 @@ public sealed partial class AqSurveyManagementService
             var scoped = await RequireCampaignAsync(campaignId, Manage, token);
             if (!scoped.IsSuccess)
                 return Failure<AqTargetSummary>(scoped.ErrorDetail!);
-            var (scope, campaign) = scoped.Value!;
+            var (scope, campaign) = scoped.Value;
             var presentation = await store.FindAsync<Presentation>(
                 x => x.Id == request.PresentationId && x.EventId == campaign.EventId, token);
             var settings = await store.FindAsync<EventFeedbackSettings>(x => x.EventId == campaign.EventId, token);
@@ -235,7 +235,7 @@ public sealed partial class AqSurveyManagementService
             var scoped = await RequireTargetAsync(targetId, Manage, token);
             if (!scoped.IsSuccess)
                 return Failure<AqTargetSummary>(scoped.ErrorDetail!);
-            var (scope, target) = scoped.Value!;
+            var (scope, target) = scoped.Value;
             var versionError = CheckVersion<AqTargetSummary>(target.VersionNo, request.ExpectedVersionNo);
             if (versionError is not null)
                 return versionError;
@@ -288,7 +288,7 @@ public sealed partial class AqSurveyManagementService
             var scoped = await RequireTargetAsync(targetId, EditQuestions, token);
             if (!scoped.IsSuccess)
                 return Failure<AqVersionSummary>(scoped.ErrorDetail!);
-            var (scope, target) = scoped.Value!;
+            var (scope, target) = scoped.Value;
             var versionError = CheckVersion<AqVersionSummary>(target.VersionNo, request.ExpectedVersionNo);
             if (versionError is not null)
                 return versionError;
@@ -353,7 +353,7 @@ public sealed partial class AqSurveyManagementService
         var item = await store.FindAsync<SurveyCampaign>(x => x.Id == campaignId, token);
         if (item is null)
             return NotFound<(EventScope, SurveyCampaign)>();
-        var scope = await RequireEventAsync<SurveyCampaign>(item.EventId, capability, token);
+        var scope = await RequireEventAsync(item.EventId, capability, token);
         return scope.IsSuccess ? Success((scope.Value!, item)) : Failure<(EventScope, SurveyCampaign)>(scope.ErrorDetail!);
     }
 
@@ -364,7 +364,7 @@ public sealed partial class AqSurveyManagementService
         var item = await store.FindAsync<SurveyTarget>(x => x.Id == id, token);
         if (item is null)
             return NotFound<(EventScope, SurveyTarget)>();
-        var scope = await RequireEventAsync<SurveyTarget>(item.EventId, capability, token);
+        var scope = await RequireEventAsync(item.EventId, capability, token);
         return scope.IsSuccess ? Success((scope.Value!, item)) : Failure<(EventScope, SurveyTarget)>(scope.ErrorDetail!);
     }
 

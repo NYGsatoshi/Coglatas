@@ -18,7 +18,7 @@ namespace Coglatas.Web.Controllers;
 [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status403Forbidden, "application/json")]
 [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status404NotFound, "application/json")]
 [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status500InternalServerError, "application/json")]
-[ProducesResponseType<FeedbackCsvController.RateLimitResponse>(StatusCodes.Status429TooManyRequests, "application/json")]
+[ProducesResponseType<RateLimitResponse>(StatusCodes.Status429TooManyRequests, "application/json")]
 public sealed class FeedbackCsvController(FeedbackCsvService exports) : ControllerBase
 {
     [HttpPost("presentations/{id:guid}/feedback-export")]
@@ -90,8 +90,8 @@ public sealed class FeedbackCsvController(FeedbackCsvService exports) : Controll
     }
 
     // The CSV endpoint uses the shared tenant-export rate-limit response.
-    private sealed record RateLimitResponse(string RequestId, RateLimitError Error);
-    private sealed record RateLimitError(string Code, string Message);
+    public sealed record RateLimitResponse(string RequestId, RateLimitError Error);
+    public sealed record RateLimitError(string Code, string Message);
 
     private IActionResult Fail<T>(Result<T> result)
     {

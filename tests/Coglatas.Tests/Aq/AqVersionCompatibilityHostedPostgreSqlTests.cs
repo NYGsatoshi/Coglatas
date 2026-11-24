@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Coglatas.Application.Forms.PublicSurveys;
 using Coglatas.Domain.Entities;
@@ -185,7 +184,8 @@ public sealed class AqVersionCompatibilityHostedPostgreSqlTests
     {
         using var csrf = await client.GetAsync("/api/security/csrf-token");
         var csrfPayload = await ReadAsync(csrf, HttpStatusCode.OK);
-        using var request = new HttpRequestMessage(method, route) { Content = JsonContent.Create(body) };
+        using var request = new HttpRequestMessage(method, route);
+        request.Content = JsonContent.Create(body);
         request.Headers.Add(SecurityOptions.CsrfHeaderName, csrfPayload.GetProperty("token").GetString());
         if (idempotencyKey is not null)
             request.Headers.Add("Idempotency-Key", idempotencyKey);

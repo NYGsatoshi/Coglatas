@@ -12,6 +12,8 @@ namespace Coglatas.Tests.Aq;
 [Trait("Feature", "AQ")]
 public sealed class AqManagementOpenApiTests
 {
+    private static readonly HttpClient Http = new();
+
     [Fact]
     public async Task PublishesOperatorResponsesWithWireStatusesEnvelopesAndQrMedia()
     {
@@ -28,8 +30,8 @@ public sealed class AqManagementOpenApiTests
         host.MapOpenApi();
         await host.StartAsync();
 
-        using var http = new HttpClient { BaseAddress = new Uri(host.Urls.Single()) };
-        using var document = JsonDocument.Parse(await http.GetStringAsync("/openapi/v1.json"));
+        var documentUri = new Uri(new Uri(host.Urls.Single()), "/openapi/v1.json");
+        using var document = JsonDocument.Parse(await Http.GetStringAsync(documentUri));
         var root = document.RootElement;
         var paths = root.GetProperty("paths");
         var operations = paths.EnumerateObject().SelectMany(path => path.Value.EnumerateObject()).ToArray();

@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Net;
-using System.Net.Http.Json;
 using Coglatas.Web.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -25,14 +24,15 @@ public sealed class AqRequestLogPrivacyHostedTests
 
         await using var app = builder.Build();
         app.MapPost("/api/v1/public/surveys/{code}/submissions", (SyntheticResponse response) =>
-            string.IsNullOrWhiteSpace(response.Text) ? Results.BadRequest() : Results.Ok());
+            string.IsNullOrWhiteSpace(response.Text) || string.IsNullOrWhiteSpace(response.Name) ? Results.BadRequest() : Results.Ok());
         app.MapGet("/api/v1/public/events/{code}/presentations", () => Results.Ok());
         app.MapGet("/app/aq/surveys/{code}", () => Results.Ok());
         app.MapGet("/api/v1/core/presentations/{id:guid}/feedback", () => Results.Ok());
         app.MapGet("/api/v1/core/ordinary/{value}", () => Results.Ok());
         await app.StartAsync();
 
-        using var client = new HttpClient { BaseAddress = new Uri(app.Urls.Single()) };
+        using var client = new HttpClient();
+        client.BaseAddress = new Uri(app.Urls.Single());
         using var submitted = await client.PostAsJsonAsync(
             "/api/v1/public/surveys/synthetic-aq-code/submissions",
             new SyntheticResponse("synthetic-aq-answer", "synthetic-aq-name"));
@@ -63,10 +63,10 @@ public sealed class AqRequestLogPrivacyHostedTests
 
     private sealed class CapturingSink : ILoggerProvider, ISupportExternalScope
     {
-        private IExternalScopeProvider scopes = new LoggerExternalScopeProvider();
+        private IExternalScopeProvider _scopes = new LoggerExternalScopeProvider();
         public ConcurrentQueue<CapturedRecord> Records { get; } = new();
 
-        public void SetScopeProvider(IExternalScopeProvider scopeProvider) => scopes = scopeProvider;
+        public void SetScopeProvider(IExternalScopeProvider scopeProvider) => _scopes = scopeProvider;
 
         public ILogger CreateLogger(string categoryName) => new CapturingLogger(this, categoryName);
 
@@ -84,7 +84,7 @@ public sealed class AqRequestLogPrivacyHostedTests
             {
                 var evidence = new List<string> { formatter(state, exception) };
                 AddPairs(state, evidence);
-                sink.scopes.ForEachScope((scope, texts) =>
+                sink._scopes.ForEachScope((scope, texts) =>
                 {
                     if (scope?.ToString() is { } text)
                         texts.Add(text);

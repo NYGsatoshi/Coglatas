@@ -44,7 +44,7 @@ public sealed class EfFeedbackCsvRepository(AppDbContext dbContext) : IFeedbackC
 
         var submissions =
             from submission in dbContext.Set<FormSubmission>().AsNoTracking()
-            join target in targets on submission.SurveyTargetId equals (Guid?)target.Id
+            join target in targets on submission.SurveyTargetId equals target.Id
             where submission.TenantId == scope.TenantId && !target.ResultsStopped &&
                 submission.Status == FormSubmissionStatus.Submitted
             select submission;

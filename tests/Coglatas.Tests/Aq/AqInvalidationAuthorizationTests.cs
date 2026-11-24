@@ -58,7 +58,7 @@ public sealed class AqInvalidationAuthorizationTests
             }) : Unexpected(method), calls);
         var repository = Stub<ISurveyFeedbackRepository>((method, args) => method switch
         {
-            nameof(ISurveyFeedbackRepository.GetScopeAsync) => Task.FromResult<PresentationFeedbackScope?>(
+            nameof(ISurveyFeedbackRepository.GetScopeAsync) => Task.FromResult(
                 (Guid)args[0]! == tenant.Id && (Guid)args[1]! == scope.Id ? scope : null),
             nameof(ISurveyFeedbackRepository.GetAssignmentsAsync) => Task.FromResult((Guid)args[2]! == issuer.Id
                 ? (scenario != DeliveryCase.InviterNoLongerAssigned, false)

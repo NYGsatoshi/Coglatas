@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
@@ -39,10 +38,8 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
                 using var answer = await SubmitAsync(guest, survey.TargetCode, "before-stop", Payload(survey, score: 4));
                 await ReadMinimalReceiptAsync(answer);
                 using var export = new HttpRequestMessage(HttpMethod.Post,
-                    $"/api/v1/core/presentations/{survey.PresentationId:D}/feedback-export")
-                {
-                    Content = JsonContent.Create(new { mode = "aggregate", columns = new[] { "responseCount" } })
-                };
+                    $"/api/v1/core/presentations/{survey.PresentationId:D}/feedback-export");
+                export.Content = JsonContent.Create(new { mode = "aggregate", columns = new[] { "responseCount" } });
                 export.Headers.Add("Idempotency-Key", $"before-stop-{survey.TargetId:N}");
                 using var queued = await SendAsync(host.Client, export, includeCsrf: true);
                 Assert.Equal(HttpStatusCode.Accepted, queued.StatusCode);

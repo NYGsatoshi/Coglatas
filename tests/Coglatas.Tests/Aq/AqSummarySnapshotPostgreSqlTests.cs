@@ -78,8 +78,8 @@ public sealed class AqSummarySnapshotPostgreSqlTests
 
     private sealed class InsertAfterSummaryCount(Func<CancellationToken, Task> insert) : DbCommandInterceptor
     {
-        private int inserted;
-        public bool Inserted => Volatile.Read(ref inserted) != 0;
+        private int _inserted;
+        public bool Inserted => Volatile.Read(ref _inserted) != 0;
         public IsolationLevel? ObservedIsolation { get; private set; }
 
         public override async ValueTask<DbDataReader> ReaderExecutedAsync(DbCommand command,
@@ -87,7 +87,7 @@ public sealed class AqSummarySnapshotPostgreSqlTests
         {
             if (command.CommandText.Contains("COUNT(", StringComparison.OrdinalIgnoreCase)
                 && command.CommandText.Contains("form_submissions", StringComparison.OrdinalIgnoreCase)
-                && Interlocked.Exchange(ref inserted, 1) == 0)
+                && Interlocked.Exchange(ref _inserted, 1) == 0)
             {
                 ObservedIsolation = command.Transaction?.IsolationLevel;
                 await insert(cancellationToken);

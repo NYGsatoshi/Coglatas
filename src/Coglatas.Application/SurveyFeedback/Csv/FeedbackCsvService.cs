@@ -120,11 +120,11 @@ public sealed class FeedbackCsvService(
                     throw new FeedbackCsvRejectedException(GrantFailure(prepared.ErrorDetail!));
 
                 var proposedExpiry = clock.UtcNow.Add(GrantLifetime);
-                var grant = SurveyFeedbackExportGrant.Issue(grantId, export.Request, requestId,
+                var issuedGrant = SurveyFeedbackExportGrant.Issue(grantId, export.Request, requestId,
                     proposedExpiry < export.Request.ExpiresAtUtc ? proposedExpiry : export.Request.ExpiresAtUtc);
-                repository.AddGrant(grant);
-                await AuditAsync(export.Actor, export.Scope, "SurveyFeedbackCsvGrantIssued", grant.Id, token);
-                return grant;
+                repository.AddGrant(issuedGrant);
+                await AuditAsync(export.Actor, export.Scope, "SurveyFeedbackCsvGrantIssued", issuedGrant.Id, token);
+                return issuedGrant;
             }, (recordId, token) => repository.FindGrantAsync(
                 export.Actor.TenantId, export.Actor.UserId, id, recordId, token), cancellationToken);
 

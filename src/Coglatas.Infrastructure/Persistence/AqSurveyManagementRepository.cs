@@ -12,7 +12,7 @@ namespace Coglatas.Infrastructure.Persistence;
 
 public sealed class AqSurveyManagementRepository(AppDbContext db, ICurrentTenant currentTenant) : IAqSurveyManagementStore
 {
-    private bool writing;
+    private bool _writing;
 
     public Task<T?> FindAsync<T>(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken)
         where T : Entity, ITenantEntity =>
@@ -54,18 +54,18 @@ public sealed class AqSurveyManagementRepository(AppDbContext db, ICurrentTenant
 
     public Task FlushAsync(CancellationToken cancellationToken)
     {
-        if (!writing)
+        if (!_writing)
             throw new InvalidOperationException("Survey management changes require a transaction.");
         return db.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<Result<T>> WriteAsync<T>(Func<CancellationToken, Task<Result<T>>> command, CancellationToken cancellationToken)
     {
-        if (writing || db.Database.CurrentTransaction is not null)
+        if (_writing || db.Database.CurrentTransaction is not null)
             throw new InvalidOperationException("Survey management requires an owned transaction.");
 
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-        writing = true;
+        _writing = true;
         var committed = false;
         try
         {
@@ -97,7 +97,7 @@ public sealed class AqSurveyManagementRepository(AppDbContext db, ICurrentTenant
         }
         finally
         {
-            writing = false;
+            _writing = false;
             if (!committed)
                 db.ChangeTracker.Clear();
         }
@@ -108,12 +108,12 @@ public sealed class AqSurveyManagementRepository(AppDbContext db, ICurrentTenant
         var tenantId = currentTenant.TenantId;
         var tenantAvailable = currentTenant.IsAvailable && !currentTenant.IsPlatformScope;
         var rows = db.Set<T>().Where(x => tenantAvailable && EF.Property<Guid>(x, nameof(ITenantEntity.TenantId)) == tenantId);
-        return writing ? rows : rows.AsNoTracking();
+        return _writing ? rows : rows.AsNoTracking();
     }
 
     private void RequireMutationScope(ITenantEntity entity)
     {
-        if (!writing || !currentTenant.IsAvailable || currentTenant.IsPlatformScope || currentTenant.TenantId != entity.TenantId)
+        if (!_writing || !currentTenant.IsAvailable || currentTenant.IsPlatformScope || currentTenant.TenantId != entity.TenantId)
             throw new InvalidOperationException("Survey management requires the current tenant transaction.");
     }
 

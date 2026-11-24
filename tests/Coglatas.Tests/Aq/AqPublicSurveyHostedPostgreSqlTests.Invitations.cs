@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Coglatas.Application.Auth;
 using Coglatas.Application.Common.Interfaces;
@@ -128,9 +127,9 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
             using (var report = await AdmissionHost.PostAsync(recipient, $"/api/v1/core/feedback/answers/{answerId:D}/reports",
                        new { reason = "Synthetic grant-only report attempt" }))
                 await AssertErrorAsync(report, HttpStatusCode.NotFound, "NotFound");
-            using (var request = new HttpRequestMessage(HttpMethod.Post, presentation + "/feedback-export")
-                   { Content = JsonContent.Create(new FeedbackCsvRequest("aggregate", ["questionLabel"])) })
+            using (var request = new HttpRequestMessage(HttpMethod.Post, presentation + "/feedback-export"))
             {
+                request.Content = JsonContent.Create(new FeedbackCsvRequest("aggregate", ["questionLabel"]));
                 request.Headers.Add("Idempotency-Key", "viewer-grant-export-denial");
                 using var csv = await SendAsync(recipient, request, includeCsrf: true);
                 await AssertErrorAsync(csv, HttpStatusCode.Forbidden, "CapabilityDenied");
@@ -338,7 +337,7 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
 
     private static async Task<JsonElement> ReadInvitationDataAsync(HttpResponseMessage response, HttpStatusCode status)
     {
-        Assert.Equal(status, response.StatusCode);
+        AssertStatus(response, status);
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         return body.RootElement.GetProperty("data").Clone();
     }

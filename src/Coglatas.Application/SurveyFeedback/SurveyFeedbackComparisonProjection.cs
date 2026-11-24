@@ -50,8 +50,7 @@ public static class SurveyFeedbackComparisonProjection
             return false;
         }
 
-        if (policy.Cohorts.Any(cohort => cohort is null || string.IsNullOrWhiteSpace(cohort.Label) ||
-                cohort.PresentationIds is not { Count: >= 2 and <= MaximumPresentations }) ||
+        if (policy.Cohorts.Any(cohort => !IsValidCohort(cohort)) ||
             policy.Cohorts.Select(cohort => cohort.Label).Distinct(StringComparer.Ordinal).Count() != policy.Cohorts.Count)
         {
             return false;
@@ -64,12 +63,19 @@ public static class SurveyFeedbackComparisonProjection
             return false;
         }
 
-        return policy.Fields.All(field => field is not null && !string.IsNullOrWhiteSpace(field.FieldKey) &&
-                   field.CompatibilityRootFieldId != Guid.Empty &&
-                   field.FieldType is SurveyFieldType.Number or SurveyFieldType.Scale or
-                                      SurveyFieldType.SingleChoice or SurveyFieldType.MultipleChoice) &&
+        return policy.Fields.All(IsValidField) &&
                policy.Fields.Select(field => field.FieldKey).Distinct(StringComparer.Ordinal).Count() == policy.Fields.Count;
     }
+
+    private static bool IsValidCohort(ApprovedFeedbackComparisonCohort? cohort) =>
+        cohort is not null && !string.IsNullOrWhiteSpace(cohort.Label) &&
+        cohort.PresentationIds is { Count: >= 2 and <= MaximumPresentations };
+
+    private static bool IsValidField(ApprovedFeedbackComparisonField? field) =>
+        field is not null && !string.IsNullOrWhiteSpace(field.FieldKey) &&
+        field.CompatibilityRootFieldId != Guid.Empty &&
+        field.FieldType is SurveyFieldType.Number or SurveyFieldType.Scale or
+                           SurveyFieldType.SingleChoice or SurveyFieldType.MultipleChoice;
 
     public static FeedbackComparisonCohort Project(ApprovedFeedbackComparisonPolicy policy,
         ApprovedFeedbackComparisonCohort cohort, IReadOnlyList<FeedbackComparisonSample> samples)

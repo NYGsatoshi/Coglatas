@@ -2,7 +2,6 @@ using System.Net;
 using System.Text.Json;
 using Coglatas.Application.SurveyFeedback;
 using Coglatas.Domain.Entities;
-using Coglatas.Domain.Enums;
 using Coglatas.Tests.PostgreSql;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -42,6 +41,7 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
             Assert.Equal(1, before.Audits);
             Assert.True(before.OutboxEvents > 0);
             Assert.Equal(FeedbackReportStatus.Open, before.ReportStatus);
+            Assert.Equal(1, before.ReportVersion);
 
             // The fixture owns this disposable database. This rejects new AQ outbox rows without changing existing ones.
             await PostgreSqlMigrationTestDatabase.ExecuteAsync(database, """

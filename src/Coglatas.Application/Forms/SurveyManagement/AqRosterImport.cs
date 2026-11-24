@@ -43,9 +43,9 @@ public sealed partial class AqSurveyManagementService
 
     public async Task<Result<AqRosterPreview>> PreviewRosterAsync(
         Guid eventId, IReadOnlyList<AqRosterInput> rows, IReadOnlyList<AqRosterDiagnostic> parseErrors,
-        IAqRosterPreviewCodec codec, CancellationToken cancellationToken)
+        IAqRosterPreviewCodec previewCodec, CancellationToken cancellationToken)
     {
-        var scope = await RequireEventAsync<AqRosterPreview>(eventId, Assign, cancellationToken);
+        var scope = await RequireEventAsync(eventId, Assign, cancellationToken);
         if (!scope.IsSuccess)
             return Failure<AqRosterPreview>(scope.ErrorDetail!);
         if (rows.Count + parseErrors.Count is < 1 or > RosterLimit)
@@ -85,12 +85,12 @@ public sealed partial class AqSurveyManagementService
         return diagnostics.Count > 0
             ? Success(new AqRosterPreview(null, diagnostics.OrderBy(row => row.Row).ToArray(), proposed.OrderBy(row => row.Row).ToArray(), []))
             : Success(new AqRosterPreview(
-                codec.Protect(new(currentTenant.TenantId, scope.Value!.Actor, eventId, clock.UtcNow.AddMinutes(15), rows, versions)),
+                previewCodec.Protect(new(currentTenant.TenantId, scope.Value!.Actor, eventId, clock.UtcNow.AddMinutes(15), rows, versions)),
                 [], proposed.OrderBy(row => row.Row).ToArray(), versions));
     }
 
     public Task<Result<AqRosterReceipt>> CommitRosterAsync(
-        Guid eventId, AqCommitRosterRequest request, string key, IAqRosterPreviewCodec codec, CancellationToken cancellationToken) =>
+        Guid eventId, AqCommitRosterRequest request, string key, IAqRosterPreviewCodec previewCodec, CancellationToken cancellationToken) =>
         WriteEventAsync<AqRosterReceipt>(eventId, Assign, async (scope, token) =>
         {
             if (key.Length is < 8 or > 128 || key.All(char.IsWhiteSpace) || key.Any(c => c is < ' ' or > '~'))
@@ -115,7 +115,7 @@ public sealed partial class AqSurveyManagementService
                     ? Success(new AqRosterReceipt(expected.Count, confirmed.Count))
                     : Failure<AqRosterReceipt>(new("IdempotencyConflict", "This key was used for a different import."));
 
-            var preview = codec.Unprotect(request.PreviewRef);
+            var preview = previewCodec.Unprotect(request.PreviewRef);
             if (preview is null || preview.EventId != eventId || preview.TenantId != currentTenant.TenantId
                 || preview.ActorId != scope.Actor || preview.ExpiresAt <= clock.UtcNow)
                 return Conflict<AqRosterReceipt>("The roster preview is unavailable or expired.");
