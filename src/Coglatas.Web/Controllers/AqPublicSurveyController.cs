@@ -30,7 +30,11 @@ public sealed class AqPublicSurveyController(
     [ProducesResponseType<ApiSuccessEnvelope<AqPublicProgram>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetProgram(string code, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetProgram(
+        string code,
+        [FromQuery] string? cursor,
+        [FromQuery(Name = "pageSize")] string? rawPageSize,
+        CancellationToken cancellationToken)
     {
         if (!IsEnabled())
         {
@@ -39,19 +43,15 @@ public sealed class AqPublicSurveyController(
 
         var pageSize = AqPublicSurveyService.DefaultPageSize;
         if (Request.Query.TryGetValue("pageSize", out var sizeValue) &&
-            (sizeValue.Count != 1 || !int.TryParse(sizeValue[0], NumberStyles.None, CultureInfo.InvariantCulture, out pageSize) ||
+            (sizeValue.Count != 1 || !int.TryParse(rawPageSize, NumberStyles.None, CultureInfo.InvariantCulture, out pageSize) ||
                 pageSize is < 1 or > AqPublicSurveyService.MaximumPageSize))
         {
             return Fail("ValidationFailed");
         }
-        string? cursor = null;
-        if (Request.Query.TryGetValue("cursor", out var cursorValue))
+        if (Request.Query.TryGetValue("cursor", out var cursorValue) &&
+            (cursorValue.Count != 1 || string.IsNullOrWhiteSpace(cursor)))
         {
-            if (cursorValue.Count != 1 || string.IsNullOrWhiteSpace(cursorValue[0]))
-            {
-                return Fail("ValidationFailed");
-            }
-            cursor = cursorValue[0];
+            return Fail("ValidationFailed");
         }
 
         try

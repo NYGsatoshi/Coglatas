@@ -15,20 +15,12 @@ public sealed class AqPublicOpenApiOperationTransformer : IOpenApiOperationTrans
         if (path == "api/v1/public/events/{code}/presentations")
         {
             operation.OperationId = "getPublishedSurveyProgram";
-            operation.Parameters ??= [];
-            operation.Parameters.Add(new OpenApiParameter
+            ConfigureProgramQuery(operation, "cursor", Text(1), "Continuation token for this published program.");
+            ConfigureProgramQuery(operation, "pageSize", new OpenApiSchema
             {
-                Name = "cursor", In = ParameterLocation.Query, Schema = Text(1),
-                Description = "Continuation token for this published program."
-            });
-            operation.Parameters.Add(new OpenApiParameter
-            {
-                Name = "pageSize", In = ParameterLocation.Query,
-                Schema = new OpenApiSchema
-                {
-                    Type = JsonSchemaType.Integer, Minimum = "1",
-                    Maximum = AqPublicSurveyService.MaximumPageSize.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                }
+                Type = JsonSchemaType.Integer,
+                Minimum = "1",
+                Maximum = AqPublicSurveyService.MaximumPageSize.ToString(System.Globalization.CultureInfo.InvariantCulture)
             });
             return Task.CompletedTask;
         }
@@ -97,6 +89,21 @@ public sealed class AqPublicOpenApiOperationTransformer : IOpenApiOperationTrans
         };
 
         return Task.CompletedTask;
+    }
+
+    private static void ConfigureProgramQuery(
+        OpenApiOperation operation, string name, IOpenApiSchema schema, string? description = null)
+    {
+        operation.Parameters ??= [];
+        var parameter = operation.Parameters.OfType<OpenApiParameter>().SingleOrDefault(parameter =>
+            parameter.In == ParameterLocation.Query && parameter.Name == name);
+        if (parameter is null)
+        {
+            parameter = new OpenApiParameter { Name = name, In = ParameterLocation.Query };
+            operation.Parameters.Add(parameter);
+        }
+        parameter.Schema = schema;
+        parameter.Description = description;
     }
 
     private static void AllowOptionalSession(OpenApiOperation operation, OpenApiOperationTransformerContext context)
