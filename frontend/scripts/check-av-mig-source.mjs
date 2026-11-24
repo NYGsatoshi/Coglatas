@@ -8,6 +8,15 @@ const historicalSourceSnapshot = '4e6a10903a5a472ca89f833aba993a29e1b2cf73';
 const currentWebPaths = ['/dm', '/drafts', '/home', '/teams', '/teams/activity'];
 const currentWebOwnerNames = ['DraftsPageComponent', 'HomePageComponent', 'LocalDraftStore', 'LocalFileStarsService', 'WorkspaceChannelsFacade', 'WorkspaceChannelsPageComponent'];
 const currentWebExtensionPaths = ['/files', '/workspaces/:workspaceId/files'];
+const aqWebScreens = {
+  '/aq/events/:code': 'AqPublicProgram',
+  '/aq/feedback': 'AqFeedbackHome',
+  '/aq/feedback/:presentationId': 'AqFeedbackDetail',
+  '/aq/feedback/inbox': 'AqFeedbackInbox',
+  '/aq/manage': 'AqManagementIndex',
+  '/aq/manage/:eventId': 'AqManagement',
+  '/aq/surveys/:code': 'AqPublicSurvey',
+};
 
 const isPathInside = (baseDir, targetPath) => {
   const rel = relative(resolve(baseDir), resolve(targetPath));
@@ -45,39 +54,29 @@ export class SourceInventory {
     return node.properties.find((item) => item.name?.getText() === name)?.initializer;
   }
   /* eslint-disable max-statements, no-magic-numbers, one-var, sort-keys, sort-vars */
-  static componentName(node) {
-    if (!node) {
-      return null;
-    }
-    if (ts.isIdentifier(node)) {
-      return node.text;
-    }
-    const candidates = [];
-    const visit = (current) => {
-      if (ts.isPropertyAccessExpression(current) && current.name.text.endsWith('Component')) {
-        candidates.push(current.name.text);
-      }
-      ts.forEachChild(current, visit);
-    };
-    visit(node);
-    assert.equal(candidates.length, 1, 'Unsupported dynamic route component binding');
-    return candidates[0];
+  static lazyImportModule(node) {
+    assert.ok(ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword
+      && node.arguments.length === 1 && ts.isStringLiteral(node.arguments[0]), 'Unsupported dynamic component module');
+    return node.arguments[0].text;
   }
-  static componentModule(node) {
-    if (!node) { return null; }
-    const modules = [];
-    const visit = (current) => {
-      if (ts.isCallExpression(current) && current.expression.kind === ts.SyntaxKind.ImportKeyword) {
-        assert.ok(current.arguments.length === 1 && ts.isStringLiteral(current.arguments[0]), 'Unsupported dynamic component module');
-        modules.push(current.arguments[0].text);
-      }
-      ts.forEachChild(current, visit);
-    };
-    visit(node);
-    assert.equal(modules.length, 1, 'Unsupported component module binding');
-    return modules[0];
+  static lazyComponentBinding(loader) {
+    assert.ok(ts.isArrowFunction(loader), 'Unsupported dynamic route component binding');
+    const body = loader.body;
+    if (ts.isPropertyAccessExpression(body) && ts.isParenthesizedExpression(body.expression)
+      && ts.isAwaitExpression(body.expression.expression)) {
+      return { component: body.name.text, componentModule: SourceInventory.lazyImportModule(body.expression.expression.expression) };
+    }
+
+    assert.ok(ts.isCallExpression(body) && ts.isPropertyAccessExpression(body.expression)
+      && body.expression.name.text === 'then' && body.arguments.length === 1, 'Unsupported dynamic route component binding');
+    const [selectExport] = body.arguments;
+    assert.ok(ts.isArrowFunction(selectExport) && selectExport.parameters.length === 1
+      && ts.isIdentifier(selectExport.parameters[0].name) && ts.isPropertyAccessExpression(selectExport.body)
+      && ts.isIdentifier(selectExport.body.expression)
+      && selectExport.body.expression.text === selectExport.parameters[0].name.text, 'Unsupported dynamic route component binding');
+    return { component: selectExport.body.name.text, componentModule: SourceInventory.lazyImportModule(body.expression.expression) };
   }
-  static routeRecords(array, prefix = '') {
+  static routeRecords(array, prefix = '', inheritedGuards = []) {
     assert.ok(array && ts.isArrayLiteralExpression(array), 'Unsupported dynamic route array');
     return array.elements.flatMap((entry) => {
       assert.ok(ts.isObjectLiteralExpression(entry), 'Unsupported route expression');
@@ -85,8 +84,12 @@ export class SourceInventory {
         fragment = SourceInventory.property(entry, 'path');
       assert.ok(fragment && ts.isStringLiteral(fragment), 'Unsupported dynamic route path');
       const joined = [prefix, fragment.text].filter(Boolean).join('/');
+      const canActivate = SourceInventory.property(entry, 'canActivate');
+      const ownGuards = canActivate && ts.isArrayLiteralExpression(canActivate)
+        ? canActivate.elements.map((guard) => guard.getText()) : canActivate ? [canActivate.getText()] : [];
+      const guards = [...inheritedGuards, ...ownGuards];
       if (children) {
-        return SourceInventory.routeRecords(children, joined);
+        return SourceInventory.routeRecords(children, joined, guards);
       }
 
       const path = joined === '**' ? '**' : `/${joined}`,
@@ -103,18 +106,18 @@ export class SourceInventory {
         }];
       }
 
-      const componentName = SourceInventory.componentName(component ?? loadComponent);
+      const binding = loadComponent ? SourceInventory.lazyComponentBinding(loadComponent)
+        : { component: component && ts.isIdentifier(component) ? component.text : null, componentModule: null };
       if (path === '**') {
-        assert.ok(componentName, '**: fallback must declare a component');
-        return [{ path, kind: 'fallback', component: componentName }];
+        assert.ok(binding.component, '**: fallback must declare a component');
+        return [{ path, kind: 'fallback', component: binding.component }];
       }
 
-      assert.ok(componentName, `${path}: screen must declare component or loadComponent`);
+      assert.ok(binding.component, `${path}: screen must declare component or loadComponent`);
       const data = SourceInventory.property(entry, 'data');
       const directory = data && ts.isObjectLiteralExpression(data)
         ? SourceInventory.property(data, 'conversationDirectory') : null;
-      return [{ path, kind: 'screen', component: componentName,
-        componentModule: SourceInventory.componentModule(loadComponent),
+      return [{ path, kind: 'screen', ...binding, guards,
         conversationDirectory: directory && ts.isStringLiteral(directory) ? directory.text : null }];
     });
   }
@@ -319,9 +322,40 @@ export class SourceInventory {
     assert.ok(store?.heritageClauses?.some((clause) => clause.token === ts.SyntaxKind.ExtendsKeyword
       && clause.types.some((type) => type.expression.getText() === 'ComponentStore')), 'Current LocalDraftStore ComponentStore binding drift');
   }
+  static verifyAqWeb(aq, context) {
+    assert.ok(aq, 'Missing AQ Web addendum');
+    SourceInventory.exactKeys(aq, ['schemaVersion', 'scope', 'avaloniaPromotion', 'routes', 'stateOwners'], 'Unsupported AQ Web addendum field');
+    assert.equal(aq.schemaVersion, 1, 'Unsupported AQ Web addendum schema');
+    assert.equal(aq.scope, 'current-web-only', 'AQ Web scope drift');
+    assert.equal(aq.avaloniaPromotion, false, 'AQ Web cannot promote Avalonia');
+    assert.deepEqual(SourceInventory.unique(aq.routes.map((route) => route.path), 'AQ Web routes'), Object.keys(aqWebScreens), 'AQ Web route addendum drift');
+    const expectedOwners = [...Object.values(aqWebScreens), 'AqApi'].sort();
+    assert.deepEqual(SourceInventory.unique(aq.stateOwners.map((owner) => owner.name), 'AQ Web owners'), expectedOwners, 'AQ Web owner registry drift');
+
+    const { sources } = context;
+    const owners = new Map(context.owners);
+    for (const owner of aq.stateOwners) {
+      SourceInventory.exactKeys(owner, ['name', 'sourcePath', 'kind'], `${owner.name}: unsupported AQ Web owner field`);
+      assert.ok(!owners.has(owner.name), `${owner.name}: AQ Web owner shadows existing owner`);
+      assert.equal(sources.get(owner.name), resolveInside(SourceInventory.root, owner.sourcePath), `${owner.name}: AQ Web source owner drift`);
+      assert.equal(owner.kind, owner.name === 'AqApi' ? 'http-service' : 'component-local', `${owner.name}: AQ Web owner kind drift`);
+      owners.set(owner.name, owner);
+    }
+
+    for (const route of aq.routes) {
+      SourceInventory.exactKeys(route, ['path', 'kind', 'component', 'ownerPath', 'stateOwners', 'access'], `${route.path}: unsupported AQ Web route field`);
+      assert.equal(route.kind, 'screen', `${route.path}: AQ Web route kind drift`);
+      assert.equal(route.component, aqWebScreens[route.path], `${route.path}: AQ Web component role drift`);
+      const publicRoute = route.path === '/aq/events/:code' || route.path === '/aq/surveys/:code';
+      assert.equal(route.access, publicRoute ? 'public' : 'signed-in', `${route.path}: AQ Web access drift`);
+      SourceInventory.unique(route.stateOwners, `${route.path} AQ Web owners`);
+      for (const owner of route.stateOwners) { assert.ok(owners.has(owner), `${route.path}: unknown AQ Web owner ${owner}`); }
+      SourceInventory.verifyScreen(route, route, { owners, sources });
+    }
+  }
   /* eslint-disable max-statements, sort-vars */
   static verify(data, routeSource) {
-    const [inventory, freeze, target, current] = data,
+    const [inventory, freeze, target, current, aq] = data,
       freezeByPath = new Map(freeze.routes.map((route) => [route.path, route])),
       owners = new Map(inventory.stateOwners.map((owner) => [owner.name, owner])),
       declaredRoutes = SourceInventory.routeRecordsFrom(
@@ -367,7 +401,9 @@ export class SourceInventory {
       }
     }
     const currentContext = SourceInventory.verifyCurrentWeb(current, { owners, sources });
-    assert.deepEqual(paths, SourceInventory.unique([...historicalPaths, ...current.routes.map((route) => route.path)], 'historical plus current Web routes'), 'Production routes must equal historical routes plus the current Web addendum');
+    SourceInventory.verifyAqWeb(aq, currentContext);
+    const webRoutes = [...current.routes, ...aq.routes];
+    assert.deepEqual(paths, SourceInventory.unique([...historicalPaths, ...webRoutes.map((route) => route.path)], 'historical plus current Web routes'), 'Production routes must equal historical routes plus the current Web addenda');
     const extensions = new Map(current.routeOwnerExtensions.map((row) => [row.path, row.stateOwners]));
     for (const route of inventory.routes) {
       SourceInventory.verifyRow(route, freezeByPath.get(route.path), { owners, sources });
@@ -383,12 +419,15 @@ export class SourceInventory {
         }
       }
     }
-    for (const route of current.routes) {
+    for (const route of webRoutes) {
       const declared = declaredByPath.get(route.path);
       assert.equal(declared.kind, route.kind, `${route.path}: current Web route kind drift`);
       assert.equal(declared.component, route.component, `${route.path}: current Web component binding drift`);
       assert.equal(declared.conversationDirectory, route.conversationDirectory ?? null, `${route.path}: current Web directory binding drift`);
       assert.equal(resolveInside(SourceInventory.root, resolve(dirname(resolve(SourceInventory.root, freeze.routeDefinition)), `${declared.componentModule}.ts`)), resolveInside(SourceInventory.root, route.ownerPath), `${route.path}: current Web component module drift`);
+      if (route.access) {
+        assert.deepEqual(declared.guards, route.access === 'signed-in' ? ['authSessionGuard'] : [], `${route.path}: AQ Web guard binding drift`);
+      }
     }
     SourceInventory.verifyCurrentWebState(current, currentContext);
     return paths.length;
@@ -404,6 +443,7 @@ export class SourceInventory {
       SourceInventory.read('docs/migration/avalonia/angular-feature-freeze-matrix.json'),
       SourceInventory.read('docs/migration/avalonia/angular-target-surface-map-v5.8.1.json'),
       SourceInventory.read('docs/verification/current-web-wave-inventory-20261019.json'),
+      SourceInventory.read('docs/verification/aq-web-route-inventory.json'),
     ];
   }
 }
