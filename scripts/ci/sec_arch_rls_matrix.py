@@ -78,6 +78,9 @@ def reconcile(receipt: dict, inventory: dict, candidate: str, assembly_digest: s
             hashlib.sha256(json.dumps({key: environment[key] for key in environment_keys},
                                       separators=(",", ":"), ensure_ascii=False).encode()).hexdigest() == environment_fingerprint,
             "Independent environment fingerprint or observed environment differs.")
+    relation_catalogue = receipt.get("relationCatalogue")
+    require("relationCatalogue" not in receipt or relation_catalogue == sources.HISTORICAL_CATALOGUE,
+            "Matrix relation catalogue identity differs.")
     roles = receipt.get("roles")
     require(isinstance(roles, list) and len(roles) == 2 and all(isinstance(role, dict) for role in roles) and
             {role.get("roleKind") for role in roles} == {"syntheticApplication", "syntheticUnauthorized"} and
@@ -171,12 +174,14 @@ def reconcile(receipt: dict, inventory: dict, candidate: str, assembly_digest: s
     observed = "FAIL" if invalid_pass or counts["FAIL"] else ("ERROR" if counts["ERROR"] else (
         "UNVERIFIED" if missing or gaps else "PASS"))
     try:
-        source_binding = sources.bind(tables, cells, classifications, source_reference, candidate, assembly_digest, environment_fingerprint, source_checkout)
+        source_binding = sources.bind(tables, cells, classifications, source_reference, candidate, assembly_digest,
+                                      environment_fingerprint, source_checkout, relation_catalogue)
     except sources.SourceError as error:
         raise MatrixError(str(error)) from None
     if source_binding["sourceBindingOutcome"] == "FAIL": observed = "FAIL"
     return {"schemaVersion": 1, "candidateSha": candidate, "testAssemblyDigest": assembly_digest,
             "environmentFingerprint": environment_fingerprint, "observedFixtureRoleCount": len(roles),
+            **({"relationCatalogue": relation_catalogue} if relation_catalogue is not None else {}),
             "qualification": "DRAFT_OPERATION_RECONCILIATION", "observedMatrixOutcome": observed,
             "inventoryTableCount": len(classifications), "proposedRequiredTableCount": len(required),
             "observedTableCount": len(tables), "missingTableCount": len(required - tables.keys()),

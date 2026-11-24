@@ -13,15 +13,16 @@ namespace Coglatas.Tests.SecurityArchitecture;
 /// Source-model backed synthetic rows. These are PostgreSQL policy probes, not
 /// approved resource, field, capability or worker authorization contracts.
 /// </summary>
-internal static class SecurityArchitectureRlsRowFixtures
+internal static partial class SecurityArchitectureRlsRowFixtures
 {
     internal sealed record RowSql(string Sql, IReadOnlyList<(string Name, object Value, string Type)> Parameters);
     internal sealed record Seed(Guid Tenant, Dictionary<string, object> Entities, RowSql? Insert = null);
 
-    public static async Task<Seed> SeedAsync(string database, Guid tenant, string? insertTarget = null)
+    public static async Task<Seed> SeedAsync(string database, Guid tenant, string? insertTarget = null, bool historicalForms = false)
     {
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
-        var types = db.Model.GetEntityTypes().Where(type => type.GetTableName() is not null).ToArray();
+        var types = db.Model.GetEntityTypes().Where(type => type.GetTableName() is not null
+            && !SurveySourceTypes.Contains(type.ClrType)).ToArray();
         var rows = types.ToDictionary(type => type, Create);
         foreach (var (type, row) in rows)
         {
@@ -66,30 +67,62 @@ internal static class SecurityArchitectureRlsRowFixtures
         rows[runType] = byTable["security_evaluation_runs"] = run;
         rows[ruleType] = byTable["security_evaluation_rule_results"] = rule;
 
-        // Save parents before children so database trigger dependencies observe actual persisted rows.
-        var target = insertTarget is null ? null : types.SingleOrDefault(type => type.GetTableName() == insertTarget);
-        var pending = target is null ? types.ToList() : Ancestors(target).Where(type => type != target).ToList();
+        var survey = historicalForms ? null : CreateSurveySourceRows(byTable, tenant);
+        if (survey is not null)
+        {
+            foreach (var row in survey.Rows)
+            {
+                var type = db.Model.FindEntityType(row.GetType())!;
+                rows.Add(type, row);
+                byTable.Add(type.GetTableName()!, row);
+            }
+        }
+
+        // Persist present parents before children, including the nullable and SQL-only dependencies
+        // of the survey graph and the compatibility view's ordinary-question snapshot.
+        var parents = rows.Keys.ToDictionary(type => type,
+            type => SourceParents(type, rows[type], historicalForms).ToHashSet());
+        var target = insertTarget is null ? null : rows.Keys.SingleOrDefault(type => type.GetTableName() == insertTarget);
+        var pending = target is null ? rows.Keys.ToList() : Ancestors(target, parents).Where(type => type != target).ToList();
         var saved = new HashSet<IEntityType>();
+        var failed = new HashSet<IEntityType>();
         var errors = new List<string>();
         while (pending.Count > 0)
         {
-            var ready = pending.Where(type => type.GetForeignKeys().Where(key => key.IsRequired)
-                .All(key => key.PrincipalEntityType == type || saved.Contains(key.PrincipalEntityType))).ToArray();
+            var ready = pending.Where(type => parents[type].All(parent =>
+                parent == type || saved.Contains(parent) || failed.Contains(parent))).ToArray();
             if (ready.Length == 0) throw new InvalidOperationException("Synthetic required-parent cycle requires an explicit fixture.");
             foreach (var type in ready)
             {
-                var row = rows[type];
-                try { await InsertAsync(database, type, row); }
+                pending.Remove(type);
+                if (parents[type].Overlaps(failed))
+                {
+                    failed.Add(type);
+                    continue;
+                }
+
+                try
+                {
+                    await InsertAsync(database, InsertCommand(type, rows[type], historicalForms));
+                    saved.Add(type);
+                    if (survey is not null && rows[type] is PublishedSurveySchema)
+                        await PublishSurveyTargetAsync(database, survey);
+                }
                 catch (PostgresException error)
                 {
-                    errors.Add(type.GetTableName() + ": " + error.SqlState + " / " + error.ConstraintName);
+                    saved.Remove(type);
+                    failed.Add(type);
+                    errors.Add(type.GetTableName() + ": " + error.SqlState + " / " + error.ConstraintName + " / " + error.Routine);
                 }
-                saved.Add(type);
-                pending.Remove(type);
             }
         }
         if (errors.Count > 0) throw new InvalidOperationException("Synthetic source fixture failures: " + string.Join("; ", errors));
-        var insert = target is null ? await SeedSqlAdaptersAsync(database, byTable, tenant, insertTarget) : InsertCommand(target, rows[target]);
+        if (survey is not null && saved.Any(type => type.ClrType == typeof(PublishedSurveySchema)))
+            byTable["survey_targets"] = survey.PublishedTarget;
+
+        var insert = target is null
+            ? await SeedSqlAdaptersAsync(database, byTable, tenant, insertTarget)
+            : InsertCommand(target, rows[target], historicalForms);
         return new Seed(tenant, byTable, insert);
     }
 
@@ -112,21 +145,42 @@ internal static class SecurityArchitectureRlsRowFixtures
         }
     }
 
-    private static IReadOnlySet<IEntityType> Ancestors(IEntityType target)
+    private static IEnumerable<IEntityType> SourceParents(IEntityType type, object row, bool historicalForms)
+    {
+        foreach (var key in type.GetForeignKeys())
+        {
+            if (key.IsRequired || (!historicalForms
+                && (SurveySourceTypes.Contains(type.ClrType) || row is ActivityEvent or InternalForm)
+                && key.Properties.All(property => property.PropertyInfo?.GetValue(row) is not null)))
+            {
+                yield return key.PrincipalEntityType;
+            }
+        }
+
+        if (!historicalForms)
+        {
+            if (row is FormResponse)
+                yield return type.Model.FindEntityType(typeof(FormQuestion))!;
+            if (row is SurveyProgramEntry)
+                yield return type.Model.FindEntityType(typeof(PublishedSurveySchema))!;
+        }
+    }
+
+    private static IReadOnlySet<IEntityType> Ancestors(
+        IEntityType target, Dictionary<IEntityType, HashSet<IEntityType>> parents)
     {
         var result = new HashSet<IEntityType>();
         void Add(IEntityType type)
         {
             if (!result.Add(type)) return;
-            foreach (var key in type.GetForeignKeys().Where(key => key.IsRequired)) Add(key.PrincipalEntityType);
+            foreach (var parent in parents[type]) Add(parent);
         }
         Add(target);
         return result;
     }
 
-    private static async Task InsertAsync(string database, IEntityType type, object row)
+    private static async Task InsertAsync(string database, RowSql insert)
     {
-        var insert = InsertCommand(type, row);
         await using var connection = new NpgsqlConnection(database);
         await connection.OpenAsync();
         await using var command = new NpgsqlCommand(insert.Sql, connection);
@@ -139,10 +193,13 @@ internal static class SecurityArchitectureRlsRowFixtures
         await command.ExecuteNonQueryAsync();
     }
 
-    private static RowSql InsertCommand(IEntityType type, object row)
+    private static RowSql InsertCommand(IEntityType type, object row, bool historicalForms)
     {
         var table = StoreObjectIdentifier.Table(type.GetTableName()!, type.GetSchema());
-        var properties = type.GetProperties().Where(property => property.GetComputedColumnSql() is null).ToArray();
+        var isSurveySource = SurveySourceTypes.Contains(type.ClrType);
+        var properties = type.GetProperties().Where(property => property.GetComputedColumnSql() is null
+            && !(isSurveySource && property.IsShadowProperty() && property.TryGetDefaultValue(out _))
+            && !(historicalForms && row is FormResponse && property.Name == nameof(FormResponse.MaskRespondent))).ToArray();
         var sql = "INSERT INTO public.\"" + table.Name + "\" (" +
             string.Join(",", properties.Select(property => "\"" + property.GetColumnName(table) + "\"")) + ") VALUES (" +
             string.Join(",", properties.Select((_, i) => "@p" + i)) + ")";

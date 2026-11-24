@@ -14,20 +14,27 @@ public sealed partial class SecurityArchitectureRlsOperationTests
     [PostgreSqlFact]
     public async Task MigratedSourceRowsRequireRealPositiveControlsBeforeEveryDraftPolicyDenial()
     {
+        await VerifyMatrixAsync(historicalForms: true);
+        await VerifyMatrixAsync(historicalForms: false);
+    }
+
+    private static async Task VerifyMatrixAsync(bool historicalForms)
+    {
         var root = PostgreSqlTestEnvironment.RequireConnectionString();
         var role = "sec_arch_rows_" + Guid.NewGuid().ToString("N");
         var deniedRole = "sec_arch_denied_" + Guid.NewGuid().ToString("N");
         var password = Guid.NewGuid().ToString("N");
         try
         {
-            await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(root, async database =>
+            async Task VerifyAsync(string database)
             {
                 var alpha = Guid.NewGuid();
                 var beta = Guid.NewGuid();
-                await SecurityArchitectureRlsRowFixtures.SeedAsync(database, alpha);
-                await SecurityArchitectureRlsRowFixtures.SeedAsync(database, beta);
-                var tables = await TablesAsync(database);
-                Assert.Equal(105, tables.Count);
+                await SecurityArchitectureRlsRowFixtures.SeedAsync(database, alpha, historicalForms: historicalForms);
+                await SecurityArchitectureRlsRowFixtures.SeedAsync(database, beta, historicalForms: historicalForms);
+                var catalogue = await SecurityArchitectureRlsRelationCatalogue.AssertMigratedAsync(database);
+                var tables = Tables(catalogue, historicalForms);
+                Assert.Equal(historicalForms ? 105 : 101, tables.Count);
                 var missing = new List<string>();
                 foreach (var table in tables)
                     if (await PostgreSqlMigrationTestDatabase.ScalarAsync<long>(database,
@@ -52,8 +59,10 @@ public sealed partial class SecurityArchitectureRlsOperationTests
                 try
                 {
                     foreach (var table in tables)
-                        results.Add(await VerifyTableAsync(database, app, denied, role, table, tables, alpha, beta));
+                        results.Add(await VerifyTableAsync(database, app, denied, role, table, tables, alpha, beta, historicalForms));
                     await AssertPoolResetAsync(app, tables, alpha, beta);
+                    IReadOnlyList<OperationResult> currentQuestionReads = historicalForms ? [] :
+                        await VerifyCurrentFormQuestionReadsAsync(database, app, denied, role, alpha, beta);
                     var roles = await VerifyRolesAsync(database, role, deniedRole);
                     Assert.Equal(19, results.Sum(result => result.SourceUnavailableOperations.Count));
                     Assert.Equal(33, results.Sum(result => result.SourceGuardedProbes.Count));
@@ -160,14 +169,19 @@ public sealed partial class SecurityArchitectureRlsOperationTests
                         if (operation.ObservedMechanism == "UNSUPPORTED_OPERATION")
                             Assert.Equal("OwnershipReassignmentRequiresUpdate", operation.ReasonCode);
                     });
-                    await WritePrivateAsync(database, roles, results);
+                    await WritePrivateAsync(database, roles, results, catalogue, historicalForms, currentQuestionReads);
                 }
                 finally
                 {
                     ClearPool(app);
                     ClearPool(denied);
                 }
-            });
+            }
+
+            if (historicalForms)
+                await SecurityArchitectureRlsRelationCatalogue.WithHistoricalDatabaseAsync(root, VerifyAsync);
+            else
+                await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(root, VerifyAsync);
         }
         finally
         {
@@ -198,7 +212,7 @@ public sealed partial class SecurityArchitectureRlsOperationTests
     private sealed record RowCommand(string Sql, IReadOnlyList<(string Name, object Value, string Type)> Parameters);
 
     private static async Task<TableResult> VerifyTableAsync(string database, string app, string denied, string role,
-        TenantTable table, IReadOnlyList<TenantTable> tables, Guid alpha, Guid beta)
+        TenantTable table, IReadOnlyList<TenantTable> tables, Guid alpha, Guid beta, bool historicalForms)
     {
         var columns = await ColumnsAsync(database, table.Table);
         var first = columns.First(column => column.Primary).Name;
@@ -216,7 +230,7 @@ public sealed partial class SecurityArchitectureRlsOperationTests
         if (table.Table == "file_versions") insertTenant = alpha;
         else
         {
-            var sourceFixture = await SecurityArchitectureRlsRowFixtures.SeedAsync(database, insertTenant, table.Table);
+            var sourceFixture = await SecurityArchitectureRlsRowFixtures.SeedAsync(database, insertTenant, table.Table, historicalForms: historicalForms);
             insert = new RowCommand(sourceFixture.Insert!.Sql, sourceFixture.Insert.Parameters);
         }
         var operations = new List<OperationResult>();
@@ -331,6 +345,36 @@ public sealed partial class SecurityArchitectureRlsOperationTests
             schema, unavailable, guarded, SecurityArchitectureRlsOperationDispositions.Bind(schema, unavailable, guarded), precheckControls);
     }
 
+    private static async Task<IReadOnlyList<OperationResult>> VerifyCurrentFormQuestionReadsAsync(
+        string database, string app, string denied, string role, Guid alpha, Guid beta)
+    {
+        await PostgreSqlMigrationTestDatabase.ExecuteAsync(database, $"""
+            ALTER TABLE public.form_questions ENABLE ROW LEVEL SECURITY;
+            ALTER TABLE public.form_questions FORCE ROW LEVEL SECURITY;
+            GRANT SELECT ON public.form_questions TO {Quote(role)};
+            CREATE POLICY sec_arch_draft_rows ON public.form_questions FOR SELECT TO {Quote(role)}
+                USING ("TenantId"::text=current_setting('coglatas.tenant_id',true));
+            """);
+        const string select = """SELECT count(*) FROM public.form_questions WHERE "TenantId"=@tenant""";
+        var own = await ObserveAsync(app, alpha.ToString(), "SELECT", select, [("tenant", alpha, "uuid")]);
+        Assert.True(own.AffectedRows > 0);
+        var foreign = await ObserveAsync(app, beta.ToString(), "SELECT", select, [("tenant", beta, "uuid")]);
+        Assert.True(foreign.AffectedRows > 0);
+        var results = new List<OperationResult> { CreateResult("SELECT", "sameScope", "ALLOWED", own, own.AffectedRows) };
+        foreach (var (situation, context) in new (string Situation, string? Context)[]
+                 { ("crossTenant", beta.ToString()), ("missingContext", null), ("invalidContext", "invalid-context"), ("unauthorizedRole", alpha.ToString()) })
+        {
+            var unauthorized = situation == "unauthorizedRole";
+            var observed = await ObserveAsync(unauthorized ? denied : app, context, "SELECT", select, [("tenant", alpha, "uuid")]);
+            results.Add(CreateResult("SELECT", situation, unauthorized ? "GRANT_DENIAL" : "RLS_FILTER",
+                observed, own.AffectedRows));
+            Assert.Equal(0, observed.AffectedRows);
+            Assert.Equal(unauthorized ? PostgresErrorCodes.InsufficientPrivilege : null, observed.SqlState);
+        }
+        Assert.All(results, result => Assert.Equal("PASS", result.Result));
+        return results;
+    }
+
     private static OperationResult CreateResult(string action, string situation, string expected, Observation observed, int positive)
     {
         var matches = observed.Mechanism == expected && (expected == "ALLOWED" ? observed.AffectedRows > 0 : observed.AffectedRows == 0);
@@ -439,15 +483,16 @@ public sealed partial class SecurityArchitectureRlsOperationTests
         JOIN pg_type t ON t.oid=a.atttypid WHERE n.nspname='public' AND c.relname=@table AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum
         """, reader => new Column(reader.GetString(0), reader.GetString(1), reader.GetBoolean(2), reader.GetBoolean(3), reader.GetBoolean(4), reader.GetBoolean(5)), ("table", table));
 
-    private static async Task<List<TenantTable>> TablesAsync(string database)
+    private static IReadOnlyList<TenantTable> Tables(SecurityArchitectureRlsRelationCatalogue.Snapshot catalogue, bool historicalForms)
     {
-        var tables = await PostgreSqlMigrationTestDatabase.QueryAsync(database, """
-            SELECT c.relname,t.typname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-            JOIN pg_attribute a ON a.attrelid=c.oid JOIN pg_type t ON t.oid=a.atttypid
-            WHERE n.nspname='public' AND c.relkind IN ('r','p') AND a.attname='TenantId' AND NOT a.attisdropped ORDER BY c.relname
-            """, reader => new TenantTable(reader.GetString(0), reader.GetString(1) == "uuid" ? "UUID" : "TEXT",
-                "\"TenantId\"::text=current_setting('coglatas.tenant_id',true)", "TenantId"));
-        Assert.Equal(103, tables.Count);
+        Assert.Equal(historicalForms, catalogue.Version == SecurityArchitectureRlsRelationCatalogue.HistoricalVersion);
+        var active = SecurityArchitectureRlsRelationCatalogue.ExistingActiveDraftPolicyTables(catalogue);
+        var tables = SecurityArchitectureRlsRelationCatalogue.TenantColumnTables(catalogue)
+            // Ordinary question authoring now depends on canonical AQ relations that have no approved RLS fixture role.
+            .Where(relation => active.Contains(relation.Name) && (historicalForms || relation.Name != "form_questions"))
+            .Select(relation => new TenantTable(relation.Name, relation.TenantColumnType == "uuid" ? "UUID" : "TEXT",
+                "\"TenantId\"::text=current_setting('coglatas.tenant_id',true)", "TenantId")).ToList();
+        Assert.Equal(historicalForms ? 103 : 99, tables.Count);
         tables.Add(new("file_selection_snapshot_items", "PARENT",
             "EXISTS (SELECT 1 FROM public.file_selection_snapshots parent WHERE parent.\"Id\"=\"SelectionSnapshotId\")", "SelectionSnapshotId"));
         tables.Add(new("coglatas_ui_canonical_change_journal", "PARENT",
@@ -535,7 +580,9 @@ public sealed partial class SecurityArchitectureRlsOperationTests
         return roles;
     }
 
-    private static async Task WritePrivateAsync(string database, IReadOnlyList<RoleObservation> roles, IReadOnlyList<TableResult> tables)
+    private static async Task WritePrivateAsync(string database, IReadOnlyList<RoleObservation> roles, IReadOnlyList<TableResult> tables,
+        SecurityArchitectureRlsRelationCatalogue.Snapshot catalogue, bool historicalForms,
+        IReadOnlyList<OperationResult> currentQuestionReads)
     {
         var directory = Environment.GetEnvironmentVariable("COGLATAS_SEC_ARCH_PRIVATE_INVENTORY_DIRECTORY");
         if (string.IsNullOrWhiteSpace(directory)) return;
@@ -550,14 +597,16 @@ public sealed partial class SecurityArchitectureRlsOperationTests
         var candidate = Environment.GetEnvironmentVariable("COGLATAS_SEC_ARCH_CANDIDATE_SHA");
         if (candidate is null || candidate.Length != 40 || candidate.Any(character => !Uri.IsHexDigit(character))) candidate = null;
         Directory.CreateDirectory(directory);
-        await using var output = new FileStream(Path.Combine(directory, "draft-rls-operation-matrix.json"), FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, useAsync: true);
+        var file = historicalForms ? "draft-rls-operation-matrix.json" : "draft-rls-active-legacy-operation-matrix.json";
+        await using var output = new FileStream(Path.Combine(directory, file), FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, useAsync: true);
         await JsonSerializer.SerializeAsync(output, new
         {
-            schemaVersion = 1, approval = "DRAFT", ownerApproval = (string?)null, candidateSha = candidate, testAssemblyDigest = assemblyDigest,
+            schemaVersion = 1, relationCatalogue = new { catalogue.Version, catalogue.LatestMigration },
+            approval = "DRAFT", ownerApproval = (string?)null, candidateSha = candidate, testAssemblyDigest = assemblyDigest,
             executedAtUtc = DateTimeOffset.UtcNow, environment, environmentFingerprint = Digest(JsonSerializer.Serialize(environment)),
             executionScope = "ISOLATED_SYNTHETIC_MODEL_ROWS", productRlsAppliedCount = 0,
             applicationRoleEquivalence = "UNVERIFIED", workerRoleEquivalence = "UNVERIFIED", preAvaloniaVerdict = "PRE-AVALONIA SEC-ARCH: BLOCKED",
-            roles, tables, blindSpots = new[] { "Policies and fixture CRUD grants are draft hypotheses, not owner-approved normative roles.",
+            roles, tables, currentQuestionReads, blindSpots = new[] { "Policies and fixture CRUD grants are draft hypotheses, not owner-approved normative roles.",
                 "Custom tenant settings are mutable by a role executing arbitrary SQL.", "Host authentication/context, worker operations, bootstrap and product activation remain unqualified.",
                 "Constraint/trigger-blocked probes and missing positive operations do not count as RLS denial evidence.",
                 "Wrong-ownership probes cover tenant/parent reassignment; same-tenant resource, subject and capability semantics remain unverified.",
