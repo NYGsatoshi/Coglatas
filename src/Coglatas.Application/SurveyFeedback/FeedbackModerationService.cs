@@ -246,10 +246,11 @@ public sealed class FeedbackModerationService(
                 return SurveyFeedbackService.AuthenticationRequired<FeedbackSubmissionDto>();
             }
 
+            const string voidCapability = "feedback.submission.void";
             var resource = await repository.GetSubmissionAsync(actor.TenantId, submissionId, token);
             var access = resource is null ? null : await authorization.ReadAccessAsync(actor, resource.PresentationId, token);
             if (resource is null || access is null ||
-                !await authorization.HasCapabilityAsync(actor, access.Scope, "feedback.submission.void", token))
+                !await authorization.HasCapabilityAsync(actor, access.Scope, voidCapability, token))
             {
                 return SurveyFeedbackService.NotFound<FeedbackSubmissionDto>();
             }
@@ -269,7 +270,11 @@ public sealed class FeedbackModerationService(
 
             resource.Submission.Void(expectedVersionNo);
             await audit.LogUserActionAsync(actor.UserId, "Feedback.SubmissionVoided", nameof(FormSubmission),
-                resource.Submission.Id, cancellationToken: token);
+                resource.Submission.Id, metadata: new Dictionary<string, object?>
+                {
+                    ["reason"] = reason!.Trim(),
+                    ["policyBasis"] = voidCapability
+                }, cancellationToken: token);
             await invalidation.InvalidateAsync(actor.TenantId, resource.PresentationId, token);
             return Result<FeedbackSubmissionDto>.Success(new FeedbackSubmissionDto(submissionId, "voided",
                 resource.Submission.VersionNo));
