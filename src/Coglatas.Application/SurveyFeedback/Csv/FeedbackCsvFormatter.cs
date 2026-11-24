@@ -11,18 +11,18 @@ namespace Coglatas.Application.SurveyFeedback.Csv;
 public static class FeedbackCsvFormatter
 {
     internal const int MaxRows = 5_000;
-    internal const int MaxBytes = 2 * 1024 * 1024;
+    private const int MaxBytes = 2 * 1024 * 1024;
     private static readonly UTF8Encoding CsvEncoding = new(encoderShouldEmitUTF8Identifier: true);
     private static readonly JsonSerializerOptions SnapshotOptions = new(JsonSerializerDefaults.Web);
-    private static readonly HashSet<string> AggregateColumns = new(StringComparer.Ordinal)
-    {
-        "questionKey", "questionLabel", "responseCount", "eligibleDenominator",
-        "choiceKey", "choiceLabel", "choiceCount", "numericMean"
-    };
-    private static readonly HashSet<string> DetailColumns = new(StringComparer.Ordinal)
-    {
-        "submittedAtUtc", "questionKey", "questionLabel", "answerValue", "respondentName"
-    };
+    private static readonly HashSet<string> AggregateColumns = new(
+        [
+            "questionKey", "questionLabel", "responseCount", "eligibleDenominator",
+            "choiceKey", "choiceLabel", "choiceCount", "numericMean"
+        ], StringComparer.Ordinal);
+    private static readonly HashSet<string> DetailColumns = new(
+        [
+            "submittedAtUtc", "questionKey", "questionLabel", "answerValue", "respondentName"
+        ], StringComparer.Ordinal);
 
     public static bool IsValidRequest(FeedbackCsvRequest request)
     {
@@ -122,9 +122,9 @@ public static class FeedbackCsvFormatter
             var field = definitions[question.FieldKey];
             var options = (JsonSerializer.Deserialize<SurveyOption[]>(field.OptionsJson, SnapshotOptions) ?? [])
                 .ToDictionary(option => option.OptionKey, option => option.Label, StringComparer.Ordinal);
-            var distribution = question.Distribution is { Count: > 0 } entries
+            IEnumerable<FeedbackOptionCount?> distribution = question.Distribution is { Count: > 0 } entries
                 ? entries.Cast<FeedbackOptionCount?>()
-                : new FeedbackOptionCount?[] { null };
+                : [null];
 
             foreach (var choice in distribution)
             {
@@ -243,7 +243,7 @@ public static class FeedbackCsvFormatter
         return Convert.ToHexString(SHA256.HashData(version.GetBuffer().AsSpan(0, (int)version.Length)));
     }
 
-    internal static Result<FeedbackCsvFile> TooLarge() =>
+    private static Result<FeedbackCsvFile> TooLarge() =>
         Result<FeedbackCsvFile>.Failure(new ApplicationErrorDetail("ExportTooLarge", "The export exceeds the supported bounds."));
 
     private static string Number(long value) => value.ToString(CultureInfo.InvariantCulture);

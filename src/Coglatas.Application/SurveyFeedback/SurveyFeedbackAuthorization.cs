@@ -104,7 +104,7 @@ public sealed class SurveyFeedbackAuthorization(
             actor.TenantId, scope.Id, actor.UserId, clock.UtcNow, cancellationToken);
         foreach (var issuerId in issuers)
         {
-            if (await IsEligibleInviterAsync(new FeedbackActor(actor.TenantId, issuerId), scope, cancellationToken))
+            if (await IsEligibleInviterAsync(actor with { UserId = issuerId }, scope, cancellationToken))
                 return true;
         }
 

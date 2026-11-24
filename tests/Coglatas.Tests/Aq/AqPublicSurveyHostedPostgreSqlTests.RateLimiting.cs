@@ -86,7 +86,7 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
         var body = await response.Content.ReadAsStringAsync();
         using var json = JsonDocument.Parse(body);
         var envelope = json.RootElement;
-        Assert.Equal(new[] { "error", "requestId", "status", "traceId" },
+        Assert.Equal(["error", "requestId", "status", "traceId"],
             envelope.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal));
         Assert.Equal(429, envelope.GetProperty("status").GetInt32());
         Assert.Equal("RateLimited", envelope.GetProperty("error").GetProperty("code").GetString());

@@ -9,7 +9,7 @@ namespace Coglatas.Application.Forms.SurveyManagement;
 
 public sealed record AqRosterInput(int Row, Guid PresentationId, string Role, Guid? PersonRef, string? PendingRosterRef);
 public sealed record AqRosterDiagnostic(int Row, string Code);
-public sealed record AqRosterAssignment(int Row, string Role, Guid? PersonRef, string? PendingRosterRef);
+public sealed record AqRosterAssignment(int Row, Guid PresentationId, string Role, Guid? PersonRef, string? PendingRosterRef);
 public sealed record AqRosterSourceVersion(string SourceRef, long VersionNo);
 public sealed record AqRosterConfirmation(int Row, AqParticipantAssignment? Assignment, AqPendingPresenter? PendingPresenter);
 public sealed record AqRosterPreviewState(
@@ -78,7 +78,7 @@ public sealed partial class AqSurveyManagementService
                     diagnostics.Add(new(row.Row, "AssignmentUnavailable"));
                     continue;
                 }
-                proposed.Add(new(row.Row, row.Role, row.PersonRef, row.PendingRosterRef));
+                proposed.Add(new(row.Row, row.PresentationId, row.Role, row.PersonRef, row.PendingRosterRef));
             }
         }
 

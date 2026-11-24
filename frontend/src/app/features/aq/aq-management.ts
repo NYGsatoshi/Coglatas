@@ -35,7 +35,7 @@ interface Approval {
 interface Preview {
   previewRef: string;
   diagnostics: { row: number; code: string }[];
-  proposedAssignments: { row: number; role: 'presenter' | 'reviewer'; personRef?: string; pendingRosterRef?: string }[];
+  proposedAssignments: { row: number; presentationId: string; role: 'presenter' | 'reviewer'; personRef?: string; pendingRosterRef?: string }[];
   expectedSourceVersions?: { sourceRef: string; versionNo: number }[];
 }
 

@@ -95,6 +95,6 @@ public interface ISurveyFeedbackInvalidation
     Task<IReadOnlyList<Guid>> ReadCurrentRecipientsAsync(Guid tenantId, Guid presentationId,
         CancellationToken cancellationToken);
     Task InvalidateAsync(Guid tenantId, Guid presentationId, CancellationToken cancellationToken);
-    Task InvalidateAccessAsync(Guid tenantId, Guid presentationId, Guid recipientId,
+    Task InvalidateAccessAsync(Guid tenantId, Guid recipientId,
         CancellationToken cancellationToken);
 }

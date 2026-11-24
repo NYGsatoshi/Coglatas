@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using Coglatas.Application.Auth;
 using Coglatas.Application.Common.Interfaces;
+using Coglatas.Application.SurveyFeedback;
 using Coglatas.Application.SurveyFeedback.Csv;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
@@ -247,7 +248,7 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
         using var configured = await PatchAsync(approver, route, new
         {
             expectedVersionNo = initial.RootElement.GetProperty("data").GetProperty("versionNo").GetInt64(),
-            invitationPolicy = new { enabled = true, decisionWindowSeconds = 3600, maximumActiveSeconds = 7200 }
+            invitationPolicy = new ManualFeedbackInvitationPolicy(true, 3600, 7200)
         });
         return (await ReadInvitationDataAsync(configured, HttpStatusCode.OK))
             .GetProperty("settings").GetProperty("invitationPolicy");

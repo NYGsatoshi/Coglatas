@@ -46,7 +46,7 @@ public sealed class SurveyFeedbackInvalidation(
         }
     }
 
-    public Task InvalidateAccessAsync(Guid tenantId, Guid presentationId, Guid recipientId,
+    public Task InvalidateAccessAsync(Guid tenantId, Guid recipientId,
         CancellationToken cancellationToken) =>
         authorizationChanges.PublishAsync(tenantId, recipientId, "SurveyFeedback", null,
             "FeedbackAccessChanged", cancellationToken);

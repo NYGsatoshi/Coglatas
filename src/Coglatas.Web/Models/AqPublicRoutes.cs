@@ -44,7 +44,5 @@ public static class AqPublicRoutes
     }
 }
 
-[AttributeUsage(AttributeTargets.Class, Inherited = true)]
-internal sealed class AqProtectedEndpointAttribute : Attribute
-{
-}
+[AttributeUsage(AttributeTargets.Class)]
+internal sealed class AqProtectedEndpointAttribute : Attribute;

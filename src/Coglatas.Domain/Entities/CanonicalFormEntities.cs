@@ -25,8 +25,8 @@ public sealed class FormDefinition : SoftDeletableEntity, ITenantEntity
     public Guid CreatedByUserId { get; private set; }
     public string Title { get; private set; } = string.Empty;
     public string? Description { get; private set; }
-    public FormPurpose Purpose { get; private set; }
-    public FormStatus Status { get; private set; } = FormStatus.Draft;
+    public FormPurpose Purpose { get; private init; }
+    public FormStatus Status { get; } = FormStatus.Draft;
     public long VersionNo { get; private set; } = 1;
 
     public static FormDefinition Create(
@@ -82,10 +82,10 @@ public sealed class FormVersion : AuditableEntity, ITenantEntity
                 throw new InvalidOperationException("Tenant identity is immutable.");
         }
     }
-    public Guid FormDefinitionId { get; private set; }
-    public int Number { get; private set; }
-    public string SnapshotJson { get; private set; } = string.Empty;
-    public DateTimeOffset PublishedAtUtc { get; private set; }
+    public Guid FormDefinitionId { get; private init; }
+    public int Number { get; private init; }
+    public string SnapshotJson { get; private init; } = string.Empty;
+    public DateTimeOffset PublishedAtUtc { get; private init; }
     public string? CompatibilityChangeReason { get; private set; }
     public IReadOnlyList<FormFieldDefinition> Fields => _fields.AsReadOnly();
 
@@ -143,10 +143,10 @@ public sealed class TargetQuestionSetVersion : AuditableEntity, ITenantEntity
                 throw new InvalidOperationException("Tenant identity is immutable.");
         }
     }
-    public Guid SurveyTargetId { get; private set; }
-    public int Number { get; private set; }
-    public string SnapshotJson { get; private set; } = string.Empty;
-    public DateTimeOffset PublishedAtUtc { get; private set; }
+    public Guid SurveyTargetId { get; private init; }
+    public int Number { get; private init; }
+    public string SnapshotJson { get; private init; } = string.Empty;
+    public DateTimeOffset PublishedAtUtc { get; private init; }
     public string? CompatibilityChangeReason { get; private set; }
     public IReadOnlyList<FormFieldDefinition> Fields => _fields.AsReadOnly();
 
@@ -203,13 +203,13 @@ public sealed class FormFieldDefinition : AuditableEntity, ITenantEntity
     }
     public Guid? FormVersionId { get; private set; }
     public Guid? TargetQuestionSetVersionId { get; private set; }
-    public string FieldKey { get; private set; } = string.Empty;
-    public string Label { get; private set; } = string.Empty;
-    public SurveyFieldType FieldType { get; private set; }
-    public int SortOrder { get; private set; }
-    public bool IsRequired { get; private set; }
-    public string OptionsJson { get; private set; } = string.Empty;
-    public string? ConstraintsJson { get; private set; }
+    public string FieldKey { get; private init; } = string.Empty;
+    public string Label { get; private init; } = string.Empty;
+    public SurveyFieldType FieldType { get; private init; }
+    public int SortOrder { get; private init; }
+    public bool IsRequired { get; private init; }
+    public string OptionsJson { get; private init; } = string.Empty;
+    public string? ConstraintsJson { get; private init; }
     public Guid? CompatiblePreviousFieldId { get; private set; }
     public Guid? CompatibilityRootFieldId { get; private set; }
 

@@ -5,10 +5,9 @@ namespace Coglatas.Web.Extensions;
 
 public static class AqSurveyManagementServices
 {
-    public static IServiceCollection AddAqSurveyManagement(this IServiceCollection services)
+    public static void AddAqSurveyManagement(this IServiceCollection services)
     {
         services.AddScoped<IAqSurveyManagementStore, AqSurveyManagementRepository>();
         services.AddScoped<AqSurveyManagementService>();
-        return services;
     }
 }

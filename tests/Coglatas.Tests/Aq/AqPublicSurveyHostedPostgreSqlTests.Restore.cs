@@ -32,12 +32,14 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
                 using var guest = AqPostgreSqlScenario.CreateGuestClient(host);
                 using var accepted = await SubmitAsync(guest, survey.TargetCode, "restore-before-decisions", Payload(survey));
                 await ReadMinimalReceiptAsync(accepted);
+                using var acceptedThenVoided = await SubmitAsync(guest, survey.TargetCode, "restore-before-void", Payload(survey));
+                await ReadMinimalReceiptAsync(acceptedThenVoided);
                 scope = await SeedRestoreScopeAsync(original, host, project, activity.Id, survey);
                 await using var services = host.Services.CreateAsyncScope();
                 services.ServiceProvider.GetRequiredService<CurrentTenantService>().SetTenant(host.Tenant.Id, host.Tenant.Slug);
                 var authorization = services.ServiceProvider.GetRequiredService<SurveyFeedbackAuthorization>();
                 var access = await authorization.ReadAccessAsync(new FeedbackActor(scope.TenantId, scope.RecipientId),
-                    scope.PresentationId, default);
+                    scope.PresentationId, CancellationToken.None);
                 Assert.True(access is { CanRead: true, Granted: true, Presenter: false, Reviewer: false, Operator: false });
             }
 
@@ -76,7 +78,12 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
         Guid eventId, SeededSurvey survey)
     {
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
-        var submission = await db.Set<FormSubmission>().SingleAsync(row => row.SurveyTargetId == survey.TargetId);
+        var submissions = await db.Set<FormSubmission>().Where(row => row.SurveyTargetId == survey.TargetId)
+            .OrderBy(row => row.Id).ToListAsync();
+        Assert.Equal(2, submissions.Count);
+        var submission = submissions[0];
+        var toVoid = submissions[1];
+        var voidedAnswer = await db.Set<FormSubmissionValue>().SingleAsync(row => row.FormSubmissionId == toVoid.Id);
         var answer = await db.Set<FormSubmissionValue>().SingleAsync(row => row.FormSubmissionId == submission.Id);
         var policy = new FeedbackInvitationPolicy
         {
@@ -105,7 +112,7 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
         await db.SaveChangesAsync();
 
         return new RestoreScope(host.Tenant.Id, host.Actor.Id, host.Recipient.Id, survey.PresentationId,
-            survey.TargetId, submission.Id, answer.Id, grant.Id, grant.VersionNo);
+            survey.TargetId, submission.Id, answer.Id, toVoid.Id, voidedAnswer.Id, toVoid.VersionNo, grant.Id, grant.VersionNo);
     }
 
     private static async Task<RestoreReceipt> MakeFixtureDecisionsAsync(string database, RestoreScope scope)
@@ -120,11 +127,13 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
         var now = DateTimeOffset.UtcNow;
         decision.Decide(true, scope.ActorId, FixtureHideReason, expectedVersionNo: 1);
         grant.Terminate(false, FixtureRevokeReason, scope.OriginalGrantVersion, now);
+        var submission = await db.Set<FormSubmission>().SingleAsync(row => row.Id == scope.VoidedSubmissionId);
+        submission.Void(scope.OriginalVoidVersion);
         db.Add(decision);
         await db.SaveChangesAsync();
         await transaction.CommitAsync();
 
-        return new RestoreReceipt(scope, decision.Id, decision.VersionNo, grant.VersionNo, now,
+        return new RestoreReceipt(scope, decision.Id, decision.VersionNo, grant.VersionNo, submission.VersionNo, now,
             await RestorableSubmissionIdsAsync(db, scope));
     }
 
@@ -149,7 +158,9 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
             row.InviterUserId == scope.ActorId && row.RecipientUserId == scope.RecipientId);
         var containsAnswer = await db.Set<FormSubmissionValue>().AnyAsync(row => row.Id == scope.AnswerId &&
             row.TenantId == scope.TenantId && row.FormSubmissionId == scope.SubmissionId);
-        if (grant is null || !containsAnswer)
+        var submission = await db.Set<FormSubmission>().SingleOrDefaultAsync(row => row.Id == scope.VoidedSubmissionId &&
+            row.TenantId == scope.TenantId && row.SurveyTargetId == scope.TargetId);
+        if (grant is null || !containsAnswer || submission is null)
         {
             return false;
         }
@@ -158,13 +169,15 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
             row.TenantId == scope.TenantId && row.FormSubmissionValueId == scope.AnswerId);
         if (decision is { IsHidden: true } && decision.Id == receipt.VisibilityDecisionId &&
             decision.VersionNo == receipt.VisibilityVersion && grant.Status == FeedbackViewerGrantStatus.Revoked &&
-            grant.VersionNo == receipt.GrantVersion)
+            grant.VersionNo == receipt.GrantVersion && submission.Status == FormSubmissionStatus.Voided &&
+            submission.VersionNo == receipt.VoidVersion)
         {
             return true;
         }
         if (decision is not null || grant.VersionNo != scope.OriginalGrantVersion ||
             !grant.IsActive(receipt.DecisionsAtUtc) || receipt.VisibilityVersion != 2 ||
-            receipt.GrantVersion != scope.OriginalGrantVersion + 1)
+            receipt.GrantVersion != scope.OriginalGrantVersion + 1 || submission.Status != FormSubmissionStatus.Submitted ||
+            submission.VersionNo != scope.OriginalVoidVersion || receipt.VoidVersion != scope.OriginalVoidVersion + 1)
         {
             return false;
         }
@@ -175,6 +188,7 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
         };
         hide.Decide(true, scope.ActorId, FixtureHideReason, expectedVersionNo: 1);
         grant.Terminate(false, FixtureRevokeReason, scope.OriginalGrantVersion, receipt.DecisionsAtUtc);
+        submission.Void(scope.OriginalVoidVersion);
         db.Add(hide);
         await db.SaveChangesAsync();
         await transaction.CommitAsync();
@@ -189,11 +203,17 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
     private static async Task AssertRestoreStateAsync(string database, RestoreScope scope, bool restricted)
     {
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
-        Assert.Equal(new[] { scope.SubmissionId }, await RestorableSubmissionIdsAsync(db, scope));
+        Assert.Equal(new[] { scope.SubmissionId, scope.VoidedSubmissionId }, await RestorableSubmissionIdsAsync(db, scope));
         var saved = await db.Set<FormSubmission>().AsNoTracking().SingleAsync(row => row.Id == scope.SubmissionId);
         Assert.Equal(FormSubmissionStatus.Submitted, saved.Status);
         var value = await db.Set<FormSubmissionValue>().AsNoTracking().SingleAsync(row => row.Id == scope.AnswerId);
         Assert.Equal(AnswerText, JsonSerializer.Deserialize<string>(value.ValueJson));
+        var retired = await db.Set<FormSubmission>().AsNoTracking().SingleAsync(row => row.Id == scope.VoidedSubmissionId);
+        Assert.Equal(restricted ? FormSubmissionStatus.Voided : FormSubmissionStatus.Submitted, retired.Status);
+        Assert.Equal(scope.OriginalVoidVersion + (restricted ? 1 : 0), retired.VersionNo);
+        var retiredValue = await db.Set<FormSubmissionValue>().AsNoTracking().SingleAsync(row => row.Id == scope.VoidedAnswerId);
+        Assert.Equal(scope.VoidedSubmissionId, retiredValue.FormSubmissionId);
+        Assert.Equal(AnswerText, JsonSerializer.Deserialize<string>(retiredValue.ValueJson));
         var grant = await db.Set<FeedbackViewerGrant>().AsNoTracking().SingleAsync(row => row.Id == scope.GrantId);
         Assert.Equal(restricted ? FeedbackViewerGrantStatus.Revoked : FeedbackViewerGrantStatus.Active, grant.Status);
         Assert.Equal(scope.OriginalGrantVersion + (restricted ? 1 : 0), grant.VersionNo);
@@ -218,10 +238,18 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
         await using var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(database).Options, tenant);
         var repository = new EfSurveyFeedbackRepository(db);
         var eligibleIssuers = await repository.GetActiveGrantIssuersAsync(scope.TenantId, scope.PresentationId,
-            scope.RecipientId, DateTimeOffset.UtcNow, default);
-        var rows = await repository.ReadAsync(scope.TenantId, scope.PresentationId, null, "visible", null, 5, default);
-        var row = Assert.Single(rows);
-        Assert.Equal(scope.SubmissionId, row.Id);
+            scope.RecipientId, DateTimeOffset.UtcNow, CancellationToken.None);
+        var rows = await repository.ReadAsync(scope.TenantId, scope.PresentationId, null, "visible", null, 5, CancellationToken.None);
+        var row = Assert.Single(rows, row => row.Id == scope.SubmissionId);
+        Assert.Equal(restricted ? 1 : 2, rows.Count);
+        if (restricted)
+        {
+            Assert.DoesNotContain(rows, item => item.Id == scope.VoidedSubmissionId);
+        }
+        else
+        {
+            Assert.Contains(rows, item => item.Id == scope.VoidedSubmissionId);
+        }
         if (restricted)
         {
             Assert.Empty(eligibleIssuers);
@@ -235,7 +263,8 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
     }
 
     private sealed record RestoreScope(Guid TenantId, Guid ActorId, Guid RecipientId, Guid PresentationId, Guid TargetId,
-        Guid SubmissionId, Guid AnswerId, Guid GrantId, long OriginalGrantVersion);
+        Guid SubmissionId, Guid AnswerId, Guid VoidedSubmissionId, Guid VoidedAnswerId, long OriginalVoidVersion,
+        Guid GrantId, long OriginalGrantVersion);
     private sealed record RestoreReceipt(RestoreScope Scope, Guid VisibilityDecisionId, long VisibilityVersion,
-        long GrantVersion, DateTimeOffset DecisionsAtUtc, Guid[] AcceptedSubmissionIds);
+        long GrantVersion, long VoidVersion, DateTimeOffset DecisionsAtUtc, Guid[] AcceptedSubmissionIds);
 }

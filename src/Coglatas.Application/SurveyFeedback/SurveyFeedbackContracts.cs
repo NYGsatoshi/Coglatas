@@ -81,7 +81,7 @@ public interface ISurveyFeedbackRepository
     Task<PresentationFeedbackScope?> GetScopeAsync(Guid tenantId, Guid presentationId, CancellationToken cancellationToken);
     Task<bool> IsInvitationEnabledAsync(Guid tenantId, Guid eventId, CancellationToken cancellationToken);
     Task<FeedbackEventScope?> GetEventScopeAsync(Guid tenantId, Guid eventId, CancellationToken cancellationToken);
-    Task<IReadOnlyList<PresentationFeedbackScope>> GetCandidateScopesAsync(Guid tenantId, Guid userId,
+    Task<IReadOnlyList<PresentationFeedbackScope>> GetCandidateScopesAsync(Guid tenantId,
         CancellationToken cancellationToken);
     Task<(bool Presenter, bool Reviewer)> GetAssignmentsAsync(Guid tenantId, Guid presentationId, Guid userId,
         CancellationToken cancellationToken);

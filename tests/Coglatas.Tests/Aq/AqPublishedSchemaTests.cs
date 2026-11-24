@@ -77,9 +77,9 @@ public sealed class AqPublishedSchemaTests
         var composition = PublishedSurveySchema.Compose(target, common, additional, "composition-2", PublishedAt);
 
         Assert.Equal(common.Fields[0].Id, Assert.Single(noAdditions.Fields).FormFieldDefinitionId);
-        Assert.Equal(new[] { common.Fields[0].Id, additional.Fields[0].Id },
+        Assert.Equal([common.Fields[0].Id, additional.Fields[0].Id],
             composition.Fields.Select(field => field.FormFieldDefinitionId));
-        Assert.Equal(new[] { 0, 1 }, composition.Fields.Select(field => field.SortOrder));
+        Assert.Equal([0, 1], composition.Fields.Select(field => field.SortOrder));
         Assert.Equal(common.Id, composition.FormVersionId);
         Assert.Equal(additional.Id, composition.TargetQuestionSetVersionId);
         Assert.NotEqual(noAdditions.SchemaDigest, composition.SchemaDigest);

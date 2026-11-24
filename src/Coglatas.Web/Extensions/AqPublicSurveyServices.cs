@@ -6,11 +6,10 @@ namespace Coglatas.Web.Extensions;
 
 public static class AqPublicSurveyServices
 {
-    public static IServiceCollection AddAqPublicSurveys(this IServiceCollection services)
+    public static void AddAqPublicSurveys(this IServiceCollection services)
     {
         services.AddScoped<AqPublicSurveyService>();
         services.AddScoped<IAqPublicSurveyStore, EfAqPublicSurveyStore>();
         services.AddSingleton<IAqPublicProjectionCodec, AqPublicProjectionCodec>();
-        return services;
     }
 }

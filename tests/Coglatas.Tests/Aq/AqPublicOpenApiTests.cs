@@ -50,7 +50,7 @@ public sealed class AqPublicOpenApiTests
         var schema = Assert.IsType<OpenApiSchema>(request.Content["application/json"].Schema);
         Assert.False(schema.AdditionalPropertiesAllowed);
         Assert.NotNull(schema.Required);
-        Assert.Equal(new[] { "answers", "schemaDigest", "versionRef" }, schema.Required.Order(StringComparer.Ordinal));
+        Assert.Equal(["answers", "schemaDigest", "versionRef"], schema.Required.Order(StringComparer.Ordinal));
         Assert.NotNull(schema.Properties);
         Assert.Equal("^[0-9a-f]{64}$", Assert.IsType<OpenApiSchema>(schema.Properties["schemaDigest"]).Pattern);
         var answers = Assert.IsType<OpenApiSchema>(schema.Properties["answers"]);
@@ -59,7 +59,7 @@ public sealed class AqPublicOpenApiTests
         Assert.NotNull(answer.Properties);
         var value = Assert.IsType<OpenApiSchema>(answer.Properties["value"]);
         Assert.NotNull(value.OneOf);
-        Assert.Equal(new[] { JsonSchemaType.String, JsonSchemaType.Number, JsonSchemaType.Boolean, JsonSchemaType.Array },
+        Assert.Equal([JsonSchemaType.String, JsonSchemaType.Number, JsonSchemaType.Boolean, JsonSchemaType.Array],
             value.OneOf.Select(option => Assert.IsType<OpenApiSchema>(option).Type.GetValueOrDefault()));
         Assert.True(Assert.IsType<OpenApiSchema>(value.OneOf[^1]).UniqueItems);
     }

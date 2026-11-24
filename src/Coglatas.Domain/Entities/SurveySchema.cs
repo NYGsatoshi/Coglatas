@@ -213,8 +213,11 @@ public sealed class PublishedSurveySchema : AuditableEntity, ITenantEntity
     }
 
     public static IReadOnlyList<SurveyField> ReadFields(string commonSnapshotJson, string additionalSnapshotJson) =>
-        Array.AsReadOnly(SurveySchemaSnapshot.ReadPart<SurveyField[]>(commonSnapshotJson)
-            .Concat(SurveySchemaSnapshot.ReadPart<SurveyField[]>(additionalSnapshotJson)).ToArray());
+        Array.AsReadOnly<SurveyField>(
+        [
+            .. SurveySchemaSnapshot.ReadPart<SurveyField[]>(commonSnapshotJson),
+            .. SurveySchemaSnapshot.ReadPart<SurveyField[]>(additionalSnapshotJson)
+        ]);
 
     public static string ComputeDigest(string commonSnapshotJson, string additionalSnapshotJson)
     {

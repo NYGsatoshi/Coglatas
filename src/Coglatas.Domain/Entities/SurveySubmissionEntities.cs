@@ -24,10 +24,10 @@ public class FormSubmission : AuditableEntity, ITenantEntity
     }
     public Guid FormDefinitionId { get; private set; }
     public Guid FormVersionId { get; private set; }
-    public Guid? SurveyTargetId { get; private set; }
-    public Guid? PublishedSurveySchemaId { get; private set; }
+    public Guid? SurveyTargetId { get; private init; }
+    public Guid? PublishedSurveySchemaId { get; private init; }
     public Guid? RespondentUserId { get; private set; }
-    public DateTimeOffset SubmittedAtUtc { get; private set; }
+    public DateTimeOffset SubmittedAtUtc { get; private init; }
     public FormSubmissionStatus Status { get; private set; } = FormSubmissionStatus.Submitted;
     public long VersionNo { get; private set; } = 1;
     public string FieldLockSnapshotJson { get; private set; } = string.Empty;
@@ -145,7 +145,7 @@ public class FormSubmissionValue : AuditableEntity, ITenantEntity
         ValueJson = value.GetRawText();
     }
 
-    public Guid TenantId { get; private init; }
+    public Guid TenantId { get; }
     Guid ITenantEntity.TenantId
     {
         get => TenantId;
@@ -216,7 +216,7 @@ public sealed class SurveyRespondentIdentity : AuditableEntity, ITenantEntity
             ? null
             : new SurveyRespondentIdentity
             {
-                TenantId = submission.TenantId,
+                TenantId = target.TenantId,
                 FormSubmissionId = submission.Id,
                 EnteredName = enteredName,
                 AccountUserId = accountOptIn ? eligibleAccountUserId : null,
@@ -247,7 +247,7 @@ public sealed class SubmissionIdempotency : AuditableEntity, ITenantEntity
     public string IntentDigest { get; private set; } = string.Empty;
     public string ReceiptJson { get; private set; } = string.Empty;
     public int StatusCode { get; private set; }
-    public DateTimeOffset ExpiresAtUtc { get; private set; }
+    public DateTimeOffset ExpiresAtUtc { get; private init; }
 
     public static SubmissionIdempotency Record(
         FormSubmission submission, string keyDigest, string intentDigest, string receiptJson)

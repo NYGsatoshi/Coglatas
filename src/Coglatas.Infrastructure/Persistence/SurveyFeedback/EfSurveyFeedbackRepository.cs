@@ -26,7 +26,7 @@ public sealed class EfSurveyFeedbackRepository(AppDbContext dbContext) : ISurvey
         .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyList<PresentationFeedbackScope>> GetCandidateScopesAsync(Guid tenantId,
-        Guid userId, CancellationToken cancellationToken) =>
+        CancellationToken cancellationToken) =>
         await Scopes(tenantId).ToListAsync(cancellationToken);
 
     public async Task<(bool Presenter, bool Reviewer)> GetAssignmentsAsync(Guid tenantId, Guid presentationId,

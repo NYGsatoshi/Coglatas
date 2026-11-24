@@ -119,7 +119,7 @@ public sealed class AqFeedbackLifecycleTests
         Assert.Equal(3m, score.Mean);
         var color = Assert.Single(result.Questions, row => row.FieldKey == "color");
         Assert.Equal(2, color.Denominator);
-        Assert.Equal(new[] { new FeedbackOptionCount("blue", 1), new FeedbackOptionCount("green", 1) }, color.Distribution);
+        Assert.Equal([new FeedbackOptionCount("blue", 1), new FeedbackOptionCount("green", 1)], color.Distribution);
         Assert.DoesNotContain(result.Questions, row => row.FieldKey == "changed");
     }
 

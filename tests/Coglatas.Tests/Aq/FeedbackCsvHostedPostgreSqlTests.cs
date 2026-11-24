@@ -75,8 +75,49 @@ public sealed class FeedbackCsvHostedPostgreSqlTests
             Assert.DoesNotContain("fictional input", error);
         });
 
+    [PostgreSqlFact]
+    public Task PresenterDownloadsOnlyAggregateAndAResultStopDeniesTheIssuedGrant() =>
+        AqPostgreSqlScenario.WithHostedEventAsync(async (database, host, project, activity) =>
+        {
+            var (presentationId, _) = await SeedAsync(database, host, project, activity, PresentationParticipantRole.Presenter);
+            var requestRoute = $"/api/v1/core/presentations/{presentationId:D}/feedback-export";
+            await host.LoginAsync();
+
+            using (var denied = await PostAsync(host.Client, requestRoute, "presenter-detail-denied",
+                       new FeedbackCsvRequest("detail", ["answerValue"])))
+                Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+
+            using var queued = await PostAsync(host.Client, requestRoute, "presenter-aggregate",
+                new FeedbackCsvRequest("aggregate", ["responseCount"]));
+            Assert.Equal(HttpStatusCode.Accepted, queued.StatusCode);
+            using var queue = JsonDocument.Parse(await queued.Content.ReadAsStringAsync());
+            var requestId = queue.RootElement.GetProperty("data").GetProperty("exportRequestId").GetGuid();
+            var statusRoute = $"/api/v1/core/presentation-feedback-exports/{requestId:D}";
+
+            using var issued = await PostAsync(host.Client, statusRoute + "/download-grants", "presenter-aggregate-grant");
+            Assert.Equal(HttpStatusCode.Created, issued.StatusCode);
+            using var grant = JsonDocument.Parse(await issued.Content.ReadAsStringAsync());
+            var grantId = grant.RootElement.GetProperty("data").GetProperty("grantId").GetGuid();
+            var delivery = statusRoute + $"/download-grants/{grantId:D}/content";
+            using (var downloaded = await host.Client.GetAsync(delivery))
+            {
+                Assert.Equal(HttpStatusCode.OK, downloaded.StatusCode);
+                Assert.Equal("text/csv", downloaded.Content.Headers.ContentType!.MediaType);
+                Assert.Equal("\"responseCount\"\r\n\"1\"\r\n", (await downloaded.Content.ReadAsStringAsync()).TrimStart('\uFEFF'));
+            }
+
+            await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+            var settings = await db.Set<EventFeedbackSettings>().SingleAsync(row => row.EventId == activity.Id);
+            settings.SetResultsStop(settings.VersionNo, true);
+            await db.SaveChangesAsync();
+            using var stopped = await host.Client.GetAsync(delivery);
+            Assert.Equal(HttpStatusCode.NotFound, stopped.StatusCode);
+            Assert.NotEqual("text/csv", stopped.Content.Headers.ContentType?.MediaType);
+        });
+
     private static async Task<(Guid PresentationId, Guid AnswerId)> SeedAsync(
-        string database, AdmissionHost host, Project project, ActivityEvent activity)
+        string database, AdmissionHost host, Project project, ActivityEvent activity,
+        PresentationParticipantRole role = PresentationParticipantRole.Reviewer)
     {
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
         var settings = EventFeedbackSettings.Create(activity, activity.StartsAt, activity.EndsAt, "UTC");
@@ -94,8 +135,8 @@ public sealed class FeedbackCsvHostedPostgreSqlTests
         var schema = PublishedSurveySchema.Compose(target, common, extra, "synthetic-export-version", publishedAt);
         var member = await db.WorkspaceMembers.SingleAsync(row =>
             row.TenantId == host.Tenant.Id && row.WorkspaceId == project.WorkspaceId && row.UserId == host.Actor.Id);
-        var reviewer = PresentationParticipant.Assign(presentation, project, member, PresentationParticipantRole.Reviewer);
-        db.AddRange(settings, definition, presentation, campaign, target, common, extra, reviewer,
+        var participant = PresentationParticipant.Assign(presentation, project, member, role);
+        db.AddRange(settings, definition, presentation, campaign, target, common, extra, participant,
             new CapabilityGrant
             {
                 TenantId = host.Tenant.Id,
@@ -103,7 +144,7 @@ public sealed class FeedbackCsvHostedPostgreSqlTests
                 GrantedByUserId = host.Actor.Id,
                 ScopeType = CapabilityScopeType.Workspace,
                 ScopeId = project.WorkspaceId,
-                CapabilityKey = "feedback.export.detail",
+                CapabilityKey = role == PresentationParticipantRole.Presenter ? "feedback.export.aggregate" : "feedback.export.detail",
                 GrantedAt = publishedAt,
                 ExpiresAt = publishedAt.AddHours(1)
             });

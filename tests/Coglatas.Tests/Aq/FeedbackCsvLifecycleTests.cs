@@ -20,10 +20,10 @@ public sealed class FeedbackCsvLifecycleTests
         var service = fixture.CreateService();
         var input = new FeedbackCsvRequest("detail", ["questionLabel", "answerValue"]);
 
-        var first = await service.RequestAsync(fixture.Scope.Id, input, "request-key", "request-1", default);
-        var replay = await service.RequestAsync(fixture.Scope.Id, input, "request-key", "request-2", default);
+        var first = await service.RequestAsync(fixture.Scope.Id, input, "request-key", "request-1", CancellationToken.None);
+        var replay = await service.RequestAsync(fixture.Scope.Id, input, "request-key", "request-2", CancellationToken.None);
         var conflict = await service.RequestAsync(fixture.Scope.Id,
-            new FeedbackCsvRequest("detail", ["questionLabel"]), "request-key", "request-3", default);
+            new FeedbackCsvRequest("detail", ["questionLabel"]), "request-key", "request-3", CancellationToken.None);
 
         Assert.True(first.IsSuccess);
         Assert.Equal(first.Value, replay.Value);
@@ -32,20 +32,20 @@ public sealed class FeedbackCsvLifecycleTests
         Assert.Equal("queued", first.Value!.Data.State);
 
         var id = first.Value.Data.ExportRequestId;
-        Assert.Equal("ready", (await service.StatusAsync(id, default)).Value!.State);
-        var grant = await service.GrantAsync(id, "download-key", "grant-1", default);
-        var grantReplay = await service.GrantAsync(id, "download-key", "grant-2", default);
+        Assert.Equal("ready", (await service.StatusAsync(id, CancellationToken.None)).Value!.State);
+        var grant = await service.GrantAsync(id, "download-key", "grant-1", CancellationToken.None);
+        var grantReplay = await service.GrantAsync(id, "download-key", "grant-2", CancellationToken.None);
         Assert.True(grant.IsSuccess);
         Assert.Equal(grant.Value, grantReplay.Value);
         Assert.Single(fixture.Grants);
 
-        var file = await service.DownloadAsync(id, grant.Value!.Data.GrantId, default);
+        var file = await service.DownloadAsync(id, grant.Value!.Data.GrantId, CancellationToken.None);
         Assert.True(file.IsSuccess);
         Assert.Contains("visible feedback", Encoding.UTF8.GetString(file.Value!.Content));
         Assert.Contains(fixture.Audits, item => item.Action == "SurveyFeedbackCsvDeliveryAuthorized");
 
         fixture.Scope = fixture.Scope with { ResultsStopped = true };
-        var stopped = await service.DownloadAsync(id, grant.Value.Data.GrantId, default);
+        var stopped = await service.DownloadAsync(id, grant.Value.Data.GrantId, CancellationToken.None);
         Assert.Equal("NotFound", stopped.ErrorDetail!.Code);
         Assert.Null(stopped.Value);
     }
@@ -56,14 +56,14 @@ public sealed class FeedbackCsvLifecycleTests
         var fixture = new Fixture();
         var service = fixture.CreateService();
         var identity = await service.RequestAsync(fixture.Scope.Id, new("detail", ["respondentName"]),
-            "identity-key", "request-1", default);
+            "identity-key", "request-1", CancellationToken.None);
         Assert.Equal("RestrictedFieldDenied", identity.ErrorDetail!.Code);
         Assert.Equal(0, fixture.SourceReads);
 
         fixture.Reviewer = false;
         fixture.GrantOnly = true;
         var grantOnly = await service.RequestAsync(fixture.Scope.Id, new("detail", ["answerValue"]),
-            "grant-only-key", "request-2", default);
+            "grant-only-key", "request-2", CancellationToken.None);
         Assert.Equal("CapabilityDenied", grantOnly.ErrorDetail!.Code);
         Assert.Equal(0, fixture.SourceReads);
 
@@ -71,7 +71,7 @@ public sealed class FeedbackCsvLifecycleTests
         fixture.Reviewer = true;
         fixture.OnRead = () => fixture.Session.RevokedAt = fixture.UtcNow;
         var revoked = await service.RequestAsync(fixture.Scope.Id, new("detail", ["answerValue"]),
-            "revoked-key", "request-3", default);
+            "revoked-key", "request-3", CancellationToken.None);
         Assert.Equal("AuthenticationRequired", revoked.ErrorDetail!.Code);
         Assert.Empty(fixture.Requests);
     }
@@ -82,19 +82,19 @@ public sealed class FeedbackCsvLifecycleTests
         var fixture = new Fixture();
         var service = fixture.CreateService();
         var admitted = await service.RequestAsync(fixture.Scope.Id, new("detail", ["questionKey"]),
-            "request-key", "request-1", default);
+            "request-key", "request-1", CancellationToken.None);
         var id = admitted.Value!.Data.ExportRequestId;
-        var grant = await service.GrantAsync(id, "download-key", "grant-1", default);
+        var grant = await service.GrantAsync(id, "download-key", "grant-1", CancellationToken.None);
         Assert.True(grant.IsSuccess);
 
-        var wrongGrant = await service.DownloadAsync(id, Guid.NewGuid(), default);
+        var wrongGrant = await service.DownloadAsync(id, Guid.NewGuid(), CancellationToken.None);
         Assert.Equal("NotFound", wrongGrant.ErrorDetail!.Code);
         var current = Assert.Single(fixture.Snapshot.Answers);
         fixture.Snapshot = fixture.Snapshot with { Answers = [current with { VisibilityVersionNo = 3 }] };
 
-        var status = await service.StatusAsync(id, default);
+        var status = await service.StatusAsync(id, CancellationToken.None);
         Assert.Equal("revoked", status.Value!.State);
-        var stale = await service.DownloadAsync(id, grant.Value!.Data.GrantId, default);
+        var stale = await service.DownloadAsync(id, grant.Value!.Data.GrantId, CancellationToken.None);
         Assert.Equal("ExportExpired", stale.ErrorDetail!.Code);
         Assert.Null(stale.Value);
     }
@@ -243,7 +243,7 @@ public sealed class FeedbackCsvLifecycleTests
         public Task<bool> IsInvitationEnabledAsync(Guid tenantId, Guid eventId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
         public Task<FeedbackEventScope?> GetEventScopeAsync(Guid tenantId, Guid eventId, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<IReadOnlyList<PresentationFeedbackScope>> GetCandidateScopesAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<PresentationFeedbackScope>> GetCandidateScopesAsync(Guid tenantId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<SurveyFeedbackSnapshot>> ReadAsync(Guid tenantId, Guid presentationId, string? fieldKey,
             string visibility, FeedbackPagePosition? after, int take, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<FeedbackSummaryInput> ReadSummaryAsync(Guid tenantId, Guid presentationId, string? fieldKey,

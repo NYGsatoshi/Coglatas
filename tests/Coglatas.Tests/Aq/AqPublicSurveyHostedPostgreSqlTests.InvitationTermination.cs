@@ -1,0 +1,132 @@
+using System.Net;
+using System.Text.Json;
+using Coglatas.Domain.Entities;
+using Coglatas.Domain.Enums;
+using Coglatas.Tests.PostgreSql;
+using Microsoft.EntityFrameworkCore;
+using AdmissionHost = Coglatas.Tests.PostgreSql.ConversationAdmissionHostedHttpTests.AdmissionHost;
+
+namespace Coglatas.Tests.Aq;
+
+public sealed partial class AqPublicSurveyHostedPostgreSqlTests
+{
+    [PostgreSqlFact]
+    public Task InvitationDeclineWithdrawalRelinquishmentAndExpiryRespectIndependentAssignments() =>
+        PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+            {
+                var clock = new ReceptionClock { UtcNow = DateTimeOffset.UtcNow };
+                await using var host = await AdmissionHost.CreateAsync(database, configurationOverrides:
+                    new Dictionary<string, string?> { ["AQ:EnablePublicSurveys"] = "true" }, clock: clock);
+                var (project, activity) = await AqPostgreSqlScenario.SeedEventAsync(database, host);
+                var survey = await SeedAsync(database, host, project, activity, presenterFeedbackFixture: true);
+                var (operatorAccount, _) = await SeedInvitationActorsAsync(database, host, project, activity);
+                using var guest = AqPostgreSqlScenario.CreateGuestClient(host);
+                using var posted = await SubmitAsync(guest, survey.TargetCode, "invitation-terminal-answer", Payload(survey));
+                await ReadMinimalReceiptAsync(posted);
+                using var recipient = await LoginInvitationActorAsync(host, host.Recipient);
+                using var approver = await LoginInvitationActorAsync(host, operatorAccount);
+                await host.LoginAsync();
+
+                var presentation = $"/api/v1/core/presentations/{survey.PresentationId:D}";
+                var feedback = presentation + "/feedback";
+                var settings = $"/api/v1/core/events/{activity.Id:D}/feedback-settings";
+                await ConfigureManualInvitationsAsync(approver, settings);
+
+                var recipientId = host.Recipient.Id;
+                var declined = await IssueAsync(host.Client, presentation, recipientId);
+                var denied = await EndAsync(recipient, declined, "decline");
+                Assert.Equal("declined", denied.GetProperty("status").GetString());
+                await AssertInvitationDeniedAsync(recipient, feedback);
+
+                var withdrawn = await IssueAsync(host.Client, presentation, recipientId);
+                var revoked = await EndAsync(host.Client, withdrawn, "revoke");
+                Assert.Equal("revoked", revoked.GetProperty("status").GetString());
+                await AssertInvitationDeniedAsync(recipient, feedback);
+
+                var pending = await IssueAsync(host.Client, presentation, recipientId);
+                using var consent = await AdmissionHost.PostAsync(recipient, Route(pending, "accept"),
+                    new { expectedVersionNo = VersionOf(pending), consent = true });
+                var acceptedFirst = await ReadInvitationDataAsync(consent, HttpStatusCode.OK);
+                Assert.Equal("pending", acceptedFirst.GetProperty("status").GetString());
+                await AssertInvitationDeniedAsync(recipient, feedback);
+                var active = await ApproveAsync(approver, acceptedFirst);
+                Assert.Equal("active", active.GetProperty("status").GetString());
+                using (var response = await GetDataAsync(recipient, feedback))
+                    Assert.NotEmpty(response.RootElement.GetProperty("data").GetProperty("items").EnumerateArray());
+                var relinquished = await EndAsync(recipient, active, "revoke");
+                Assert.Equal("revoked", relinquished.GetProperty("status").GetString());
+                await AssertInvitationDeniedAsync(recipient, feedback);
+
+                var expiringInvite = await IssueAsync(host.Client, presentation, recipientId);
+                var expiring = await AcceptAsync(recipient, await ApproveAsync(approver, expiringInvite));
+                Assert.Equal("active", expiring.GetProperty("status").GetString());
+                clock.UtcNow = expiring.GetProperty("expiresAt").GetDateTimeOffset();
+                await AssertInvitationDeniedAsync(recipient, feedback);
+
+                await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+                var tenantId = host.Tenant.Id;
+                var membership = await db.WorkspaceMembers.SingleAsync(row => row.TenantId == tenantId &&
+                    row.WorkspaceId == project.WorkspaceId && row.UserId == recipientId);
+                var entity = await db.Set<Presentation>().SingleAsync(row => row.Id == survey.PresentationId);
+                var syntheticPolicy = await db.Set<FeedbackInvitationPolicy>().SingleAsync(row => row.EventId == activity.Id);
+                syntheticPolicy.ApprovedForAutomaticApproval = true;
+                syntheticPolicy.VersionNo++;
+                await db.SaveChangesAsync();
+
+                var policyPending = await IssueAsync(host.Client, presentation, recipientId);
+                Assert.Equal("approvedEventPolicy", policyPending.GetProperty("approvalState").GetString());
+                await AssertInvitationDeniedAsync(recipient, feedback);
+                var policyActive = await AcceptAsync(recipient, policyPending);
+                Assert.Equal("active", policyActive.GetProperty("status").GetString());
+
+                var reviewer = PresentationParticipant.Assign(entity, project, membership, PresentationParticipantRole.Reviewer);
+                db.Add(reviewer);
+                await db.SaveChangesAsync();
+                Assert.Equal("revoked", (await EndAsync(host.Client, policyActive, "revoke")).GetProperty("status").GetString());
+
+                using (var ownAssignment = await GetDataAsync(recipient, feedback))
+                    Assert.NotEmpty(ownAssignment.RootElement.GetProperty("data").GetProperty("items").EnumerateArray());
+                db.Remove(reviewer);
+                await db.SaveChangesAsync();
+                await AssertInvitationDeniedAsync(recipient, feedback);
+                Assert.Equal(4, await db.Set<FeedbackViewerGrant>().CountAsync(grant =>
+                    grant.PresentationId == survey.PresentationId &&
+                    (grant.Status == FeedbackViewerGrantStatus.Revoked || grant.Status == FeedbackViewerGrantStatus.Declined)));
+                Assert.Single(await db.Set<FeedbackViewerGrant>().Where(grant =>
+                    grant.PresentationId == survey.PresentationId && grant.Status == FeedbackViewerGrantStatus.Expired).ToListAsync());
+
+                static async Task<JsonElement> IssueAsync(HttpClient client, string presentationRoute, Guid candidateRecipientId)
+                {
+                    using var response = await AdmissionHost.PostAsync(client, presentationRoute + "/feedback-invitations",
+                        new { recipientRef = candidateRecipientId, requestedActiveDurationSeconds = 60 });
+                    return await ReadInvitationDataAsync(response, HttpStatusCode.Created);
+                }
+
+                static async Task<JsonElement> EndAsync(HttpClient client, JsonElement invitation, string action)
+                {
+                    using var response = await AdmissionHost.PostAsync(client, Route(invitation, action),
+                        new { expectedVersionNo = VersionOf(invitation), reason = "Synthetic terminal decision" });
+                    return await ReadInvitationDataAsync(response, HttpStatusCode.OK);
+                }
+
+                static async Task<JsonElement> ApproveAsync(HttpClient client, JsonElement invitation)
+                {
+                    using var response = await AdmissionHost.PostAsync(client, Route(invitation, "approve"),
+                        new { expectedVersionNo = VersionOf(invitation) });
+                    return await ReadInvitationDataAsync(response, HttpStatusCode.OK);
+                }
+
+                static async Task<JsonElement> AcceptAsync(HttpClient client, JsonElement invitation)
+                {
+                    using var response = await AdmissionHost.PostAsync(client, Route(invitation, "accept"),
+                        new { expectedVersionNo = VersionOf(invitation), consent = true });
+                    return await ReadInvitationDataAsync(response, HttpStatusCode.OK);
+                }
+            });
+
+    private static long VersionOf(JsonElement invitation) => invitation.GetProperty("versionNo").GetInt64();
+
+    private static string Route(JsonElement invitation, string operation) =>
+        $"/api/v1/core/feedback-invitations/{invitation.GetProperty("id").GetGuid():D}/{operation}";
+}

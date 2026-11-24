@@ -7,7 +7,7 @@ namespace Coglatas.Tests.SecurityArchitecture;
 internal static class SecurityArchitectureRlsRelationCatalogue
 {
     public const string HistoricalVersion = "pre-aq-v1";
-    public const string HistoricalMigration = "20261101062657_StabilizeLogicalRecoveryConstraintExpressions";
+    private const string HistoricalMigration = "20261101062657_StabilizeLogicalRecoveryConstraintExpressions";
     private const string FoundationVersion = "aq-foundation-v2";
     private const string FeedbackVersion = "aq-feedback-v3";
     private const string FoundationMigration = "20261124084252_AddSurveyPresentationFoundation";
@@ -244,7 +244,7 @@ internal static class SecurityArchitectureRlsRelationCatalogue
     }
 
     internal static IEnumerable<Relation> TenantColumnTables(Snapshot catalogue) =>
-        catalogue.Relations.Where(relation => relation.Kind == "r" && relation.TenantColumnType is not null);
+        catalogue.Relations.Where(relation => relation is { Kind: "r", TenantColumnType: not null });
 
     // Keep draft fixture policy mechanics on historical relations that remain physical and active.
     internal static IReadOnlyList<string> ExistingActiveDraftPolicyTables(Snapshot catalogue) =>
@@ -261,7 +261,7 @@ internal static class SecurityArchitectureRlsRelationCatalogue
     internal static async Task<IReadOnlyList<AqSource>> AssertCurrentAqSourcesAsync(string database, Snapshot catalogue)
     {
         var hasFeedback = catalogue.Version == FeedbackVersion;
-        var tables = hasFeedback ? FoundationTables.Concat(FeedbackTables).ToArray() : FoundationTables;
+        AqTable[] tables = hasFeedback ? [.. FoundationTables, .. FeedbackTables] : FoundationTables;
         var sources = new List<AqSource>();
         foreach (var table in tables)
         {
@@ -329,10 +329,9 @@ internal static class SecurityArchitectureRlsRelationCatalogue
     {
         var question = await SecurityArchitectureRlsSchemaIdentity.CaptureAsync(database, "form_questions");
         Assert.Contains(question.Constraints, constraint =>
-            constraint.ConstraintName == "FK_form_questions_form_definitions_FormId" &&
-            constraint.ReferencedTable == "form_definitions" && constraint.Validated);
+            constraint is { ConstraintName: "FK_form_questions_form_definitions_FormId", ReferencedTable: "form_definitions", Validated: true });
         Assert.Contains(question.Guards, guard =>
-            guard.FunctionName == "synchronize_ordinary_question_authoring" && guard.Enabled == "O");
+            guard is { FunctionName: "synchronize_ordinary_question_authoring", Enabled: "O" });
         foreach (var archive in FormsArchives)
         {
             var native = await SecurityArchitectureRlsSchemaIdentity.CaptureAsync(database, archive.ArchiveName);

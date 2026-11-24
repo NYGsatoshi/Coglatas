@@ -102,7 +102,7 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
         command.Parameters.AddWithValue("foreign", foreign.PresentationId);
         command.Parameters.AddWithValue("marker", candidateId.ToString("N"));
         command.Parameters.AddWithValue("source", source.TargetId);
-        var rejected = await Assert.ThrowsAsync<PostgresException>(() => command.ExecuteNonQueryAsync());
+        var rejected = await Assert.ThrowsAsync<PostgresException>(command.ExecuteNonQueryAsync);
         Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, rejected.SqlState);
         Assert.Equal("FK_survey_targets_presentations_PresentationId_TenantId_EventId", rejected.ConstraintName);
         await transaction.RollbackAsync();
