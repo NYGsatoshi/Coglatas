@@ -47,6 +47,20 @@ interface Recipient { recipientRef: string; label: string }
 interface ExportRequest { exportRequestId: string }
 interface ExportStatus { state: 'queued' | 'building' | 'ready' | 'failed' | 'expired' }
 interface Summary { responses: number; questions: QuestionSummary[] }
+interface Comparison {
+  comparison?: {
+    cohorts: {
+      cohortLabel: string;
+      cells: {
+        fieldKey: string;
+        suppressed: boolean;
+        sampleSize?: number;
+        mean?: number;
+        distribution?: { optionKey: string; responses: number }[];
+      }[];
+    }[];
+  };
+}
 
 const relationLabels: Record<Relation, string> = {
   own: '自分の発表',
@@ -80,11 +94,35 @@ const invitationLabels: Record<Invitation['status'], string> = {
               @if (category === 'managed') {
                 <p><a [routerLink]="['/aq/manage', item.presentation.eventId]">発表イベントの運営</a></p>
               }
+              @if (category === 'assigned' || category === 'managed') {
+                <button type="button" [disabled]="comparisonBusy()" (click)="loadComparison(item.presentation.eventId)">イベント内の集計比較</button>
+              }
             </li>
           } @empty { <li>該当する発表はありません。</li> }
         </ul>
       }
       @if (more()) { <button type="button" [disabled]="loading()" (click)="load(more())">発表をさらに表示</button> }
+      @if (comparisonBusy()) { <p role="status">比較結果を読み込み中…</p> }
+      @if (comparisonUnavailable()) { <p role="status">このイベントの集計比較は利用できません。</p> }
+      @if (comparison(); as comparisonData) {
+        <h2>イベント内の集計比較</h2>
+        @for (cohort of comparisonData.cohorts; track cohort.cohortLabel) {
+          <article class="aq-panel">
+            <h3>{{ cohort.cohortLabel }}</h3>
+            @for (cell of cohort.cells; track cell.fieldKey) {
+              @if (cell.suppressed) { <p>{{ cell.fieldKey }} · 集計非表示</p> }
+              @else {
+                <p>{{ cell.fieldKey }} · 有効回答 {{ cell.sampleSize }}
+                  @if (cell.mean !== undefined) { · 平均 {{ cell.mean }} }
+                </p>
+                @for (choice of cell.distribution ?? []; track choice.optionKey) {
+                  <p>{{ choice.optionKey }} · {{ choice.responses }}件</p>
+                }
+              }
+            }
+          </article>
+        }
+      }
       <h2>閲覧招待</h2>
       @if (invitationFailure()) { <p role="alert">閲覧招待の操作を完了できませんでした。</p> }
       <ul class="aq-list">
@@ -126,6 +164,10 @@ export class AqFeedbackHome {
   protected readonly invitationBusy = signal(false);
   protected readonly more = signal('');
   protected readonly invitationMore = signal('');
+  protected readonly comparison = signal<Comparison['comparison']>(undefined);
+  protected readonly comparisonBusy = signal(false);
+  protected readonly comparisonUnavailable = signal(false);
+  private comparisonGeneration = 0;
   private generation = 0;
   private invitationGeneration = 0;
 
@@ -133,6 +175,10 @@ export class AqFeedbackHome {
     bindFeedbackRefresh(() => {
       this.workspaces.set([]);
       this.invitations.set([]);
+      ++this.comparisonGeneration;
+      this.comparison.set(undefined);
+      this.comparisonBusy.set(false);
+      this.comparisonUnavailable.set(false);
       this.load();
     });
   }
@@ -180,6 +226,27 @@ export class AqFeedbackHome {
           this.invitations.set([]);
           this.invitationMore.set('');
           this.invitationBusy.set(false);
+        },
+      });
+  }
+
+  protected loadComparison(eventId: string): void {
+    const generation = ++this.comparisonGeneration;
+    this.comparisonBusy.set(true);
+    this.comparison.set(undefined);
+    this.comparisonUnavailable.set(false);
+    this.api.read<Comparison>('events/' + aqSegment(eventId) + '/feedback-summary')
+      .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: result => {
+          if (generation !== this.comparisonGeneration) return;
+          this.comparison.set(result.comparison);
+          this.comparisonUnavailable.set(!result.comparison);
+          this.comparisonBusy.set(false);
+        },
+        error: () => {
+          if (generation !== this.comparisonGeneration) return;
+          this.comparisonUnavailable.set(true);
+          this.comparisonBusy.set(false);
         },
       });
   }
