@@ -70,23 +70,45 @@ public sealed class SurveyFeedbackAuthorization(
         var (presenter, reviewer) = await repository.GetAssignmentsAsync(
             actor.TenantId, scope.Id, actor.UserId, cancellationToken);
         var managed = await HasCapabilityAsync(actor, scope, "feedback.read.managed", cancellationToken);
-        var granted = false;
-        if (!scope.ResultsStopped)
-        {
-            var issuers = await repository.GetActiveGrantIssuersAsync(
-                actor.TenantId, scope.Id, actor.UserId, clock.UtcNow, cancellationToken);
-            foreach (var issuerId in issuers)
-            {
-                var issuer = new FeedbackActor(actor.TenantId, issuerId);
-                if (await IsEligibleInviterAsync(issuer, scope, cancellationToken))
-                {
-                    granted = true;
-                    break;
-                }
-            }
-        }
+        var granted = !scope.ResultsStopped && await HasEligibleViewerGrantAsync(actor, scope, cancellationToken);
 
         return new PresentationFeedbackAccess(scope, presenter, reviewer, granted, managed);
+    }
+
+    public async Task<bool> CanReceiveInvalidationAsync(
+        FeedbackActor actor, Guid presentationId, CancellationToken cancellationToken)
+    {
+        if (!await IsCurrentMemberAsync(actor, cancellationToken))
+            return false;
+
+        var scope = await repository.GetScopeAsync(actor.TenantId, presentationId, cancellationToken);
+        if (scope is not { ResultsStopped: false } || scope.TenantId != actor.TenantId
+            || !await projects.CanViewProject(actor.UserId, scope.ProjectId, cancellationToken))
+        {
+            return false;
+        }
+
+        var (presenter, reviewer) = await repository.GetAssignmentsAsync(
+            actor.TenantId, scope.Id, actor.UserId, cancellationToken);
+        // An invalidation only needs the Boolean read decision. A current direct
+        // assignment already provides it, independently of managed or invited relations.
+        return presenter || reviewer
+            || await HasCapabilityAsync(actor, scope, "feedback.read.managed", cancellationToken)
+            || await HasEligibleViewerGrantAsync(actor, scope, cancellationToken);
+    }
+
+    private async Task<bool> HasEligibleViewerGrantAsync(
+        FeedbackActor actor, PresentationFeedbackScope scope, CancellationToken cancellationToken)
+    {
+        var issuers = await repository.GetActiveGrantIssuersAsync(
+            actor.TenantId, scope.Id, actor.UserId, clock.UtcNow, cancellationToken);
+        foreach (var issuerId in issuers)
+        {
+            if (await IsEligibleInviterAsync(new FeedbackActor(actor.TenantId, issuerId), scope, cancellationToken))
+                return true;
+        }
+
+        return false;
     }
 
     public async Task<FeedbackActionCapabilities> ReadActionCapabilitiesAsync(FeedbackActor actor,

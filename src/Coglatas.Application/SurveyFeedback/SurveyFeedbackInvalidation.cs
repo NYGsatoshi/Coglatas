@@ -20,8 +20,7 @@ public sealed class SurveyFeedbackInvalidation(
         foreach (var recipient in await repository.ReadInvalidationCandidatesAsync(tenantId, presentationId, cancellationToken))
         {
             var actor = new FeedbackActor(tenantId, recipient);
-            if (await authorization.IsCurrentMemberAsync(actor, cancellationToken) &&
-                await authorization.ReadAccessAsync(actor, presentationId, cancellationToken) is { CanRead: true })
+            if (await authorization.CanReceiveInvalidationAsync(actor, presentationId, cancellationToken))
             {
                 recipients.Add(recipient);
             }
