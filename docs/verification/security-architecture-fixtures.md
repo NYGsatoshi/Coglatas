@@ -284,8 +284,8 @@ that only the calling connection loses delivery, with legitimate peer delivery
 and restored subscriptions before/after.
 
 SecurityArchitectureSignalREventTests supplies positive live delivery and
-foreign-tenant non-delivery for every one of the fifteen declared catalogue
-types through the real PostgreSQL Outbox and WebSocket dispatcher. All fourteen
+foreign-tenant non-delivery for the fifteen types in the pre-AQ SEC-ARCH
+catalogue through the real PostgreSQL Outbox and WebSocket dispatcher. All fourteen
 protected event types also reject committed tenant-membership revocation with
 a live authorized peer. The metadata-only authorization invalidation has its
 distinct recipient-mismatch control and retains its deliberate delivery-before-
@@ -436,6 +436,12 @@ manual replay integration and product RLS pending. Existing helpers and facts
 also record actual results for all eight active Hub methods, including typed
 resource denial and idempotent unsubscribe results. Method-name inventory alone
 does not receive invocation credit; repeated calls cannot multiply coverage.
+
+The composed AQ catalogue adds the user-scoped
+`Feedback.PresentationInvalidated.v1` event. The accounting adapter continues to
+verify the pre-AQ route and control roster. Its current-catalogue report records
+AQ transport coverage as UNVERIFIED and retains the pre-AQ coverage result.
+The AQ runtime fixture owns the presentation-specific delivery controls.
 
 The five existing Origin, role, reconnect/catch-up and representative replay
 facts also emit explicit receipts without adding duplicate scenarios. Origin

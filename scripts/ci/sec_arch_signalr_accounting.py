@@ -41,6 +41,10 @@ METHOD_SOURCES = {method: "tests/Coglatas.Tests/SecurityArchitecture/" + method.
 METHOD_SOURCES[MANUAL_REPLAY] = MANUAL_SOURCE
 ENVIRONMENT = "ACTUAL_TEST_WEB_ENTRY_POINT_MIGRATED_POSTGRESQL_AND_REAL_WEBSOCKET"
 INVALIDATION = "Security.AuthorizationStateChanged.v1"
+PRE_AQ_EVENT_CATALOGUE = "SEC_ARCH_PRE_AQ_V1"
+AQ_EVENT_CATALOGUE = "AQ_ADDITIVE_V2"
+AQ_EVENT = "Feedback.PresentationInvalidated.v1"
+AQ_BOUNDARY = "CURRENT_SESSION_USER_ROUTE_AND_CURRENT_PRESENTATION_FEEDBACK_AUTHORITY_METADATA_ONLY"
 EVENT_TARGETS = {
     **{"Messaging." + event + ".v1": "Conversation" for event in ("MessageCreated", "MessageUpdated", "MessageDeleted", "ThreadChanged")},
     "Messaging.ConversationUnreadChanged.v1": "User",
@@ -147,9 +151,19 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
     if inventory.get("schemaVersion") != 1 or inventory.get("catalogScope") != "ACTUAL_COMPOSED_TEST_HOST":
         raise ValueError("Actual composed inventory required.")
     realtime = inventory["realtime"]
-    event_types = [row["eventType"] for row in realtime["events"]]
-    if len(event_types) != len(set(event_types)) or set(event_types) != set(EVENT_TARGETS):
+    event_catalogue = realtime.get("eventCatalogueGeneration", PRE_AQ_EVENT_CATALOGUE)
+    if event_catalogue not in (PRE_AQ_EVENT_CATALOGUE, AQ_EVENT_CATALOGUE):
+        raise ValueError("Unknown event catalogue generation requires review.")
+    events = realtime["events"]
+    event_types = [row["eventType"] for row in events]
+    additional_events = {AQ_EVENT} if event_catalogue == AQ_EVENT_CATALOGUE else set()
+    if len(event_types) != len(set(event_types)) or set(event_types) != EVENT_TARGETS.keys() | additional_events:
         raise ValueError("Changed or incomplete event inventory requires review.")
+    if additional_events:
+        aq_event = next(row for row in events if row["eventType"] == AQ_EVENT)
+        payload_version = aq_event.get("payloadSchemaVersion")
+        if type(payload_version) is not int or payload_version != 1 or aq_event.get("observedDeliveryBoundary") != AQ_BOUNDARY:
+            raise ValueError("Changed AQ event inventory requires review.")
     subscriptions = realtime["subscriptionTypes"]
     if len(subscriptions) != len(set(subscriptions)) or set(subscriptions) != {"User", "Tenant", "Workspace", "Project", "Conversation"}:
         raise ValueError("Changed subscription inventory requires review.")
@@ -270,7 +284,8 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
         transport = next(record for record in recordings if record["verifierMethod"] == MANUAL_REPLAY)
         manual = account_manual_replay(root, manual_replay_receipt, transport, intervals[MANUAL_REPLAY],
                                        MANUAL_REPLAY in passed, execution_receipt, identity)
-    return {"schemaVersion": 2, "verifierId": "SEC-ARCH-SIGNALR-ASSERTION-ACCOUNTING", "mode": "ADVISORY",
+    predecessor_coverage = "UNVERIFIED" if missing or missing_hub or missing_origin else "PASS"
+    report = {"schemaVersion": 2, "verifierId": "SEC-ARCH-SIGNALR-ASSERTION-ACCOUNTING", "mode": "ADVISORY",
             "inputReceiptSchemaVersions": sorted({record["schemaVersion"] for record in recordings}),
             "fullDependencyQualification": "SIX_ASSEMBLY_LOCAL_BYTES_RECONCILED" if all(record["schemaVersion"] == 2 for record in recordings) else "UNVERIFIED",
             "candidateBinding": candidate, "executionOutcome": execution["outcome"], "executionDigest": digest(trx),
@@ -278,7 +293,7 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
             "eventTypeCount": len(event_types), "reviewedRouteCount": len(ROUTES), "observedControlCount": len(observations),
             "controlCounts": dict(sorted(Counter(row["control"] for row in observations if row["accountingOutcome"] == "PASS").items())),
             "reviewedVerifierCount": len(RULES), "observedVerifierCount": len(methods), "unobservedScopedControls": missing,
-            "assertionCoverageOutcome": "UNVERIFIED" if missing or missing_hub or missing_origin else "PASS",
+            "assertionCoverageOutcome": "UNVERIFIED" if additional_events else predecessor_coverage,
             "observedHubInvocationCount": len(invocations), "unobservedInvocationAssertions": missing_hub,
             "observedOriginAssertionCount": len(origins), "originBoundaries": origins, "unobservedOriginAssertions": missing_origin,
             "observedBusinessProducerEventTypes": sorted({row["eventType"] for row in observations
@@ -304,6 +319,12 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
                        "Recorded actual HTTP messaging producers cover named flows only; complete producer, payload and capability matrices remain UNVERIFIED.",
                        "Manual replay qualification covers only the supplied-actor application seam; HTTP/CLI issuance, operational roles, RLS and normative approval remain UNVERIFIED.",
                        "Metadata invalidation retains separate recipient semantics and is not presumed subject to protected-event session denial."]}
+    if additional_events:
+        report.update(eventCatalogueGeneration=event_catalogue,
+                      reviewedAssertionCatalogueGeneration=PRE_AQ_EVENT_CATALOGUE,
+                      reviewedAssertionCoverageOutcome=predecessor_coverage,
+                      unverifiedAdditionalEventTypes=sorted(additional_events))
+    return report
 
 
 def main() -> int:
