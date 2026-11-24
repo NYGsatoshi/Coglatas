@@ -86,7 +86,8 @@ public sealed class FeedbackCsvService(
 
         var export = access.Value!;
         var prepared = await RevalidatePackageAsync(export, cancellationToken);
-        if (prepared.ErrorDetail?.Code == "ExportExpired" && clock.UtcNow < export.Request.ExpiresAtUtc)
+        if (clock.UtcNow < export.Request.ExpiresAtUtc &&
+            prepared.ErrorDetail?.Code is "ExportExpired" or "ConcurrentModification" or "ExportTooLarge")
             return Result<FeedbackCsvStatus>.Success(new FeedbackCsvStatus(id, "revoked", null));
 
         return prepared.IsSuccess
@@ -116,7 +117,7 @@ public sealed class FeedbackCsvService(
             {
                 var prepared = await RevalidatePackageAsync(export, token);
                 if (!prepared.IsSuccess)
-                    throw new FeedbackCsvRejectedException(prepared.ErrorDetail!);
+                    throw new FeedbackCsvRejectedException(GrantFailure(prepared.ErrorDetail!));
 
                 var proposedExpiry = clock.UtcNow.Add(GrantLifetime);
                 var grant = SurveyFeedbackExportGrant.Issue(grantId, export.Request, requestId,
@@ -138,8 +139,13 @@ public sealed class FeedbackCsvService(
             {
                 var current = await RevalidatePackageAsync(export, cancellationToken);
                 if (!current.IsSuccess)
-                    return Forward<FeedbackCsvGrantResponse, FeedbackCsvFile>(current);
+                    return Result<FeedbackCsvGrantResponse>.Failure(GrantFailure(current.ErrorDetail!));
             }
+
+            var finalScope = await AuthorizeAsync(export.Actor, export.Request.PresentationId, export.Request.Mode,
+                cancellationToken);
+            if (!finalScope.IsSuccess)
+                return Forward<FeedbackCsvGrantResponse, PresentationFeedbackScope>(finalScope);
 
             return Result<FeedbackCsvGrantResponse>.Success(
                 new(new FeedbackCsvGrantReceipt(grant.Id, grant.ExpiresAtUtc), grant.ReceiptRequestId));
@@ -167,7 +173,7 @@ public sealed class FeedbackCsvService(
 
         var package = await RevalidatePackageAsync(export, cancellationToken);
         if (!package.IsSuccess)
-            return package;
+            return package.ErrorDetail?.Code == "ConcurrentModification" ? Expired<FeedbackCsvFile>() : package;
 
         await AuditAsync(export.Actor, export.Scope, "SurveyFeedbackCsvDeliveryAuthorized", grant.Id, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -292,8 +298,13 @@ public sealed class FeedbackCsvService(
     private static string Digest<T>(T intent) =>
         Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(intent)));
 
-    private static Result<T> Expired<T>() =>
-        Failure<T>("ExportExpired", "The export is no longer available.");
+    private static ApplicationErrorDetail Expiry() =>
+        new("ExportExpired", "The export is no longer available.");
+
+    private static Result<T> Expired<T>() => Result<T>.Failure(Expiry());
+
+    private static ApplicationErrorDetail GrantFailure(ApplicationErrorDetail detail) =>
+        detail.Code == "ExportTooLarge" ? Expiry() : detail;
 
     private static Result<T> IdempotencyFailure<T>(IdempotentCreateDisposition disposition) =>
         disposition == IdempotentCreateDisposition.RequestMismatch
