@@ -438,8 +438,14 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
         var requests = Task.WhenAll(
             SubmitAsync(firstGuest, survey.TargetCode, key, payload),
             SubmitAsync(secondGuest, survey.TargetCode, key, payload));
+        var observed = await ObservePostgreSqlWaitersAsync(database, blocker.ProcessID, requests);
+        await transaction.CommitAsync();
+        return (await requests, observed);
+    }
+
+    private static async Task<bool> ObservePostgreSqlWaitersAsync(string database, int blockerId, Task requests)
+    {
         var started = TimeProvider.System.GetTimestamp();
-        var observed = false;
         while (!requests.IsCompleted && TimeProvider.System.GetElapsedTime(started) < TimeSpan.FromSeconds(10))
         {
             var waiting = await PostgreSqlMigrationTestDatabase.ScalarAsync<long>(database, """
@@ -453,16 +459,14 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
                     WHERE activity.datname = current_database() AND activity.wait_event_type = 'Lock'
                 )
                 SELECT count(*) FROM blocked
-                """, ("blocker", blocker.ProcessID));
+                """, ("blocker", blockerId));
             if (waiting >= 2)
             {
-                observed = true;
-                break;
+                return true;
             }
             await Task.Delay(TimeSpan.FromMilliseconds(50));
         }
-        await transaction.CommitAsync();
-        return (await requests, observed);
+        return false;
     }
 
     private static AqPublicSubmissionInput Payload(
