@@ -9,6 +9,7 @@ public static class CompilerRecordingDevelopmentSchema
     {
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
         await ProjectIdeDevelopmentSchema.EnsureExistsAsync(context, cancellationToken);
+        // ExecuteSqlRaw uses composite formatting for parameters, including when none are passed.
         await context.Database.ExecuteSqlRawAsync("""
             CREATE TABLE projectide_development.projectide_compiler_recording_evidence (
                 "TenantId" uuid NOT NULL,
@@ -25,14 +26,14 @@ public static class CompilerRecordingDevelopmentSchema
                     (jsonb_typeof("Payload") = 'object'
                     AND "Payload" - ARRAY['Source', 'SourceDigest', 'RunId', 'AttemptId', 'CompilerInputId',
                         'ExecutionInputDigest', 'MaterializationsDigest', 'ManifestDigest', 'ReceiptDigest', 'HostStatus',
-                        'CaptureMode', 'OriginalCaptureState', 'CaptureDigest', 'OriginRunId', 'OriginReceiptDigest', 'Result'] = '{}'::jsonb
+                        'CaptureMode', 'OriginalCaptureState', 'CaptureDigest', 'OriginRunId', 'OriginReceiptDigest', 'Result'] = '{{}}'::jsonb
                     AND "Payload" ->> 'RunId' = "RunId"::text
                     AND "Payload" ->> 'AttemptId' = "AttemptId"::text
                     AND "Payload" -> 'Source' ->> 'TenantId' = "TenantId"::text
                     AND "Payload" -> 'Source' ->> 'ProjectId' = "ProjectId"::text
-                    AND "Payload" ->> 'SourceDigest' ~ '^[0-9a-f]{64}$'
-                    AND "Payload" ->> 'ManifestDigest' ~ '^[0-9a-f]{64}$'
-                    AND "Payload" ->> 'ReceiptDigest' ~ '^[0-9a-f]{64}$') IS TRUE)
+                    AND "Payload" ->> 'SourceDigest' ~ '^[0-9a-f]{{64}}$'
+                    AND "Payload" ->> 'ManifestDigest' ~ '^[0-9a-f]{{64}}$'
+                    AND "Payload" ->> 'ReceiptDigest' ~ '^[0-9a-f]{{64}}$') IS TRUE)
             );
 
             CREATE INDEX compiler_recording_evidence_project_scope
