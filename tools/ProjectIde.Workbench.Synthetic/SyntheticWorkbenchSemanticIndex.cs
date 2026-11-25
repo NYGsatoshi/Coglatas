@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Coglatas.Domain.ProjectIde;
 
 namespace Coglatas.ProjectIde.Workbench.Synthetic;
@@ -37,23 +38,42 @@ public sealed partial class SyntheticWorkbenchViewModel
     {
         ObjectDisposedException.ThrowIf(_disposed, this); ClearSemanticIndex();
         var generation = _semanticIndexGeneration; var scoped = _scopedGeneration; var compilation = _compilation; var desired = _desired;
-        bool Current() => !_disposed && generation == _semanticIndexGeneration && scoped == _scopedGeneration && CurrentScopedSources &&
+        bool OwnsRead() => generation == _semanticIndexGeneration && scoped == _scopedGeneration;
+        bool Current() => !_disposed && OwnsRead() && CurrentScopedSources &&
             compilation is not null && ReferenceEquals(compilation, _compilation) && ReferenceEquals(desired, _desired);
-        SemanticIndexReadState = "Loading"; Changed();
-        if (token.IsCancellationRequested)
-        { if (generation == _semanticIndexGeneration && scoped == _scopedGeneration) { ClearSemanticIndex(); Changed(); } token.ThrowIfCancellationRequested(); }
+        bool Refuse()
+        {
+            if (OwnsRead())
+            {
+                SemanticIndexReadState = "Unavailable";
+                NotifyOwnedSemanticRead(token, OwnsRead, ClearSemanticIndex);
+            }
+            return false;
+        }
+
+        SemanticIndexReadState = "Loading";
+        NotifyOwnedSemanticRead(token, OwnsRead, ClearSemanticIndex);
         if (!Current() || compilation?.Dependencies is not { } dependencies || desired is null)
-        { if (generation == _semanticIndexGeneration) { SemanticIndexReadState = "Unavailable"; Changed(); } return false; }
+            return Refuse();
         CompilerSemanticIndex index;
         try { index = CompilerSemanticIndex.Build(dependencies.Binding, desired.Input.ExpectedInputDigest, cancellationToken: token, lookupCache: _semanticIndexLookupCache); }
-        catch (OperationCanceledException)
-        { if (Current()) { ClearSemanticIndex(); Changed(); } throw; }
+        catch (OperationCanceledException cancellation)
+        {
+            if (Current())
+            {
+                ClearSemanticIndex();
+                if (NotifySemanticWithdrawal() is { } notificationFailure)
+                    throw new OperationCanceledException(cancellation.Message, notificationFailure, cancellation.CancellationToken);
+            }
+            throw;
+        }
         if (!Current()) return false;
         if (index.State != CompilerSemanticIndexState.Complete || !index.IndexCoverageComplete)
-        { SemanticIndexReadState = "Unavailable"; Changed(); return false; }
-        var owner = new SemanticIndexOwner(index, compilation, scoped); _semanticIndexOwner = owner; SemanticIndexReadState = "Ready"; Changed();
-        if (token.IsCancellationRequested)
-        { if (ReferenceEquals(_semanticIndexOwner, owner)) { ClearSemanticIndex(); Changed(); } token.ThrowIfCancellationRequested(); }
+            return Refuse();
+        var owner = new SemanticIndexOwner(index, compilation, scoped);
+        _semanticIndexOwner = owner;
+        SemanticIndexReadState = "Ready";
+        NotifyOwnedSemanticRead(token, () => ReferenceEquals(_semanticIndexOwner, owner), ClearSemanticIndex);
         return Current() && ReferenceEquals(SemanticIndex, index);
     }
     public bool SelectIndexedSymbol(CompilerIndexedSymbol symbol)
@@ -72,11 +92,47 @@ public sealed partial class SyntheticWorkbenchViewModel
             ReferenceEquals(index, SemanticIndex) && ReferenceEquals(symbol, SelectedIndexedSymbol);
         Changed(); token.ThrowIfCancellationRequested(); if (!Current()) return null;
         var value = read(index!, symbol!); token.ThrowIfCancellationRequested(); if (!Current()) return null;
-        var owner = new SemanticQueryOwner(index!, symbol!, generation); _semanticQueryOwner = owner; publish(value); Changed();
-        if (token.IsCancellationRequested)
-        { if (ReferenceEquals(_semanticQueryOwner, owner)) { ClearSemanticQueries(); Changed(); } token.ThrowIfCancellationRequested(); }
+        var owner = new SemanticQueryOwner(index!, symbol!, generation);
+        _semanticQueryOwner = owner;
+        publish(value);
+        NotifyOwnedSemanticRead(token, () => ReferenceEquals(_semanticQueryOwner, owner), ClearSemanticQueries);
         return Current() && ReferenceEquals(_semanticQueryOwner, owner) ? value : null;
     }
+
+    private void NotifyOwnedSemanticRead(CancellationToken token, Func<bool> ownsView, Action withdraw)
+    {
+        Exception? withdrawalFailure = null;
+        bool cancelledAtNotification;
+        try { Changed(); }
+        finally
+        {
+            cancelledAtNotification = token.IsCancellationRequested;
+            if (cancelledAtNotification && ownsView())
+            {
+                withdraw();
+                withdrawalFailure = NotifySemanticWithdrawal();
+            }
+        }
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtNotification)
+            throw new OperationCanceledException("Semantic Index read was cancelled.", withdrawalFailure, token);
+    }
+
+    private Exception? NotifySemanticWithdrawal()
+    {
+        var subscribers = PropertyChanged;
+        if (subscribers is null) return null;
+
+        var args = new PropertyChangedEventArgs(null);
+        Exception? firstFailure = null;
+        foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+        {
+            try { subscriber(this, args); }
+            catch (Exception error) { firstFailure ??= error; }
+        }
+        return firstFailure;
+    }
+
     public CompilerIndexCompletionPage? ReadIndexedCompletion(int pageSize = CompilerSemanticIndex.MaximumPageSize,
         CompilerIndexCursor? cursor = null, CancellationToken cancellationToken = default)
     {
