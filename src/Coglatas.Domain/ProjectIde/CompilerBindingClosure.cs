@@ -61,15 +61,16 @@ public sealed class CompilerBindingClosure
         }
         Digest = ContentDigest.Compute(Format, Data.ToCanonicalBytes());
     }
+    // The declarationCache parameter is retained for caller compatibility. Pinned dependency regions decode fresh.
     public static CompilerBindingClosure Build(PartialSemanticModel root, ContentDigest expectedInput, CancellationToken cancellationToken = default,
         PlanDeclarationReadCache? declarationCache = null, ProjectSymbolBindingCache? symbolBindingCache = null, ProjectReferenceBindingCache? referenceBindingCache = null)
-        => BuildCore(root, expectedInput, cancellationToken, declarationCache, null, false, symbolBindingCache, referenceBindingCache);
+        => BuildCore(root, expectedInput, cancellationToken, null, false, symbolBindingCache, referenceBindingCache);
 
-    internal static CompilerBindingClosure BuildWithinBudget(PartialSemanticModel root, int remainingOperations, CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache, ProjectSymbolBindingCache? symbolBindingCache = null, ProjectReferenceBindingCache? referenceBindingCache = null)
-        => BuildCore(root, root.Input.InputDigest, cancellationToken, declarationCache, remainingOperations, true, symbolBindingCache, referenceBindingCache);
+    internal static CompilerBindingClosure BuildWithinBudget(PartialSemanticModel root, int remainingOperations, CancellationToken cancellationToken, ProjectSymbolBindingCache? symbolBindingCache = null, ProjectReferenceBindingCache? referenceBindingCache = null)
+        => BuildCore(root, root.Input.InputDigest, cancellationToken, remainingOperations, true, symbolBindingCache, referenceBindingCache);
 
     private static CompilerBindingClosure BuildCore(PartialSemanticModel root, ContentDigest expectedInput, CancellationToken cancellationToken,
-        PlanDeclarationReadCache? declarationCache, int? remainingOperations, bool includeDeclaredSnapshots, ProjectSymbolBindingCache? symbolBindingCache, ProjectReferenceBindingCache? referenceBindingCache)
+        int? remainingOperations, bool includeDeclaredSnapshots, ProjectSymbolBindingCache? symbolBindingCache, ProjectReferenceBindingCache? referenceBindingCache)
     {
         ArgumentNullException.ThrowIfNull(root); ArgumentNullException.ThrowIfNull(expectedInput); cancellationToken.ThrowIfCancellationRequested();
         var input = root.Input; var remaining = remainingOperations ?? input.ExecutionProfile.MaximumOperations - root.LogicalOperationsConsumed;
@@ -139,7 +140,7 @@ public sealed class CompilerBindingClosure
                 settings["executionProfile"]!["maximumOperations"] = remaining;
                 var regionInput = new CompilerInputManifest(snapshot.Snapshot.Source, SourceJson.FromObject(settings, input.Settings.Limits));
                 var model = ProjectSemanticBinder.BindRegion(regionInput,
-                    root.MaterializedSnapshots.Where(item => !item.Snapshot.Source.Context.Equals(context)), input, cancellationToken, declarationCache, symbolBindingCache, referenceBindingCache, referenceScope, symbolScope);
+                    root.MaterializedSnapshots.Where(item => !item.Snapshot.Source.Context.Equals(context)), input, cancellationToken, symbolBindingCache, referenceBindingCache, referenceScope, symbolScope);
                 remaining -= model.LogicalOperationsConsumed;
                 regions.Add(new(input, model, snapshot));
                 if (!model.BindingComplete) return Finish(remaining <= 0 || model.Findings.Any(item => item.Diagnostic.Code.Contains("budget", StringComparison.Ordinal))

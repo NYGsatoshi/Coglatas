@@ -3,6 +3,8 @@ import { LucideMaximize, LucideRotateCw, LucideZoomIn, LucideZoomOut } from '@lu
 
 import { injectFilesI18n } from '../../../core/i18n/providers/files-i18n';
 
+const arrowScrollStep = 40;
+
 @Component({
   selector: 'app-file-image-viewport',
   standalone: true,
@@ -90,6 +92,33 @@ export class FileImageViewportComponent implements AfterViewInit, OnChanges, OnD
     if ((image.currentSrc || image.src) !== this.source) { return; }
     this.reset();
     this.failed.set(true);
+  }
+
+  @HostListener('keydown', ['$event'])
+  onViewportKeyDown(event: KeyboardEvent): void {
+    const viewport = this.viewport?.nativeElement;
+    if (!viewport || event.target !== viewport || !this.ready() || event.defaultPrevented ||
+        event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      return;
+    }
+
+    let left = 0;
+    let top = 0;
+    switch (event.key) {
+      case 'ArrowLeft': left = -arrowScrollStep; break;
+      case 'ArrowRight': left = arrowScrollStep; break;
+      case 'ArrowUp': top = -arrowScrollStep; break;
+      case 'ArrowDown': top = arrowScrollStep; break;
+      default: return;
+    }
+    if ((left && viewport.scrollWidth <= viewport.clientWidth) ||
+        (top && viewport.scrollHeight <= viewport.clientHeight)) {
+      return;
+    }
+
+    // Apply each key immediately so a pending native scroll animation cannot delay an axis change.
+    event.preventDefault();
+    viewport.scrollBy({ left, top, behavior: 'instant' });
   }
 
   fit(): void { this.mode.set('fit'); this.resetScroll(); }

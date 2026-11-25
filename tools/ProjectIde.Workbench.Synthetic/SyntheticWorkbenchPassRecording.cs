@@ -1,10 +1,29 @@
 using Coglatas.Application.ProjectIde.Core;
+using System.ComponentModel;
 using Coglatas.Domain.ProjectIde;
 
 namespace Coglatas.ProjectIde.Workbench.Synthetic;
 
 public sealed partial class SyntheticWorkbenchViewModel
 {
+    private Exception? NotifyRecordingWithdrawal()
+    {
+        var subscribers = PropertyChanged;
+        if (subscribers is null)
+        {
+            return null;
+        }
+
+        Exception? firstFailure = null;
+        var args = new PropertyChangedEventArgs(null);
+        foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+        {
+            try { subscriber(this, args); }
+            catch (Exception error) { firstFailure ??= error; }
+        }
+        return firstFailure;
+    }
+
     private PassObservationCompilerHostRequest? _desiredPassRequest;
     private LocalPassObservationCompilerRecordingManifest? _desiredPassManifest;
     private PassObservationCompilerRecordedInvocation? _acceptedPassInvocation;
@@ -84,13 +103,23 @@ public sealed partial class SyntheticWorkbenchViewModel
         var execution = actual!.Response.Execution!;
         var snapshot = ProjectCompilerPassObservationSnapshot.Read(execution, compilation!, execution.Observation, compilation!.Input.InputDigest, expectedResult, mode, maximumBodyBytes, token);
         if (!Current()) return false;
-        _recordedPasses = snapshot; _passCompilation = compilation; Changed();
-        if (token.IsCancellationRequested)
+        _recordedPasses = snapshot;
+        _passCompilation = compilation;
+        Exception? withdrawalFailure = null;
+        bool cancelledAtPublication;
+        try { Changed(); }
+        finally
         {
-            if (generation == _passSnapshotGeneration && ReferenceEquals(_recordedPasses, snapshot))
-            { ClearPassSnapshot(); Changed(); }
-            token.ThrowIfCancellationRequested();
+            cancelledAtPublication = token.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _passSnapshotGeneration && ReferenceEquals(_recordedPasses, snapshot))
+            {
+                ClearPassSnapshot();
+                withdrawalFailure = NotifyRecordingWithdrawal();
+            }
         }
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Pass recording read was cancelled.", withdrawalFailure, token);
         return Current() && ReferenceEquals(RecordedPasses, snapshot) && snapshot.State is not (CompilerPassObservationSnapshotState.RefusedInvocation or
             CompilerPassObservationSnapshotState.RefusedInputBinding or CompilerPassObservationSnapshotState.RefusedWrongResult);
     }
