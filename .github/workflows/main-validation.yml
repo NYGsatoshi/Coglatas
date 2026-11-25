@@ -14,7 +14,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:18.7@sha256:eb63372c1e05c755f55fa30cbd07aecc443676fc6c0fa90b9002d01537841e1a # PostgreSQL 18.7
+        image: postgres:18.7@sha256:c699303802144847d238196173655dbbecf7a96aeca1565f2b02eb671a1f0b6b # PostgreSQL 18.7
         env:
           POSTGRES_DB: coglatas_ci
           POSTGRES_USER: coglatas_ci
