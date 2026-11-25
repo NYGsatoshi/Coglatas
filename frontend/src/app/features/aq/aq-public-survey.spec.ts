@@ -62,6 +62,45 @@ describe('AqPublicSurvey', () => {
     expect(localStorage.getItem('coglatas.aq.submitted.fixture-marker')).toBe('1');
   });
 
+  it('counts entered questions without treating false, zero or cleared choices as the same value', () => {
+    const fixture = TestBed.createComponent(AqPublicSurvey);
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('/api/v1/public/surveys/survey-code').flush({
+      data: {
+        ...survey,
+        fields: [
+          ...survey.fields,
+          { fieldKey: 'boolean', label: 'Boolean', type: 'boolean', required: false },
+          { fieldKey: 'number', label: 'Number', type: 'number', required: false },
+          { fieldKey: 'choices', label: 'Choices', type: 'multipleChoice', required: false,
+            options: [{ optionKey: 'first', label: 'First' }] },
+        ],
+      },
+    });
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const progress = root.querySelector('progress')!;
+    const answer = root.querySelector('textarea')!;
+    const number = root.querySelector<HTMLInputElement>('input[type="number"]')!;
+    const choice = root.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    expect(progress.max).toBe(4);
+    expect(progress.value).toBe(0);
+    answer.value = '  ';
+    answer.dispatchEvent(new Event('input'));
+    root.querySelectorAll<HTMLInputElement>('input[type="radio"]')[1].click();
+    number.value = '0';
+    number.dispatchEvent(new Event('input'));
+    choice.click();
+    fixture.detectChanges();
+    expect(progress.value).toBe(3);
+    choice.click();
+    number.value = '';
+    number.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(progress.value).toBe(1);
+    http.expectNone(request => request.method === 'POST');
+  });
+
   it('retains the same intent after a connection failure', () => {
     const fixture = TestBed.createComponent(AqPublicSurvey);
     const http = TestBed.inject(HttpTestingController);
