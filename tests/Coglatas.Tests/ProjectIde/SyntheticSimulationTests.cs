@@ -41,6 +41,115 @@ public sealed class SyntheticSimulationTests
         Assert.True(view.LoadSyntheticScopedSources()); Assert.Null(view.SimulationRun);
     }
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task PublicationCancellationWithdrawsTheOwnedSimulationAndItsProfile(bool throwOnPublication, bool throwOnWithdrawal)
+    {
+        var ready = await Ready();
+        using var view = ready.View;
+        Assert.True(view.LoadSyntheticScopedSources());
+        var plan = view.ScopedExecutionPlan;
+        using var cancellation = new CancellationTokenSource();
+        Action cancel = cancellation.Cancel;
+        var token = cancellation.Token;
+        var publicationFailure = new InvalidOperationException("publication failed");
+        var withdrawalFailure = new InvalidOperationException("withdrawal failed");
+        var published = false;
+        var withdrawalNotifications = 0;
+        System.ComponentModel.PropertyChangedEventHandler observer = (sender, _) =>
+        {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (!published && subject.SimulationRun is { Execution: CompilerExecutionState.Completed } run)
+            {
+                published = true;
+                Assert.True(subject.ProfileSyntheticSimulation(run.Digest));
+                Assert.NotNull(subject.SimulationTraceProfile);
+                cancel();
+                if (throwOnPublication) throw publicationFailure;
+            }
+            else if (published && subject.SimulationRun is null && throwOnWithdrawal)
+            {
+                throw withdrawalFailure;
+            }
+        };
+        System.ComponentModel.PropertyChangedEventHandler laterObserver = (sender, _) =>
+        {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (published && subject.SimulationRun is null) withdrawalNotifications++;
+        };
+        view.PropertyChanged += observer;
+        view.PropertyChanged += laterObserver;
+        Exception? failure;
+        try { failure = RunAndCapturePublicationError(view, Guid.Parse(Id(964)), token); }
+        finally
+        {
+            view.PropertyChanged -= observer;
+            view.PropertyChanged -= laterObserver;
+        }
+
+        Assert.True(published);
+        Assert.Null(view.SimulationRun);
+        Assert.Null(view.SimulationTraceProfile);
+        Assert.Same(plan, view.ScopedExecutionPlan);
+        Assert.Equal(1, withdrawalNotifications);
+        if (throwOnPublication)
+        {
+            Assert.Same(publicationFailure, failure);
+        }
+        else
+        {
+            var cancelled = Assert.IsType<OperationCanceledException>(failure);
+            Assert.Equal(token, cancelled.CancellationToken);
+            Assert.Same(throwOnWithdrawal ? withdrawalFailure : null, cancelled.InnerException);
+        }
+    }
+
+    [Fact]
+    public async Task PublicationCancellationKeepsAReentrantReplacementSimulation()
+    {
+        var ready = await Ready();
+        using var view = ready.View;
+        Assert.True(view.LoadSyntheticScopedSources());
+        using var cancellation = new CancellationTokenSource();
+        Action cancel = cancellation.Cancel;
+        var token = cancellation.Token;
+        ProjectSimulationRun? replacement = null;
+        var replaced = false;
+        System.ComponentModel.PropertyChangedEventHandler observer = (sender, _) =>
+        {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (replaced || subject.SimulationRun is null) return;
+            replaced = true;
+            cancel();
+            Assert.True(subject.RunSyntheticSimulation(Guid.Parse(Id(965)), 100));
+            replacement = subject.SimulationRun;
+        };
+        view.PropertyChanged += observer;
+        OperationCanceledException cancelled;
+        try { cancelled = Assert.IsType<OperationCanceledException>(RunAndCapturePublicationError(view, Guid.Parse(Id(966)), token)); }
+        finally { view.PropertyChanged -= observer; }
+        Assert.Equal(token, cancelled.CancellationToken);
+        Assert.NotNull(replacement);
+        Assert.Same(replacement, view.SimulationRun);
+        Assert.Equal(CompilerExecutionState.Completed, replacement.Execution);
+    }
+
+    private static Exception? RunAndCapturePublicationError(SyntheticWorkbenchViewModel view, Guid id, CancellationToken token)
+    {
+        try
+        {
+            _ = view.RunSyntheticSimulation(id, cancellationToken: token);
+            return null;
+        }
+        catch (Exception error)
+        {
+            return error;
+        }
+    }
+
+    [Theory]
     [InlineData("reset", false)] [InlineData("reset", true)] [InlineData("dispose", false)] [InlineData("dispose", true)]
     [InlineData("begin", false)] [InlineData("begin", true)] [InlineData("reload", false)] [InlineData("reload", true)]
     public async Task NotificationReentrancyCannotPublishOrRetainAnOldRun(string mode, bool afterPublication)

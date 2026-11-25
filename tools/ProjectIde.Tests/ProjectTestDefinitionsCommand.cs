@@ -55,8 +55,8 @@ internal static class ProjectTestDefinitionsCommand
             catch (UnsupportedSourceException) { artifact = Failure("Unsupported"); code = 2; }
             catch (Exception error) when (error is FormatException or ArgumentException or OverflowException or JsonException)
             { artifact = Failure("InvalidInput"); code = 3; }
-            await ProjectTestOutput.WriteNewAsync(args[^1], artifact.ToCanonicalBytes());
-            return code;
+            return await ProjectTestOutput.PublishResultAsync(args[^1], artifact.ToCanonicalBytes(), code, token,
+                static () => Failure("Cancelled").ToCanonicalBytes());
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or FormatException or JsonException)
         {

@@ -114,11 +114,18 @@ public static class RequirementEvidenceValidator
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (--remaining < 0 || ++examined > 1024)
-                { execution = CompilerExecutionState.ResourceExhausted; Add("coglatas.evidence.budget-exhausted", RelationFindingState.Unknown); return Finish(); }
+                {
+                    execution = CompilerExecutionState.ResourceExhausted;
+                    Add("coglatas.evidence.budget-exhausted", RelationFindingState.Unknown);
+                    break;
+                }
                 if (claim is null) { Add("coglatas.evidence.claim-invalid", RelationFindingState.Invalid); continue; }
-                if (!Spend(claim.Requirement.Data) || !Spend(claim.Target.Data) || !Spend(claim.Result.Data)) return Finish();
+                if (!Spend(claim.Requirement.Data) || !Spend(claim.Target.Data) || !Spend(claim.Result.Data)) break;
                 observed.Add(claim);
             }
+            cancellationToken.ThrowIfCancellationRequested();
+            if (execution == CompilerExecutionState.ResourceExhausted) return Finish();
+
             foreach (var claim in observed.OrderBy(item => item.Result.ResultDigest.Value, StringComparer.Ordinal)
                 .ThenBy(item => item.Requirement.Data.CanonicalText, StringComparer.Ordinal).ThenBy(item => item.Target.Data.CanonicalText, StringComparer.Ordinal))
             {
