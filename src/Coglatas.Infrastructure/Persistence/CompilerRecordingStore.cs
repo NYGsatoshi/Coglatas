@@ -36,7 +36,7 @@ public sealed class CompilerRecordingStore(AppDbContext context, ProjectIdeOpera
         var payload = JsonSerializer.Serialize(evidence, PayloadOptions);
         var recordedAtUtc = clock.UtcNow;
         var inserted = await context.Database.ExecuteSqlInterpolatedAsync($"""
-            INSERT INTO projectide_compiler_recording_evidence
+            INSERT INTO projectide_development.projectide_compiler_recording_evidence
                 ("TenantId", "ProjectId", "RunId", "AttemptId", "ActorUserId", "RecordedAtUtc", "Payload")
             VALUES ({evidence.Source.TenantId}, {evidence.Source.ProjectId}, {evidence.RunId}, {evidence.AttemptId},
                 {viewer.UserId}, {recordedAtUtc}, CAST({payload} AS jsonb))
