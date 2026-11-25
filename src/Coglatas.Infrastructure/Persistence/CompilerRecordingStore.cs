@@ -89,8 +89,11 @@ public sealed class CompilerRecordingStore(AppDbContext context, ProjectIdeOpera
     }
 
     private Task<CompilerRecordingEvidenceRow?> FindRowAsync(Guid tenantId, Guid projectId, Guid runId, CancellationToken cancellationToken) =>
-        context.Set<CompilerRecordingEvidenceRow>().AsNoTracking().SingleOrDefaultAsync(row =>
-            row.TenantId == tenantId && row.ProjectId == projectId && row.RunId == runId, cancellationToken);
+        context.Database.SqlQuery<CompilerRecordingEvidenceRow>($"""
+            SELECT "ActorUserId", "Payload"::text AS "Payload"
+            FROM projectide_development.projectide_compiler_recording_evidence
+            WHERE "TenantId" = {tenantId} AND "ProjectId" = {projectId} AND "RunId" = {runId}
+            """).SingleOrDefaultAsync(cancellationToken);
 
     private static CompilerRecordingEvidence? ReadEvidence(CompilerRecordingEvidenceRow row)
     {
@@ -103,15 +106,10 @@ public sealed class CompilerRecordingStore(AppDbContext context, ProjectIdeOpera
             return null;
         }
     }
-}
 
-internal sealed class CompilerRecordingEvidenceRow
-{
-    public Guid TenantId { get; private set; }
-    public Guid ProjectId { get; private set; }
-    public Guid RunId { get; private set; }
-    public Guid AttemptId { get; private set; }
-    public Guid ActorUserId { get; private set; }
-    public DateTimeOffset RecordedAtUtc { get; private set; }
-    public string Payload { get; private set; } = "";
+    private sealed class CompilerRecordingEvidenceRow
+    {
+        public Guid ActorUserId { get; private set; }
+        public string Payload { get; private set; } = "";
+    }
 }
