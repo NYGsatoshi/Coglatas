@@ -66,7 +66,7 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
             using var response = await GetDataAsync(guest, SurveyRoute + fixture.TargetCode);
             var data = response.RootElement.GetProperty("data");
             Assert.Equal(saved[original.Id].SchemaDigest, data.GetProperty("schemaDigest").GetString());
-            Assert.Equal<string?>([FieldKey, "track"],
+            Assert.Equal([FieldKey, "track"],
                 data.GetProperty("fields").EnumerateArray().Select(x => x.GetProperty("fieldKey").GetString()));
         });
 

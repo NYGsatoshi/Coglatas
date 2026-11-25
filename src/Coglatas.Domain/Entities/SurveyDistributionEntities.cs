@@ -536,7 +536,7 @@ internal static class SurveyVersion
     internal static long Next(long versionNo, long expectedVersionNo) =>
         (versionNo, expectedVersionNo) switch
         {
-            (var current, var expected) when current == expected => checked(current + 1),
+            var (current, expected) when current == expected => checked(current + 1),
             _ => throw new InvalidOperationException("The supplied version does not match the current record.")
         };
 }
