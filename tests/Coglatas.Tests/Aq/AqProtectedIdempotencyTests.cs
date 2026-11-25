@@ -84,15 +84,15 @@ public sealed class AqProtectedIdempotencyTests
     [InlineData("seven77", "InvalidIdempotencyKey")]
     [InlineData("key-🙂-1", "InvalidIdempotencyKey")]
     public Task CommandsRejectInvalidHeaderBeforeCallingServices(string? key, string code) =>
-        AssertCommandErrorsAsync(new StringValues(key), code);
+        AssertCommandErrorsAsync(key, code);
 
     [Fact]
     public Task CommandsRejectRepeatedHeaderBeforeCallingServices() =>
-        AssertCommandErrorsAsync(new StringValues(["key-0001", "key-0002"]), "InvalidIdempotencyKey");
+        AssertCommandErrorsAsync((string[])["key-0001", "key-0002"], "InvalidIdempotencyKey");
 
     [Fact]
     public Task CommandsRejectOversizeHeaderBeforeCallingServices() =>
-        AssertCommandErrorsAsync(new StringValues(new string('x', 129)), "InvalidIdempotencyKey");
+        AssertCommandErrorsAsync(new string('x', 129), "InvalidIdempotencyKey");
 
     private static async Task AssertCommandErrorsAsync(StringValues key, string code)
     {

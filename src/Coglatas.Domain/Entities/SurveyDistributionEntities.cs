@@ -533,11 +533,10 @@ public sealed class SurveyReceptionWindow
 
 internal static class SurveyVersion
 {
-    internal static long Next(long versionNo, long expectedVersionNo)
-    {
-        if (versionNo != expectedVersionNo)
-            throw new InvalidOperationException("The supplied version does not match the current record.");
-
-        return checked(expectedVersionNo + 1);
-    }
+    internal static long Next(long versionNo, long expectedVersionNo) =>
+        (versionNo, expectedVersionNo) switch
+        {
+            var (current, expected) when current == expected => checked(current + 1),
+            _ => throw new InvalidOperationException("The supplied version does not match the current record.")
+        };
 }
