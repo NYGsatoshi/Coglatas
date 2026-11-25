@@ -8,7 +8,6 @@ using Coglatas.Domain.Enums;
 using Coglatas.Domain.ProjectIde;
 using Coglatas.Infrastructure.Persistence;
 using Coglatas.Tests.ProjectIde;
-using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
 namespace Coglatas.Tests.PostgreSql;
@@ -47,13 +46,13 @@ public sealed class CompilerRecordingStorePostgreSqlTests
         Assert.Null(await first.FindAsync(expected.Source with { TenantId = Guid.NewGuid() }, expected.SourceDigest, expected.RunId, default));
 
         var payload = await PostgreSqlMigrationTestDatabase.ScalarAsync<string>(fixture.Database,
-            "SELECT \"Payload\"::text FROM projectide_compiler_recording_evidence WHERE \"RunId\" = @run", ("run", expected.RunId));
+            "SELECT \"Payload\"::text FROM projectide_development.projectide_compiler_recording_evidence WHERE \"RunId\" = @run", ("run", expected.RunId));
         Assert.Contains(expected.ReceiptDigest, payload);
         Assert.DoesNotContain("private-source-canary", payload);
         Assert.DoesNotContain("private-session-canary", payload);
         Assert.DoesNotContain("Bodies", payload);
         var mutation = await Assert.ThrowsAsync<PostgresException>(() => PostgreSqlMigrationTestDatabase.ExecuteAsync(fixture.Database,
-            "UPDATE projectide_compiler_recording_evidence SET \"RecordedAtUtc\" = now() WHERE \"RunId\" = @run", ("run", expected.RunId)));
+            "UPDATE projectide_development.projectide_compiler_recording_evidence SET \"RecordedAtUtc\" = now() WHERE \"RunId\" = @run", ("run", expected.RunId)));
         Assert.Equal(PostgresErrorCodes.RaiseException, mutation.SqlState);
         Assert.Equal(expected, await first.FindAsync(expected.Source, expected.SourceDigest, expected.RunId, default));
     });
@@ -125,6 +124,9 @@ public sealed class CompilerRecordingStorePostgreSqlTests
         PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
         {
             await using var writer = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+            Assert.True(await PostgreSqlMigrationTestDatabase.ScalarAsync<bool>(database,
+                "SELECT to_regnamespace('projectide_development') IS NULL AND to_regclass('public.projectide_compiler_recording_evidence') IS NULL"));
+            await CompilerRecordingDevelopmentSchema.ProvisionAsync(writer);
             var tenant = new Tenant { Slug = "projectide-recording", Name = "Recording", DisplayName = "Recording" };
             var user = new User { Email = "compiler@example.invalid", NormalizedEmail = "COMPILER@EXAMPLE.INVALID" };
             var session = new Session { UserId = user.Id, SessionKeyHash = "private-session-canary", ExpiresAt = DateTimeOffset.UtcNow.AddHours(1) };
