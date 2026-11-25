@@ -15,6 +15,13 @@ not part of a cached verdict. External snapshot decoding is not reused. Resource
 Tenant checks also run on every returned declaration. Unknown/invalid shapes keep
 their original status and Source data; caching does not interpret opaque payloads.
 
+The root bind captures its declaration-cache generation before enumerating
+materializations. Clear or a root owner change makes that bind decode fresh
+without reading or repopulating retained entries. Dependency closure regions
+decode their pinned Source fresh and preserve the caller's retained root entries.
+Executable controls invalidate the cache during snapshot supply and before
+dependency closure, then compare the result with uncached compilation.
+
 The retained graph owns its collection storage behind read-only list and
 dictionary views. Existing generic IList/IDictionary mutation APIs still reject
 writes with NotSupportedException; the views expose no non-generic ICollection

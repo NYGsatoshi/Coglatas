@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Coglatas.Domain.ProjectIde;
 
 namespace Coglatas.ProjectIde.Workbench.Synthetic;
@@ -56,12 +57,31 @@ public sealed partial class SyntheticWorkbenchViewModel
         cancellationToken.ThrowIfCancellationRequested();
         if (!Current()) return null;
         var owner = new ReferencePageOwner(page, inspection, symbol, compilation.Result, root, rootGeneration, query);
-        _referencePageOwner = owner; Changed();
-        if (cancellationToken.IsCancellationRequested)
+        _referencePageOwner = owner;
+        Exception? withdrawalFailure = null;
+        bool cancelledAtPublication;
+        try { Changed(); }
+        finally
         {
-            if (query == _referencePageGeneration && ReferenceEquals(_referencePageOwner, owner)) { ClearReferenceSearchPage(); Changed(); }
-            cancellationToken.ThrowIfCancellationRequested();
+            cancelledAtPublication = cancellationToken.IsCancellationRequested;
+            if (cancelledAtPublication && query == _referencePageGeneration && ReferenceEquals(_referencePageOwner, owner))
+            {
+                ClearReferenceSearchPage();
+                var subscribers = PropertyChanged;
+                if (subscribers is not null)
+                {
+                    var args = new PropertyChangedEventArgs(null);
+                    foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+                    {
+                        try { subscriber(this, args); }
+                        catch (Exception error) { withdrawalFailure ??= error; }
+                    }
+                }
+            }
         }
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Reference search page publication was cancelled.", withdrawalFailure, cancellationToken);
         return Current() && ReferenceEquals(ReferencePage, page) ? page : null;
     }
 

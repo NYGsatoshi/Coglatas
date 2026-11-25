@@ -33,13 +33,24 @@ public sealed partial class SyntheticWorkbenchViewModel
             ? ProjectDiagnosticPremiseSnapshot.Read(compilation!, diagnostic!, expectedResult, mode, maximumBodyBytes, token)
             : ProjectDiagnosticPremiseSnapshot.ReadRoot(_rootSourceAdmission!, diagnostic!, expectedResult, mode, maximumBodyBytes, token);
         if (!Current()) return false;
-        _diagnosticPremises = snapshot; _premiseCompilation = compilation; _premiseDiagnostic = diagnostic; Changed();
-        if (token.IsCancellationRequested)
+        _diagnosticPremises = snapshot;
+        _premiseCompilation = compilation;
+        _premiseDiagnostic = diagnostic;
+        Exception? withdrawalFailure = null;
+        bool cancelledAtPublication;
+        try { Changed(); }
+        finally
         {
-            if (generation == _premiseGeneration && ReferenceEquals(_diagnosticPremises, snapshot))
-            { ClearDiagnosticPremises(); Changed(); }
-            token.ThrowIfCancellationRequested();
+            cancelledAtPublication = token.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _premiseGeneration && ReferenceEquals(_diagnosticPremises, snapshot))
+            {
+                ClearDiagnosticPremises();
+                withdrawalFailure = NotifySourceWithdrawal();
+            }
         }
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Diagnostic premise read was cancelled.", withdrawalFailure, token);
         return Current() && ReferenceEquals(DiagnosticPremises, snapshot) && snapshot.State is not
             (DiagnosticPremiseSnapshotState.RefusedWrongResult or DiagnosticPremiseSnapshotState.RefusedInputBinding or
              DiagnosticPremiseSnapshotState.RefusedDiagnostic or DiagnosticPremiseSnapshotState.RefusedBodyBinding);
