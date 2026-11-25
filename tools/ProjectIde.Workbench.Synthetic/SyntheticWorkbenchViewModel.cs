@@ -454,7 +454,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
 
     public bool NavigateReferenceDefinition() => NavigateTo(ReferenceSymbol?.Symbol.Location, requireSourceMap: true);
 
-    public bool Navigate() => NavigateTo(SelectedTestAssertion?.Location ?? SelectedDiagnostic?.Location ?? Selected?.Symbol.Location);
+    public bool Navigate() => NavigateTo(SelectedDiscoveredTest?.Location ?? SelectedTestAssertion?.Location ?? SelectedDiagnostic?.Location ?? Selected?.Symbol.Location);
 
     public bool NavigateDiagnosticSymbol() => NavigateTo(DiagnosticSymbol?.Symbol.Location);
 
@@ -558,7 +558,7 @@ public sealed partial class SyntheticWorkbenchViewModel : INotifyPropertyChanged
         ClearReferenceSearchPage();
         ClearDiagnosticPremises(); ClearRecordedPredicatePremises(); ClearOperatorSnapshot(); ClearRegionalOperatorSelection();
         ClearTestEdit(); ClearScenarioPreview(); ClearScopedSelection();
-        SelectedTestAssertion = null; Selected = null; SelectedDiagnostic = null; SelectedReference = null; ReferenceSymbol = null;
+        SelectedDiscoveredTest = null; SelectedTestAssertion = null; Selected = null; SelectedDiagnostic = null; SelectedReference = null; ReferenceSymbol = null;
         ReferenceCompletion = null;
         TaskSuggestions = null; _taskSuggestionGeneration++;
         RenamePreview = null;

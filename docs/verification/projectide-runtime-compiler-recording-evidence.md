@@ -26,6 +26,13 @@ for the exact same evidence. A diagnostic rerun must link a stored origin with
 the same Source and execution input and the original receipt digest. Recording
 the rerun also requires current read permission for that origin.
 
+The fixture provisions the receipt table and its guards explicitly under
+`projectide_development` after applying the ordinary application migrations.
+Ordinary migrations create neither that schema nor the receipt table. Use
+`CompilerRecordingDevelopmentSchema.ProvisionAsync` in an isolated development
+database. The setup uses the same scoped application access checks and leaves
+the application's production migration and row-policy catalogues unchanged.
+
 The store makes no currentness, producer trust, evidence eligibility or Release
 decision. #1938 independent acceptance and the remaining #1034 capture,
 retention, deletion and redacted export contracts require their own qualification.
