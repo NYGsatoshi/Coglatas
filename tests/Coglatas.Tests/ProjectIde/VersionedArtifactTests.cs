@@ -410,6 +410,83 @@ public sealed class VersionedArtifactTests
         Assert.True(disposed); Assert.Equal(0, store.Count);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Disposal_cancellation_wins_over_an_exhausted_supplier(bool exceedArtifacts)
+    {
+        var source = CompilerContractFixtures.Source();
+        var nextSource = CompilerContractFixtures.Source(7);
+        var manifest = Manifest(source);
+        var nextManifest = Manifest(nextSource);
+        using var cancellation = new CancellationTokenSource();
+        var sourcesOpened = false;
+
+        IEnumerable<ReadOnlyMemory<byte>> BuffersWithCancellation(Action cancel)
+        {
+            try { yield return manifest.Data.ToCanonicalBytes(); yield return nextManifest.Data.ToCanonicalBytes(); }
+            finally { cancel(); }
+        }
+
+        IEnumerable<ProjectSource> SourcesWithCancellation(Action cancel)
+        {
+            sourcesOpened = true;
+            try { yield return source; yield return nextSource; }
+            finally { cancel(); }
+        }
+
+        var store = new PrototypeArtifactStore();
+        var buffers = exceedArtifacts ? BuffersWithCancellation(cancellation.Cancel) : Buffers(manifest);
+        Assert.Equal(ArtifactImportState.Cancelled, store.Import(manifest.Identity, buffers, SourcesWithCancellation(cancellation.Cancel),
+            cancellation.Token, maximumArtifacts: 1));
+        Assert.Equal(!exceedArtifacts, sourcesOpened);
+        Assert.Equal(0, store.Count);
+        Assert.Equal(0, store.SourceCount);
+    }
+
+    [Fact]
+    public void Buffer_disposal_cancellation_leaves_the_source_supplier_unopened()
+    {
+        var source = CompilerContractFixtures.Source();
+        var manifest = Manifest(source);
+        var store = new PrototypeArtifactStore();
+        Assert.Equal(ArtifactImportState.Imported, store.Import(manifest.Identity, Buffers(manifest), [source]));
+        using var cancellation = new CancellationTokenSource();
+        var sourcesOpened = false;
+
+        var buffers = new SupplierEnumerable<ReadOnlyMemory<byte>>(Buffers(manifest), onDispose: cancellation.Cancel);
+        var sources = new SupplierEnumerable<ProjectSource>([source], onOpen: () => sourcesOpened = true);
+        Assert.Equal(ArtifactImportState.Cancelled, store.Import(manifest.Identity, buffers, sources, cancellation.Token));
+        Assert.False(sourcesOpened);
+        Assert.Equal(1, store.Count);
+        Assert.Equal(1, store.SourceCount);
+        Assert.Equal(manifest.Data, store.Find(manifest.Identity)!.Data);
+    }
+
+    private sealed class SupplierEnumerable<T>(IEnumerable<T> values, Action? onOpen = null, Action? onDispose = null) : IEnumerable<T>
+    {
+        public IEnumerator<T> GetEnumerator()
+        {
+            onOpen?.Invoke();
+            return new Enumerator(values.GetEnumerator(), onDispose);
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+        private sealed class Enumerator(IEnumerator<T> inner, Action? onDispose) : IEnumerator<T>
+        {
+            public T Current => inner.Current;
+            object? System.Collections.IEnumerator.Current => Current;
+            public bool MoveNext() => inner.MoveNext();
+            public void Reset() => inner.Reset();
+            public void Dispose()
+            {
+                inner.Dispose();
+                onDispose?.Invoke();
+            }
+        }
+    }
+
     [Fact]
     public void Exhausted_budget_does_not_open_the_next_supplier_or_publish_partial_state()
     {

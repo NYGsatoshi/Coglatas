@@ -126,8 +126,18 @@ public sealed class PrototypeArtifactStore
         // All suppliers and parsing finish before publication. Exceptions leave the previous index intact.
         var staged = new Dictionary<ArtifactIdentity, PrototypeArtifact>();
         long bytes = 0;
-        using (var iterator = buffers.GetEnumerator())
+        var bufferFailure = ReadBuffers();
+        if (cancellationToken.IsCancellationRequested) return ArtifactImportState.Cancelled;
+        if (bufferFailure is { } failedBufferState) return failedBufferState;
+
+        var sourcePins = new Dictionary<string, ProjectSource>(StringComparer.Ordinal);
+        var sourceFailure = ReadSources();
+        if (cancellationToken.IsCancellationRequested) return ArtifactImportState.Cancelled;
+        if (sourceFailure is { } failedSourceState) return failedSourceState;
+
+        ArtifactImportState? ReadBuffers()
         {
+            using var iterator = buffers.GetEnumerator();
             while (true)
             {
                 if (cancellationToken.IsCancellationRequested) return ArtifactImportState.Cancelled;
@@ -136,6 +146,7 @@ public sealed class PrototypeArtifactStore
                 if (!hasNext) break;
                 if (staged.Count >= maximumArtifacts) return ArtifactImportState.Exhausted;
                 var buffer = iterator.Current;
+                if (cancellationToken.IsCancellationRequested) return ArtifactImportState.Cancelled;
                 if (buffer.Length > maximumBytes - bytes) return ArtifactImportState.Exhausted;
                 bytes += buffer.Length;
                 PrototypeArtifact artifact;
@@ -144,10 +155,12 @@ public sealed class PrototypeArtifactStore
                 if (!artifact.SemanticsSupported) return ArtifactImportState.Unsupported;
                 if (!staged.TryAdd(artifact.Identity, artifact)) throw new FormatException("Duplicate offline artifact entry.");
             }
+            return null;
         }
-        var sourcePins = new Dictionary<string, ProjectSource>(StringComparer.Ordinal);
-        using (var iterator = sources.GetEnumerator())
+
+        ArtifactImportState? ReadSources()
         {
+            using var iterator = sources.GetEnumerator();
             while (true)
             {
                 if (cancellationToken.IsCancellationRequested) return ArtifactImportState.Cancelled;
@@ -156,6 +169,7 @@ public sealed class PrototypeArtifactStore
                 if (!hasNext) break;
                 if (sourcePins.Count >= maximumArtifacts) return ArtifactImportState.Exhausted;
                 var source = iterator.Current;
+                if (cancellationToken.IsCancellationRequested) return ArtifactImportState.Cancelled;
                 var sourceBytes = ProjectSourceCodec.Encode(source);
                 if (sourceBytes.Length > maximumBytes - bytes) return ArtifactImportState.Exhausted;
                 bytes += sourceBytes.Length;
@@ -164,7 +178,9 @@ public sealed class PrototypeArtifactStore
                 if (!sourcePins.TryAdd(ArtifactSourcePin.FromSource(source).Data.CanonicalText, source))
                     throw new FormatException("Duplicate offline Source entry.");
             }
+            return null;
         }
+
         lock (_sync)
         {
             var candidate = new Dictionary<ArtifactIdentity, PrototypeArtifact>(_artifacts);
