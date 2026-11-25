@@ -6,6 +6,7 @@ import { EMPTY, catchError, distinctUntilChanged, filter, forkJoin, fromEvent, i
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { createCryptographicUuid, createLocalOpaqueId } from '../../core/security/client-id';
 import { AnswerValue, AqApi, Page, aqSegment } from './aq-api';
+import { AqQuestionSummaryCard, QuestionSummary } from './aq-summary-card';
 
 type Relation = 'own' | 'assigned' | 'granted' | 'managed';
 interface ActionCapabilities {
@@ -31,13 +32,6 @@ interface Invitation {
 }
 interface FeedbackAnswer { id: string; fieldKey: string; label?: string; visibility: 'visible' | 'hidden'; value?: AnswerValue; visibilityVersionNo?: number }
 interface FeedbackRow { id: string; presentationId: string; submittedAt: string; answers: FeedbackAnswer[] }
-interface QuestionSummary {
-  fieldKey: string;
-  label?: string;
-  denominator: number;
-  mean?: number;
-  distribution?: { optionKey: string; responses: number }[];
-}
 interface Note { body: string }
 interface ReportQueueEntry {
   report: { reportId: string; state: 'open' | 'resolved' | 'dismissed'; versionNo: number };
@@ -270,7 +264,7 @@ export class AqFeedbackHome {
 }
 
 @Component({
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink, DatePipe, AqQuestionSummaryCard],
   styleUrl: './aq-page.css',
   template: `
     <section lang="ja" class="aq-page">
@@ -281,16 +275,10 @@ export class AqFeedbackHome {
       @if (failed()) { <p role="alert">フィードバックを表示できません。</p> }
       @if (summary(); as totals) {
         <h2>集計</h2>
-        <p>回答数 {{ totals.responses }}</p>
+        <p class="aq-response-total">回答数 {{ totals.responses }}</p>
         <ul class="aq-list">
           @for (question of totals.questions; track question.fieldKey) {
-            <li>
-              <strong>{{ question.label ?? question.fieldKey }}</strong> · 有効回答 {{ question.denominator }}
-              @if (question.mean !== undefined) { · 平均 {{ question.mean }} }
-              @for (option of question.distribution ?? []; track option.optionKey) {
-                <p>{{ option.optionKey }} · {{ option.responses }}件</p>
-              }
-            </li>
+            <li><app-aq-question-summary-card [question]="question" /></li>
           }
         </ul>
         <h2>個別の回答</h2>

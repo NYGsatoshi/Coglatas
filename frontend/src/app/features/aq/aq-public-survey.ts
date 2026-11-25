@@ -1,4 +1,4 @@
-import { Component, DestroyRef, ElementRef, inject, signal, viewChild } from '@angular/core';
+import { Component, DestroyRef, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
@@ -26,6 +26,10 @@ export class AqPublicSurvey {
   protected readonly state = signal<SubmissionState>('ready');
   protected readonly marked = signal(false);
   protected readonly invalidFields = signal<ReadonlySet<string>>(new Set());
+  protected readonly answeredQuestions = computed(() => {
+    const values = this.answers();
+    return (this.survey()?.fields ?? []).filter(field => this.hasAnswer(values.get(field.fieldKey))).length;
+  });
   private readonly outcome = viewChild<ElementRef<HTMLElement>>('outcome');
   private readonly api = inject(AqApi);
   private readonly destroyRef = inject(DestroyRef);

@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, distinctUntilChanged, forkJoin, map, Observable, of } from 'rxjs';
 import { AqApi, ManageableEventCandidate, Page, SurveyField, aqSegment } from './aq-api';
 import { createCryptographicUuid } from '../../core/security/client-id';
+import { AQ_WORKSPACE_COPY } from './aq-workspace-copy';
 
 interface EventSettings {
   nameMode: 'anonymous' | 'optionalName' | 'requiredName';
@@ -45,6 +46,7 @@ interface Preview {
   templateUrl: './aq-management.html',
 })
 export class AqManagement {
+  protected readonly copy = AQ_WORKSPACE_COPY;
   private readonly api = inject(AqApi);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly data = signal<EventManagement | null>(null);
@@ -396,6 +398,22 @@ export class AqManagement {
 
   protected removeField(key: string): void {
     this.fields.update(items => items.filter(item => item.fieldKey !== key));
+  }
+
+  protected moveField(key: string, offset: -1 | 1): void {
+    if (this.busy()) return;
+    this.fields.update(items => {
+      const index = items.findIndex(item => item.fieldKey === key);
+      const destination = index + offset;
+      if (index < 0 || destination < 0 || destination >= items.length) return items;
+      const reordered = [...items];
+      [reordered[index], reordered[destination]] = [reordered[destination], reordered[index]];
+      return reordered;
+    });
+  }
+
+  protected focusSection(heading: HTMLElement): void {
+    heading.focus();
   }
 
   protected editQuestions(kind: 'common' | 'target'): void {
