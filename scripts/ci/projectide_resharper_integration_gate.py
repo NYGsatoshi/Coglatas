@@ -20,10 +20,8 @@ BASE = "projectide/integration-20261031"
 SHA = re.compile(r"[0-9a-f]{40}")
 WORKFLOW = ".github/workflows/ci.yml"
 APP = 15368
-TRACKED_CHECKS = {
-    "build-test", "frontend-test", "security-scan", "publication-readiness",
-    "functional-fast", "performance-fast",
-}
+PR_CI_CHECKS = {"build-test", "frontend-test", "security-scan", "functional-fast"}
+TRACKED_CHECKS = PR_CI_CHECKS | {"publication-readiness", "performance-fast"}
 INSPECTION = "ReSharper PR fast lane / ReSharper InspectCode / PR"
 STEPS = (
     "Test exact composition and SARIF false-green controls",
@@ -108,27 +106,39 @@ def verify_run(run, workflow, run_id, attempt, pr, head, base):
     require(complete_success(run), "CI_NOT_SUCCESSFUL")
 
 
-def verify_checks(checks, rules, job, run, head):
+def check_matches_job(check, job, run):
+    return (check["id"] == job["id"] and check["url"] == job["check_run_url"]
+            and check["check_suite"]["id"] == run["check_suite_id"])
+
+
+def verify_checks(checks, rules, jobs, inspection_job, run, head):
     required = {name: APP for name in TRACKED_CHECKS}
     for rule in rules:
         if rule["type"] == "required_status_checks":
             for context in rule["parameters"]["required_status_checks"]:
                 name = context["context"]
                 producer = context.get("integration_id")
-                require(producer in (None, required.get(name, producer)), "CHECK_PRODUCER_CONFLICT")
-                required.setdefault(name, producer)
+                previous = required.get(name)
+                require(previous is None or producer is None or previous == producer,
+                        "CHECK_PRODUCER_CONFLICT")
+                if previous is None:
+                    required[name] = producer
 
     for name, producer in required.items():
         check = exactly_one([item for item in checks if item["name"] == name],
                             "REQUIRED_CHECK_AMBIGUOUS")
         require(check["head_sha"] == head and complete_success(check)
                 and (producer is None or check["app"]["id"] == producer), "REQUIRED_CHECK_INCOMPLETE")
+        if name in PR_CI_CHECKS:
+            job = exactly_one([item for item in jobs if item["name"] == name],
+                              "REQUIRED_CHECK_JOB_AMBIGUOUS")
+            require(complete_success(job) and check_matches_job(check, job, run),
+                    "REQUIRED_CHECK_JOB_MISMATCH")
 
     check = exactly_one([item for item in checks if item["name"] == INSPECTION],
                         "INSPECTION_CHECK_AMBIGUOUS")
-    require(check["id"] == job["id"] and check["app"]["id"] == APP
-            and check["check_suite"]["id"] == run["check_suite_id"]
-            and check["head_sha"] == head and check["url"] == job["check_run_url"]
+    require(check_matches_job(check, inspection_job, run) and check["app"]["id"] == APP
+            and check["head_sha"] == head
             and complete_success(check), "INSPECTION_CHECK_MISMATCH")
 
 
@@ -151,7 +161,7 @@ def verify_jobs(payload, run_id, attempt, head):
                 and previous_end <= start <= end <= timestamp(job["completed_at"]),
                 "INSPECTION_STEP_INCOMPLETE")
         previous_number, previous_end = step["number"], end
-    return job, step
+    return jobs, job, step
 
 
 def verify_artifact(artifact, run, pr, upload, archive, merge):
@@ -228,6 +238,21 @@ def gh(*args):
     return result.stdout
 
 
+def read_branch_rules(root):
+    path = f"{root}/rules/branches/{quote(BASE, safe='')}?per_page=100"
+    remaining = gh("--method", "GET", "--paginate", "--jq", ".", path).decode("utf-8").strip()
+    require(bool(remaining), "BRANCH_RULES_INCOMPLETE")
+    decoder = json.JSONDecoder()
+    rules = []
+    while remaining:
+        page, end = decoder.raw_decode(remaining)
+        require(isinstance(page, list) and len(page) <= 100
+                and all(isinstance(rule, dict) for rule in page), "BRANCH_RULES_INCOMPLETE")
+        rules.extend(page)
+        remaining = remaining[end:].lstrip()
+    return rules
+
+
 def qualify(args):
     require(args.repository == REPOSITORY and all(SHA.fullmatch(value) for value in (
         args.expected_head, args.expected_base, args.expected_tree))
@@ -253,12 +278,11 @@ def qualify(args):
     workflow = read("actions/workflows/ci.yml")
     run = read(run_path)
     verify_run(run, workflow, args.run_id, args.attempt, pr, head, base)
-    job, upload = verify_jobs(read(f"{run_path}/attempts/{args.attempt}/jobs?per_page=100"),
-                              args.run_id, args.attempt, head)
+    jobs, job, upload = verify_jobs(read(f"{run_path}/attempts/{args.attempt}/jobs?per_page=100"),
+                                    args.run_id, args.attempt, head)
     checks = complete_page(read(f"commits/{head}/check-runs?per_page=100"), "check_runs",
                            "CHECKS_INCOMPLETE")
-    rules = read(f"rules/branches/{quote(BASE, safe='')}")
-    verify_checks(checks, rules, job, run, head)
+    verify_checks(checks, read_branch_rules(root), jobs, job, run, head)
 
     artifacts = complete_page(read(f"{run_path}/artifacts?per_page=100"), "artifacts",
                               "ARTIFACT_LIST_INCOMPLETE")

@@ -20,8 +20,10 @@ The original #1946 sequencing discrepancy remains historical evidence.
    test merge. Identify the successful ordinary PR CI run and its current
    attempt.
 2. Mark the PR Ready when its applicable conditions pass. From the reviewed
-   evaluator checkout, execute this read-only check immediately before the
-   authorized expected-head squash.
+   evaluator checkout, set `pr` to the PR number, `head`, `base`, and `tree`
+   to the verified SHAs, `run` and `attempt` to the ordinary CI run and
+   attempt numbers, and `receipt` to a writable output path. Execute this
+   read-only check immediately before the authorized expected-head squash.
 
    ```sh
    python3 -B scripts/ci/projectide_resharper_integration_gate.py \
@@ -43,10 +45,12 @@ The original #1946 sequencing discrepancy remains historical evidence.
 
 The receipt binds the repository, PR, head, live base, ordered test merge and
 whole tree, workflow, attempt, InspectCode check, artifact digest and resolved
-thread count. The evaluator checks terminal ordinary CI, the six tracked
-contexts, applicable required status checks and ordered InspectCode steps. It
-reads the original report's source revision and verifies the integrated Entry
-probe receipt when applicable. Raw SARIF, GitHub responses and authentication
+thread count. The evaluator checks terminal ordinary CI and binds its four
+tracked contexts to jobs in that attempt. It checks the two tracked contexts
+from Publication Readiness and API Performance separately and reads all pages
+of applicable branch rules. It verifies the ordered InspectCode steps, the
+original report's source revision, and the integrated Entry probe receipt
+when applicable. Raw SARIF, GitHub responses and authentication
 data are excluded from output. A qualified receipt supplies technical CI and
 review-thread evidence. It does not supply missing authorization or formal
 source review.
