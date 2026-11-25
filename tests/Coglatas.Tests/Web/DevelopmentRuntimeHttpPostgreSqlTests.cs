@@ -103,10 +103,8 @@ public sealed class DevelopmentRuntimeHttpPostgreSqlTests
 
                 await app.StartAsync();
                 var address = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.Single();
-                using var client = new HttpClient(new HttpClientHandler { UseCookies = false, AllowAutoRedirect = false })
-                {
-                    BaseAddress = new Uri(address)
-                };
+                using var client = new HttpClient(new HttpClientHandler { UseCookies = false, AllowAutoRedirect = false });
+                client.BaseAddress = new Uri(address);
                 var options = app.Services.GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>().Get(Scheme);
                 var ticket = new AuthenticationTicket(principal,
                     new AuthenticationProperties { ExpiresUtc = DateTimeOffset.UtcNow.AddHours(1) }, Scheme);

@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Coglatas.Tests.PostgreSql;
 
-public sealed class ProjectIdeViewerContextPostgreSqlTests
+public sealed class RuntimeViewerContextPostgreSqlTests
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 26, 0, 0, 0, TimeSpan.Zero);
 
