@@ -82,12 +82,9 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
                 outbox.Accept = true;
                 using (var cancelled = new CancellationTokenSource())
                 {
-                    outbox.BeforeReturn = () =>
-                    {
-                        cancelled.Cancel();
-                        return Task.CompletedTask;
-                    };
-                    await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.SaveAsync(command, cancelled.Token));
+                    outbox.CancelDuringStage = cancelled;
+                    var cancellationToken = cancelled.Token;
+                    await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.SaveAsync(command, cancellationToken));
                 }
                 Assert.False(requestDb.ChangeTracker.HasChanges());
                 Assert.Equal(1, await CandidateCount(connection));
@@ -182,6 +179,7 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
     private sealed class FixtureOutbox(AppDbContext db) : IProjectDraftRenameOutbox
     {
         public bool Accept { get; set; }
+        public CancellationTokenSource? CancelDuringStage { get; set; }
         public Func<Task>? BeforeReturn { get; set; }
 
         public async Task<bool> StageAsync(ProjectIdeViewerContext viewer, ProposalContext draft, CancellationToken cancellationToken)
@@ -193,6 +191,9 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
                 Status = OutboxEventStatus.Pending, OccurredAt = Now, NextAttemptAt = Now,
                 PayloadJson = "{}", RoutingJson = "[]"
             });
+            var cancellation = CancelDuringStage;
+            CancelDuringStage = null;
+            cancellation?.Cancel();
             if (BeforeReturn is { } callback)
                 await callback();
             return Accept;

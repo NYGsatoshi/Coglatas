@@ -110,8 +110,8 @@ public sealed class ProjectDraftRenameService(ProjectIdeOperationAccess access,
                     !await IsAllowedAsync(viewer, SaveOperation, request, token))
                     return null;
 
-                var saved = await drafts.LoadSavedAsync(viewer, draft, new(candidateId), token);
-                return saved is { } && saved.Candidate == confirmation.NextCandidate ? saved : null;
+                var replayed = await drafts.LoadSavedAsync(viewer, draft, new(candidateId), token);
+                return replayed is { } && replayed.Candidate == confirmation.NextCandidate ? replayed : null;
             }, async token =>
             {
                 if (!await drafts.IsTargetCurrentAsync(viewer, draft, token) ||
