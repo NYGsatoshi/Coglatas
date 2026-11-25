@@ -164,7 +164,8 @@ public sealed class ProjectHistoryRuntimeTests
             var proposal = DraftRenameTests.Proposal(Input(source: history.HeadSource), 90);
             var inverse = await reader.PreviewRevertAsync(history.Before, history.After, history.Head, proposal);
             Assert.Equal(DraftRevertState.Ready, inverse.Value?.State);
-            var captured = Assert.IsType<ProjectHistoryWindow>(await store.CaptureAsync([history.After], null, default));
+            var captured = Assert.IsType<ProjectHistoryWindow>(await store.CaptureAsync([history.Before, history.After], null, default));
+            Assert.True(await store.IsCurrentAsync(captured, null, default));
 
             var revisionId = history.After.Revision.RevisionId.Value;
             Assert.Equal(1, await seed.Database.ExecuteSqlInterpolatedAsync($"""

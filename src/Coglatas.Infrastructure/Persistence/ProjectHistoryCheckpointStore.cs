@@ -84,8 +84,36 @@ public sealed class ProjectHistoryCheckpointStore(AppDbContext database, IProjec
 
     public async ValueTask<bool> IsCurrentAsync(ProjectHistoryWindow window, RevisionRef? requiredHead, CancellationToken cancellationToken)
     {
-        var current = await ReadMetadataAsync(window.Sources, cancellationToken);
-        return current is not null && VersionOf(current) == window.Version && await HeadMatchesAsync(requiredHead, cancellationToken);
+        if (!await HeadMatchesAsync(requiredHead, cancellationToken) || database.ActiveTenantId is not { } tenant ||
+            window.Sources.Count is 0 or > ProjectSourceHistory.MaximumRecords ||
+            window.Sources.Any(source => source.Revision.Branch.TenantId.Value != tenant))
+            return false;
+
+        var expected = JsonSerializer.Serialize(window.Sources.Select(source => new
+        {
+            ProjectId = source.Revision.Branch.ProjectId.Value,
+            BranchId = source.Revision.Branch.BranchId.Value,
+            RevisionId = source.Revision.RevisionId.Value,
+            Context = source.Context.Data.CanonicalText,
+            SourceDigest = source.SourceDigest.Value,
+            InputDigest = source.InputDigest.Value
+        }));
+        // Check the complete window in one database statement so its members share one visibility snapshot.
+        var retained = await database.Database.SqlQuery<CheckpointVersion>($"""
+            SELECT checkpoint."BranchId", checkpoint."RevisionId", checkpoint."VersionId"
+            FROM projectide_history_checkpoints AS checkpoint
+            JOIN jsonb_to_recordset(CAST({expected} AS jsonb)) AS expected
+                ("ProjectId" uuid, "BranchId" uuid, "RevisionId" uuid, "Context" text, "SourceDigest" text, "InputDigest" text)
+                ON checkpoint."ProjectId" = expected."ProjectId"
+               AND checkpoint."BranchId" = expected."BranchId"
+               AND checkpoint."RevisionId" = expected."RevisionId"
+               AND checkpoint."Context" = expected."Context"
+               AND checkpoint."SourceDigest" = expected."SourceDigest"
+               AND checkpoint."InputDigest" = expected."InputDigest"
+            WHERE checkpoint."TenantId" = {tenant} AND checkpoint."DeletedAtUtc" IS NULL
+            """).ToListAsync(cancellationToken);
+        return retained.Count == window.Sources.Count && database.ActiveTenantId == tenant &&
+            VersionOf(retained.Select(row => (row.BranchId, row.RevisionId, row.VersionId))) == window.Version;
     }
 
     private async Task<bool> HeadMatchesAsync(RevisionRef? requiredHead, CancellationToken cancellationToken) =>
@@ -188,10 +216,13 @@ public sealed class ProjectHistoryCheckpointStore(AppDbContext database, IProjec
         return value;
     }
 
-    private static Guid VersionOf(Dictionary<RevisionRef, Checkpoint> records)
+    private static Guid VersionOf(Dictionary<RevisionRef, Checkpoint> records) => VersionOf(records.Values.Select(record =>
+        (record.Identity.Revision.Branch.BranchId.Value, record.Identity.Revision.RevisionId.Value, record.Version)));
+
+    private static Guid VersionOf(IEnumerable<(Guid BranchId, Guid RevisionId, Guid Version)> records)
     {
-        var version = string.Join('\n', records.Values.Select(record => string.Join('/', record.Identity.Revision.Branch.BranchId,
-            record.Identity.Revision.RevisionId, record.Version)).Order(StringComparer.Ordinal));
+        var version = string.Join('\n', records.Select(record => string.Join('/', record.BranchId, record.RevisionId, record.Version))
+            .Order(StringComparer.Ordinal));
         return new Guid(SHA256.HashData(Encoding.UTF8.GetBytes(version)).AsSpan(0, 16));
     }
 
@@ -212,5 +243,12 @@ public sealed class ProjectHistoryCheckpointStore(AppDbContext database, IProjec
     {
         public byte[]? SourceBytes { get; set; }
         public byte[]? InputBytes { get; set; }
+    }
+
+    private sealed class CheckpointVersion
+    {
+        public Guid BranchId { get; set; }
+        public Guid RevisionId { get; set; }
+        public Guid VersionId { get; set; }
     }
 }
