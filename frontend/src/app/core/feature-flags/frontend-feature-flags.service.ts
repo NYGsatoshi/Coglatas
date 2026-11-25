@@ -3,6 +3,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 
 export interface FrontendRuntimeFlags {
   readonly 'projectide.syntheticPreview'?: boolean;
+  readonly 'projectide.developmentRuntime'?: boolean;
   readonly 'frontend.designSystemV04'?: boolean;
   readonly 'frontend.syncfusionGrid'?: boolean;
   readonly 'frontend.syncfusionUploader'?: boolean;
@@ -24,6 +25,7 @@ export class FrontendFeatureFlagsService {
   private readonly document = inject(DOCUMENT);
   private readonly values = signal<FrontendRuntimeFlags>(this.readRuntimeFlags());
   readonly projectIdePreviewEnabled = computed(() => this.values()['projectide.syntheticPreview'] ?? false);
+  readonly projectIdeDevelopmentRuntimeEnabled = computed(() => this.values()['projectide.developmentRuntime'] ?? false);
   readonly designSystemV04Enabled = computed(() => this.values()['frontend.designSystemV04'] ?? true);
   // The canonical rollout amendment intentionally has no separate
   // `frontend.syncfusionAdapters` key. These flags switch only an adapter

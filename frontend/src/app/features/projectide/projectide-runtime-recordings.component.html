@@ -1,0 +1,65 @@
+<section aria-labelledby="projectide-runtime-recordings-heading">
+  <h2 id="projectide-runtime-recordings-heading">{{ t('ide.runtimeRecordings') }}</h2>
+  @if (scope()) {
+    @let lookup = currentLookup();
+    <form (submit)="$event.preventDefault(); findRecording()">
+      <div>
+        <label for="projectide-runtime-run-id">{{ t('ide.runtimeRunId') }}</label>
+        <input
+          #runInput
+          id="projectide-runtime-run-id"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          size="36"
+          maxlength="36"
+          [value]="runId()"
+          [attr.aria-invalid]="lookup?.status === 'invalid' ? 'true' : null"
+          [attr.aria-describedby]="lookup?.status === 'invalid' ? 'projectide-runtime-lookup-status' : null"
+          (input)="setRunId(runInput.value)"
+        />
+      </div>
+      <button type="submit" [disabled]="lookup?.status === 'loading'">
+        {{ t('ide.runtimeLoadRecording') }}
+      </button>
+    </form>
+    <p id="projectide-runtime-lookup-status" role="status">
+      @switch (lookup?.status) {
+        @case ('invalid') { {{ t('ide.runtimeInvalidRunId') }} }
+        @case ('loading') { {{ t('ide.runtimeLoadingRecording') }} }
+        @case ('unavailable') { {{ t('ide.runtimeRecordingUnavailable') }} }
+        @case ('ready') { {{ t('ide.runtimeRecordingReady') }} }
+      }
+    </p>
+    @if (lookup?.status === 'ready') {
+      @let receipt = lookup.recording;
+      <dl>
+        <dt>{{ t('ide.runtimeReceiptDigest') }}</dt>
+        <dd><code>{{ receipt.receiptDigest }}</code></dd>
+        <dt>{{ t('ide.runtimeHostStatus') }}</dt>
+        <dd>{{ receipt.hostStatus }}</dd>
+        <dt>{{ t('ide.runtimeCaptureMode') }}</dt>
+        <dd>{{ receipt.captureMode }}</dd>
+        <dt>{{ t('ide.runtimeCaptureState') }}</dt>
+        <dd>{{ receipt.captureState ?? t('ide.runtimeNotRecorded') }}</dd>
+        @if (receipt.result; as result) {
+          <dt>{{ t('ide.runtimeResultDigest') }}</dt>
+          <dd><code>{{ result.resultDigest }}</code></dd>
+          <dt>{{ t('ide.execution') }}</dt>
+          <dd>{{ result.execution }}</dd>
+          <dt>{{ t('ide.coverage') }}</dt>
+          <dd>{{ result.coverage }}</dd>
+          <dt>{{ t('ide.verdict') }}</dt>
+          <dd>{{ result.verdict }}</dd>
+          <dt>{{ t('ide.runtimeEvidenceComplete') }}</dt>
+          <dd>{{ t(result.evidenceComplete ? 'ide.runtimeYes' : 'ide.runtimeNo') }}</dd>
+        }
+      </dl>
+      @if (receipt.result === null) {
+        <p>{{ t('ide.runtimeNoResult') }}</p>
+      }
+    }
+  } @else {
+    <p role="status">{{ t('ide.runtimeDisabled') }}</p>
+  }
+</section>

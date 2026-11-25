@@ -2,9 +2,11 @@
 import { webcrypto } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { provideHttpClient } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 import { vi } from 'vitest';
 import { AuthSessionFacade } from '../../core/auth/auth-session.facade';
 import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
@@ -14,11 +16,11 @@ import { readPreviewBundle, ProjectIdePreviewAdapter } from './projectide-previe
 import { ProjectIdeWorkbenchComponent } from './projectide-workbench.component';
 import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
-async function render(enabled = true, allowed = true, fail = false, profile: 'main' | 'test-edit' | 'scenario' | 'scoped' | 'plan' | 'simulation' | 'simulation-debug' = 'main') {
+async function render(enabled = true, allowed = true, fail = false, profile: 'main' | 'test-edit' | 'scenario' | 'scoped' | 'plan' | 'simulation' | 'simulation-debug' = 'main', runtimeProjectId?: string) {
   localStorage.setItem('coglatas.locale', 'en');
   const authenticated = signal(allowed);
   let clear!: () => void;
-  const data = readPreviewBundle(
+  const data = runtimeProjectId ? null : readPreviewBundle(
     JSON.parse(readFileSync(resolve(profile === 'simulation-debug' ? 'public/assets/projectide/simulation-debug-v1.json' : profile === 'simulation' ? 'public/assets/projectide/simulation-v1.json' : profile === 'plan' ? 'public/assets/projectide/execution-plan-v1.json' : profile === 'scoped' ? 'public/assets/projectide/scoped-sources-v1.json' : profile === 'scenario' ? 'public/assets/projectide/scenario-v1.json' : profile === 'test-edit' ? 'public/assets/projectide/test-edit-v1.json' : 'public/assets/projectide/preview-v1.json'), 'utf8')),
   );
   const adapter = {
@@ -33,6 +35,10 @@ async function render(enabled = true, allowed = true, fail = false, profile: 'ma
     imports: [ProjectIdeWorkbenchComponent],
     providers: [
       provideRouter([]),
+      ...(runtimeProjectId ? [
+        provideHttpClient(),
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({ runtimeProjectId })) } },
+      ] : []),
       {
         provide: AuthSessionFacade,
         useValue: {
@@ -64,6 +70,7 @@ async function render(enabled = true, allowed = true, fail = false, profile: 'ma
   });
   TestBed.inject(FrontendFeatureFlagsService).setForTesting({
     'projectide.syntheticPreview': enabled,
+    'projectide.developmentRuntime': runtimeProjectId !== undefined,
   });
   const fixture = TestBed.createComponent(ProjectIdeWorkbenchComponent);
   fixture.detectChanges();
@@ -82,6 +89,15 @@ async function render(enabled = true, allowed = true, fail = false, profile: 'ma
 vi.stubGlobal('crypto', webcrypto);
 
 describe('ProjectIDE Workbench components', () => {
+  it('keeps the project Runtime route independent of the synthetic preview loader', async () => {
+    const projectId = '034a2ba8-5e35-4894-9095-a0ce716ec34c';
+    const { adapter, root } = await render(true, true, false, 'main', projectId);
+
+    expect(adapter.read).not.toHaveBeenCalled();
+    expect(root.querySelector('h1')?.textContent).toBe('ProjectIDE development Runtime');
+    expect(root.querySelector('app-projectide-runtime-recordings input')).not.toBeNull();
+  });
+
   it.each(['en', 'ja'] as const)('lists actual %s definitions without loading a Test result and opens exact Source', async locale => {
     const { c, fixture, root, authenticated } = await render(); c.i18n.setLocale(locale);
     c.choose('tests-fail'); c.loadResult(); c.open('tests'); fixture.detectChanges();

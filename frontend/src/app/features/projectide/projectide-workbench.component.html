@@ -1,4 +1,9 @@
 <article class="workbench" data-testid="projectide-workbench">
+  @if (runtimeProjectId(); as projectId) {
+    <a [routerLink]="['/projects', projectId]">{{ t('ide.runtimeBack') }}</a>
+    <h1>{{ t('ide.runtimeTitle') }}</h1>
+    <app-projectide-runtime-recordings [projectId]="projectId" />
+  } @else {
   <a routerLink="/projects">{{ t('ide.return') }}</a>
   <header>
     <p class="eyebrow">{{ t('ide.preview') }}</p>
@@ -1396,5 +1401,6 @@
         </section>
       }
     }
+  }
   }
 </article>
