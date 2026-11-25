@@ -51,11 +51,11 @@ public sealed class CompilerOutputCaptureStore(AppDbContext context, IClock cloc
         var projection = JsonSerializer.Serialize(capture.View, ProjectionOptions);
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
         var written = await context.Database.ExecuteSqlInterpolatedAsync($"""
-            INSERT INTO projectide_compiler_output_captures
+            INSERT INTO projectide_development.projectide_compiler_output_captures
                 ("TenantId", "ProjectId", "CaptureId", "RunId", "BindingDigest", "CapturedAtUtc", "MaximumBodyBytes", "Projection")
             SELECT "TenantId", "ProjectId", {capture.Key.CaptureId}, "RunId", {binding}, {clock.UtcNow},
                 {capture.MaximumBodyBytes}, CAST({projection} AS jsonb)
-            FROM projectide_compiler_recording_evidence
+            FROM projectide_development.projectide_compiler_recording_evidence
             WHERE "TenantId" = {reference.Source.TenantId} AND "ProjectId" = {reference.Source.ProjectId} AND "RunId" = {reference.RecordingId}
                 AND "Payload" ->> 'SourceDigest' = {reference.SourceDigest.Value}
                 AND "Payload" ->> 'ReceiptDigest' = {reference.RecordingDigest.Value}
@@ -83,7 +83,7 @@ public sealed class CompilerOutputCaptureStore(AppDbContext context, IClock cloc
         var projection = JsonSerializer.Serialize(capture.View, ProjectionOptions);
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
         var deleted = await context.Database.ExecuteSqlInterpolatedAsync($"""
-            UPDATE projectide_compiler_output_captures
+            UPDATE projectide_development.projectide_compiler_output_captures
             SET "DeletedAtUtc" = {clock.UtcNow}, "RunId" = NULL, "BindingDigest" = NULL, "MaximumBodyBytes" = NULL, "Projection" = NULL
             WHERE "TenantId" = {reference.Source.TenantId} AND "ProjectId" = {reference.Source.ProjectId} AND "CaptureId" = {capture.Key.CaptureId}
                 AND "RunId" = {reference.RecordingId} AND "BindingDigest" = {binding} AND "DeletedAtUtc" IS NULL

@@ -85,11 +85,11 @@ public sealed class ProjectIdeInspectionRuntimePostgreSqlTests
         Assert.DoesNotContain(input.Source.Context.Branch.BranchId.ToString(), serialized, StringComparison.Ordinal);
         Assert.DoesNotContain(invocation.Receipt.Digest.Value, serialized, StringComparison.Ordinal);
         var payload = await PostgreSqlMigrationTestDatabase.ScalarAsync<string>(fixture.Database,
-            "SELECT \"Projection\"::text FROM projectide_compiler_output_captures WHERE \"CaptureId\" = @id", ("id", key.CaptureId));
+            "SELECT \"Projection\"::text FROM projectide_development.projectide_compiler_output_captures WHERE \"CaptureId\" = @id", ("id", key.CaptureId));
         Assert.DoesNotContain("Bodies", payload, StringComparison.Ordinal);
         Assert.DoesNotContain(input.Source.Digest.Value, payload, StringComparison.Ordinal);
         var mutation = await Assert.ThrowsAsync<PostgresException>(() => PostgreSqlMigrationTestDatabase.ExecuteAsync(fixture.Database,
-            "UPDATE projectide_compiler_output_captures SET \"MaximumBodyBytes\" = 1 WHERE \"CaptureId\" = @id", ("id", key.CaptureId)));
+            "UPDATE projectide_development.projectide_compiler_output_captures SET \"MaximumBodyBytes\" = 1 WHERE \"CaptureId\" = @id", ("id", key.CaptureId)));
         Assert.Equal(PostgresErrorCodes.RaiseException, mutation.SqlState);
 
         fixture.Authorization.Denied = ProjectIdeInspectionRuntime.OutputExport;
@@ -106,7 +106,7 @@ public sealed class ProjectIdeInspectionRuntimePostgreSqlTests
             """
             SELECT "DeletedAtUtc" IS NOT NULL AND "RunId" IS NULL AND "BindingDigest" IS NULL
                 AND "MaximumBodyBytes" IS NULL AND "Projection" IS NULL
-            FROM projectide_compiler_output_captures WHERE "CaptureId" = @id
+            FROM projectide_development.projectide_compiler_output_captures WHERE "CaptureId" = @id
             """, ("id", key.CaptureId)));
 
         var raceKey = key with { CaptureId = Guid.NewGuid() };
@@ -135,6 +135,13 @@ public sealed class ProjectIdeInspectionRuntimePostgreSqlTests
             var plan = ProjectSimulationTests.Plan();
             var branch = plan.Input.Source.Context.Branch;
             await using var writer = PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection);
+            Assert.True(await PostgreSqlMigrationTestDatabase.ScalarAsync<bool>(connection, """
+                SELECT to_regclass('public.projectide_compiler_output_captures') IS NULL
+                    AND to_regclass('projectide_development.projectide_compiler_output_captures') IS NULL
+                """));
+            await CompilerRecordingDevelopmentSchema.ProvisionAsync(writer);
+            await CompilerOutputCaptureDevelopmentSchema.ProvisionAsync(writer);
+            await CompilerOutputCaptureDevelopmentSchema.ProvisionAsync(writer);
             var tenant = new Tenant { Id = branch.TenantId.Value, Name = "Inspection", DisplayName = "Inspection", Slug = "inspection" };
             var user = new User { Email = "inspection@example.invalid", NormalizedEmail = "INSPECTION@EXAMPLE.INVALID" };
             var session = new Session { UserId = user.Id, SessionKeyHash = "synthetic-inspection", ExpiresAt = DateTimeOffset.UtcNow.AddHours(1) };
