@@ -5,7 +5,8 @@ export const filesReportInput = 'artifacts/files-attempt-report/raw.json';
 export const filesReportByteLimit = 32 * 1024;
 const specName = 'file-image-viewport.spec.ts';
 const suiteName = 'Authorized Files image viewport';
-const projects = new Set(['chromium-desktop', 'chromium-mobile', 'webkit-desktop', 'webkit-mobile', 'narrow-320']);
+const hostedProjects = new Set(['chromium-desktop', 'chromium-mobile']);
+const projects = new Set([...hostedProjects, 'webkit-desktop', 'webkit-mobile', 'narrow-320']);
 const statuses = new Set(['passed', 'failed', 'timedOut', 'skipped', 'interrupted']);
 const casesByTitle = new Map([
   ['downloads from the expanded surface and clears protected modal state on later session expiry', 'download-session-expiry'],
@@ -48,6 +49,28 @@ export function validateFilesAttempts(input) {
     lastAttemptByCase.set(identity, { attempt, status });
     return { project, caseId, attempt, status, durationMs };
   });
+}
+
+export function summarizeHostedFilesAttempts(attempts, frontendChecksOutcome) {
+  if (!['success', 'failure', 'cancelled'].includes(frontendChecksOutcome)) {
+    invalid();
+  }
+
+  const lastStatusByCase = new Map();
+  for (const { project, caseId, status } of attempts) {
+    if (!hostedProjects.has(project)) {
+      invalid();
+    }
+    lastStatusByCase.set(`${project}/${caseId}`, status);
+  }
+  const expectedCaseCount = hostedProjects.size * caseIds.size;
+  const statuses = [...lastStatusByCase.values()];
+  const completedCaseCount = statuses.filter((status) => ['passed', 'failed', 'timedOut'].includes(status)).length;
+  const complete = completedCaseCount === expectedCaseCount;
+  if (frontendChecksOutcome === 'success' && (!complete || statuses.some((status) => status !== 'passed'))) {
+    invalid();
+  }
+  return { complete, expectedCaseCount, completedCaseCount, missingCaseCount: expectedCaseCount - completedCaseCount };
 }
 
 export default class FilesAttemptReporter {

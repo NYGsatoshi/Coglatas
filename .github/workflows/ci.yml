@@ -922,8 +922,13 @@ jobs:
 
       - name: Collect sanitized Files browser attempts
         id: collect-files-attempts
-        if: always() && needs.frontend-build.outputs.frontend_playwright == 'true' && (steps.run-frontend-checks.outcome == 'success' || steps.run-frontend-checks.outcome == 'failure')
+        if: >-
+          always() && needs.frontend-build.outputs.frontend_playwright == 'true' &&
+          (steps.run-frontend-checks.outcome == 'success' || steps.run-frontend-checks.outcome == 'failure' ||
+          (steps.run-frontend-checks.outcome == 'cancelled' && hashFiles('artifacts/files-attempt-report/raw.json') != ''))
         timeout-minutes: 2
+        env:
+          COGLATAS_FRONTEND_CHECKS_OUTCOME: ${{ steps.run-frontend-checks.outcome }}
         run: node scripts/ci/collect-files-attempt-report.mjs
 
       - name: Upload sanitized Files browser attempts after retry or failure

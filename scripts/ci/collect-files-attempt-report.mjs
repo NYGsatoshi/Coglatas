@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { createReadStream, constants, lstatSync, mkdirSync, openSync, fstatSync, readSync, closeSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { filesReportByteLimit, filesReportInput, validateFilesAttempts } from '../../tests/ui/files-attempt-reporter.mjs';
+import { filesReportByteLimit, filesReportInput, validateFilesAttempts, summarizeHostedFilesAttempts } from '../../tests/ui/files-attempt-reporter.mjs';
 
 const shaPattern = /^[a-f0-9]{40}$/;
 const runNumberPattern = /^[1-9][0-9]{0,19}$/;
@@ -50,7 +50,7 @@ function readBounded(file, limit) {
   }
 }
 
-export async function collectFilesAttempts(root, { sourceSha, runId, runAttempt, job, archive }) {
+export async function collectFilesAttempts(root, { sourceSha, runId, runAttempt, job, frontendChecksOutcome, archive }) {
   if (!shaPattern.test(sourceSha ?? '') || !runNumberPattern.test(runId ?? '') ||
       !runNumberPattern.test(runAttempt ?? '') || job !== 'frontend-test') {
     invalid();
@@ -85,6 +85,8 @@ export async function collectFilesAttempts(root, { sourceSha, runId, runAttempt,
     runId,
     runAttempt,
     job,
+    frontendChecksOutcome,
+    coverage: summarizeHostedFilesAttempts(attempts, frontendChecksOutcome),
     suite: 'tests/ui/file-image-viewport.spec.ts',
     attempts,
   };
@@ -106,6 +108,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
       runId: process.env.GITHUB_RUN_ID,
       runAttempt: process.env.GITHUB_RUN_ATTEMPT,
       job: process.env.GITHUB_JOB,
+      frontendChecksOutcome: process.env.COGLATAS_FRONTEND_CHECKS_OUTCOME,
       archive: join(process.env.RUNNER_TEMP, 'frontend-build-artifact/frontend-build-artifacts.tar'),
     });
     console.log(`Retained ${count} sanitized Files browser attempts.`);

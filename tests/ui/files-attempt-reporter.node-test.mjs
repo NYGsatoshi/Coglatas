@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import FilesAttemptReporter, { filesReportByteLimit, filesReportInput, validateFilesAttempts } from './files-attempt-reporter.mjs';
+import FilesAttemptReporter, { filesReportByteLimit, filesReportInput, validateFilesAttempts, summarizeHostedFilesAttempts } from './files-attempt-reporter.mjs';
 import { collectFilesAttempts } from '../../scripts/ci/collect-files-attempt-report.mjs';
 
 const failure = { project: 'chromium-desktop', caseId: 'viewport-scroll-1536', attempt: 0, status: 'failed', durationMs: 5021 };
@@ -89,7 +89,7 @@ function fixture(t) {
   const marker = join(root, 'artifacts/ci/frontend-build-sha');
   writeFileSync(marker, sourceSha + '\n');
   writeFileSync(join(root, filesReportInput), JSON.stringify(validAttempts) + '\n');
-  const options = { sourceSha, runId: '12345', runAttempt: '2', job: 'frontend-test', archive };
+  const options = { sourceSha, runId: '12345', runAttempt: '2', job: 'frontend-test', frontendChecksOutcome: 'failure', archive };
   return { root, marker, options };
 }
 
@@ -106,6 +106,8 @@ test('binds source, build, workflow run, workflow attempt and artifact bytes', a
     runId: options.runId,
     runAttempt: options.runAttempt,
     job: options.job,
+    frontendChecksOutcome: options.frontendChecksOutcome,
+    coverage: { complete: false, expectedCaseCount: 24, completedCaseCount: 1, missingCaseCount: 23 },
     suite: 'tests/ui/file-image-viewport.spec.ts',
     attempts: validAttempts,
   });
@@ -158,4 +160,29 @@ test('refuses to replace already validated evidence', async (t) => {
   writeFileSync(join(root, filesReportInput), JSON.stringify([failure]) + '\n');
   await assert.rejects(collectFilesAttempts(root, options));
   assert.deepEqual(readFileSync(artifact), original);
+});
+
+test('refuses a successful hosted lane with incomplete Files coverage', async (t) => {
+  const { root, options } = fixture(t);
+  await assert.rejects(collectFilesAttempts(root, { ...options, frontendChecksOutcome: 'success' }));
+  assert.equal(existsSync(join(root, 'artifacts/files-attempt-validated')), false);
+});
+
+test('requires every hosted case to finish with a pass on successful lanes', () => {
+  const cases = ['download-session-expiry', 'protected-state-reset'];
+  for (const width of [320, 390, 768, 1366, 1536]) {
+    cases.push(`expanded-focus-${width}`, `viewport-scroll-${width}`);
+  }
+  const attempts = ['chromium-desktop', 'chromium-mobile'].flatMap((project) =>
+    cases.map((caseId) => ({ ...failure, project, caseId, status: 'passed' })));
+  const firstAttempt = { ...attempts[0], status: 'failed' };
+  attempts[0] = firstAttempt;
+  attempts.push({ ...firstAttempt, attempt: 1, status: 'passed' });
+  assert.deepEqual(summarizeHostedFilesAttempts(validateFilesAttempts(attempts), 'success'), {
+    complete: true, expectedCaseCount: 24, completedCaseCount: 24, missingCaseCount: 0,
+  });
+  attempts.pop();
+  assert.throws(() => summarizeHostedFilesAttempts(validateFilesAttempts(attempts), 'success'));
+  assert.equal(summarizeHostedFilesAttempts(validateFilesAttempts(attempts), 'failure').complete, true);
+  assert.equal(summarizeHostedFilesAttempts(validateFilesAttempts([failure]), 'cancelled').complete, false);
 });
