@@ -241,18 +241,39 @@ public sealed class SyntheticOperatorRecordingTests
         private readonly CancellationTokenSource _source = new();
         private readonly ContentDigest _expectedResult;
         private readonly bool _replace;
-        private int _notifications;
+        private readonly InvalidOperationException? _publicationFailure;
+        private readonly InvalidOperationException? _withdrawalFailure;
         public CancellationToken Token => _source.Token;
         public bool Fired { get; private set; }
         public bool ReplacementSucceeded { get; private set; }
+        public int WithdrawalNotifications { get; private set; }
+        public int DeliveredWithdrawals { get; private set; }
         public ProjectCompilerPredicateObservationSnapshot? Replacement { get; private set; }
-        public CancelPublishedRead(SyntheticWorkbenchViewModel vm, bool replace)
-        { _vm = vm; _expectedResult = vm.Result!.ResultDigest; _replace = replace; vm.PropertyChanged += Changed; }
+        public CancelPublishedRead(SyntheticWorkbenchViewModel vm, bool replace, InvalidOperationException? publicationFailure,
+            InvalidOperationException? withdrawalFailure)
+        {
+            _vm = vm;
+            _expectedResult = vm.Result!.ResultDigest;
+            _replace = replace;
+            _publicationFailure = publicationFailure;
+            _withdrawalFailure = withdrawalFailure;
+            vm.PropertyChanged += Changed;
+            vm.PropertyChanged += RecordWithdrawal;
+        }
         public Exception? Read() => Record.Exception(ReadCore);
         private void ReadCore() => _vm.ReadRecordedOperators(_expectedResult, CompilerPredicateObservationSnapshotMode.AvailableOperators, token: Token);
         private void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
-            if (Fired || ++_notifications != 2) return;
+            if (Fired)
+            {
+                if (Token.IsCancellationRequested)
+                {
+                    WithdrawalNotifications++;
+                    if (_vm.RecordedOperators is null && _withdrawalFailure is not null) throw _withdrawalFailure;
+                }
+                return;
+            }
+            if (_vm.RecordedOperators is null) return;
             Fired = true;
             if (_replace)
             {
@@ -260,13 +281,42 @@ public sealed class SyntheticOperatorRecordingTests
                 Replacement = _vm.RecordedOperators;
             }
             _source.Cancel();
+            if (_publicationFailure is not null) throw _publicationFailure;
         }
-        public void Dispose() { _vm.PropertyChanged -= Changed; _source.Dispose(); }
+
+        private void RecordWithdrawal(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (Token.IsCancellationRequested && _vm.RecordedOperators is null)
+            {
+                DeliveredWithdrawals++;
+            }
+        }
+
+        public void Dispose()
+        {
+            _vm.PropertyChanged -= Changed;
+            _vm.PropertyChanged -= RecordWithdrawal;
+            _source.Dispose();
+        }
     }
 
     [Theory]
     [InlineData(false)] [InlineData(true)]
-    public async Task CancellationAtRecordingPublicationWithdrawsOnlyItsOwnedView(bool replace)
+    public Task CancellationAtRecordingPublicationWithdrawsOnlyItsOwnedView(bool replace) =>
+        VerifyRecordingOwnership(replace, null);
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public Task ThrowingRecordingObserverWithdrawsOnlyItsCancelledView(bool replace) =>
+        VerifyRecordingOwnership(replace, new InvalidOperationException("Publication observer failed."),
+            new InvalidOperationException("Withdrawal observer failed."));
+
+    [Fact]
+    public Task ThrowingRecordingWithdrawalObserverPreservesCancellation() =>
+        VerifyRecordingOwnership(false, null, new InvalidOperationException("Withdrawal observer failed."));
+
+    private static async Task VerifyRecordingOwnership(bool replace, InvalidOperationException? publicationFailure,
+        InvalidOperationException? withdrawalFailure = null)
     {
         var (_, request, profile) = Input();
         using var session = new LocalPredicateObservationCompilerRecordingSession(profile);
@@ -276,7 +326,7 @@ public sealed class SyntheticOperatorRecordingTests
         var receiptData = actual.Receipt.Data;
         Assert.True(Read(vm, actual));
         var previous = vm.RecordedOperators!; var previousData = previous.Data; Assert.NotEmpty(previous.Bodies);
-        using var cancellation = new CancelPublishedRead(vm, replace); var token = cancellation.Token;
+        using var cancellation = new CancelPublishedRead(vm, replace, publicationFailure, withdrawalFailure); var token = cancellation.Token;
         var error = cancellation.Read();
         Assert.True(cancellation.Fired); Assert.True(token.IsCancellationRequested);
         Assert.Same(result, vm.Result); Assert.Equal(resultData, result.Data); Assert.Equal(receiptData, actual.Receipt.Data);
@@ -287,7 +337,15 @@ public sealed class SyntheticOperatorRecordingTests
             Assert.Same(cancellation.Replacement, vm.RecordedOperators); Assert.NotEmpty(vm.RecordedOperators!.Bodies);
         }
         else Assert.Null(vm.RecordedOperators);
-        Assert.IsType<OperationCanceledException>(error);
+        Assert.Equal(replace ? 0 : 1, cancellation.WithdrawalNotifications);
+        Assert.Equal(replace ? 0 : 1, cancellation.DeliveredWithdrawals);
+        if (publicationFailure is null)
+        {
+            var cancelled = Assert.IsType<OperationCanceledException>(error);
+            Assert.Equal(token, cancelled.CancellationToken);
+            Assert.Same(withdrawalFailure, cancelled.InnerException);
+        }
+        else Assert.Same(publicationFailure, error);
     }
 
     private sealed class CancelInitialRecordedRead : IDisposable
