@@ -6656,43 +6656,6 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.ToTable("workspace_members", (string)null);
                 });
 
-            modelBuilder.Entity("Coglatas.Infrastructure.Persistence.CompilerRecordingEvidenceRow", b =>
-                {
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ProjectId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("RunId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ActorUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("AttemptId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Payload")
-                        .IsRequired()
-                        .HasColumnType("jsonb");
-
-                    b.Property<DateTimeOffset>("RecordedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("TenantId", "ProjectId", "RunId");
-
-                    b.HasIndex("ProjectId", "TenantId");
-
-                    b.HasIndex("TenantId", "ProjectId", "AttemptId")
-                        .IsUnique();
-
-                    b.ToTable("projectide_compiler_recording_evidence", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_projectide_compiler_recording_evidence_binding", "(jsonb_typeof(\"Payload\") = 'object'\nAND \"Payload\" - ARRAY['Source', 'SourceDigest', 'RunId', 'AttemptId', 'CompilerInputId',\n    'ExecutionInputDigest', 'MaterializationsDigest', 'ManifestDigest', 'ReceiptDigest', 'HostStatus',\n    'CaptureMode', 'OriginalCaptureState', 'CaptureDigest', 'OriginRunId', 'OriginReceiptDigest', 'Result'] = '{}'::jsonb\nAND \"Payload\" ->> 'RunId' = \"RunId\"::text\nAND \"Payload\" ->> 'AttemptId' = \"AttemptId\"::text\nAND \"Payload\" -> 'Source' ->> 'TenantId' = \"TenantId\"::text\nAND \"Payload\" -> 'Source' ->> 'ProjectId' = \"ProjectId\"::text\nAND \"Payload\" ->> 'SourceDigest' ~ '^[0-9a-f]{64}$'\nAND \"Payload\" ->> 'ManifestDigest' ~ '^[0-9a-f]{64}$'\nAND \"Payload\" ->> 'ReceiptDigest' ~ '^[0-9a-f]{64}$') IS TRUE");
-                        });
-                });
-
             modelBuilder.Entity("Coglatas.Domain.Entities.ActivityEvent", b =>
                 {
                     b.HasOne("Coglatas.Domain.Entities.User", "CreatedByUser")
@@ -8592,16 +8555,6 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
 
                     b.Navigation("Workspace");
-                });
-
-            modelBuilder.Entity("Coglatas.Infrastructure.Persistence.CompilerRecordingEvidenceRow", b =>
-                {
-                    b.HasOne("Coglatas.Domain.Entities.Project", null)
-                        .WithMany()
-                        .HasForeignKey("ProjectId", "TenantId")
-                        .HasPrincipalKey("Id", "TenantId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Coglatas.Domain.Entities.ActivityEvent", b =>
