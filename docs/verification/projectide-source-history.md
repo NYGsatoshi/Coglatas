@@ -100,3 +100,27 @@ tests here is not a claim that a current run passed.
 
 The separate [local inverse-Draft preparation](projectide-draft-revert.md) now
 uses this reader and exact lineage; it does not activate operational Revert.
+
+## Development Application boundary
+
+The History service uses the shared persisted viewer and operation authorization
+checks for query, materialization, comparison, document navigation, export, and
+Revert preview. Each operation supplies its own authority contract. A storage
+adapter supplies the retained version and exact Source identities for queries,
+then, for an authorized body operation,
+releases the corresponding bodies after every requested Source and dependency
+passes authorization. The service checks the captured version and operation
+authority again before publishing a result. A changed session, retention
+version, or required Branch head withdraws the whole result.
+
+History uses the existing reconstruction limits. Comparison binds both
+Compiler input envelopes to their exact Sources and returns complete
+comparisons. Revert prepares an inverse Draft at the captured current Branch
+head using the existing Core conflict rules.
+
+The explicitly composed PostgreSQL checkpoint reader loads scoped immutable
+Source and Compiler input bytes. The schema permits a one-way tombstone that
+removes both stored bodies and invalidates captured reads. Revert also
+requires a trusted Branch-head reader and a bounded, retained same-Branch
+lineage. Persisted typed deltas and compaction, operational retention policy,
+governed Revert persistence, and client adoption are tracked by #1932.
