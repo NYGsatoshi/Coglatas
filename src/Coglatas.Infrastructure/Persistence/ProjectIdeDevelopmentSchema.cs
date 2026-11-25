@@ -8,5 +8,5 @@ public static class ProjectIdeDevelopmentSchema
     public const string Name = "projectide_development";
 
     public static Task EnsureExistsAsync(AppDbContext context, CancellationToken cancellationToken = default) =>
-        context.Database.ExecuteSqlRawAsync("CREATE SCHEMA IF NOT EXISTS projectide_development", cancellationToken);
+        context.Database.ExecuteSqlRawAsync("CREATE SCHEMA IF NOT EXISTS " + Name, cancellationToken);
 }
