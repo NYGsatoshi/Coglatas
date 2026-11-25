@@ -867,6 +867,7 @@ jobs:
         run: bash scripts/ci/npm-ci-retry.sh frontend
 
       - name: Run frontend checks in parallel
+        id: run-frontend-checks
         if: needs.frontend-build.outputs.frontend == 'true'
         shell: bash
         env:
@@ -917,6 +918,24 @@ jobs:
           name: search-drawer-observations
           path: artifacts/search-drawer-observation-validated/*.json
           if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Collect sanitized Files browser attempts
+        id: collect-files-attempts
+        if: always() && needs.frontend-build.outputs.frontend_playwright == 'true' && (steps.run-frontend-checks.outcome == 'success' || steps.run-frontend-checks.outcome == 'failure')
+        timeout-minutes: 2
+        run: node scripts/ci/collect-files-attempt-report.mjs
+
+      - name: Upload sanitized Files browser attempts after retry or failure
+        if: always() && steps.collect-files-attempts.outcome == 'success'
+        timeout-minutes: 2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: files-browser-attempts
+          path: |
+            artifacts/files-attempt-validated/files-attempts.json
+            artifacts/files-attempt-validated/files-attempts.json.sha256
+          if-no-files-found: error
           retention-days: 7
 
   security-scan:
