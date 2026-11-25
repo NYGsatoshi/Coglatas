@@ -13,6 +13,10 @@ public sealed class LocalCompilerRecordingManifest
     public ContentDigest InputDigest { get; }
     public ContentDigest ExecutionInputDigest { get; }
     public ContentDigest MaterializationsDigest { get; }
+    internal SecuritySourceIdentitySnapshot SourceIdentity { get; }
+    internal ContentDigest SourceDigest { get; }
+    internal Guid? OriginRunId { get; }
+    internal ContentDigest? OriginReceiptDigest { get; }
     public long ClientGeneration { get; }
     public CompilerOutputSnapshotMode Mode { get; }
     public int MaximumBodyBytes { get; }
@@ -34,6 +38,10 @@ public sealed class LocalCompilerRecordingManifest
             throw new ArgumentException("Diagnostic identity or lineage bound violated.");
         Owner = owner; RunId = runId; InputDigest = request.Input.ExpectedInputDigest;
         ExecutionInputDigest = request.ExecutionInputDigest; MaterializationsDigest = request.MaterializationDigest;
+        SourceIdentity = SecuritySourceIdentitySnapshot.Capture(input.Source.Context, InputDigest);
+        SourceDigest = input.Source.Digest;
+        OriginRunId = origin?.Manifest.RunId;
+        OriginReceiptDigest = origin?.Digest;
         ClientGeneration = request.ClientGeneration; Mode = mode; MaximumBodyBytes = maximumBodyBytes;
         Data = LocalCompilerRecordingJson.From(new {
             format = "coglatas.local-compiler-recording-manifest/1", sessionId = sessionId.ToString(), runId = runId.ToString(),
