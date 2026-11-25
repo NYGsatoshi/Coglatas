@@ -402,6 +402,7 @@
         data-testid="files-preview-pane"
       >
         @if (previewFile(); as file) {
+          @let expandedDownloadIsFirst = previewExpanded() && previewCanDownload();
           <header class="files-page__preview-header">
             <div>
               <p>{{ i18n.translate('files.preview.inspector') }}</p>
@@ -412,10 +413,17 @@
             </div>
             <div class="files-page__preview-window-actions">
             @if (previewExpanded()) {
-              <button type="button" [disabled]="!previewCanDownload()" (click)="downloadPreviewFile()" data-testid="files-expanded-download">{{ i18n.translate('files.actions.download') }}</button>
+              <button
+                type="button"
+                [attr.cdkFocusRegionStart]="expandedDownloadIsFirst ? '' : null"
+                [disabled]="!previewCanDownload()"
+                (click)="downloadPreviewFile()"
+                data-testid="files-expanded-download"
+              >{{ i18n.translate('files.actions.download') }}</button>
             }
             @if (previewCanExpand()) {
               <button #previewExpand type="button" (click)="toggleExpandedPreview()"
+                [attr.cdkFocusRegionStart]="expandedDownloadIsFirst ? null : ''"
                 [attr.aria-label]="i18n.translate(previewExpanded() ? 'files.image.collapse' : 'files.image.expand')"
                 [title]="i18n.translate(previewExpanded() ? 'files.image.collapse' : 'files.image.expand')"
                 [attr.aria-expanded]="previewExpanded()" aria-controls="files-inspector-panel-preview" data-testid="files-preview-expand">
@@ -427,6 +435,7 @@
               type="button"
               class="files-page__preview-close"
               cdkFocusInitial
+              [attr.cdkFocusRegionStart]="!expandedDownloadIsFirst && !previewCanExpand() ? '' : null"
               (click)="closePreview()"
               data-testid="files-preview-close"
             >{{ i18n.translate('common.close') }}</button>
@@ -518,10 +527,18 @@
                     data-testid="files-preview-manage-sharing"
                   >{{ i18n.translate('files.sharing.manage') }}</button>
                 }
-                <details>
-                  <summary class="files-page__preview-action" [attr.aria-label]="i18n.translate('files.preview.moreActions')" data-testid="files-preview-more">…</summary>
+                <details #previewMoreActions (toggle)="previewMoreActionsOpen.set(previewMoreActions.open)">
+                  @let useToolbarFocusEnd = !previewCanOpen() || previewRenderer() === 'text';
+                  @let moreDownloadIsLast = previewMoreActions.open && previewMoreActionsOpen() && previewCanDownload();
+                  <summary
+                    class="files-page__preview-action"
+                    [attr.cdkFocusRegionEnd]="useToolbarFocusEnd && !moreDownloadIsLast ? '' : null"
+                    [attr.aria-label]="i18n.translate('files.preview.moreActions')"
+                    data-testid="files-preview-more"
+                  >…</summary>
                   <button
                     type="button"
+                    [attr.cdkFocusRegionEnd]="useToolbarFocusEnd && moreDownloadIsLast ? '' : null"
                     [disabled]="!previewCanDownload()"
                     (click)="downloadPreviewFile()"
                     data-testid="files-preview-download"
