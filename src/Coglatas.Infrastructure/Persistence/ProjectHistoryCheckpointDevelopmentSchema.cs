@@ -9,6 +9,7 @@ public static class ProjectHistoryCheckpointDevelopmentSchema
     {
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
         await ProjectIdeDevelopmentSchema.EnsureExistsAsync(context, cancellationToken);
+        // ExecuteSqlRaw applies composite formatting before PostgreSQL sees the regular expressions.
         await context.Database.ExecuteSqlRawAsync("""
             CREATE TABLE projectide_development.projectide_history_checkpoints (
                 "TenantId" uuid NOT NULL,
@@ -18,8 +19,8 @@ public static class ProjectHistoryCheckpointDevelopmentSchema
                 "VersionId" uuid NOT NULL,
                 "BranchSequence" bigint NOT NULL CHECK ("BranchSequence" >= 0),
                 "Context" text NOT NULL CHECK (octet_length("Context") <= 4194304),
-                "SourceDigest" text NOT NULL CHECK ("SourceDigest" ~ '^[a-f0-9]{64}$'),
-                "InputDigest" text NOT NULL CHECK ("InputDigest" ~ '^[a-f0-9]{64}$'),
+                "SourceDigest" text NOT NULL CHECK ("SourceDigest" ~ '^[a-f0-9]{{64}}$'),
+                "InputDigest" text NOT NULL CHECK ("InputDigest" ~ '^[a-f0-9]{{64}}$'),
                 "Parents" jsonb NOT NULL CHECK (jsonb_typeof("Parents") = 'array' AND jsonb_array_length("Parents") <= 8),
                 "SourceBytes" bytea CHECK (octet_length("SourceBytes") <= 4194304),
                 "InputBytes" bytea CHECK (octet_length("InputBytes") <= 4194304),
