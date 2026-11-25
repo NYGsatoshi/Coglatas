@@ -6693,69 +6693,6 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Coglatas.Infrastructure.Persistence.ProjectIdeDraftCandidate", b =>
-                {
-                    b.Property<Guid>("CandidateId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("BranchId")
-                        .HasColumnType("uuid");
-
-                    b.Property<byte[]>("InputBytes")
-                        .IsRequired()
-                        .HasColumnType("bytea");
-
-                    b.Property<string>("InputDigest")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<Guid?>("PredecessorId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ProjectId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ProposalId")
-                        .HasColumnType("uuid");
-
-                    b.Property<byte[]>("SourceBytes")
-                        .IsRequired()
-                        .HasColumnType("bytea");
-
-                    b.Property<string>("SourceDigest")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("CandidateId");
-
-                    b.HasIndex("PredecessorId")
-                        .IsUnique();
-
-                    b.HasIndex("ProjectId", "TenantId");
-
-                    b.HasIndex("TenantId", "ProjectId", "BranchId", "ProposalId")
-                        .IsUnique()
-                        .HasFilter(" \"PredecessorId\" IS NULL ");
-
-                    b.HasIndex("TenantId", "ProjectId", "BranchId", "ProposalId", "PredecessorId")
-                        .HasDatabaseName("IX_project_ide_draft_candidates_TenantId_ProjectId_BranchId_P~1");
-
-                    b.ToTable("project_ide_draft_candidates", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_project_ide_draft_candidate_bytes", " octet_length(\"SourceBytes\") BETWEEN 1 AND 4194304 AND octet_length(\"InputBytes\") BETWEEN 1 AND 4194304 ");
-
-                            t.HasCheckConstraint("CK_project_ide_draft_candidate_digest", " \"SourceDigest\" ~ '^[0-9a-f]{64}$' AND \"InputDigest\" ~ '^[0-9a-f]{64}$' ");
-
-                            t.HasCheckConstraint("CK_project_ide_draft_candidate_predecessor", " \"CandidateId\" <> \"PredecessorId\" ");
-                        });
-                });
-
             modelBuilder.Entity("Coglatas.Domain.Entities.ActivityEvent", b =>
                 {
                     b.HasOne("Coglatas.Domain.Entities.User", "CreatedByUser")
@@ -8665,22 +8602,6 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                         .HasPrincipalKey("Id", "TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-                });
-
-            modelBuilder.Entity("Coglatas.Infrastructure.Persistence.ProjectIdeDraftCandidate", b =>
-                {
-                    b.HasOne("Coglatas.Domain.Entities.Project", null)
-                        .WithMany()
-                        .HasForeignKey("ProjectId", "TenantId")
-                        .HasPrincipalKey("Id", "TenantId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Coglatas.Infrastructure.Persistence.ProjectIdeDraftCandidate", null)
-                        .WithMany()
-                        .HasForeignKey("TenantId", "ProjectId", "BranchId", "ProposalId", "PredecessorId")
-                        .HasPrincipalKey("TenantId", "ProjectId", "BranchId", "ProposalId", "CandidateId")
-                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Coglatas.Domain.Entities.ActivityEvent", b =>

@@ -13,7 +13,9 @@ Unavailable, incomplete, stale, denied and unconfirmed
 plans return the same unavailable outcome. The save receipt carries only the
 new candidate and digest identities.
 
-The PostgreSQL store retains exact canonical bytes for each immutable
+The explicit development provisioner creates the scoped storage schema
+after the standard application migrations complete. The PostgreSQL store
+retains exact canonical bytes for each immutable
 candidate and constrains successor lineage to the same Tenant, Project,
 Branch and Proposal. The idempotency transaction stages the new row, private
 audit and Outbox invalidation. The coordinator revalidates current authority

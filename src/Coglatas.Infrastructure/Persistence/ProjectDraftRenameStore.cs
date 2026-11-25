@@ -48,7 +48,7 @@ public sealed class ProjectDraftRenameStore(AppDbContext db, IProjectDraftMateri
         var candidates = db.Set<ProjectIdeDraftCandidate>();
         var query = forUpdate
             ? candidates.FromSqlInterpolated($"""
-                SELECT * FROM project_ide_draft_candidates
+                SELECT * FROM projectide_development.project_ide_draft_candidates
                 WHERE "TenantId" = {viewer.TenantId} AND "ProjectId" = {draft.TargetBranch.ProjectId.Value}
                   AND "BranchId" = {draft.TargetBranch.BranchId.Value} AND "ProposalId" = {draft.ProposalId.Value}
                   AND "CandidateId" = {draft.CandidateRevisionId.Value}

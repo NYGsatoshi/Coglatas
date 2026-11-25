@@ -25,6 +25,10 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
                 var input = DraftRenameTests.Draft();
                 var draft = input.Source.Context.Proposal!;
                 await using var seed = PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection);
+                Assert.True(await PostgreSqlMigrationTestDatabase.ScalarAsync<bool>(connection,
+                    "SELECT to_regclass('public.project_ide_draft_candidates') IS NULL " +
+                    "AND to_regclass('projectide_development.project_ide_draft_candidates') IS NULL"));
+                await ProjectDraftRenameDevelopmentSchema.CreateAsync(seed);
                 var tenant = new Tenant(draft.TargetBranch.TenantId.Value) { Name = "Draft Test", Slug = "draft-test" };
                 var user = new User { Email = "draft@example.invalid", NormalizedEmail = "DRAFT@EXAMPLE.INVALID" };
                 var workspace = new Workspace { TenantId = tenant.Id, Name = "Draft", Slug = "draft", CreatedByUserId = user.Id };
@@ -38,7 +42,7 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
                 seed.AddRange(tenant, user, workspace, project, session, membership);
                 await seed.SaveChangesAsync();
                 await seed.Database.ExecuteSqlInterpolatedAsync($"""
-                    INSERT INTO project_ide_draft_candidates ("CandidateId", "TenantId", "ProjectId", "BranchId",
+                    INSERT INTO projectide_development.project_ide_draft_candidates ("CandidateId", "TenantId", "ProjectId", "BranchId",
                         "ProposalId", "SourceBytes", "InputBytes", "SourceDigest", "InputDigest")
                     VALUES ({draft.CandidateRevisionId.Value}, {tenant.Id}, {project.Id}, {draft.TargetBranch.BranchId.Value},
                         {draft.ProposalId.Value}, {input.Source.Data.ToCanonicalBytes()}, {input.ToEnvelope().ToCanonicalBytes()},
@@ -138,7 +142,8 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
             });
 
     private static Task<long> CandidateCount(string database) =>
-        PostgreSqlMigrationTestDatabase.ScalarAsync<long>(database, "SELECT count(*) FROM project_ide_draft_candidates");
+        PostgreSqlMigrationTestDatabase.ScalarAsync<long>(database,
+            "SELECT count(*) FROM projectide_development.project_ide_draft_candidates");
 
     private sealed class FixtureAuthority(ProposalContext draft, ContentDigest sourceDigest) : IProjectIdeOperationAuthorization
     {

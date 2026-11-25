@@ -8,8 +8,9 @@ internal sealed class ProjectIdeDraftCandidateConfiguration : IEntityTypeConfigu
 {
     public void Configure(EntityTypeBuilder<ProjectIdeDraftCandidate> builder)
     {
-        builder.ToTable("project_ide_draft_candidates", table =>
+        builder.ToTable("project_ide_draft_candidates", ProjectIdeDevelopmentSchema.Name, table =>
         {
+            table.ExcludeFromMigrations();
             table.HasCheckConstraint("CK_project_ide_draft_candidate_digest",
                 """ "SourceDigest" ~ '^[0-9a-f]{64}$' AND "InputDigest" ~ '^[0-9a-f]{64}$' """);
             table.HasCheckConstraint("CK_project_ide_draft_candidate_bytes",
