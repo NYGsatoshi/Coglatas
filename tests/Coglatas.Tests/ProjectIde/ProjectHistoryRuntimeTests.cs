@@ -278,9 +278,11 @@ public sealed class ProjectHistoryRuntimeTests
 
         public async Task SeedAsync(AppDbContext db)
         {
+            db.Tenants.Add(_tenant);
+            await db.SaveChangesAsync();
             CurrentTenant.SetTenant(_tenant.Id, _tenant.Slug);
             Session.UserId = _user.Id;
-            db.AddRange(_tenant, _user, Session, new TenantUser { TenantId = _tenant.Id, UserId = _user.Id, Status = TenantUserStatus.Active });
+            db.AddRange(_user, Session, new TenantUser { TenantId = _tenant.Id, UserId = _user.Id, Status = TenantUserStatus.Active });
             await db.SaveChangesAsync();
         }
 
