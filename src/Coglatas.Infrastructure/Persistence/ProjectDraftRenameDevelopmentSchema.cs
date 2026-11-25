@@ -28,7 +28,7 @@ public static class ProjectDraftRenameDevelopmentSchema
                         ("TenantId", "ProjectId", "BranchId", "ProposalId", "CandidateId") ON DELETE RESTRICT,
                 CONSTRAINT draft_candidate_project FOREIGN KEY ("ProjectId", "TenantId")
                     REFERENCES public.projects ("Id", "TenantId") ON DELETE RESTRICT,
-                CONSTRAINT draft_candidate_digest CHECK ("SourceDigest" ~ '^[0-9a-f]{64}$' AND "InputDigest" ~ '^[0-9a-f]{64}$'),
+                CONSTRAINT draft_candidate_digest CHECK ("SourceDigest" ~ '^[0-9a-f]{{64}}$' AND "InputDigest" ~ '^[0-9a-f]{{64}}$'),
                 CONSTRAINT draft_candidate_byte_bound CHECK (
                     octet_length("SourceBytes") BETWEEN 1 AND 4194304 AND octet_length("InputBytes") BETWEEN 1 AND 4194304),
                 CONSTRAINT draft_candidate_distinct_predecessor CHECK ("CandidateId" <> "PredecessorId")
