@@ -82,6 +82,203 @@ async function render(enabled = true, allowed = true, fail = false, profile: 'ma
 vi.stubGlobal('crypto', webcrypto);
 
 describe('ProjectIDE Workbench components', () => {
+  it.each(['en', 'ja'] as const)('lists actual %s definitions without loading a Test result and opens exact Source', async locale => {
+    const { c, fixture, root, authenticated } = await render(); c.i18n.setLocale(locale);
+    c.choose('tests-fail'); c.loadResult(); c.open('tests'); fixture.detectChanges();
+    const list = Array.from(root.querySelectorAll('button')).find(button => button.textContent?.trim() === c.t('ide.discoveryLoad'))!;
+    list.click();
+    await vi.waitFor(() => { fixture.detectChanges(); expect(c.store.testDiscoveryReadState()).toBe('ready'); });
+    fixture.detectChanges();
+    const summary = root.querySelector('[data-testid="ide-test-discovery-summary"]')!;
+    expect(summary.textContent).toContain(c.t('ide.discoveryReady')); expect(summary.textContent).toContain('0');
+    expect(c.store.localTests()).toBeNull(); expect(root.querySelector('[data-testid="ide-tests-summary"]')).toBeNull();
+    await c.loadLocalTests(); const run = c.store.localTests()!; expect(run.run.verdict).toBe('Fail');
+    await c.loadLocalTestDiscovery(); expect(c.store.localTests()).toBe(run); fixture.detectChanges();
+    const row = c.store.localTestDiscovery()!.inventory.tests[0];
+    expect(root.querySelector('[data-testid="ide-test-discovery-id"]')!.textContent).toContain(row.testId);
+    expect(root.querySelector('[data-testid="ide-test-discovery-rows"] button')!.textContent).toContain(row.testId);
+    root.querySelector<HTMLButtonElement>('[data-testid="ide-test-discovery-rows"] button')!.click();
+    await vi.waitFor(() => { fixture.detectChanges(); expect(c.panel()).toBe('source'); });
+    expect(c.store.sourceLocation()).toEqual(row.location); expect(c.store.sourceTarget()!.identity).toBe(row.testId);
+    expect(root.querySelector('pre.source-buffer')!.textContent).toContain('coglatas.project-test');
+    c.open('tests'); authenticated.set(false); fixture.detectChanges();
+    expect(c.store.localTestDiscovery()).toBeNull(); expect(c.store.localTests()).toBeNull(); expect(c.store.sourceTarget()).toBeNull();
+    expect(root.querySelector('[data-testid="ide-test-discovery-summary"]')).toBeNull();
+  });
+
+  it('does not publish an abandoned definition Source when the user opens Overview during verification', async () => {
+    const { c, fixture } = await render(true, true, false, 'simulation'); c.choose('tests-simulation-root-base'); c.loadResult(); c.open('tests');
+    await c.loadLocalTestDiscovery(); const row = c.store.localTestDiscovery()!.inventory.tests[0];
+    const original = crypto.subtle.digest.bind(crypto.subtle); let release!: () => void; let entered!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; }); const began = new Promise<void>(resolve => { entered = resolve; });
+    vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(async (algorithm, value) => { entered(); await gate; return original(algorithm, value); });
+    const pending = c.navigateDiscoveredTest(row); await began; c.open('overview'); release(); await pending; fixture.detectChanges();
+    expect(c.panel()).toBe('overview'); expect(c.store.sourceTarget()).toBeNull();
+  });
+  it.each(['earlier', 'copied'])('preserves an in-flight Source action after an %s definition is rejected', async kind => {
+    const { c, fixture } = await render(true, true, false, 'simulation');
+    c.choose('tests-simulation-root-base'); c.loadResult(); c.open('tests');
+    await c.loadLocalTestDiscovery();
+    const earlier = c.store.localTestDiscovery()!.inventory.tests[0];
+    await c.loadLocalTestDiscovery();
+    const row = c.store.localTestDiscovery()!.inventory.tests[0];
+
+    const original = crypto.subtle.digest.bind(crypto.subtle);
+    let release!: () => void;
+    let entered!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const began = new Promise<void>(resolve => { entered = resolve; });
+    vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(async (algorithm, value) => {
+      entered();
+      await gate;
+      return original(algorithm, value);
+    });
+
+    const pending = c.navigateDiscoveredTest(row);
+    await began;
+    try {
+      await c.navigateDiscoveredTest(kind === 'earlier' ? earlier : { ...row });
+      expect(c.store.testDiscoveryNavigationState()).toBe('loading');
+    } finally {
+      release();
+      await pending;
+    }
+    fixture.detectChanges();
+    expect(c.panel()).toBe('source');
+    expect(c.store.sourceLocation()).toEqual(row.location);
+  });
+
+  it.each(['en', 'ja'] as const)('shows a retryable Source action failure inside the %s Tests panel', async locale => {
+    const { c, fixture, root } = await render(true, true, false, 'simulation'); c.i18n.setLocale(locale); c.choose('tests-simulation-root-base'); c.loadResult(); c.open('tests');
+    await c.loadLocalTestDiscovery(); const admitted = c.store.localTestDiscovery()!; const row = admitted.inventory.tests[0];
+    vi.spyOn(crypto.subtle, 'digest').mockResolvedValueOnce(new ArrayBuffer(32)); await c.navigateDiscoveredTest(row); fixture.detectChanges();
+    expect(c.panel()).toBe('tests'); expect(c.store.localTestDiscovery()).toBe(admitted);
+    const error = root.querySelector('[data-testid="ide-test-discovery-source-error"]'); expect(error).not.toBeNull(); expect(error!.getAttribute('role')).toBe('alert'); expect(error!.textContent!.trim()).not.toBe('');
+    expect(root.querySelectorAll('[data-testid="ide-test-discovery-rows"] > li')).toHaveLength(1);
+    await c.navigateDiscoveredTest(row); fixture.detectChanges(); expect(c.panel()).toBe('source');
+    expect(c.store.sourceLocation()).toEqual(row.location);
+    c.open('tests'); fixture.detectChanges(); expect(root.querySelector('[data-testid="ide-test-discovery-source-error"]')).toBeNull();
+  });
+
+  it.each(['earlier', 'copied'])('preserves definition navigation when an %s assertion is rejected', async kind => {
+    const { c, fixture } = await render(true, true, false, 'simulation');
+    c.choose('tests-simulation-root-base'); c.loadResult(); c.open('tests');
+    await c.loadLocalTests();
+    const earlier = c.store.localTests()!.run.tests[0].assertions[0];
+    await c.loadLocalTests();
+    const assertion = c.store.localTests()!.run.tests[0].assertions[0];
+    expect(assertion).not.toBe(earlier);
+    await c.loadLocalTestDiscovery();
+    const row = c.store.localTestDiscovery()!.inventory.tests[0];
+
+    const original = crypto.subtle.digest.bind(crypto.subtle);
+    let release!: () => void;
+    let entered!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const began = new Promise<void>(resolve => { entered = resolve; });
+    vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(async (algorithm, value) => {
+      entered();
+      await gate;
+      return original(algorithm, value);
+    });
+
+    const pending = c.navigateDiscoveredTest(row);
+    await began;
+    try {
+      c.navigateTestAssertion(kind === 'earlier' ? earlier : { ...assertion });
+      expect(c.store.testDiscoveryNavigationState()).toBe('loading');
+    } finally {
+      release();
+      await pending;
+    }
+    fixture.detectChanges();
+    expect(c.panel()).toBe('source');
+    expect(c.store.sourceLocation()).toEqual(row.location);
+    expect(c.store.localTests()!.run.tests[0].assertions[0]).toBe(assertion);
+  });
+
+  it('pages all33 actual Core definitions without dropping the full count or evaluating assertions', async () => {
+    const { c, fixture, root } = await render(); c.choose('tests-many'); c.loadResult(); c.open('tests');
+    await c.loadLocalTestDiscovery(); fixture.detectChanges();
+    const rows = () => root.querySelectorAll('[data-testid="ide-test-discovery-rows"] > li');
+    expect(rows()).toHaveLength(32); expect(c.store.localTestDiscovery()!.inventory.discoveredTests).toBe(33); expect(c.store.localTests()).toBeNull();
+    const next = Array.from(root.querySelectorAll('button')).find(button => button.textContent?.trim() === c.t('ide.discoveryNext'))!;
+    next.focus(); next.click(); fixture.detectChanges(); await new Promise(resolve => setTimeout(resolve, 0));
+    expect(rows()).toHaveLength(1); expect(next.disabled).toBe(true);
+    expect(document.activeElement).toBe(root.querySelector('[data-testid="ide-test-discovery-rows"] button'));
+    const previous = Array.from(root.querySelectorAll('button')).find(button => button.textContent?.trim() === c.t('ide.discoveryPrevious'))!;
+    previous.focus(); previous.click(); fixture.detectChanges(); await new Promise(resolve => setTimeout(resolve, 0));
+    expect(rows()).toHaveLength(32); expect(previous.disabled).toBe(true);
+    expect(document.activeElement).toBe(root.querySelector('[data-testid="ide-test-discovery-rows"] button'));
+  });
+  it('keeps missing and corrupted inventory distinct from an empty successful roster', async () => {
+    const { c, fixture, root } = await render(); c.choose('pass'); c.loadResult(); c.open('tests');
+    await c.loadLocalTestDiscovery(); fixture.detectChanges(); expect(c.store.testDiscoveryReadState()).toBe('unavailable');
+    expect(root.querySelector('[data-testid="ide-test-discovery-summary"]')!.textContent).not.toContain(c.t('ide.discoveryReady'));
+    c.choose('tests-pass'); c.loadResult(); c.open('tests');
+    Object.assign(c.store.context()!.localProjectTestDiscovery!.inventory.inputDigest!, { value: 'a'.repeat(64) });
+    await c.loadLocalTestDiscovery(); fixture.detectChanges(); expect(c.store.testDiscoveryReadState()).toBe('unsupported');
+    expect(root.querySelector('[role="alert"]')!.textContent).toContain(c.t('ide.discoveryUnreadable'));
+    expect(root.querySelector('[data-testid="ide-test-discovery-summary"]')!.textContent).not.toContain(c.t('ide.discoveryReady'));
+    expect(root.querySelector('[data-testid="ide-test-discovery-summary"] dl')).toBeNull();
+  });
+  it.each(['en', 'ja'] as const)('renders actual unavailable discovery from the bounded dedicated profile in %s', async locale => {
+    const { c, fixture, root, adapter } = await render(); c.i18n.setLocale(locale);
+    adapter.read.mockResolvedValueOnce(readPreviewBundle(JSON.parse(readFileSync(resolve('public/assets/projectide/test-discovery-v1.json'), 'utf8'))));
+    await c.reload('test-discovery'); c.choose('tests-discovery-unavailable'); c.loadResult(); c.open('tests');
+    await c.loadLocalTestDiscovery(); fixture.detectChanges();
+    expect(c.store.localTestDiscovery()!.inventory.state).toBe('Unavailable');
+    expect(root.querySelector('[data-testid="ide-test-discovery-summary"]')!.textContent).toContain(c.t('ide.discoveryUnavailable'));
+    expect(root.querySelector('[data-testid="ide-test-discovery-summary"] dl')).toBeNull();
+    expect(root.querySelector('[data-testid="ide-test-discovery-summary"]')!.textContent).not.toContain(c.t('ide.discoveryCounts', { tests: 0 }));
+    expect(root.querySelectorAll('[data-testid="ide-test-discovery-rows"] > li')).toHaveLength(0); expect(c.store.localTests()).toBeNull();
+  });
+  for (const locale of ['en', 'ja'] as const) {
+    it.each([['tests-stale', 'StaleInput'], ['tests-exhausted', 'ResourceLimit']])('does not present refused %s counts or evaluator claims in ' + locale, async (key, state) => {
+      const { c, fixture, root } = await render(); c.i18n.setLocale(locale); c.choose(key); c.loadResult(); c.open('tests');
+      await c.loadLocalTestDiscovery(); fixture.detectChanges();
+      expect(c.store.localTestDiscovery()!.inventory.state).toBe(state);
+      const summary = root.querySelector('[data-testid="ide-test-discovery-summary"]')!;
+      expect(summary.textContent).toContain(c.discoveryValue(state));
+      expect(summary.textContent).not.toContain(c.t('ide.discoveryCounts', { tests: 0 }));
+      expect(summary.querySelector('dl')).toBeNull();
+      expect(root.querySelectorAll('[data-testid="ide-test-discovery-rows"] > li')).toHaveLength(0);
+    });
+    it('keeps a ready empty inventory count and binding flags visible in ' + locale, async () => {
+      const { c, fixture, root } = await render(); c.i18n.setLocale(locale); c.choose('tests-empty'); c.loadResult(); c.open('tests');
+      await c.loadLocalTestDiscovery(); fixture.detectChanges();
+      expect(c.store.localTestDiscovery()!.inventory.state).toBe('Ready');
+      const summary = root.querySelector('[data-testid="ide-test-discovery-summary"]')!;
+      expect(summary.textContent).toContain(c.t('ide.discoveryCounts', { tests: 0 }));
+      expect(summary.querySelector('dl')).not.toBeNull(); expect(summary.textContent).toContain(c.t('ide.discoveryEvaluator'));
+    });
+  }
+  it('keeps one discovery live region mounted before and after Ready, Unsupported and Unavailable reads', async () => {
+    const { c, fixture, root } = await render(); c.choose('tests-pass'); c.loadResult(); c.open('tests'); fixture.detectChanges();
+    const region = root.querySelector('[data-testid="ide-test-discovery-summary"]')!;
+    expect(region).toBeTruthy(); expect(region.getAttribute('aria-live')).toBe('polite'); expect(region.textContent!.trim()).toBe('');
+    await c.loadLocalTestDiscovery(); fixture.detectChanges(); expect(root.querySelector('[data-testid="ide-test-discovery-summary"]')).toBe(region);
+    expect(region.textContent).toContain(c.t('ide.discoveryReady'));
+    Object.assign(c.store.context()!.localProjectTestDiscovery!.plan, { text: '{}' });
+    await c.loadLocalTestDiscovery(); fixture.detectChanges(); expect(root.querySelector('[data-testid="ide-test-discovery-summary"]')).toBe(region);
+    expect(region.textContent).toContain(c.t('ide.discoveryUnreadable'));
+    c.choose('pass'); c.loadResult(); c.open('tests'); await c.loadLocalTestDiscovery(); fixture.detectChanges();
+    expect(root.querySelector('[data-testid="ide-test-discovery-summary"]')).toBe(region); expect(region.textContent).toContain(c.t('ide.discoveryUnavailable'));
+  });
+  it.each(['en', 'ja'] as const)('opens a version-2 Test definition from the actual %s action without preloading Scoped Sources', async locale => {
+    const { c, fixture, root } = await render(true, true, false, 'simulation'); c.i18n.setLocale(locale); c.choose('tests-simulation-root-base'); c.loadResult(); c.open('tests');
+    await c.loadLocalTestDiscovery(); fixture.detectChanges(); expect(c.store.scopedSources()).toHaveLength(0);
+    root.querySelector<HTMLButtonElement>('[data-testid="ide-test-discovery-rows"] button')!.click();
+    await vi.waitFor(() => { fixture.detectChanges(); expect(c.panel()).toBe('source'); });
+    expect(c.store.sourceTarget()!.kind).toBe('coglatas.project-test'); expect(c.store.localTests()).toBeNull();
+  });
+  it('withdraws a pending inventory before a denied actor can view definitions', async () => {
+    const { c, fixture, root, authenticated } = await render(); c.choose('tests-pass'); c.loadResult(); c.open('tests');
+    const pending = c.loadLocalTestDiscovery(); authenticated.set(false); await pending; fixture.detectChanges();
+    expect(c.store.state()).toBe('denied'); expect(c.store.localTestDiscovery()).toBeNull(); expect(c.store.sourceTarget()).toBeNull();
+    expect(root.querySelector('[data-testid="ide-test-discovery-summary"]')).toBeNull();
+  });
+
   it.each(['en', 'ja'] as const)('separates Scenario assumptions, Source changes and fixed result axes in %s', async locale => {
     const { c, fixture, root, authenticated } = await render(true, true, false, 'scenario'); c.i18n.setLocale(locale);
     c.choose('tests-scenario-base'); c.loadResult(); c.open('scenario');
@@ -623,3 +820,35 @@ it('refuses direct simulation handlers after permission revocation', async () =>
     expect(c.store.state()).toBe('denied'); expect(c.store.recordedDebug()).toBeNull(); expect(c.store.scopedSourceTarget()).toBeNull();
     await c.loadRecordedDebug(); c.selectRecordedDebugFrame(0); expect(c.store.recordedDebug()).toBeNull();
   });
+
+
+it('keeps the discovery action focused while loading and ignores repeated activation', async () => {
+  const { c, fixture, root } = await render(); c.choose('tests-pass'); c.loadResult(); c.open('tests'); fixture.detectChanges();
+  const action = Array.from(root.querySelectorAll('button')).find(button => button.textContent?.trim() === c.t('ide.discoveryLoad'))!; action.focus();
+  const original = crypto.subtle.digest.bind(crypto.subtle); let release!: () => void; let entered!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; }); const began = new Promise<void>(resolve => { entered = resolve; });
+  vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(async (algorithm, bytes) => { entered(); await gate; return original(algorithm, bytes); });
+  const load = vi.spyOn(c.store, 'loadLocalTestDiscovery'); action.click(); await began; fixture.detectChanges();
+  const pending = load.mock.results[0].value as Promise<boolean>;
+  try {
+    expect(action.disabled).toBe(false); expect(action.getAttribute('aria-disabled')).toBe('true'); expect(document.activeElement).toBe(action);
+    action.click(); expect(load).toHaveBeenCalledTimes(1);
+  } finally { release(); await pending; fixture.detectChanges(); }
+  expect(action.getAttribute('aria-disabled')).toBe('false'); expect(document.activeElement).toBe(action);
+  expect(c.store.localTestDiscovery()!.inventory.state).toBe('Ready');
+});
+
+it('marks a withdrawn discovery inventory unavailable after its original Ready read', async () => {
+  const { c, fixture, root } = await render(); c.choose('tests-pass'); c.loadResult(); c.open('tests');
+  expect(await c.store.loadLocalTestDiscovery()).toBe(true); fixture.detectChanges();
+  const summary = root.querySelector('[data-testid="ide-test-discovery-summary"]')!;
+  expect(summary.getAttribute('data-admission')).toBe('admitted'); expect(summary.getAttribute('data-discovery-state')).toBe('Ready');
+  const rows = () => root.querySelectorAll('[data-testid="ide-test-discovery-rows"] > li');
+  expect(rows().length).toBeGreaterThan(0);
+  Object.assign(c.store.context()!.localProjectTestDiscovery!.inventory.tests[0], { displayName: 'changed live definition' });
+  c.open('overview'); fixture.detectChanges(); c.open('tests'); fixture.detectChanges();
+  const withdrawn = root.querySelector('[data-testid="ide-test-discovery-summary"]')!;
+  expect(c.store.testDiscoveryReadState()).toBe('ready'); expect(c.store.localTestDiscovery()).toBeNull();
+  expect(withdrawn.getAttribute('data-admission')).toBe('not-admitted'); expect(withdrawn.getAttribute('data-discovery-state')).toBe('unavailable');
+  expect(rows()).toHaveLength(0);
+});
