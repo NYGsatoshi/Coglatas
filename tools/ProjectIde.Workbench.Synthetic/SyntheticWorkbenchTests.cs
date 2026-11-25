@@ -90,8 +90,47 @@ public sealed partial class SyntheticWorkbenchViewModel
         var compilation = _compilation;
         var run = ProjectTestPlan.Compile(model, SyntheticProjectTestConfiguration.Evaluator, limits).Execute(_desired.Input.ExpectedInputDigest, cancellationToken);
         if (_disposed || generation != _testGeneration || lifecycle != _lifecycle || !ReferenceEquals(compilation, _compilation)) return false;
-        TestRun = run; Changed();
+        TestRun = run;
+        Exception? withdrawalFailure = null;
+        bool cancelledAtPublication;
+        try { Changed(); }
+        finally
+        {
+            // Core already represents cancellation during execution in the run itself.
+            cancelledAtPublication = run.Execution != CompilerExecutionState.Cancelled && cancellationToken.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _testGeneration && lifecycle == _lifecycle && ReferenceEquals(TestRun, run))
+                withdrawalFailure = WithdrawPublishedTestRun();
+        }
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Project Test result publication was cancelled.", withdrawalFailure, cancellationToken);
         return !_disposed && generation == _testGeneration && lifecycle == _lifecycle && ReferenceEquals(TestRun, run);
+    }
+
+    private Exception? WithdrawPublishedTestRun()
+    {
+        _testGeneration++;
+        TestRun = null;
+        if (SelectedTestAssertion is { } assertion)
+        {
+            SelectedTestAssertion = null;
+            if (SourceTarget is null || ReferenceEquals(SourceTarget, assertion.Location))
+            {
+                SourceTarget = null;
+                NavigationState = "";
+                _selectionGeneration++;
+            }
+        }
+
+        var subscribers = PropertyChanged;
+        if (subscribers is null) return null;
+        var args = new System.ComponentModel.PropertyChangedEventArgs(null);
+        Exception? firstFailure = null;
+        foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+        {
+            try { subscriber(this, args); }
+            catch (Exception error) { firstFailure ??= error; }
+        }
+        return firstFailure;
     }
 
     public bool SelectTestAssertion(ProjectTestAssertionResult assertion)

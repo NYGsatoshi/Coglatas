@@ -65,8 +65,8 @@ try
     {
         artifact = Failure("NotRun", "Error", "coglatas.invalid-or-mismatched-input"); exitCode = 3;
     }
-    await ProjectTestOutput.WriteNewAsync(args[2], artifact.ToCanonicalBytes());
-    return exitCode;
+    return await ProjectTestOutput.PublishResultAsync(args[2], artifact.ToCanonicalBytes(), exitCode, cancellation.Token,
+        static () => Failure("Cancelled", "NotRun", "coglatas.cancelled").ToCanonicalBytes());
 }
 catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
 {
