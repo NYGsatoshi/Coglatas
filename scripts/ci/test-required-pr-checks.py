@@ -6,6 +6,8 @@ import datetime as dt
 import io
 import importlib.util
 import json
+import os
+import subprocess
 import tempfile
 import unittest
 import urllib.request
@@ -108,6 +110,12 @@ jobs:
         self.assertEqual([], errors)
         errors = guard.required_check_errors(
             ".github/workflows/performance-api.yml", self.routed_workflow("success()"), registry
+        )
+        self.assertTrue(any("routed aggregate must use always()" in error for error in errors))
+
+        errors = guard.required_check_errors(
+            ".github/workflows/performance-api.yml",
+            self.routed_workflow("${{ !cancelled() }}"), registry,
         )
         self.assertTrue(any("routed aggregate must use always()" in error for error in errors))
 
@@ -339,6 +347,93 @@ jobs:
 """
         errors = guard.required_check_errors(".github/workflows/ci.yml", text, registry)
         self.assertTrue(any("build-test-old" in error for error in errors))
+
+
+class CancellableConsumerTests(unittest.TestCase):
+    """Exercise source guards and the real admission shell, not a runner model."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.workflow = (required.ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    def job_source(self, job: str) -> str:
+        start, end, _ = required._jobs(self.workflow)[job]
+        return "\n".join(self.workflow.splitlines()[start:end])
+
+    def errors_for_job(self, job: str, replacement: str) -> list[str]:
+        return guard.required_check_errors(
+            ".github/workflows/ci.yml",
+            self.workflow.replace(self.job_source(job), replacement, 1),
+            registry_for_contexts(job),
+        )
+
+    def test_long_consumers_allow_cancellation_and_keep_producer_refusal(self) -> None:
+        for job in required.CANCELLABLE_PR_CONSUMERS:
+            with self.subTest(job=job):
+                block = required._jobs(self.workflow)[job]
+                self.assertEqual("${{ !cancelled() }}", required._field(self.workflow, block, "if"))
+                self.assertEqual([], self.errors_for_job(job, self.job_source(job)))
+
+    def test_actual_consumer_commands_reject_every_non_successful_producer(self) -> None:
+        for job in required.CANCELLABLE_PR_CONSUMERS:
+            source = self.job_source(job)
+            command = next(line.strip()[5:] for line in source.splitlines() if line.strip().startswith("run: "))
+            for result in ("success", "failure", "cancelled", "skipped", "neutral", "", "unknown"):
+                with self.subTest(job=job, producer=result):
+                    outcome = subprocess.run(
+                        ["bash", "-e", "-o", "pipefail", "-c", command],
+                        env={**os.environ, "PRODUCER_RESULT": result},
+                        capture_output=True, timeout=5, check=False,
+                    )
+                    self.assertEqual(result == "success", outcome.returncode == 0)
+
+    def test_cancellation_condition_cannot_hide_other_selection_predicates(self) -> None:
+        for job in required.CANCELLABLE_PR_CONSUMERS:
+            for condition in (
+                "${{ !cancelled() || true }}",
+                "${{ !cancelled() && success() }}",
+                "${{ !cancelled() && github.actor != 'bot' }}",
+                "${{ needs.dotnet-build.result == 'success' }}",
+            ):
+                with self.subTest(job=job, condition=condition):
+                    changed = self.job_source(job).replace("${{ !cancelled() }}", condition, 1)
+                    self.assertTrue(any("must not use job-level if" in e for e in self.errors_for_job(job, changed)))
+
+    def test_cancellation_requires_the_original_first_step_without_failure_masking(self) -> None:
+        for job, (producer, name) in required.CANCELLABLE_PR_CONSUMERS.items():
+            for original, replacement in (
+                (f"needs.{producer}.result", "needs.other.result"),
+                ("        shell: bash\n", ""),
+                ("shell: bash", "shell: bash -c 'exit 0' {0}"),
+                ("BASH_ENV: /dev/null", "BASH_ENV: unreviewed-startup.sh"),
+                ("          BASH_ENV: /dev/null\n", ""),
+                ('run: test "$PRODUCER_RESULT" = success', 'run: test "$PRODUCER_RESULT" = success || true'),
+                (f"- name: {name}", f"- name: {name}\n        continue-on-error: true"),
+                (f"- name: {name}", f"- name: {name}\n        if: success()"),
+                (f"- name: {name}", f"- run: echo earlier-step\n      - name: {name}"),
+                ('run: test "$PRODUCER_RESULT" = success', 'run: echo producer-was-not-checked'),
+            ):
+                with self.subTest(job=job, mutation=replacement):
+                    changed = self.job_source(job).replace(original, replacement, 1)
+                    self.assertTrue(any("first-step producer refusal" in e for e in self.errors_for_job(job, changed)))
+
+    def test_cancellable_consumers_keep_registered_timeout_and_failure_results(self) -> None:
+        for job in required.CANCELLABLE_PR_CONSUMERS:
+            source = self.job_source(job)
+            changed = source.replace(f"    name: {job}", f"    name: {job}\n    continue-on-error: true", 1)
+            self.assertTrue(any("must not use continue-on-error" in e for e in self.errors_for_job(job, changed)))
+            timeout = "90" if job == "security-scan" else "120"
+            changed = source.replace(f"timeout-minutes: {timeout}", "timeout-minutes: 1", 1)
+            self.assertTrue(any("timeout-minutes must remain" in e for e in self.errors_for_job(job, changed)))
+
+    def test_cancellation_does_not_admit_skipped_or_cancelled_required_results(self) -> None:
+        self.assertTrue({"cancelled", "skipped", "neutral"}.issubset(required.REJECTED))
+        for entry in REGISTRY["checks"]:
+            self.assertEqual(["success"], entry["allowed_conclusions"])
+
+    def test_short_functional_aggregate_still_runs_after_cancellation(self) -> None:
+        block = required._jobs(self.workflow)["functional-fast"]
+        self.assertEqual("${{ always() }}", required._field(self.workflow, block, "if"))
 
 
 class LiveRulesetTests(unittest.TestCase):

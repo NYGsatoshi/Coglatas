@@ -43,14 +43,21 @@ public sealed class SecurityEvaluationReader(ISecurityEvaluationStore store,
     public async Task<SecurityEvaluationReadModel?> FindAsync(Guid projectId, Guid evaluationId,
         CancellationToken cancellationToken = default)
     {
+        var viewer = store.CaptureViewer();
+        if (viewer is null)
+            return null;
+
         // The store enforces current authentication and Tenant/Project authorization before disclosure.
         var record = await store.FindAsync(projectId, evaluationId, cancellationToken);
-        if (record is null)
+        if (record is null || record.TenantId != viewer.Value.TenantId || store.CaptureViewer() != viewer)
             return null;
         var current = await currentContext.ResolveAsync(projectId, record.Identity.Resource, cancellationToken);
+        if (store.CaptureViewer() != viewer)
+            return null;
+
         // Host resolution can await I/O. Recheck permission and retention before returning anything.
         record = await store.FindAsync(projectId, evaluationId, cancellationToken);
-        if (record is null)
+        if (record is null || record.TenantId != viewer.Value.TenantId || store.CaptureViewer() != viewer)
             return null;
         var freshness = GetFreshness(record, current);
         if (freshness == SecurityEvaluationFreshness.Stale)

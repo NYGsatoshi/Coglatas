@@ -1,0 +1,6 @@
+# DOC-04 qualification runtime: CPython 3.12 on Linux x86_64.
+# Pin direct and transitive dependencies to reviewed wheel bytes.
+# Install with --require-hashes --only-binary=:all:; update in a reviewed change.
+markdown-it-py==4.2.0 --hash=sha256:9f7ebbcd14fe59494226453aed97c1070d83f8d24b6fc3a3bcf9a38092641c4a
+mdurl==0.1.2 --hash=sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8
+PyYAML==6.0.3 --hash=sha256:ba1cc08a7ccde2d2ec775841541641e4548226580ab850948cbfda66a1befcdc

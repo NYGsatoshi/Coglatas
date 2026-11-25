@@ -1,0 +1,337 @@
+name: ProjectIDE semantic index Web admission advisory
+
+on:
+  pull_request:
+    branches: [SecurityTestImplimation]
+    paths:
+      - .github/workflows/projectide-semantic-index-web-advisory.yml
+      - tests/candidates/projectide-semantic-index-web/**
+      - tests/candidates/workflow-provenance/**
+
+permissions:
+  contents: read
+
+env:
+  PROVENANCE_BLOB: bc8106b9c4ac38af7ddb53bd4f904aef98d847e8
+  PROVENANCE_CONTROLS_BLOB: c9f7ec729870758b86b21f806423ce1bb726933c
+  PRODUCT_HEAD: 09347c1113f5f9c007bbbc5052278d5b5151feb5
+  SOURCE_BLOB: 45213690098c1ae4fc2b79b4eedb1432844a07f9
+  RUNNER_BLOB: 23728902ccc211fd801220382be41ad76377048a
+  CONTROLS_BLOB: 5cfba67aa53ea196d297e867c1e9f595cb9310f1
+
+concurrency:
+  group: semantic-index-web-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  synthetic-angular-ubuntu:
+    name: Semantic index Web reader and store (ubuntu-24.04)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+      BASE_HEAD: ${{ github.event.pull_request.base.sha }}
+      WORKFLOW_HEAD: ${{ github.workflow_sha }}
+      WORKFLOW_REF: ${{ github.workflow_ref }}
+      PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Preserve committed source bytes
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot disable checkout newline conversion' }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot select committed LF checkout bytes' }
+      - name: Checkout immutable independent Test owner
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind exact candidate and runner identities
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $actualTest = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $actualTest -ne $env:TEST_HEAD) { throw 'Independent Test HEAD mismatch' }
+          $source = git rev-parse 'HEAD:tests/candidates/projectide-semantic-index-web/projectide-semantic-index-security.candidate.spec.ts'
+          if ($LASTEXITCODE -ne 0 -or $source -ne $env:SOURCE_BLOB) { throw 'Frozen Angular source mismatch' }
+          $runner = git rev-parse 'HEAD:tests/candidates/projectide-semantic-index-web/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Composition runner mismatch' }
+          $controls = git rev-parse 'HEAD:tests/candidates/projectide-semantic-index-web/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission control source mismatch' }
+          git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
+          if ($LASTEXITCODE -ne 0) { throw 'Frozen Product commit unavailable' }
+          $context = Join-Path $env:RUNNER_TEMP 'semantic-index-web-context'
+          New-Item -ItemType Directory -Path $context | Out-Null
+          @{
+            productHead = $env:PRODUCT_HEAD
+            productTree = '5abb6b4f4389f200a289a84b99a0dd13e60072cc'
+            testHead = $actualTest
+            sourceBlob = $source
+            runnerBlob = $runner
+            controlsBlob = $controls
+            runnerOs = $env:RUNNER_OS
+            runId = '${{ github.run_id }}'
+            runAttempt = '${{ github.run_attempt }}'
+            executionScope = 'SYNTHETIC_SEMANTIC_INDEX_WEB_READER_STORE_ONLY'
+            requiredCheckQualified = $false
+            independentReviewComplete = $false
+            nativeUiQualified = $false
+            productionQualified = $false
+            trustQualified = $false
+            releaseQualified = $false
+          } | ConvertTo-Json | Set-Content -Encoding utf8NoBOM (Join-Path $context 'workflow-context.json')
+      - name: Set up composition interpreter
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12'
+      - name: Bind the immutable executing workflow to the reviewed Test source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'semantic-index-web-context'
+          $provenance = git rev-parse 'HEAD:tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenance -ne $env:PROVENANCE_BLOB) { throw 'Provenance helper blob mismatch' }
+          $provenanceBytes = git hash-object --no-filters -- 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenanceBytes -ne $env:PROVENANCE_BLOB) { throw 'Provenance helper working bytes mismatch' }
+          python -I -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-semantic-index-web-advisory.yml --context (Join-Path $context 'workflow-context.json')
+          if ($LASTEXITCODE -ne 0) { throw 'Executing workflow provenance was refused' }
+      - name: Exercise independent Git provenance refusal controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'semantic-index-web-context'
+          $log = Join-Path $context 'provenance-controls.log'
+          # Refuse script source drift before executing an imported Python module.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'; Sha = $env:PROVENANCE_BLOB },
+            @{ Path = 'tests/candidates/workflow-provenance/test_workflow_provenance.py'; Sha = $env:PROVENANCE_CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-semantic-index-web' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B -c "import importlib.util, runpy, sys; s=importlib.util.spec_from_file_location('verify_workflow_provenance', 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'); m=importlib.util.module_from_spec(s); sys.modules[s.name]=m; s.loader.exec_module(m); runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py', run_name='__main__')" *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content -LiteralPath $log
+          if ($controlsExitCode -ne 0) { throw 'Executing workflow provenance controls failed' }
+      - name: Set up supported frontend runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '26'
+      - name: Pin the Product package manager
+        shell: pwsh
+        run: |
+          npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned npm installation failed' }
+          $version = npm --version
+          if ($LASTEXITCODE -ne 0 -or $version -ne '11.17.0') { throw 'Pinned npm version mismatch' }
+      - name: Execute the immutable Angular candidate against original Product
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Refuse script source drift before executing an imported Python module.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-semantic-index-web/compose_and_verify.py'; Sha = $env:RUNNER_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-semantic-index-web' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B tests/candidates/projectide-semantic-index-web/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/semantic-index-web-composed" --evidence "$env:RUNNER_TEMP/semantic-index-web-evidence"
+          if ($LASTEXITCODE -ne 0) { throw 'Original Angular execution or source admission failed; retain evidence' }
+      - name: Refuse malformed retained evidence and actual source drift
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'semantic-index-web-context'
+          $log = Join-Path $context 'admission-controls.log'
+          # Refuse script source drift before executing an imported Python module.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-semantic-index-web/compose_and_verify.py'; Sha = $env:RUNNER_BLOB },
+            @{ Path = 'tests/candidates/projectide-semantic-index-web/test_compose_and_verify.py'; Sha = $env:CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-semantic-index-web' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B tests/candidates/projectide-semantic-index-web/test_compose_and_verify.py --evidence "$env:RUNNER_TEMP/semantic-index-web-evidence" --report "$context/admission-controls.json" -v *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content $log
+          if ($controlsExitCode -ne 0) { throw 'Retained Angular evidence admission controls failed' }
+      - name: Retain original reports and immutable source receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: semantic-index-web-ubuntu-24.04-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/semantic-index-web-context
+            ${{ runner.temp }}/semantic-index-web-evidence
+          if-no-files-found: error
+
+  synthetic-angular-windows:
+    name: Semantic index Web reader and store (windows-latest)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      TEST_HEAD: ${{ github.event.pull_request.head.sha }}
+      BASE_HEAD: ${{ github.event.pull_request.base.sha }}
+      WORKFLOW_HEAD: ${{ github.workflow_sha }}
+      WORKFLOW_REF: ${{ github.workflow_ref }}
+      PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Preserve committed source bytes
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot disable checkout newline conversion' }
+          git config --global core.eol lf
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot select committed LF checkout bytes' }
+      - name: Checkout immutable independent Test owner
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind exact candidate and runner identities
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $actualTest = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $actualTest -ne $env:TEST_HEAD) { throw 'Independent Test HEAD mismatch' }
+          $source = git rev-parse 'HEAD:tests/candidates/projectide-semantic-index-web/projectide-semantic-index-security.candidate.spec.ts'
+          if ($LASTEXITCODE -ne 0 -or $source -ne $env:SOURCE_BLOB) { throw 'Frozen Angular source mismatch' }
+          $runner = git rev-parse 'HEAD:tests/candidates/projectide-semantic-index-web/compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $runner -ne $env:RUNNER_BLOB) { throw 'Composition runner mismatch' }
+          $controls = git rev-parse 'HEAD:tests/candidates/projectide-semantic-index-web/test_compose_and_verify.py'
+          if ($LASTEXITCODE -ne 0 -or $controls -ne $env:CONTROLS_BLOB) { throw 'Admission control source mismatch' }
+          git cat-file -e "$($env:PRODUCT_HEAD)^{commit}"
+          if ($LASTEXITCODE -ne 0) { throw 'Frozen Product commit unavailable' }
+          $context = Join-Path $env:RUNNER_TEMP 'semantic-index-web-context'
+          New-Item -ItemType Directory -Path $context | Out-Null
+          @{
+            productHead = $env:PRODUCT_HEAD
+            productTree = '5abb6b4f4389f200a289a84b99a0dd13e60072cc'
+            testHead = $actualTest
+            sourceBlob = $source
+            runnerBlob = $runner
+            controlsBlob = $controls
+            runnerOs = $env:RUNNER_OS
+            runId = '${{ github.run_id }}'
+            runAttempt = '${{ github.run_attempt }}'
+            executionScope = 'SYNTHETIC_SEMANTIC_INDEX_WEB_READER_STORE_ONLY'
+            requiredCheckQualified = $false
+            independentReviewComplete = $false
+            nativeUiQualified = $false
+            productionQualified = $false
+            trustQualified = $false
+            releaseQualified = $false
+          } | ConvertTo-Json | Set-Content -Encoding utf8NoBOM (Join-Path $context 'workflow-context.json')
+      - name: Set up composition interpreter
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: '3.12'
+      - name: Bind the immutable executing workflow to the reviewed Test source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'semantic-index-web-context'
+          $provenance = git rev-parse 'HEAD:tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenance -ne $env:PROVENANCE_BLOB) { throw 'Provenance helper blob mismatch' }
+          $provenanceBytes = git hash-object --no-filters -- 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'
+          if ($LASTEXITCODE -ne 0 -or $provenanceBytes -ne $env:PROVENANCE_BLOB) { throw 'Provenance helper working bytes mismatch' }
+          python -I -B tests/candidates/workflow-provenance/verify_workflow_provenance.py --workflow-path .github/workflows/projectide-semantic-index-web-advisory.yml --context (Join-Path $context 'workflow-context.json')
+          if ($LASTEXITCODE -ne 0) { throw 'Executing workflow provenance was refused' }
+      - name: Exercise independent Git provenance refusal controls
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'semantic-index-web-context'
+          $log = Join-Path $context 'provenance-controls.log'
+          # Refuse script source drift before executing an imported Python module.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'; Sha = $env:PROVENANCE_BLOB },
+            @{ Path = 'tests/candidates/workflow-provenance/test_workflow_provenance.py'; Sha = $env:PROVENANCE_CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-semantic-index-web' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B -c "import importlib.util, runpy, sys; s=importlib.util.spec_from_file_location('verify_workflow_provenance', 'tests/candidates/workflow-provenance/verify_workflow_provenance.py'); m=importlib.util.module_from_spec(s); sys.modules[s.name]=m; s.loader.exec_module(m); runpy.run_path('tests/candidates/workflow-provenance/test_workflow_provenance.py', run_name='__main__')" *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content -LiteralPath $log
+          if ($controlsExitCode -ne 0) { throw 'Executing workflow provenance controls failed' }
+      - name: Set up supported frontend runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '26'
+      - name: Pin the Product package manager
+        shell: pwsh
+        run: |
+          npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned npm installation failed' }
+          $version = npm --version
+          if ($LASTEXITCODE -ne 0 -or $version -ne '11.17.0') { throw 'Pinned npm version mismatch' }
+      - name: Execute the immutable Angular candidate against original Product
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Refuse script source drift before executing an imported Python module.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-semantic-index-web/compose_and_verify.py'; Sha = $env:RUNNER_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-semantic-index-web' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B tests/candidates/projectide-semantic-index-web/compose_and_verify.py --product-head $env:PRODUCT_HEAD --worktree "$env:RUNNER_TEMP/semantic-index-web-composed" --evidence "$env:RUNNER_TEMP/semantic-index-web-evidence"
+          if ($LASTEXITCODE -ne 0) { throw 'Original Angular execution or source admission failed; retain evidence' }
+      - name: Refuse malformed retained evidence and actual source drift
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $context = Join-Path $env:RUNNER_TEMP 'semantic-index-web-context'
+          $log = Join-Path $context 'admission-controls.log'
+          # Refuse script source drift before executing an imported Python module.
+          foreach ($script in @(
+            @{ Path = 'tests/candidates/projectide-semantic-index-web/compose_and_verify.py'; Sha = $env:RUNNER_BLOB },
+            @{ Path = 'tests/candidates/projectide-semantic-index-web/test_compose_and_verify.py'; Sha = $env:CONTROLS_BLOB }
+          )) {
+            $committed = git rev-parse "$($env:TEST_HEAD):$($script.Path)"
+            if ($LASTEXITCODE -ne 0 -or $committed -ne $script.Sha) { throw 'Pre-execution committed Python identity mismatch' }
+            $working = git hash-object --no-filters -- $script.Path
+            if ($LASTEXITCODE -ne 0 -or $working -ne $script.Sha) { throw 'Pre-execution working Python bytes mismatch' }
+          }
+          python -I -B -c "import os,sys;roots=sys.argv[1:];fail=lambda e: (_ for _ in ()).throw(e);bad=[(directory,name) for root in roots for directory,dirs,files in os.walk(root,onerror=fail) for name in dirs+files if name.casefold()=='__pycache__' or os.path.splitext(name)[1].casefold() in ('.pyc','.pyo')];sys.exit(not roots or any(not os.path.isdir(root) for root in roots) or bool(bad))" 'tests/candidates/projectide-semantic-index-web' 'tests/candidates/workflow-provenance'
+          if ($LASTEXITCODE -ne 0) { throw 'Python bytecode cache is not admitted' }
+          python -I -B tests/candidates/projectide-semantic-index-web/test_compose_and_verify.py --evidence "$env:RUNNER_TEMP/semantic-index-web-evidence" --report "$context/admission-controls.json" -v *> $log
+          $controlsExitCode = $LASTEXITCODE
+          Get-Content $log
+          if ($controlsExitCode -ne 0) { throw 'Retained Angular evidence admission controls failed' }
+      - name: Retain original reports and immutable source receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: semantic-index-web-windows-latest-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/semantic-index-web-context
+            ${{ runner.temp }}/semantic-index-web-evidence
+          if-no-files-found: error

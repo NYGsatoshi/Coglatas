@@ -2,9 +2,9 @@ name: Trivy Repository Dependency Scan
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, SecurityTestImplimation]
   push:
-    branches: [main]
+    branches: [main, SecurityTestImplimation]
   schedule:
     - cron: "7 3 * * *"
   workflow_dispatch:

@@ -1,0 +1,140 @@
+# P0 #1966 — independent actual regional predicate observation
+
+This Security-owned candidate exercises the public regional Compiler collector
+and explicit snapshot reader with independently authored Source documents,
+constraints, requirements, cross-Project relations and fixed materializations.
+It imports no Product test helpers and constructs no internal compilation,
+regional record or diagnostic.
+
+The scope follows the existing [collector handoff](https://github.com/NYGsatoshi/Coglatas/issues/1966#issuecomment-6941316179)
+and [prior output completion boundary](https://github.com/NYGsatoshi/Coglatas/issues/1966#issuecomment-6944207630).
+The separate regional host/session protocol is a different cohort. Earlier
+Compiler-output snapshots and their immutable Product pins remain separate.
+
+## Frozen composition and independent execution
+
+- Product commit: `09347c1113f5f9c007bbbc5052278d5b5151feb5`.
+- Product tree: `5abb6b4f4389f200a289a84b99a0dd13e60072cc`.
+- Product SDK: the original .NET `10.0.403` policy.
+- Execution scope: `SYNTHETIC_REGIONAL_OBSERVATION_CORE_ONLY`.
+- Candidate destination: `tests/Coglatas.Tests/ProjectIde/SecurityRegionalObservationCandidateTests.cs`.
+
+The dedicated Ubuntu 24.04 and Windows advisory composes that one exact C#
+blob into a fresh detached Product checkout. Source, runner and verifier-control
+blobs are pinned in the workflow and retained in both original workflow
+contexts. The runner checks the complete staged source inventory, actual source
+bytes, original Product HEAD, absence of tracked drift and unexpected untracked
+inputs after composition, restore, execution and compiled discovery. Every Git
+subprocess strips inherited `GIT_*` overrides.
+
+Both hosts retain original C# bytes, source/composed-tree identities, native
+TeamTest/2010 TRX, compiled discovery, logs and SHA256 receipts. Admission
+requires precisely the frozen 24 fully qualified facts, zero failed/skipped/
+nonexecuted/incomplete cases, exact class and method metadata and complete
+test/execution identity bijections. A green ordinary CI or verifier control run
+cannot substitute for these actual C# executions.
+
+## Independently authored behavior
+
+The 24 facts cover these boundaries:
+
+| Boundary | Concrete observation |
+| --- | --- |
+| Actual false/true/Unknown regional conditions | Compare ordinary Compiler result bytes and logical operations against the observed execution; retain actual regional binding, Source, result and global evaluation identity. True evaluations do not invent diagnostics; Unknown constraint frames keep Unknown. |
+| Genuine equal older executions | Whole wrappers, compilations, records, regions and diagnostics with equal content cannot substitute for exact current object ownership. |
+| Root summary versus regional diagnostic | The actual dependency summary cannot open an original regional graph; the exact regional diagnostic can. |
+| Manifest defaults and serialization | Default capture/read remain body-free. Automatic serialization omits the compilation and duplicated original record graph. |
+| Original frame integrity | Recompute original node/evaluation/snapshot/record hash subjects; preserve separate operator and derived evaluation frame byte counters and actual short-circuit child order. |
+| Concurrent policy reuse | Four actual runs retain separate collectors and exact regional ownership while producing equal immutable facts. |
+| Aggregate capture caps | Actual 128/129 evaluations across two regions and 1024/1025 visited nodes distinguish full capture from first-gap withdrawal without changing Compiler truth. |
+| Body budgets | Predeclared exact bytes versus one byte below distinguish capture sufficiency; a smaller viewer budget independently refuses bodies without changing the retained record. |
+| Resource limits | Whole execution exhaustion withdraws otherwise sufficient capture; an earlier node-limit gap keeps its original reason. An actual 1024-node fixture completes within its unchanged 1M profile, while a separately declared measured-work-minus-one profile must be ResourceExhausted with no retained graph. |
+| Cancellation | Precancelled reads throw without damaging a completed record. Cancellation during actual materialization enumeration withdraws the regional graph and disposes the enumeration. |
+| Current fixed supplies | Missing, denied, contradictory and wrong-version materializations cannot borrow an earlier private region or graph. A separately admitted supply still produces its original result. |
+| Requirement semantics | Missing evidence never acquires condition operators; true and Unknown requirements do not invent a condition diagnostic, while an actual false-condition diagnostic can open its own frames. |
+| Retained immutability | Generic mutation attempts, legacy collection exposure, detached byte edits and detached JSON edits cannot poison retained node/evaluation maps or original metadata. |
+| Invalid policy and protocol separation | Out-of-range mode/evaluation/node/body/viewer limits fail. Version1 initial-root-only failure remains explicitly outside regional observation. |
+
+Small fixtures declare at most 1,000,000 Compiler logical operations. The
+explicit 128/129 evaluation and 1024/1025 node experiments use the already
+supported 10,000,000-operation input profile and existing 32 MiB hard body
+maximum. This is an explicit fixture declaration, not a Product default or
+limit change. The same independent 1024-node Source also has an unchanged 1M
+positive with measured work at most 1M and a separate actual measured-work-minus-one
+refusal. The regional
+collector's global 128-evaluation and 1024-node limits are unchanged.
+
+All Source contexts, private-document names and materializations are synthetic.
+The supplied local `IsAuthorized` flag is an input admission fixture, not a
+persisted current actor/tenant authorization proof.
+
+Issue #2095 limits native result records to the direct, frozen roster. The
+reader rejects additional result records, aggregation containers and error
+information anywhere in the document. It admits native informational run
+messages under the summary and excludes other outcomes from qualification. Raw NUL-delimited
+Git index flags reject tracked changes hidden by assume-unchanged or skip-worktree
+before ordinary diffs are trusted. Restore, test and compiled discovery explicitly
+disable ancestor `Directory.Build.props` and `Directory.Build.targets` imports;
+the frozen Product has no tracked files with either name. Regression controls
+retain the original index blob and demonstrate the hidden working-byte edit,
+then restore and readmit the original fixture. These Python controls confer no
+native C# execution credit; fresh hosted execution remains a separate gate.
+
+## Verifier controls and qualification limits
+
+Twenty-two Python unittest methods exercise synthetic positive TRX/discovery
+inventories, exact-error negative mutations and real disposable Git
+HEAD/index/source/environment isolation. An index-only unrelated edit hidden by
+restored working bytes and an unexpected untracked C# input must both fail
+composition admission. Python success is verifier evidence only.
+
+```text
+python -B -m unittest discover -s tests/candidates/projectide-regional-observation -p test_compose_and_verify.py -v
+python -B tests/candidates/projectide-regional-observation/compose_and_verify.py --product-head 09347c1113f5f9c007bbbc5052278d5b5151feb5 --worktree <fresh-product-worktree> --evidence <fresh-evidence-directory>
+```
+
+No local .NET execution is claimed by authoring this cohort. Native acceptance
+requires the actual exact-source hosted runs and independent inspection of both
+original artifact ZIPs, TRX/discovery inventories and source/receipt hashes.
+
+### Retained first native failure and Test premise correction
+
+Original [advisory run 44222932841](https://github.com/NYGsatoshi/Coglatas/actions/runs/44222932841)
+at Security source `8bc518c6c95fcb1c038a4264d0873607812d46a6` executed all 24 facts
+on both hosts: **23 PASS / 1 FAIL / 0 SKIP**. The same assertion expected the
+independently authored two-region AST to exhaust 1M operations, but the actual
+Compiler completed. That cost assumption had incorrectly been transferred from
+a different, larger historical Product fixture. It was a Test premise error,
+not a Product defect or a passing advisory.
+
+The corrected fact keeps the unchanged 1M declaration, requires actual complete
+1024-node capture and measured work within the budget, then separately declares
+one operation less than the measured requirement and requires genuine ordinary
+and observed Compiler exhaustion with complete graph withdrawal. It retains
+24 facts and every other negative control. The renamed fact and immutable
+workflow source/runner pins identify the corrected source explicitly. Original
+Ubuntu artifact `14392110540` and Windows artifact `14392165511`, their original
+TRX/logs and failed outcomes remain retained; no previous-source PASS is borrowed.
+
+Current runtime query/open/export authority, persisted revocation races,
+redaction/deletion/retention, physical memory erasure, operator eligibility,
+producer trust, regional host/run selection, Web/Avalonia and actual Native UI
+remain separate responsibilities. Completed regional calls are not complete
+coverage or a security grant. A content hash cannot establish invocation or
+current authorization.
+
+Every receipt retains `requiredCheckQualified`,
+`independentReviewComplete`, `nativeUiQualified`,
+`productionQualified`, `trustQualified` and
+`releaseQualified` as **false**. Keep #1966 and its broader
+parents OPEN, #1144 BLOCKED, #1128 SUSPENDED/NOT_EVALUATED and Release NO_GO.
+This candidate changes only its new folder and dedicated read-only advisory;
+Main, Product, protections, required checks and activation settings are untouched.
+
+## Exact Python executable admission and isolated mode (#2095)
+
+The native Regional Observation advisory now validates both the committed and actual unfiltered working Git blobs of its Python verifier/runner immediately before execution in each hosted OS job. Both invoke `python -I -B` rather than relying on unisolated `python -B`. A regression enforces this ordering in both workflow legs and checks the Python interpreter refuses injected `PYTHONPATH` bootstrap files. Frozen C# source/Product SHA, existing source checks and all six false release/trust flags are preserved.
+
+## Security-reviewed Python import-path and bytecode admission (#2095)
+
+The Regional Observation regression controls no longer use `unittest discover` (which inserts the candidate directory into `sys.path` even with isolated Python). The pinned test script runs through `python -I -B -c ...runpy.run_path`; an independent isolated scan rejects candidate `__pycache__`, `.pyc` and `.pyo` before **either** verified source module can load. Synthetic controls check both OS workflow legs, a real Python import-shadow marker, an `xml` package in the candidate directory and substituted unchecked-hash bytecode with unchanged `.py` bytes. Frozen Product/C# sources and all six false qualification flags remain unchanged.
