@@ -134,6 +134,49 @@ const flushAuthorizedImage = (http: HttpTestingController): void => {
 };
 
 describe('FilesPageComponent', () => {
+  it('wraps from the viewport to Download or the first enabled window action', async () => {
+    const { fixture, http, component, host } = await renderLiveImagePage();
+    const start = () => Array.from(host.querySelectorAll('[cdkFocusRegionStart]'), element => element.getAttribute('data-testid'));
+    component.previewOverlay.set(true);
+    component.openPreview(component.page().recentFiles[0]);
+    flushAuthorizedImage(http);
+    fixture.detectChanges();
+    expect(start()).toEqual(['files-preview-expand']);
+    expect(host.querySelector('[cdkFocusRegionEnd]')?.getAttribute('data-testid')).toBe('files-image-viewport');
+
+    component.toggleExpandedPreview();
+    fixture.detectChanges();
+    expect(start()).toEqual(['files-expanded-download']);
+
+    component.previewFile.update(file => file && { ...file, downloadState: 'pending' });
+    fixture.detectChanges();
+    expect(host.querySelector<HTMLButtonElement>('[data-testid="files-expanded-download"]')?.disabled).toBe(true);
+    expect(start()).toEqual(['files-preview-expand']);
+    expect(host.querySelector('[cdkFocusRegionEnd]')?.getAttribute('data-testid')).toBe('files-image-viewport');
+  });
+
+  it('wraps a preview with no inline content between Close and the last available toolbar action', async () => {
+    const { fixture, http, component, host } = await renderLiveImagePage();
+    const end = () => Array.from(host.querySelectorAll('[cdkFocusRegionEnd]'), element => element.getAttribute('data-testid'));
+    component.previewOverlay.set(true);
+    component.openPreview(component.page().recentFiles[0]);
+    http.expectOne(`/api/files/${FILE_OBJECT_ID}/download-grants`).flush({ message: 'Denied' }, { status: 403, statusText: 'Forbidden' });
+    fixture.detectChanges();
+    expect(host.querySelector('[cdkFocusRegionStart]')?.getAttribute('data-testid')).toBe('files-preview-close');
+    expect(end()).toEqual(['files-preview-more']);
+
+    const menu = host.querySelector('[data-testid="files-preview-more"]')!.closest('details')!;
+    menu.open = true;
+    menu.dispatchEvent(new Event('toggle'));
+    fixture.detectChanges();
+    expect(end()).toEqual(['files-preview-download']);
+
+    component.previewFile.update(file => file && { ...file, downloadState: 'pending' });
+    fixture.detectChanges();
+    expect(host.querySelector<HTMLButtonElement>('[data-testid="files-preview-download"]')?.disabled).toBe(true);
+    expect(end()).toEqual(['files-preview-more']);
+  });
+
   it('expands only an authorized ready image and reuses its viewport and parent-owned URL', async () => {
     const { fixture, http, component, host, revoke } = await renderLiveImagePage();
     component.previewOverlay.set(false);

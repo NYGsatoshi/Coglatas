@@ -47,11 +47,14 @@ no references. Closure regions use their actual root owner.
 
 A binding attempt captures its session identity, owner and invalidation epoch.
 Clear or a different owner invalidates that attempt: later references bind fresh
-without consulting or repopulating the cleared session. Noncanonical internal
-model metadata carries this lightweight token into later dependency regions and
-the full Compile continuation, preventing an earlier root from acquiring a new
-epoch. The token retains no cache object or Source and grants no authority. A
-deliberately different caller-owned session starts its own binding lifetime.
+without consulting or repopulating the cleared session. Dependency-key framing
+and fresh resolution run outside the session lock. A resolver checks its epoch
+again before publishing and reuses a result already retained for the exact key.
+Noncanonical internal model metadata carries this lightweight token into later
+dependency regions and the full Compile continuation, preventing an earlier root
+from acquiring a new epoch. The token retains no cache object or Source and
+grants no authority. A deliberately different caller-owned session starts its
+own binding lifetime.
 Cancellation, canonical bytes, logical charges and public protocols stay unchanged.
 
 Product regressions compare complete uncached Compiler/result/publication bytes,
