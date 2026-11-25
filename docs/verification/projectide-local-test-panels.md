@@ -2,6 +2,8 @@
 
 Existing authority: #1031, #905, #1030 and #888 PTEST/CI-PROJ/SEM/PROV decisions. This follows the typed Core/CLI and assertion Source navigation. It is an offline consumer implementation, not durable Jobs, current server authorization, shared Merge policy or actual Avalonia acceptance.
 
+[Separate local Test discovery](projectide-test-discovery-clients.md) now provides an owned definition inventory and exact Source navigation without loading or replacing a Test run. It preserves the original32-case bundle bound and uses a separate actual unavailable-discovery sample.
+
 ## Execution and presentation
 
 Windows pure ViewModel runs ProjectTestPlan over its accepted immutable compilation. The supported evaluator comes from SyntheticProjectTestConfiguration, a fixed offline fixture definition independent of request pins. The preview exporter links that same definition and uses Core to create the Web results. This descriptor is not a binary attestation, producer trust registration or release identity. The portable CLI retains its separate actual Domain binary binding.

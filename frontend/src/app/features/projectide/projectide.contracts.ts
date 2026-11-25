@@ -2,6 +2,7 @@ import type { ScopedSourceProjection } from './projectide-scoped-sources';
 import type { PreparedScenario } from './projectide-scenario';
 import type { PreparedTestEdit } from './projectide-test-edit';
 import type { LocalProjectTestProjection } from './projectide-tests.contracts';
+import type { LocalProjectTestDiscoveryProjection } from './projectide-test-discovery.contracts';
 import { hasUniquePreviewIdentities, isPreviewCaseShape, isRevisionContextShape } from './projectide-preview.validation';
 
 /** Read-only projection of Core Data envelopes; semantic evaluation stays in .NET. */
@@ -269,6 +270,7 @@ export interface PreviewCase {
   readonly relations: readonly SourceRecord[];
   readonly semanticInspection?: SemanticInspection | null;
   readonly localProjectTests?: LocalProjectTestProjection | null;
+  readonly localProjectTestDiscovery?: LocalProjectTestDiscoveryProjection | null;
   readonly referenceCompletions?: readonly ReferenceCompletion[] | null;
   readonly requirementTaskSuggestions?: readonly RequirementTaskSuggestions[] | null;
   readonly preparedTestEdit?: PreparedTestEdit | null;
