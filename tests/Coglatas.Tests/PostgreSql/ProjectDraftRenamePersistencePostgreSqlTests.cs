@@ -65,6 +65,21 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
                 Assert.Empty(await seed.OutboxEvents.AsNoTracking().ToListAsync());
 
                 outbox.Accept = true;
+                using (var cancelled = new CancellationTokenSource())
+                {
+                    outbox.BeforeReturn = () =>
+                    {
+                        cancelled.Cancel();
+                        return Task.CompletedTask;
+                    };
+                    await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.SaveAsync(command, cancelled.Token));
+                }
+                Assert.False(requestDb.ChangeTracker.HasChanges());
+                Assert.Equal(1, await CandidateCount(connection));
+                Assert.Empty(await seed.IdempotencyRecords.AsNoTracking().ToListAsync());
+                Assert.Empty(await seed.AuditLogs.AsNoTracking().ToListAsync());
+                Assert.Empty(await seed.OutboxEvents.AsNoTracking().ToListAsync());
+
                 outbox.BeforeReturn = async () =>
                 {
                     session.RevokedAt = Now;

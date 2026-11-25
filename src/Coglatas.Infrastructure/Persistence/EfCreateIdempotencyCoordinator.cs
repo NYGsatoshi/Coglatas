@@ -3,6 +3,7 @@ using System.Text;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Coglatas.Infrastructure.Persistence;
 
@@ -47,9 +48,7 @@ public sealed class EfCreateIdempotencyCoordinator(
         }
         catch (DbUpdateException exception)
         {
-            await transaction.RollbackAsync(cancellationToken);
-            dbContext.ChangeTracker.Clear();
-            taskExecutionScopes?.ClearPendingSourcePolicyDocuments();
+            await RollbackAndClearAsync(transaction);
 
             var winner = await FindAsync(context, keyHash, cancellationToken);
             if (winner is null)
@@ -60,6 +59,11 @@ public sealed class EfCreateIdempotencyCoordinator(
             }
 
             return await ReconcileAsync(winner, context, loadCommittedResource, cancellationToken);
+        }
+        catch
+        {
+            await RollbackAndClearAsync(transaction);
+            throw;
         }
 
         try
@@ -75,10 +79,22 @@ public sealed class EfCreateIdempotencyCoordinator(
         }
         catch
         {
-            await transaction.RollbackAsync(cancellationToken);
+            await RollbackAndClearAsync(transaction);
+            throw;
+        }
+    }
+
+    private async Task RollbackAndClearAsync(IDbContextTransaction transaction)
+    {
+        try
+        {
+            // Cancellation of the caller must not interrupt the owned transaction's cleanup.
+            await transaction.RollbackAsync(CancellationToken.None);
+        }
+        finally
+        {
             dbContext.ChangeTracker.Clear();
             taskExecutionScopes?.ClearPendingSourcePolicyDocuments();
-            throw;
         }
     }
 
