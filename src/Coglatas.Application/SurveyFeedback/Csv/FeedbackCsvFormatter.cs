@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -14,15 +15,13 @@ public static class FeedbackCsvFormatter
     private const int MaxBytes = 2 * 1024 * 1024;
     private static readonly UTF8Encoding CsvEncoding = new(encoderShouldEmitUTF8Identifier: true);
     private static readonly JsonSerializerOptions SnapshotOptions = new(JsonSerializerDefaults.Web);
-    private static readonly HashSet<string> AggregateColumns = new(
-        [
-            "questionKey", "questionLabel", "responseCount", "eligibleDenominator",
-            "choiceKey", "choiceLabel", "choiceCount", "numericMean"
-        ], StringComparer.Ordinal);
-    private static readonly HashSet<string> DetailColumns = new(
-        [
-            "submittedAtUtc", "questionKey", "questionLabel", "answerValue", "respondentName"
-        ], StringComparer.Ordinal);
+    private static readonly FrozenSet<string> AggregateColumns = FrozenSet.ToFrozenSet(
+        ["questionKey", "questionLabel", "responseCount", "eligibleDenominator",
+            "choiceKey", "choiceLabel", "choiceCount", "numericMean"],
+        StringComparer.Ordinal);
+    private static readonly FrozenSet<string> DetailColumns = FrozenSet.ToFrozenSet(
+        ["submittedAtUtc", "questionKey", "questionLabel", "answerValue", "respondentName"],
+        StringComparer.Ordinal);
 
     public static bool IsValidRequest(FeedbackCsvRequest request)
     {
