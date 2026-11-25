@@ -6,7 +6,8 @@ namespace Coglatas.Infrastructure.Persistence;
 /// <summary>Explicitly provisions the redacted capture table after the development Compiler evidence table.</summary>
 public static class CompilerOutputCaptureDevelopmentSchema
 {
-    private static readonly string SetupSql = $$"""
+    // ExecuteSqlRawAsync treats SQL text as a composite format string.
+    private static readonly string SetupSql = $$$"""
         CREATE TABLE IF NOT EXISTS projectide_development.projectide_compiler_output_captures (
             "TenantId" uuid NOT NULL,
             "ProjectId" uuid NOT NULL,
@@ -23,11 +24,11 @@ public static class CompilerOutputCaptureDevelopmentSchema
             CONSTRAINT ck_projectide_compiler_output_capture_projection CHECK (
                 (("DeletedAtUtc" IS NOT NULL AND "RunId" IS NULL AND "BindingDigest" IS NULL
                     AND "MaximumBodyBytes" IS NULL AND "Projection" IS NULL)
-                OR ("DeletedAtUtc" IS NULL AND "RunId" IS NOT NULL AND "BindingDigest" ~ '^[0-9a-f]{64}$'
-                    AND "MaximumBodyBytes" BETWEEN 1 AND {{ProjectCompilerOutputSnapshot.MaximumBodyBudgetBytes}}
+                OR ("DeletedAtUtc" IS NULL AND "RunId" IS NOT NULL AND "BindingDigest" ~ '^[0-9a-f]{{64}}$'
+                    AND "MaximumBodyBytes" BETWEEN 1 AND {{{ProjectCompilerOutputSnapshot.MaximumBodyBudgetBytes}}}
                     AND jsonb_typeof("Projection") = 'object'
                     AND "Projection" - ARRAY['Mode', 'State', 'Execution', 'Coverage', 'Verdict', 'EvidenceComplete',
-                        'SemanticModelWasCaptured', 'IrWasCaptured', 'SourceMapWasCaptured'] = '{}'::jsonb
+                        'SemanticModelWasCaptured', 'IrWasCaptured', 'SourceMapWasCaptured'] = '{{}}'::jsonb
                     AND jsonb_typeof("Projection" -> 'Mode') = 'number'
                     AND jsonb_typeof("Projection" -> 'State') = 'number'
                     AND jsonb_typeof("Projection" -> 'Execution') = 'number'
