@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Coglatas.Infrastructure.Persistence;
 
@@ -10,7 +11,9 @@ public static class ProjectScenarioDevelopmentSchema
         ArgumentNullException.ThrowIfNull(context);
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
         await ProjectIdeDevelopmentSchema.EnsureExistsAsync(context, cancellationToken);
-        await context.Database.ExecuteSqlRawAsync("""
+        await using var command = context.Database.GetDbConnection().CreateCommand();
+        command.Transaction = transaction.GetDbTransaction();
+        command.CommandText = """
             CREATE TABLE IF NOT EXISTS projectide_development.projectide_scenarios (
                 "TenantId" uuid NOT NULL,
                 "ProjectId" uuid NOT NULL,
@@ -46,7 +49,8 @@ public static class ProjectScenarioDevelopmentSchema
             CREATE OR REPLACE TRIGGER projectide_scenarios_immutable
                 BEFORE UPDATE ON projectide_development.projectide_scenarios
                 FOR EACH ROW EXECUTE FUNCTION projectide_development.prevent_projectide_scenario_update();
-            """, cancellationToken);
+            """;
+        await command.ExecuteNonQueryAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
 }
