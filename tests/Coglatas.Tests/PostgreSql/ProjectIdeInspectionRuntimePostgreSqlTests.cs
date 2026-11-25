@@ -166,11 +166,9 @@ public sealed class ProjectIdeInspectionRuntimePostgreSqlTests
             var evidence = new CompilerRecordingStore(request, access, clock);
             var captures = new TestCaptures(new CompilerOutputCaptureStore(request, clock));
             var runtime = new ProjectIdeInspectionRuntime(access, retention, recordings, evidence, captures);
-            await test(new(connection, plan, runtime, authorization, retention, recordings, evidence, captures, async () =>
-            {
-                session.RevokedAt = clock.UtcNow;
-                await writer.SaveChangesAsync();
-            }));
+            await test(new(connection, plan, runtime, authorization, retention, recordings, evidence, captures,
+                () => PostgreSqlMigrationTestDatabase.ExecuteAsync(connection,
+                    "UPDATE sessions SET \"RevokedAt\" = now() WHERE \"Id\" = @session", ("session", session.Id))));
         });
 
     private sealed record RuntimeFixture(string Database, CompilerExecutionPlan Plan, ProjectIdeInspectionRuntime Runtime, TestAuthorization Authorization,

@@ -110,10 +110,6 @@ public sealed class CompilerOutputCaptureStore(AppDbContext context, IClock cloc
             run = reference.RecordingId,
             receipt = reference.RecordingDigest.Value
         })).ToCanonicalBytes()).Value;
-}
 
-internal sealed class CompilerOutputCapturePayload
-{
-    public int? MaximumBodyBytes { get; private set; }
-    public string? Projection { get; private set; }
+    private sealed record CompilerOutputCapturePayload(int? MaximumBodyBytes, string? Projection);
 }
