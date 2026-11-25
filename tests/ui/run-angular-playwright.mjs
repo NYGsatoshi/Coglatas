@@ -13,6 +13,7 @@ const playwrightCli = fileURLToPath(new URL('../../node_modules/@playwright/test
 const playwrightArgs = process.argv.slice(2);
 const staticSuiteFiles = [
   'tests/ui/projectide-workbench.spec.ts',
+  'tests/ui/projectide-local-tests.spec.ts',
   'tests/ui/angular-smoke.spec.ts',
   'tests/ui/core-workflow-localization.spec.ts',
   'tests/ui/penpot-responsive.spec.ts',
