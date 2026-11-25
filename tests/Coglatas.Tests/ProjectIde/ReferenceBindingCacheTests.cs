@@ -35,6 +35,70 @@ public sealed class ReferenceBindingCacheTests
     }
 
     [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    [InlineData(false, true)]
+    public async Task InvalidationCompletesWhileAnEarlierReferenceIsBeingPrepared(bool pauseDuringKey, bool changeOwner)
+    {
+        var fixture = SymbolBindingCacheTests.External(Source(9));
+        var reference = ProjectSemanticBinder.Bind(fixture.Input, [fixture.Snapshot]).References.First();
+        var binding = new ReferenceBindingOutcome(reference);
+        var cache = new ProjectReferenceBindingCache();
+        var owner = fixture.Input.Source.Context.Branch;
+        var otherOwner = new BranchRef(owner.TenantId, owner.ProjectId, BranchId.Parse(Id(99)));
+        var earlier = cache.BeginBinding(owner, CancellationToken.None);
+        var paused = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var timeout = TimeSpan.FromSeconds(10);
+
+        void Pause()
+        {
+            paused.SetResult();
+            if (!resume.Task.Wait(TimeSpan.FromSeconds(30)))
+                throw new TimeoutException("Reference preparation did not resume.");
+        }
+
+        IEnumerable<string> Dependencies()
+        {
+            if (pauseDuringKey) Pause();
+            yield return "exact-reference-dependencies";
+        }
+
+        ReferenceBindingOutcome Bind()
+        {
+            if (!pauseDuringKey) Pause();
+            return binding;
+        }
+
+        var resolving = Task.Run(() => cache.Resolve(earlier, Dependencies(), Bind, CancellationToken.None));
+        Task? invalidate = null;
+        try
+        {
+            await paused.Task.WaitAsync(timeout);
+            invalidate = Task.Run(() =>
+            {
+                if (changeOwner) cache.BeginBinding(otherOwner, CancellationToken.None);
+                else cache.Clear();
+            });
+            await invalidate.WaitAsync(timeout);
+        }
+        finally
+        {
+            resume.SetResult();
+            await resolving;
+            if (invalidate is not null) await invalidate;
+        }
+
+        Assert.Same(binding, await resolving);
+        Assert.Equal(0, cache.RetainedCount);
+        Assert.Equal(0, cache.RetainedCanonicalBytes);
+        var current = cache.BeginBinding(changeOwner ? otherOwner : owner, CancellationToken.None);
+        Assert.Same(binding, cache.Resolve(current, ["exact-reference-dependencies"], () => binding, CancellationToken.None));
+        Assert.Equal(1, cache.RetainedCount);
+    }
+
+    [Theory]
     [InlineData("clear")]
     [InlineData("owner")]
     public void PublicBindingCannotRepopulateAnInvalidatedReferenceLifetime(string invalidation)
@@ -53,6 +117,46 @@ public sealed class ReferenceBindingCacheTests
         var b = CompilerBindingClosure.Build(expected, fixture.Input.InputDigest);
         Assert.Equal(b.Data, a.Data);
         Assert.Equal(CompilerSemanticIndex.Build(b, fixture.Input.InputDigest).Data, CompilerSemanticIndex.Build(a, fixture.Input.InputDigest).Data);
+    }
+
+    [Fact]
+    public async Task ConcurrentMissesReuseTheFirstRetainedReference()
+    {
+        var fixture = SymbolBindingCacheTests.External(Source(9));
+        var reference = ProjectSemanticBinder.Bind(fixture.Input, [fixture.Snapshot]).References.First();
+        var first = new ReferenceBindingOutcome(reference);
+        var second = new ReferenceBindingOutcome(reference);
+        var cache = new ProjectReferenceBindingCache();
+        var scope = cache.BeginBinding(fixture.Input.Source.Context.Branch, CancellationToken.None);
+        string[] dependencies = ["exact-reference-dependencies"];
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var timeout = TimeSpan.FromSeconds(10);
+        var earlier = Task.Run(() => cache.Resolve(scope, dependencies, () =>
+        {
+            started.SetResult();
+            if (!resume.Task.Wait(TimeSpan.FromSeconds(30)))
+                throw new TimeoutException("Reference resolution did not resume.");
+            return first;
+        }, CancellationToken.None));
+
+        Task<ReferenceBindingOutcome>? later = null;
+        try
+        {
+            await started.Task.WaitAsync(timeout);
+            later = Task.Run(() => cache.Resolve(scope, dependencies, () => second, CancellationToken.None));
+            Assert.Same(second, await later.WaitAsync(timeout));
+        }
+        finally
+        {
+            resume.SetResult();
+            await earlier;
+            if (later is not null) await later;
+        }
+
+        Assert.Same(second, await earlier);
+        Assert.Equal(1, cache.RetainedCount);
+        Assert.Same(second, cache.Resolve(scope, dependencies, () => throw new InvalidOperationException("Expected a retained reference."), CancellationToken.None));
     }
 
     [Theory]

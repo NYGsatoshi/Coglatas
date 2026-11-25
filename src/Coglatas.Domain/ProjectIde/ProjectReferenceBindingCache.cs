@@ -17,7 +17,7 @@ public sealed class ProjectReferenceBindingCache
     private readonly LinkedList<Entry> _recent = new();
     private BranchRef? _ownerScope;
     private readonly object _identity = new();
-    private object _generation = new();
+    private volatile object _generation = new();
     private int _canonicalBytes;
 
     public ProjectReferenceBindingCache(int maximumEntries = 256, int maximumCanonicalBytes = 4_194_304)
@@ -60,34 +60,28 @@ public sealed class ProjectReferenceBindingCache
         Func<ReferenceBindingOutcome> bind, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        var key = FrameKey(scope, dependencies, cancellationToken, out var bytes);
+        if (key is not null)
+        {
+            lock (_gate)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!IsCurrent(scope)) key = null;
+                else if (_entries.TryGetValue(key, out var retained)) return Reuse(retained);
+            }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var binding = bind();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (key is null) return binding;
+
         lock (_gate)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!ReferenceEquals(scope.CacheIdentity, _identity) || _ownerScope != scope.Owner || !ReferenceEquals(_generation, scope.Generation))
-            {
-                var current = bind(); cancellationToken.ThrowIfCancellationRequested(); return current;
-            }
-            var text = new StringBuilder(); var bytes = 0;
-            foreach (var part in dependencies)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                // Length framing preserves exact equality without relying on a hash
-                // or constructing another bounded Source/Compiler protocol body.
-                var length = part.Length.ToString(CultureInfo.InvariantCulture);
-                var partBytes = Encoding.UTF8.GetByteCount(part);
-                if (partBytes > _maximumCanonicalBytes - bytes - length.Length - 1)
-                {
-                    var unretained = bind(); cancellationToken.ThrowIfCancellationRequested(); return unretained;
-                }
-                text.Append(length).Append(':').Append(part); bytes += partBytes + length.Length + 1;
-            }
-            var key = text.ToString();
-            if (_entries.TryGetValue(key, out var retained))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                _recent.Remove(retained); _recent.AddLast(retained); return retained.Value.Binding;
-            }
-            var binding = bind(); cancellationToken.ThrowIfCancellationRequested();
+            if (!IsCurrent(scope)) return binding;
+            // A concurrent resolver may already have published the exact same key.
+            if (_entries.TryGetValue(key, out var retained)) return Reuse(retained);
             while (_entries.Count >= _maximumEntries || _canonicalBytes > _maximumCanonicalBytes - bytes)
             {
                 var oldest = _recent.First!; _recent.RemoveFirst();
@@ -96,6 +90,38 @@ public sealed class ProjectReferenceBindingCache
             _entries.Add(key, _recent.AddLast(new Entry(key, binding, bytes))); _canonicalBytes += bytes;
             return binding;
         }
+    }
+
+    private bool IsCurrent(ReferenceBindingScope scope) =>
+        ReferenceEquals(scope.CacheIdentity, _identity) && _ownerScope == scope.Owner && ReferenceEquals(_generation, scope.Generation);
+
+    private ReferenceBindingOutcome Reuse(LinkedListNode<Entry> retained)
+    {
+        _recent.Remove(retained);
+        _recent.AddLast(retained);
+        return retained.Value.Binding;
+    }
+
+    private string? FrameKey(ReferenceBindingScope scope, IEnumerable<string> dependencies, CancellationToken cancellationToken, out int bytes)
+    {
+        bytes = 0;
+        if (!ReferenceEquals(scope.CacheIdentity, _identity) || !ReferenceEquals(_generation, scope.Generation)) return null;
+        var text = new StringBuilder();
+        using var parts = dependencies.GetEnumerator();
+        while (ReferenceEquals(_generation, scope.Generation) && parts.MoveNext())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!ReferenceEquals(_generation, scope.Generation)) return null;
+            // Length framing preserves exact equality without relying on a hash.
+            var part = parts.Current;
+            var length = part.Length.ToString(CultureInfo.InvariantCulture);
+            var partBytes = Encoding.UTF8.GetByteCount(part);
+            if (partBytes > _maximumCanonicalBytes - bytes - length.Length - 1) return null;
+            text.Append(length).Append(':').Append(part);
+            bytes += partBytes + length.Length + 1;
+        }
+
+        return ReferenceEquals(_generation, scope.Generation) ? text.ToString() : null;
     }
 
     private void ClearEntries() { _entries.Clear(); _recent.Clear(); _canonicalBytes = 0; _generation = new(); }

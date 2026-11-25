@@ -135,6 +135,92 @@ public sealed class ProjectScenarioTests
         Assert.Equal(ProjectScenarioState.InvalidContext, ProjectScenarios.Prepare(ProjectSemanticBinder.Bind(plan.Input), plan.Input.InputDigest, Scenario, Revision(602), [change]).State);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CancellationWhenTheOverrideIteratorFinishesPrecedesEmptyAndDuplicateResults(bool duplicate)
+    {
+        var basis = Fixture();
+        var model = ProjectSemanticBinder.Bind(basis);
+        using var cancellation = new CancellationTokenSource();
+        var token = cancellation.Token;
+        var overrides = ReadOverrides(Override(basis), duplicate, cancellation.Cancel);
+
+        var error = Assert.Throws<OperationCanceledException>(() =>
+            ProjectScenarios.Prepare(model, basis.InputDigest, Scenario, Revision(), overrides, token));
+        Assert.Equal(token, error.CancellationToken);
+
+        static IEnumerable<ProjectScenarioOverride> ReadOverrides(ProjectScenarioOverride value, bool duplicate, Action cancel)
+        {
+            if (duplicate)
+            {
+                yield return value;
+                yield return value;
+            }
+            cancel();
+        }
+    }
+
+    [Theory]
+    [InlineData("invalid", false)]
+    [InlineData("invalid", true)]
+    [InlineData("count", false)]
+    [InlineData("count", true)]
+    [InlineData("bytes", false)]
+    [InlineData("bytes", true)]
+    public void OverrideDisposalCancellationPrecedesRefusal(string input, bool cancelOnDispose)
+    {
+        var basis = Fixture();
+        var model = ProjectSemanticBinder.Bind(basis);
+        var row = Override(basis);
+        ProjectScenarioOverride? supplied = input switch
+        {
+            "invalid" => null,
+            "bytes" => row with { Value = SourceJson.FromObject(new string('x', ProjectScenarios.MaximumOverrideBytes)) },
+            _ => row
+        };
+        var count = input == "count" ? ProjectScenarios.MaximumOverrides + 1 : 1;
+        using var cancellation = new CancellationTokenSource();
+        var token = cancellation.Token;
+        var observed = 0;
+        var disposed = false;
+        var overrides = ReadOverrides(cancellation.Cancel);
+
+        if (cancelOnDispose)
+        {
+            var error = Assert.Throws<OperationCanceledException>(() =>
+                ProjectScenarios.Prepare(model, basis.InputDigest, Scenario, Revision(), overrides, token));
+            Assert.Equal(token, error.CancellationToken);
+        }
+        else
+        {
+            var result = ProjectScenarios.Prepare(model, basis.InputDigest, Scenario, Revision(), overrides, token);
+            Assert.Equal(input == "invalid" ? ProjectScenarioState.InvalidOverride : ProjectScenarioState.ResourceLimit,
+                result.State);
+            Assert.Null(result.Plan);
+        }
+        Assert.True(disposed);
+        Assert.Equal(count, observed);
+
+        IEnumerable<ProjectScenarioOverride?> ReadOverrides(Action cancel)
+        {
+            try
+            {
+                for (var i = 0; i < count; i++)
+                {
+                    observed++;
+                    yield return supplied;
+                }
+                throw new InvalidOperationException("Override enumeration continued after refusal.");
+            }
+            finally
+            {
+                disposed = true;
+                if (cancelOnDispose) cancel();
+            }
+        }
+    }
+
     [Fact]
     public void RevisionsAreExplicitAndDoNotReuseEarlierRunIdentities()
     {

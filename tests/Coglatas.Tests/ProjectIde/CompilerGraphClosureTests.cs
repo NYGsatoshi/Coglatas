@@ -97,6 +97,47 @@ public sealed class CompilerGraphClosureTests
     private static CoreCompilation Compile(Fixture fixture, PlanDeclarationReadCache? cache = null) =>
         PureCoreCompiler.Compile(fixture.Input, fixture.Input.Compiler, fixture.Snapshots, declarationCache: cache);
 
+    [Fact]
+    public void DependencyReachabilityKeepsEqualTaskAndRelationIdsInTheirExactPinnedRegions()
+    {
+        var fixture = Make("acyclic");
+        var compiled = Compile(fixture);
+        var anchor = ProjectLocation.Create(DocumentId.Parse(Id(4)), fixture.B, entityId: EntityId.Parse(Id(7)));
+        var result = ProjectTaskDependencyReachability.Read(compiled, fixture.Input.InputDigest, anchor);
+
+        Assert.Equal(TaskDependencyReachabilityState.Complete, result.State);
+        Assert.Collection(result.Tasks,
+            item =>
+            {
+                Assert.Equal(fixture.A, item.Task.Context);
+                Assert.Equal(fixture.A, Assert.Single(item.Relations).Context);
+            },
+            item =>
+            {
+                Assert.Equal(fixture.Input.Source.Context, item.Task.Context);
+                Assert.Equal(new[] { fixture.A, fixture.Input.Source.Context }, item.Relations.Select(location => location.Context));
+                Assert.All(item.Relations, location => Assert.Equal(RelationId.Parse(Id(20)), location.RelationId));
+            });
+        Assert.All(result.Tasks, row => Assert.Equal(EntityId.Parse(Id(7)), row.Task.EntityId));
+    }
+
+    [Theory]
+    [InlineData("cycle", "available")]
+    [InlineData("acyclic", "missing")]
+    [InlineData("acyclic", "denied")]
+    public void DependencyReachabilityRefusesInvalidOrIncompleteGraphs(string mode, string admission)
+    {
+        var fixture = Make(mode, admission);
+        var compiled = Compile(fixture);
+        var anchor = ProjectLocation.Create(DocumentId.Parse(Id(4)), fixture.Input.Source.Context, entityId: EntityId.Parse(Id(7)));
+        var result = ProjectTaskDependencyReachability.Read(compiled, fixture.Input.InputDigest, anchor);
+
+        Assert.Equal(TaskDependencyReachabilityState.Unavailable, result.State);
+        Assert.Null(result.Anchor);
+        Assert.Null(result.GraphDigest);
+        Assert.Empty(result.Tasks);
+    }
+
     [Theory]
     [InlineData("cycle", "coglatas.relation.dependency-cycle")]
     [InlineData("flow-cycle", "coglatas.relation.dataflow-cycle")]

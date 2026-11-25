@@ -191,6 +191,42 @@ public sealed class RequirementEvidenceValidationTests
         Assert.Equal(CompilerExecutionState.ResourceExhausted, exhausted.Outcome.Execution); Assert.Equal(1025, count); Incomplete(exhausted);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ClaimEnumerationDisposalPreservesCancellationAtTheExistingBound(bool cancelOnDispose)
+    {
+        var input = EvidenceInput();
+        using var cts = new CancellationTokenSource();
+        var examined = 0;
+        var disposed = false;
+        IEnumerable<RequirementEvidenceClaim?> Claims(Action onDispose)
+        {
+            try
+            {
+                while (true)
+                {
+                    if (++examined > 1025) throw new InvalidOperationException("Unbounded evidence enumeration.");
+                    yield return null;
+                }
+            }
+            finally
+            {
+                disposed = true;
+                if (cancelOnDispose) onDispose();
+            }
+        }
+
+        var assessment = RequirementEvidenceValidator.Assess(input, Location(input), Claims(cts.Cancel), cts.Token);
+        Assert.Equal(cancelOnDispose ? CompilerExecutionState.Cancelled : CompilerExecutionState.ResourceExhausted,
+            assessment.Outcome.Execution);
+        Assert.True(disposed);
+        Assert.Equal(1025, examined);
+        Assert.Empty(assessment.Claims);
+        Incomplete(assessment);
+        Has(assessment, cancelOnDispose ? "coglatas.evidence.cancelled" : "coglatas.evidence.budget-exhausted");
+    }
+
     [Fact]
     public void PinnedEvidenceAndReceiptShapedMetadataCannotImpersonateActualMaterialization()
     {

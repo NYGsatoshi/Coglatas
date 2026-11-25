@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Coglatas.Application.ProjectIde.Core;
 using Coglatas.Domain.ProjectIde;
 
@@ -5,6 +6,24 @@ namespace Coglatas.ProjectIde.Workbench.Synthetic;
 
 public sealed partial class SyntheticWorkbenchViewModel
 {
+    private Exception? NotifyRegionalRecordingWithdrawal()
+    {
+        var subscribers = PropertyChanged;
+        if (subscribers is null)
+        {
+            return null;
+        }
+
+        Exception? firstFailure = null;
+        var args = new PropertyChangedEventArgs(null);
+        foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+        {
+            try { subscriber(this, args); }
+            catch (Exception error) { firstFailure ??= error; }
+        }
+        return firstFailure;
+    }
+
     private RegionalPredicateObservationCompilerHostRequest? _desiredRegionalOperatorRequest;
     private LocalRegionalPredicateObservationCompilerRecordingManifest? _desiredRegionalOperatorManifest;
     private RegionalPredicateObservationCompilerRecordedInvocation? _acceptedRegionalOperatorInvocation;
@@ -80,13 +99,25 @@ public sealed partial class SyntheticWorkbenchViewModel
         bool Current() => generation == _regionalOperatorReadGeneration && root == _rootSourceGeneration && scope == _scopedGeneration &&
             CurrentRegionalOperatorSource && ReferenceEquals(request, _desiredRegionalOperatorRequest) && ReferenceEquals(actual, _acceptedRegionalOperatorInvocation);
         Changed(); token.ThrowIfCancellationRequested(); if (!Current()) return false;
-        _regionalOperatorReceiptMetadata = actual!.Receipt.Data; _regionalOperatorRecordMetadata = actual.Receipt.ObservationMetadata; Changed();
-        if (token.IsCancellationRequested)
+        _regionalOperatorReceiptMetadata = actual!.Receipt.Data;
+        _regionalOperatorRecordMetadata = actual.Receipt.ObservationMetadata;
+        Exception? withdrawalFailure = null;
+        bool cancelledAtPublication;
+        try { Changed(); }
+        finally
         {
-            if (generation == _regionalOperatorReadGeneration && ReferenceEquals(_regionalOperatorReceiptMetadata, actual.Receipt.Data))
-            { _regionalOperatorReadGeneration++; _regionalOperatorReceiptMetadata = null; _regionalOperatorRecordMetadata = null; Changed(); }
-            token.ThrowIfCancellationRequested();
+            cancelledAtPublication = token.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _regionalOperatorReadGeneration && ReferenceEquals(_regionalOperatorReceiptMetadata, actual.Receipt.Data))
+            {
+                _regionalOperatorReadGeneration++;
+                _regionalOperatorReceiptMetadata = null;
+                _regionalOperatorRecordMetadata = null;
+                withdrawalFailure = NotifyRegionalRecordingWithdrawal();
+            }
         }
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Regional recording metadata read was cancelled.", withdrawalFailure, token);
         return Current() && ReferenceEquals(RegionalOperatorReceiptMetadata, actual.Receipt.Data);
     }
 
@@ -130,14 +161,25 @@ public sealed partial class SyntheticWorkbenchViewModel
         var snapshot = ProjectCompilerRegionalPredicateObservationSnapshot.Read(execution, compilation!, execution.Observation, region!, diagnostic!,
             mode, maximumBodyBytes, token);
         if (!Current()) return false;
-        _recordedRegionalOperators = snapshot; _regionalOperatorSnapshotInvocation = actual;
-        _regionalOperatorSnapshotRegion = region; _regionalOperatorSnapshotDiagnostic = diagnostic; Changed();
-        if (token.IsCancellationRequested)
+        _recordedRegionalOperators = snapshot;
+        _regionalOperatorSnapshotInvocation = actual;
+        _regionalOperatorSnapshotRegion = region;
+        _regionalOperatorSnapshotDiagnostic = diagnostic;
+        Exception? withdrawalFailure = null;
+        bool cancelledAtPublication;
+        try { Changed(); }
+        finally
         {
-            if (generation == _regionalOperatorSnapshotGeneration && ReferenceEquals(_recordedRegionalOperators, snapshot))
-            { ClearRegionalOperatorSnapshot(); Changed(); }
-            token.ThrowIfCancellationRequested();
+            cancelledAtPublication = token.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _regionalOperatorSnapshotGeneration && ReferenceEquals(_recordedRegionalOperators, snapshot))
+            {
+                ClearRegionalOperatorSnapshot();
+                withdrawalFailure = NotifyRegionalRecordingWithdrawal();
+            }
         }
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Regional recording snapshot read was cancelled.", withdrawalFailure, token);
         return Current() && ReferenceEquals(RecordedRegionalOperators, snapshot) && snapshot.State != CompilerRegionalPredicateSnapshotState.RefusedInvocation;
     }
 

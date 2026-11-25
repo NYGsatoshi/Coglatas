@@ -106,6 +106,122 @@ public sealed class IncrementalDeclarationTests
         Assert.Throws<OperationCanceledException>(() => cache.Read(source, cancelled.Token));
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void DeclarationLifetimeInvalidationDuringSupplyCannotRestoreTheEarlierOwner(bool replaceOwner, bool fullCompile)
+    {
+        var fixture = CompilerBindingClosureTests.Graph();
+        var input = fixture.Input;
+        var cache = new PlanDeclarationReadCache();
+        var initial = cache.Read(input.Source)[0];
+        var foreign = ForeignDeclarationOwner(input.Source);
+        DeclarationDecodeResult? retained = null;
+        var bytes = -1;
+        IEnumerable<CompilerMaterializedSnapshot> Supply()
+        {
+            if (replaceOwner) retained = cache.Read(foreign)[0];
+            else cache.Clear();
+            bytes = cache.RetainedCanonicalBytes;
+            foreach (var snapshot in fixture.Snapshots) yield return snapshot;
+        }
+
+        PartialSemanticModel actual;
+        if (fullCompile)
+        {
+            var compiled = PureCoreCompiler.Compile(input, input.Compiler, Supply(), declarationCache: cache);
+            var expected = PureCoreCompiler.Compile(input, input.Compiler, fixture.Snapshots);
+            Assert.Equal(expected.Result.Data, compiled.Result.Data);
+            actual = Assert.IsType<PartialSemanticModel>(compiled.Model);
+        }
+        else actual = ProjectSemanticBinder.Bind(input, Supply(), declarationCache: cache);
+
+        var full = ProjectSemanticBinder.Bind(input, fixture.Snapshots);
+        Assert.Equal(new CompilerSemanticInspection(full).Data, new CompilerSemanticInspection(actual).Data);
+        Assert.NotSame(initial.Declaration, actual.Declarations[0].Declaration);
+        Assert.Equal(replaceOwner ? 1 : 0, cache.RetainedCount);
+        Assert.Equal(bytes, cache.RetainedCanonicalBytes);
+        if (retained is not null) Assert.Same(retained.Declaration, cache.Read(foreign)[0].Declaration);
+    }
+
+    [Theory]
+    [InlineData("current")]
+    [InlineData("clear")]
+    [InlineData("owner")]
+    public void DeclarationLifetimeClosureDoesNotRetainExternalShapes(string cacheState)
+    {
+        var fixture = CompilerBindingClosureTests.Graph();
+        var cache = new PlanDeclarationReadCache();
+        var root = ProjectSemanticBinder.Bind(fixture.Input, fixture.Snapshots, declarationCache: cache);
+        var current = fixture.Input.Source;
+        if (cacheState == "clear") cache.Clear();
+        if (cacheState == "owner") current = ForeignDeclarationOwner(current);
+        var retained = cacheState == "clear" ? null : cache.Read(current)[0];
+        var count = cache.RetainedCount;
+        var bytes = cache.RetainedCanonicalBytes;
+
+        var expected = CompilerBindingClosure.Build(root, fixture.Input.InputDigest);
+        var actual = CompilerBindingClosure.Build(root, fixture.Input.InputDigest, declarationCache: cache);
+        Assert.Equal(CompilerBindingClosureState.Complete, actual.State);
+        Assert.Equal(expected.Data, actual.Data);
+        Assert.Equal(count, cache.RetainedCount);
+        Assert.Equal(bytes, cache.RetainedCanonicalBytes);
+        if (retained is not null) Assert.Same(retained.Declaration, cache.Read(current)[0].Declaration);
+        if (cacheState == "current") Assert.Same(root.Declarations[0].Declaration, cache.Read(current)[0].Declaration);
+    }
+
+    private static ProjectSource ForeignDeclarationOwner(ProjectSource source)
+    {
+        var owner = source.Context.Branch;
+        var context = SourceRevisionContext.Committed(new(new(owner.TenantId, owner.ProjectId, BranchId.Parse(Id(99))), RevisionId.Parse(Id(5))));
+        return ProjectSource.Create(context, source.Documents);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AColdDeclarationDecodeCompletesAgainstTheCurrentRetentionState(bool clearWhileDecoding)
+    {
+        var source = Source();
+        var timeout = TimeSpan.FromSeconds(20);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cache = new PlanDeclarationReadCache((data, document) =>
+        {
+            if (started.TrySetResult())
+                release.Task.WaitAsync(timeout).GetAwaiter().GetResult();
+            return PlanDeclarationReader.Read(data, document);
+        });
+        var generation = cache.BeginBinding(source.Context.Branch, CancellationToken.None);
+        var firstRead = Task.Run(() => cache.Read(source, generation, CancellationToken.None));
+        DeclarationDecodeResult? published = null;
+        try
+        {
+            await started.Task.WaitAsync(timeout);
+            if (clearWhileDecoding)
+            {
+                await Task.Run(cache.Clear).WaitAsync(timeout);
+            }
+            else
+            {
+                var secondRead = await Task.Run(() => cache.Read(source, generation, CancellationToken.None)).WaitAsync(timeout);
+                published = Assert.Single(secondRead);
+            }
+        }
+        finally
+        {
+            release.TrySetResult();
+        }
+
+        var original = Assert.Single(await firstRead.WaitAsync(timeout));
+        if (clearWhileDecoding)
+            Assert.Equal(0, cache.RetainedCount);
+        else
+            Assert.Same(published, original);
+    }
+
     [Fact]
     public void DocumentIdentityAndCodecLimitsArePartOfDecodeReuseIdentity()
     {

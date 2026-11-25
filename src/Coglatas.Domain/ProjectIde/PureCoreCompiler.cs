@@ -31,7 +31,7 @@ public static class PureCoreCompiler
         ProjectSymbolBindingCache? symbolBindingCache = null, ProjectReferenceBindingCache? referenceBindingCache = null)
     {
         var local = CompileSingle(input, expectedCompiler, snapshots, units, calendars, cancellationToken, declarationCache, symbolBindingCache: symbolBindingCache, referenceBindingCache: referenceBindingCache);
-        return CompilerDependencyAnalysis.Attach(local, cancellationToken, declarationCache, symbolBindingCache: symbolBindingCache, referenceBindingCache: referenceBindingCache);
+        return CompilerDependencyAnalysis.Attach(local, cancellationToken, symbolBindingCache: symbolBindingCache, referenceBindingCache: referenceBindingCache);
     }
 
     /// <summary>Explicit pre-run root predicate recording. The existing Compile path and host/cache protocol stay unchanged.</summary>
@@ -43,7 +43,7 @@ public static class PureCoreCompiler
         ArgumentNullException.ThrowIfNull(capturePolicy);
         var collector = new CompilerPredicateCaptureCollector(capturePolicy);
         var local = CompileSingle(input, expectedCompiler, snapshots, units, calendars, cancellationToken, declarationCache, predicateCapture: collector);
-        var completed = CompilerDependencyAnalysis.Attach(local, cancellationToken, declarationCache);
+        var completed = CompilerDependencyAnalysis.Attach(local, cancellationToken);
         var record = collector.Complete(completed, cancellationToken);
         return completed.WithPredicatePremises(record);
     }
@@ -57,7 +57,7 @@ public static class PureCoreCompiler
         ArgumentNullException.ThrowIfNull(observationPolicy);
         var collector = new CompilerPredicateObservationCollector(observationPolicy);
         var local = CompileSingle(input, expectedCompiler, snapshots, units, calendars, cancellationToken, declarationCache, predicateObservation: collector);
-        var completed = CompilerDependencyAnalysis.Attach(local, cancellationToken, declarationCache);
+        var completed = CompilerDependencyAnalysis.Attach(local, cancellationToken);
         return collector.Complete(completed, cancellationToken);
     }
 
@@ -69,7 +69,7 @@ public static class PureCoreCompiler
         ArgumentNullException.ThrowIfNull(policy);
         var collector = new CompilerPassObservationCollector(policy);
         var local = CompileSingle(input, expectedCompiler, snapshots, units, calendars, cancellationToken, declarationCache, passObservation: collector);
-        var completed = CompilerDependencyAnalysis.Attach(local, cancellationToken, declarationCache);
+        var completed = CompilerDependencyAnalysis.Attach(local, cancellationToken);
         return collector.Complete(completed);
     }
 
@@ -83,7 +83,7 @@ public static class PureCoreCompiler
         ArgumentNullException.ThrowIfNull(policy);
         var collector = new CompilerRegionalPredicateObservationCollector(policy);
         var local = CompileSingle(input, expectedCompiler, snapshots, units, calendars, cancellationToken, declarationCache);
-        var completed = CompilerDependencyAnalysis.Attach(local, cancellationToken, declarationCache, collector);
+        var completed = CompilerDependencyAnalysis.Attach(local, cancellationToken, collector);
         return collector.Complete(completed, cancellationToken);
     }
 

@@ -42,18 +42,41 @@ public sealed partial class SyntheticWorkbenchViewModel
         }
         var preview = ProjectScenarios.Prepare(model, _desired.Input.ExpectedInputDigest, id, revision, overrides, cancellationToken);
         if (_disposed || lifecycle != _lifecycle || selection != _selectionGeneration || generation != _scenarioPreviewGeneration) return null;
-        ScenarioPreview = preview; Changed();
-        if (cancellationToken.IsCancellationRequested)
+        ScenarioPreview = preview;
+        Exception? withdrawalFailure = null;
+        bool cancelledAtPublication;
+        try { Changed(); }
+        finally
         {
-            if (generation == _scenarioPreviewGeneration && ReferenceEquals(ScenarioPreview, preview))
+            cancelledAtPublication = cancellationToken.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _scenarioPreviewGeneration && ReferenceEquals(ScenarioPreview, preview))
             {
-                ClearScenarioPreview(); Changed();
+                ClearScenarioPreview();
+                withdrawalFailure = NotifyScenarioPreviewWithdrawal();
             }
-            cancellationToken.ThrowIfCancellationRequested();
         }
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Scenario preview was cancelled.", withdrawalFailure, cancellationToken);
         if (!_disposed && lifecycle == _lifecycle && selection == _selectionGeneration && generation == _scenarioPreviewGeneration &&
             ReferenceEquals(ScenarioPreview, preview)) return preview;
         if (ReferenceEquals(ScenarioPreview, preview)) { ClearScenarioPreview(); Changed(); } return null;
+    }
+
+    private Exception? NotifyScenarioPreviewWithdrawal()
+    {
+        var subscribers = PropertyChanged;
+        if (subscribers is null) return null;
+
+        Exception? failure = null;
+        var args = new PropertyChangedEventArgs(null);
+        foreach (var subscriber in Delegate.EnumerateInvocationList(subscribers))
+        {
+            try { subscriber(this, args); }
+            catch (Exception error) { failure ??= error; }
+        }
+
+        return failure;
     }
 
     public CompilerHostRequest? LoadScenario(ProjectScenarioPlan plan, long clientGeneration, CancellationToken cancellationToken = default)
@@ -124,15 +147,22 @@ public sealed partial class SyntheticWorkbenchViewModel
         }
         var preview = ProjectScenarios.ToDraft(plan, currentBase, expectedBase, proposal, cancellationToken);
         if (_disposed || lifecycle != _lifecycle || selection != _selectionGeneration || generation != _scenarioPreviewGeneration) return null;
-        ScenarioDraftPreview = preview; Changed();
-        if (cancellationToken.IsCancellationRequested)
+        ScenarioDraftPreview = preview;
+        Exception? withdrawalFailure = null;
+        bool cancelledAtPublication;
+        try { Changed(); }
+        finally
         {
-            if (generation == _scenarioPreviewGeneration && ReferenceEquals(ScenarioDraftPreview, preview))
+            cancelledAtPublication = cancellationToken.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _scenarioPreviewGeneration && ReferenceEquals(ScenarioDraftPreview, preview))
             {
-                ClearScenarioPreview(); Changed();
+                ClearScenarioPreview();
+                withdrawalFailure = NotifyScenarioPreviewWithdrawal();
             }
-            cancellationToken.ThrowIfCancellationRequested();
         }
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Scenario preview was cancelled.", withdrawalFailure, cancellationToken);
         if (!_disposed && lifecycle == _lifecycle && selection == _selectionGeneration && generation == _scenarioPreviewGeneration &&
             ReferenceEquals(ScenarioDraftPreview, preview)) return preview;
         if (ReferenceEquals(ScenarioDraftPreview, preview)) { ClearScenarioPreview(); Changed(); } return null;

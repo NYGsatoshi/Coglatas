@@ -339,6 +339,192 @@ public sealed class SyntheticRegionalOperatorRecordingTests
         Assert.Single(retained.Bodies); Assert.NotNull(vm.SelectedRegionalOperatorDiagnostic);
     }
 
+    private sealed class ThrowingPublicationObserver : IDisposable
+    {
+        private readonly SyntheticWorkbenchViewModel _view;
+        private readonly Func<SyntheticWorkbenchViewModel, bool> _hasPublication;
+        private readonly Action<SyntheticWorkbenchViewModel>? _replace;
+        private readonly bool _throwOnPublication;
+        private readonly CancellationTokenSource _source = new();
+        private bool _fired;
+
+        public CancellationToken Token => _source.Token;
+        public InvalidOperationException PublicationError { get; } = new("Regional publication observer failed.");
+        public InvalidOperationException WithdrawalError { get; } = new("Regional withdrawal observer failed.");
+        public int WithdrawalNotifications { get; private set; }
+        public int DeliveredWithdrawals { get; private set; }
+
+        public ThrowingPublicationObserver(SyntheticWorkbenchViewModel view, Func<SyntheticWorkbenchViewModel, bool> hasPublication,
+            Action<SyntheticWorkbenchViewModel>? replace,
+            bool throwOnPublication)
+        {
+            _view = view;
+            _hasPublication = hasPublication;
+            _replace = replace;
+            _throwOnPublication = throwOnPublication;
+            _view.PropertyChanged += Changed;
+            _view.PropertyChanged += RecordWithdrawal;
+        }
+
+        private void Changed(object? sender, PropertyChangedEventArgs args)
+        {
+            if (_fired)
+            {
+                if (Token.IsCancellationRequested)
+                {
+                    WithdrawalNotifications++;
+                    if (!_hasPublication(_view)) throw WithdrawalError;
+                }
+                return;
+            }
+            if (!_hasPublication(_view)) return;
+            _fired = true;
+            _replace?.Invoke(_view);
+            _source.Cancel();
+            if (_throwOnPublication) throw PublicationError;
+        }
+
+        private void RecordWithdrawal(object? sender, PropertyChangedEventArgs args)
+        {
+            if (Token.IsCancellationRequested && !_hasPublication(_view))
+            {
+                DeliveredWithdrawals++;
+            }
+        }
+
+        public void Dispose()
+        {
+            _view.PropertyChanged -= Changed;
+            _view.PropertyChanged -= RecordWithdrawal;
+            _source.Dispose();
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task ThrowingMetadataObserverWithdrawsOnlyItsCancelledRegionalRead(bool replace) =>
+        VerifyMetadataWithdrawal(replace, throwOnPublication: true);
+
+    [Fact]
+    public Task ThrowingRegionalMetadataWithdrawalObserverPreservesCancellation() =>
+        VerifyMetadataWithdrawal(replace: false, throwOnPublication: false);
+
+    private static async Task VerifyMetadataWithdrawal(bool replace, bool throwOnPublication)
+    {
+        var fixture = TwoRegions(false);
+        var request = Full(new(new(fixture.Input), 7, fixture.Snapshots));
+        using var session = new LocalRegionalPredicateObservationCompilerRecordingSession(Profile(fixture.Input));
+        using var vm = new SyntheticWorkbenchViewModel();
+        var actual = await Run(vm, session, request);
+        AdmitAndSelect(vm, actual);
+        Assert.True(vm.ReadRegionalOperatorRecordingMetadata());
+        var result = vm.Result;
+        var receipt = Assert.IsType<SourceJson>(vm.RegionalOperatorReceiptMetadata);
+        var recording = Assert.IsType<SourceJson>(vm.RegionalOperatorRecordMetadata);
+
+        static void PublishReplacement(SyntheticWorkbenchViewModel view) => Assert.True(view.ReadRegionalOperatorRecordingMetadata());
+        using var observer = new ThrowingPublicationObserver(vm, static view => view.RegionalOperatorReceiptMetadata is not null,
+            replace ? PublishReplacement : null, throwOnPublication);
+        Exception? error = null;
+        try
+        {
+            vm.ReadRegionalOperatorRecordingMetadata(observer.Token);
+        }
+        catch (Exception observed)
+        {
+            error = observed;
+        }
+
+        Assert.True(observer.Token.IsCancellationRequested);
+        Assert.Same(result, vm.Result);
+        Assert.Same(receipt, actual.Receipt.Data);
+        Assert.Same(recording, actual.Receipt.ObservationMetadata);
+        if (replace)
+        {
+            Assert.Same(receipt, vm.RegionalOperatorReceiptMetadata);
+            Assert.Same(recording, vm.RegionalOperatorRecordMetadata);
+        }
+        else
+        {
+            Assert.Null(vm.RegionalOperatorReceiptMetadata);
+            Assert.Null(vm.RegionalOperatorRecordMetadata);
+        }
+        AssertObserverError(observer, error, throwOnPublication);
+        Assert.Equal(replace ? 0 : 1, observer.WithdrawalNotifications);
+        Assert.Equal(replace ? 0 : 1, observer.DeliveredWithdrawals);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task ThrowingSnapshotObserverWithdrawsOnlyItsCancelledRegionalRead(bool replace) =>
+        VerifySnapshotWithdrawal(replace, throwOnPublication: true);
+
+    [Fact]
+    public Task ThrowingRegionalSnapshotWithdrawalObserverPreservesCancellation() =>
+        VerifySnapshotWithdrawal(replace: false, throwOnPublication: false);
+
+    private static async Task VerifySnapshotWithdrawal(bool replace, bool throwOnPublication)
+    {
+        var fixture = TwoRegions(false);
+        var request = Full(new(new(fixture.Input), 7, fixture.Snapshots));
+        using var session = new LocalRegionalPredicateObservationCompilerRecordingSession(Profile(fixture.Input));
+        using var vm = new SyntheticWorkbenchViewModel();
+        var actual = await Run(vm, session, request);
+        AdmitAndSelect(vm, actual);
+        Assert.True(Read(vm, actual));
+        var result = vm.Result;
+        var selection = vm.SelectedRegionalOperatorDiagnostic;
+        var retained = Assert.IsType<ProjectCompilerRegionalPredicateObservationSnapshot>(vm.RecordedRegionalOperators);
+        ProjectCompilerRegionalPredicateObservationSnapshot? replacement = null;
+
+        void PublishReplacement(SyntheticWorkbenchViewModel view)
+        {
+            Assert.True(Read(view, actual));
+            replacement = view.RecordedRegionalOperators;
+        }
+        using var observer = new ThrowingPublicationObserver(vm, static view => view.RecordedRegionalOperators is not null,
+            replace ? PublishReplacement : null, throwOnPublication);
+        Exception? error = null;
+        try
+        {
+            Read(vm, actual, token: observer.Token);
+        }
+        catch (Exception observed)
+        {
+            error = observed;
+        }
+
+        Assert.True(observer.Token.IsCancellationRequested);
+        Assert.Same(result, vm.Result);
+        Assert.Same(selection, vm.SelectedRegionalOperatorDiagnostic);
+        Assert.Single(retained.Bodies);
+        if (replace)
+        {
+            Assert.NotNull(replacement);
+            Assert.NotSame(retained, replacement);
+            Assert.Same(replacement, vm.RecordedRegionalOperators);
+            Assert.Single(replacement.Bodies);
+        }
+        else Assert.Null(vm.RecordedRegionalOperators);
+        AssertObserverError(observer, error, throwOnPublication);
+        Assert.Equal(replace ? 0 : 1, observer.WithdrawalNotifications);
+        Assert.Equal(replace ? 0 : 1, observer.DeliveredWithdrawals);
+    }
+
+    private static void AssertObserverError(ThrowingPublicationObserver observer, Exception? error, bool throwOnPublication)
+    {
+        if (throwOnPublication)
+        {
+            Assert.Same(observer.PublicationError, error);
+            return;
+        }
+        var cancelled = Assert.IsType<OperationCanceledException>(error);
+        Assert.Equal(observer.Token, cancelled.CancellationToken);
+        Assert.Same(observer.WithdrawalError, cancelled.InnerException);
+    }
+
     [Fact]
     public async Task ViewerGapAndDeniedSourceReloadPreserveOriginalCompilerFactsAndCallerOwnedFrames()
     {

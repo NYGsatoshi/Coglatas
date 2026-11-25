@@ -67,8 +67,8 @@ public static class ProjectSemanticBinder
 
     // Only closure construction can reuse the original admitted root as an implicit scope. It invents no snapshot ID/version or pin.
     internal static PartialSemanticModel BindRegion(CompilerInputManifest input, IEnumerable<CompilerMaterializedSnapshot> materialized,
-        CompilerInputManifest root, CancellationToken cancellationToken, PlanDeclarationReadCache? declarationCache, ProjectSymbolBindingCache? symbolBindingCache = null, ProjectReferenceBindingCache? referenceBindingCache = null, ReferenceBindingScope? referenceScope = null, SymbolBindingScope? symbolScope = null) =>
-        BindCore(input, materialized, cancellationToken, declarationCache,
+        CompilerInputManifest root, CancellationToken cancellationToken, ProjectSymbolBindingCache? symbolBindingCache = null, ProjectReferenceBindingCache? referenceBindingCache = null, ReferenceBindingScope? referenceScope = null, SymbolBindingScope? symbolScope = null) =>
+        BindCore(input, materialized, cancellationToken, null,
             new(root.Source, true, root.SourceCoverageComplete, root.SourceCoverageComplete), symbolBindingCache, referenceBindingCache, root.Source.Context.Branch, referenceScope, symbolScope);
 
     private static PartialSemanticModel BindCore(CompilerInputManifest input, IEnumerable<CompilerMaterializedSnapshot?>? materialized,
@@ -80,6 +80,7 @@ public static class ProjectSemanticBinder
             if (!input.Rules.Any(rule => rule.RuleId == id && rule.Version == 1 && rule.Required))
                 throw new ArgumentException("Binding requires the locked platform structural rule baseline.");
         var source = input.Source;
+        var declarationGeneration = symbolBindingCache is null ? declarationCache?.BeginBinding(source.Context.Branch, cancellationToken) : null;
         var referenceScope = referenceBindingCache?.ContinueBinding(ownerScope ?? source.Context.Branch, earlierReferenceScope, cancellationToken);
         var symbolScope = symbolBindingCache?.ContinueBinding(ownerScope ?? source.Context.Branch, earlierSymbolScope, cancellationToken);
         var root = ProjectLocation.Create(source.Documents[0].DocumentId, source.Context);
@@ -223,8 +224,8 @@ public static class ProjectSemanticBinder
             var bindings = symbolBindingCache?.Read(item.Source, symbolScope!, cancellationToken);
             IReadOnlyList<DeclarationDecodeResult> results = bindings is not null
                 ? bindings.Select(binding => binding.Declaration).ToArray()
-                : declarationCache is not null && ReferenceEquals(item.Source, source)
-                    ? declarationCache.Read(source, cancellationToken) : PlanDeclarationReader.Read(item.Source);
+                : declarationGeneration is not null && ReferenceEquals(item.Source, source)
+                    ? declarationCache!.Read(source, declarationGeneration, cancellationToken) : PlanDeclarationReader.Read(item.Source);
             return (Snapshot: item, Results: results, Bindings: bindings);
         }).ToArray();
         foreach (var set in declarationSets)
