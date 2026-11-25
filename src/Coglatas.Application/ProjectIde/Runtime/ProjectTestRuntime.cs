@@ -58,7 +58,7 @@ public sealed class ProjectTestRuntime(ProjectIdeOperationAccess access, IProjec
     public static readonly SecurityOperationRef CancelOperation = new("coglatas.project-test.cancel");
     public static readonly SecurityOperationRef ExportOperation = new("coglatas.project-test.export");
 
-    private readonly string evaluatorIdentityDigest =
+    private readonly string _evaluatorIdentityDigest =
         ContentDigest.Compute("coglatas.project-test-evaluator-identity/1", evaluator.Data.ToCanonicalBytes()).Value;
 
     public static async Task<CompilerArtifactIdentity> ReadLoadedEvaluatorAsync(CancellationToken cancellationToken = default)
@@ -81,7 +81,7 @@ public sealed class ProjectTestRuntime(ProjectIdeOperationAccess access, IProjec
 
         var job = new ProjectTestJob(new(request.Context.Branch, request.JobId),
             new(viewer.UserId, SecuritySourceIdentitySnapshot.Capture(request.Context, request.InputDigest),
-                request.SourceDigest.Value, request.ExecutionInputDigest.Value, evaluatorIdentityDigest),
+                request.SourceDigest.Value, request.ExecutionInputDigest.Value, _evaluatorIdentityDigest),
             ProjectTestJobState.Pending, clock.UtcNow.ToUniversalTime());
         Task<bool> Allowed(CancellationToken token) => IsAllowedAsync(viewer, StartOperation, job, token);
         if (!await Allowed(cancellationToken))
@@ -104,7 +104,7 @@ public sealed class ProjectTestRuntime(ProjectIdeOperationAccess access, IProjec
             return null;
 
         var (viewer, job) = authorized;
-        if (job.Binding.RequestedByUserId != viewer.UserId || job.Binding.EvaluatorIdentityDigest != evaluatorIdentityDigest)
+        if (job.Binding.RequestedByUserId != viewer.UserId || job.Binding.EvaluatorIdentityDigest != _evaluatorIdentityDigest)
             return null;
         if (job.State != ProjectTestJobState.Pending)
             return job.ToView();

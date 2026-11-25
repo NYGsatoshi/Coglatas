@@ -4,7 +4,10 @@ Issue #1945 / Owner decision D14.
 
 A development host can compose the shared ProjectIDE viewer and operation
 authorization services, a server-owned immutable input resolver, and the
-PostgreSQL Project Test job store. The host supplies the identity of its loaded
+PostgreSQL Project Test job store. Explicit development provisioning creates
+the store in `projectide_development` using the same AppDbContext and
+PostgreSQL connection. Ordinary application migrations leave this relation
+absent. The host supplies the identity of its loaded
 typed evaluator. The runtime's evaluator identity helper uses the same artifact
 ID, assembly version and binary hash domain as the local Test CLI.
 

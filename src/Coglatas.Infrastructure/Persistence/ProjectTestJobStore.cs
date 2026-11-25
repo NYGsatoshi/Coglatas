@@ -27,7 +27,7 @@ public sealed class ProjectTestJobStore(AppDbContext db) : IProjectTestJobStore
         var key = job.Key;
         var binding = JsonSerializer.Serialize(job.Binding, JsonOptions);
         await db.Database.ExecuteSqlInterpolatedAsync($"""
-            INSERT INTO project_ide_test_jobs (tenant_id, project_id, branch_id, job_id, binding, state, created_at)
+            INSERT INTO projectide_development.project_ide_test_jobs (tenant_id, project_id, branch_id, job_id, binding, state, created_at)
             VALUES ({key.Branch.TenantId.Value}, {key.Branch.ProjectId.Value}, {key.Branch.BranchId.Value},
                     {key.JobId}, CAST({binding} AS jsonb), 0, {job.CreatedAtUtc})
             ON CONFLICT (tenant_id, job_id) DO NOTHING
@@ -63,7 +63,7 @@ public sealed class ProjectTestJobStore(AppDbContext db) : IProjectTestJobStore
 
         var result = terminal.Result is null ? null : JsonSerializer.Serialize(terminal.Result, JsonOptions);
         var changed = await db.Database.ExecuteSqlInterpolatedAsync($"""
-            UPDATE project_ide_test_jobs
+            UPDATE projectide_development.project_ide_test_jobs
             SET state = {(int)terminal.State}, terminal_at = {terminalAt}, result = CAST({result} AS jsonb)
             WHERE tenant_id = {key.Branch.TenantId.Value} AND project_id = {key.Branch.ProjectId.Value}
                 AND branch_id = {key.Branch.BranchId.Value} AND job_id = {key.JobId} AND state = 0
@@ -83,7 +83,7 @@ public sealed class ProjectTestJobStore(AppDbContext db) : IProjectTestJobStore
         FormattableString command = $"""
             SELECT binding::text AS "Binding", state AS "State", created_at AS "CreatedAtUtc",
                 terminal_at AS "TerminalAtUtc", result::text AS "Result"
-            FROM project_ide_test_jobs
+            FROM projectide_development.project_ide_test_jobs
             WHERE tenant_id = {key.Branch.TenantId.Value} AND project_id = {key.Branch.ProjectId.Value}
                 AND branch_id = {key.Branch.BranchId.Value} AND job_id = {key.JobId}
             """;

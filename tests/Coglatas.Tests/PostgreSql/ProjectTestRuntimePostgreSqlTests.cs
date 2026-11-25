@@ -72,7 +72,7 @@ public sealed class ProjectTestRuntimePostgreSqlTests
                 Assert.Null(await runtime.FindAsync(new(foreignTenant, fixture.Key.JobId)));
 
                 var sqlError = await Assert.ThrowsAsync<PostgresException>(() =>
-                    third.Database.ExecuteSqlRawAsync("UPDATE project_ide_test_jobs SET state = 2, result = NULL"));
+                    third.Database.ExecuteSqlRawAsync("UPDATE projectide_development.project_ide_test_jobs SET state = 2, result = NULL"));
                 Assert.Equal("23514", sqlError.SqlState);
                 Assert.Equal(visible, await runtime.FindAsync(fixture.Key));
             }
@@ -146,6 +146,13 @@ public sealed class ProjectTestRuntimePostgreSqlTests
                 var branch = input.Source.Context.Branch;
 
                 await using var writer = PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection);
+                var ordinarySchemaIsClean = await writer.Database.SqlQueryRaw<bool>("""
+                    SELECT to_regclass('projectide_development.project_ide_test_jobs') IS NULL
+                        AND to_regclass('public.project_ide_test_jobs') IS NULL AS "Value"
+                    """).SingleAsync();
+                Assert.True(ordinarySchemaIsClean);
+                await ProjectTestJobDevelopmentProvisioning.ProvisionAsync(writer);
+
                 var tenant = new Tenant(branch.TenantId.Value)
                 { Name = "Project Test", Slug = "project-test", DisplayName = "Project Test" };
                 var actor = new User { Email = "test-runtime@example.invalid", NormalizedEmail = "TEST-RUNTIME@EXAMPLE.INVALID" };
