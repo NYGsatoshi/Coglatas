@@ -107,32 +107,29 @@ public sealed class ProjectHistoryRuntimeTests
             await tenant.SeedAsync(seed);
             var service = tenant.Service(requestDb, history);
             Assert.Equal(ProjectHistoryAccessState.Ready, (await service.MaterializeAsync(history.After)).State);
-            history.AfterLoad = async () =>
-            {
-                tenant.Session.RevokedAt = Now;
-                await seed.SaveChangesAsync();
-            };
+            var sessionId = tenant.Session.Id;
+            history.AfterLoad = () => SetSessionRevocationAsync(connection, sessionId, Now);
 
             var result = await service.ExportAsync(history.After);
             Assert.Equal(ProjectHistoryAccessState.NotFoundOrDenied, result.State);
             Assert.Null(result.Value);
 
             history.AfterLoad = null;
-            tenant.Session.RevokedAt = null;
-            await seed.SaveChangesAsync();
+            await SetSessionRevocationAsync(connection, sessionId, null);
             var publishCheck = history.CurrentChecks + 2;
-            history.DuringCurrentCheck = async check =>
-            {
-                if (check == publishCheck)
-                {
-                    tenant.Session.RevokedAt = Now;
-                    await seed.SaveChangesAsync();
-                }
-            };
+            history.DuringCurrentCheck = check => check == publishCheck ? SetSessionRevocationAsync(connection, sessionId, Now) : Task.CompletedTask;
             var late = await service.ExportAsync(history.After);
             Assert.Equal(ProjectHistoryAccessState.NotFoundOrDenied, late.State);
             Assert.Null(late.Value);
         });
+
+    private static async Task SetSessionRevocationAsync(string connection, Guid sessionId, DateTimeOffset? revokedAt)
+    {
+        await using var writer = PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection);
+        var session = await writer.Sessions.SingleAsync(item => item.Id == sessionId);
+        session.RevokedAt = revokedAt;
+        await writer.SaveChangesAsync();
+    }
 
     [PostgreSqlFact]
     [Trait("Category", "PostgreSQLIntegration")]
@@ -174,7 +171,7 @@ public sealed class ProjectHistoryRuntimeTests
             Assert.True(await store.IsCurrentAsync(captured, null, default));
 
             var revisionId = history.After.Revision.RevisionId.Value;
-            var editing = await Assert.ThrowsAsync<PostgresException>(() => seed.Database.ExecuteSqlInterpolatedAsync($"""
+            var editing = await Assert.ThrowsAsync<PostgresException>(() => ExecuteHistorySqlAsync(connection, $"""
                 UPDATE projectide_development.projectide_history_checkpoints
                 SET "SourceBytes" = {history.BeforeSource.Data.ToCanonicalBytes()}
                 WHERE "RevisionId" = {revisionId}
@@ -195,13 +192,19 @@ public sealed class ProjectHistoryRuntimeTests
                 WHERE "RevisionId" = {revisionId} AND "DeletedAtUtc" IS NOT NULL
                   AND "SourceBytes" IS NULL AND "InputBytes" IS NULL
                 """).SingleAsync());
-            var restoration = await Assert.ThrowsAsync<PostgresException>(() => seed.Database.ExecuteSqlInterpolatedAsync($"""
+            var restoration = await Assert.ThrowsAsync<PostgresException>(() => ExecuteHistorySqlAsync(connection, $"""
                 UPDATE projectide_development.projectide_history_checkpoints
                 SET "SourceBytes" = {history.AfterSource.Data.ToCanonicalBytes()}, "DeletedAtUtc" = NULL
                 WHERE "RevisionId" = {revisionId}
                 """));
             Assert.Equal(PostgresErrorCodes.CheckViolation, restoration.SqlState);
         });
+
+    private static async Task ExecuteHistorySqlAsync(string connection, FormattableString statement)
+    {
+        await using var writer = PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection);
+        await writer.Database.ExecuteSqlInterpolatedAsync(statement);
+    }
 
     private static Task<int> InsertCheckpointAsync(AppDbContext db, ProjectSource source, long sequence, params RevisionRef[] parents)
     {
@@ -226,7 +229,7 @@ public sealed class ProjectHistoryRuntimeTests
     private sealed class FixtureHeads(RevisionRef head) : IProjectHistoryHeadReader
     {
         public ValueTask<RevisionRef?> ReadAsync(BranchRef branch, CancellationToken cancellationToken) =>
-            ValueTask.FromResult<RevisionRef?>(branch == head.Branch ? head : null);
+            ValueTask.FromResult(branch == head.Branch ? head : null);
     }
 
     private sealed class HistoryFixture : IProjectHistoryRuntimeStore, IProjectIdeOperationAuthorization

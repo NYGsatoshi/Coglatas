@@ -229,26 +229,10 @@ public sealed class ProjectHistoryCheckpointStore(AppDbContext database, IProjec
     private sealed record Checkpoint(Guid Version, long Sequence, ProjectHistorySource Identity, IReadOnlyList<RevisionRef> Parents);
     private sealed record ParentLink(Guid BranchId, Guid RevisionId);
 
-    private sealed class CheckpointMetadata
-    {
-        public Guid VersionId { get; set; }
-        public long BranchSequence { get; set; }
-        public string Context { get; set; } = "";
-        public string SourceDigest { get; set; } = "";
-        public string InputDigest { get; set; } = "";
-        public string Parents { get; set; } = "";
-    }
+    private sealed record CheckpointMetadata(Guid VersionId, long BranchSequence, string Context, string SourceDigest,
+        string InputDigest, string Parents);
 
-    private sealed class CheckpointBody
-    {
-        public byte[]? SourceBytes { get; set; }
-        public byte[]? InputBytes { get; set; }
-    }
+    private sealed record CheckpointBody(byte[]? SourceBytes, byte[]? InputBytes);
 
-    private sealed class CheckpointVersion
-    {
-        public Guid BranchId { get; set; }
-        public Guid RevisionId { get; set; }
-        public Guid VersionId { get; set; }
-    }
+    private sealed record CheckpointVersion(Guid BranchId, Guid RevisionId, Guid VersionId);
 }
