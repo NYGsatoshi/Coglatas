@@ -8808,6 +8808,48 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
 
                     b.Navigation("Members");
                 });
+            modelBuilder.Entity("Coglatas.Infrastructure.Persistence.ProjectScenarioRow", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ScenarioId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CanonicalOverlay")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Identity")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("RevisionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("TenantId", "ProjectId", "ScenarioId");
+
+                    b.HasIndex("ProjectId", "TenantId");
+
+                    b.ToTable("projectide_scenarios", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_projectide_scenarios_source_scope", "(jsonb_typeof(\"Identity\") = 'object'\nAND \"Identity\" ->> 'Id' = \"ScenarioId\"::text\nAND \"Identity\" ->> 'Revision' = \"RevisionId\"::text\nAND \"Identity\" #>> '{Basis,Identity,TenantId}' = \"TenantId\"::text\nAND \"Identity\" #>> '{Basis,Identity,ProjectId}' = \"ProjectId\"::text\nAND \"Identity\" #>> '{Input,Identity,TenantId}' = \"TenantId\"::text\nAND \"Identity\" #>> '{Input,Identity,ProjectId}' = \"ProjectId\"::text\nAND \"Identity\" #>> '{Input,Identity,ScenarioId}' = \"ScenarioId\"::text\nAND \"Identity\" #>> '{Input,Identity,ScenarioRevisionId}' = \"RevisionId\"::text\nAND \"Identity\" #>> '{Input,Identity,OverlayDigest}' ~ '^[0-9a-f]{64}$') IS TRUE");
+                        });
+                });
+
+            modelBuilder.Entity("Coglatas.Infrastructure.Persistence.ProjectScenarioRow", b =>
+                {
+                    b.HasOne("Coglatas.Domain.Entities.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId", "TenantId")
+                        .HasPrincipalKey("Id", "TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
 #pragma warning restore 612, 618
         }
     }
