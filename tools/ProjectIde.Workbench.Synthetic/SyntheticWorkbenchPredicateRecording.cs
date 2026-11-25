@@ -82,13 +82,24 @@ public sealed partial class SyntheticWorkbenchViewModel
         }
         var snapshot = ProjectRecordedPredicatePremiseSnapshot.Read(_rootSourceAdmission!, compilation!.PredicatePremises!, diagnostic!, expectedResult, mode, maximumBodyBytes, token);
         if (!Current()) return false;
-        _recordedPredicatePremises = snapshot; _recordedPredicateDiagnostic = diagnostic; _recordedPredicateCompilation = compilation; Changed();
-        if (token.IsCancellationRequested)
+        _recordedPredicatePremises = snapshot;
+        _recordedPredicateDiagnostic = diagnostic;
+        _recordedPredicateCompilation = compilation;
+        Exception? withdrawalFailure = null;
+        bool cancelledAtPublication;
+        try { Changed(); }
+        finally
         {
-            if (generation == _recordedPredicateGeneration && ReferenceEquals(_recordedPredicatePremises, snapshot))
-            { ClearRecordedPredicatePremises(); Changed(); }
-            token.ThrowIfCancellationRequested();
+            cancelledAtPublication = token.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _recordedPredicateGeneration && ReferenceEquals(_recordedPredicatePremises, snapshot))
+            {
+                ClearRecordedPredicatePremises();
+                withdrawalFailure = NotifyRecordingWithdrawal();
+            }
         }
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Predicate recording read was cancelled.", withdrawalFailure, token);
         return Current() && ReferenceEquals(RecordedPredicatePremises, snapshot) && snapshot.State is not
             (RecordedPredicateSnapshotState.RefusedWrongResult or RecordedPredicateSnapshotState.RefusedRecord or RecordedPredicateSnapshotState.RefusedDiagnostic or RecordedPredicateSnapshotState.RefusedBodyBinding);
     }
