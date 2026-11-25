@@ -167,12 +167,42 @@ public sealed class SecurityEvaluationReaderTests
         var provider = new ContextProvider(null);
         var reader = new SecurityEvaluationReader(store, provider, new());
         Assert.Null(await reader.FindAsync(record.ProjectId, record.EvaluationId));
+        Assert.Equal(0, store.Reads);
+        store.Viewer = new(record.TenantId, record.Identity.SubjectUserId, Guid.NewGuid());
+        Assert.Null(await reader.FindAsync(record.ProjectId, record.EvaluationId));
         Assert.Equal(0, provider.Calls);
         store.AvailableRecord = record;
         provider.BeforeReturn = () => store.AvailableRecord = null;
         Assert.Null(await reader.FindAsync(record.ProjectId, record.EvaluationId));
         Assert.Equal(1, provider.Calls);
         Assert.Equal(3, store.Reads);
+    }
+
+    [Theory]
+    [InlineData("tenant")]
+    [InlineData("viewer")]
+    [InlineData("session")]
+    public async Task ChangedViewerContextDoesNotPublishAnInFlightProjection(string changed)
+    {
+        var binding = SecurityEvaluationTestData.Binding();
+        var record = Record(binding);
+        var viewer = new SecurityEvaluationViewer(record.TenantId, record.Identity.SubjectUserId, Guid.NewGuid());
+        var store = new ReadStore(record) { Viewer = viewer };
+        var provider = new ContextProvider(binding)
+        {
+            BeforeReturn = () => store.Viewer = changed switch
+            {
+                "tenant" => viewer with { TenantId = Guid.NewGuid() },
+                "viewer" => viewer with { UserId = Guid.NewGuid() },
+                "session" => viewer with { SessionId = Guid.NewGuid() },
+                _ => throw new ArgumentOutOfRangeException(nameof(changed))
+            }
+        };
+        var reader = new SecurityEvaluationReader(store, provider, new());
+
+        Assert.Null(await reader.FindAsync(record.ProjectId, record.EvaluationId));
+        Assert.Equal(1, provider.Calls);
+        Assert.Equal(1, store.Reads);
     }
 
     [Fact]
@@ -220,7 +250,10 @@ public sealed class SecurityEvaluationReaderTests
     private sealed class ReadStore(SecurityEvaluationRecord? record) : ISecurityEvaluationStore
     {
         public SecurityEvaluationRecord? AvailableRecord { get; set; } = record;
+        public SecurityEvaluationViewer? Viewer { get; set; } = record is null
+            ? null : new(record.TenantId, record.Identity.SubjectUserId, Guid.NewGuid());
         public int Reads { get; private set; }
+        public SecurityEvaluationViewer? CaptureViewer() => Viewer;
         public Task<SecurityEvaluationRecord?> FindAsync(Guid projectId, Guid evaluationId, CancellationToken cancellationToken = default)
         {
             Reads++;

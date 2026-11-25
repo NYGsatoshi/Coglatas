@@ -237,7 +237,8 @@ public sealed class SecurityArchitectureRlsNativeLifecycleTests
             new TenantAuthorizationService(new TenantRepository(context)));
         var projectAuthorization = new ProjectAuthorizationService(new ProjectRepository(context), workspaceAuthorization,
             new GroupAuthorizationService(groups, workspaces, workspaceAuthorization), groups);
-        return new(context, tenant, new Actor(((User)seed.Entities["users"]).Id), projectAuthorization, new Clock());
+        return new(context, tenant, new Actor(((User)seed.Entities["users"]).Id), projectAuthorization,
+            new SessionRepository(context), new Clock());
     }
 
     private static SecurityBinding Binding(SecurityArchitectureRlsRowFixtures.Seed seed)
