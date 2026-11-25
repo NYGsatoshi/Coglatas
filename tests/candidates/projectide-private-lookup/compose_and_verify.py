@@ -51,8 +51,12 @@ TRX_NAMESPACE = "{http://microsoft.com/schemas/VisualStudio/TeamTest/2010}"
 PRODUCT_HEAD = "1948e1834f79dfcf10bad5f0308546b2bcd939ae"
 PRODUCT_TREE = "5f8e0ce0b56ee5812277f5582de41ef9ee85fedd"
 EXECUTION_SCOPE = "SYNTHETIC_PRIVATE_LOOKUP_CORE_ONLY"
+CURRENT_HEAD = "de3b6de1f38128ce519e736e44af9815d3c68d0d"
+CURRENT_TREE = "ac634b9dc7fed90c2ef0f76c0c2b05a2923ed7f1"
+CURRENT_SCOPE = "SYNTHETIC_PRIVATE_LOOKUP_CURRENT_CORE_ONLY"
 HISTORICAL_HEAD = "1696603417073e21db216244aabe72427fd61ced"
 HISTORICAL_TREE = "77611a2465d30637abac525a9ee43d4009578254"
+HISTORICAL_SCOPE = "SYNTHETIC_PRIVATE_LOOKUP_HISTORICAL_LIFETIME_ONLY"
 HISTORICAL_FAILURE_METHODS = (
     "ClearBeforePrivatePreparationCannotRepopulateAnInvalidatedLifetime",
     "NewOwnerBeforePrivatePreparationCannotReplaceItsRetainedTable",
@@ -77,10 +81,17 @@ GENERATED_OUTPUT_PREFIXES = tuple(root + "/" + directory + "/"
     for root in GENERATED_PROJECT_ROOTS for directory in ("bin", "obj"))
 
 
-def selected_product(product_head: str, historical: bool) -> str:
-    if product_head != (HISTORICAL_HEAD if historical else PRODUCT_HEAD):
+def selected_product(product_head: str, historical: bool, *, current: bool = False) -> str:
+    if historical and current:
+        raise ValueError("Historical and current Product modes are mutually exclusive")
+    expected_head, expected_tree = PRODUCT_HEAD, PRODUCT_TREE
+    if historical:
+        expected_head, expected_tree = HISTORICAL_HEAD, HISTORICAL_TREE
+    if current:
+        expected_head, expected_tree = CURRENT_HEAD, CURRENT_TREE
+    if product_head != expected_head:
         raise ValueError("Only the independently reviewed immutable Product commit is admitted")
-    return HISTORICAL_TREE if historical else PRODUCT_TREE
+    return expected_tree
 
 
 def single_element(parent: ET.Element, name: str) -> ET.Element:
@@ -300,11 +311,13 @@ def main() -> None:
     parser.add_argument("--product-head", required=True)
     parser.add_argument("--worktree", required=True, type=Path)
     parser.add_argument("--evidence", required=True, type=Path)
-    parser.add_argument("--historical", action="store_true", help="Require the frozen two native failures and one positive control at the original vulnerable Product")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--historical", action="store_true", help="Require the original three frozen native outcomes")
+    mode.add_argument("--current", action="store_true", help="Run the complete native roster on the separately pinned ProjectIDE source")
     arguments = parser.parse_args()
     if not re.fullmatch(r"[0-9a-f]{40}", arguments.product_head):
         raise ValueError("Full immutable Product SHA required")
-    product_tree = selected_product(arguments.product_head, arguments.historical)
+    product_tree = selected_product(arguments.product_head, arguments.historical, current=arguments.current)
     identities = HISTORICAL_IDENTITIES if arguments.historical else EXPECTED_IDENTITIES
     selection = "|".join("FullyQualifiedName=" + name for name in sorted(identities))
     worktree, evidence = arguments.worktree.resolve(), arguments.evidence.resolve()
@@ -320,10 +333,13 @@ def main() -> None:
     if git(ROOT, "rev-parse", arguments.product_head + "^{tree}") != product_tree:
         raise ValueError("Immutable Product tree mismatch")
     evidence.mkdir(parents=True)
+    execution_scope = HISTORICAL_SCOPE if arguments.historical else EXECUTION_SCOPE
+    if arguments.current:
+        execution_scope = CURRENT_SCOPE
     receipt: dict[str, object] = {
         "testHead": test_head,
         "productHead": arguments.product_head,
-        "executionScope": "SYNTHETIC_PRIVATE_LOOKUP_HISTORICAL_LIFETIME_ONLY" if arguments.historical else EXECUTION_SCOPE,
+        "executionScope": execution_scope,
         "expectedPrivateLookupFacts": len(identities),
         "expectedIdentities": sorted(identities),
         "expectedFailureIdentities": sorted(HISTORICAL_FAILURES) if arguments.historical else [],
@@ -357,10 +373,12 @@ def main() -> None:
         (evidence / "source-receipt.json").write_text(
             json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         sdk = command(["dotnet", "--version"], worktree, evidence / "sdk.log")
-        if sdk != "10.0.403":
+        expected_sdk = "11.0.100" if arguments.current else "10.0.403"
+        if sdk != expected_sdk:
             raise ValueError("Actual SDK does not match Product global.json pin")
         project = "tests/Coglatas.Tests/Coglatas.Tests.csproj"
-        command(source_only_dotnet("restore", project, "--nologo"), worktree, evidence / "restore.log")
+        restore_options = ["--locked-mode"] if arguments.current else []
+        command(source_only_dotnet("restore", project, "--nologo", *restore_options), worktree, evidence / "restore.log")
         # Restore must not change the actual compiler input or any tracked Product source.
         verify_working_tree(worktree, raw, source_blob, product_head=arguments.product_head, allow_generated=True)
         command(source_only_dotnet("test", project, "-c", "Release", "--no-restore", "-warnaserror",
