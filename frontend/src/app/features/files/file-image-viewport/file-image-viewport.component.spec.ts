@@ -10,11 +10,13 @@ describe('FileImageViewportComponent', () => {
   let width = 270;
   let height = 300;
   const disconnect = vi.fn();
+  const scrollBy = vi.fn();
 
   beforeEach(async () => {
     localStorage.setItem('coglatas.locale', 'en');
     width = 270; height = 300;
     disconnect.mockClear();
+    scrollBy.mockClear();
     vi.stubGlobal('ResizeObserver', class { observe() {} disconnect = disconnect; });
     await TestBed.configureTestingModule({ imports: [FileImageViewportComponent] }).compileComponents();
     fixture = TestBed.createComponent(FileImageViewportComponent);
@@ -26,6 +28,7 @@ describe('FileImageViewportComponent', () => {
     image = host.querySelector('img')!;
     Object.defineProperty(viewport, 'clientWidth', { get: () => width });
     Object.defineProperty(viewport, 'clientHeight', { get: () => height });
+    Object.defineProperty(viewport, 'scrollBy', { value: scrollBy });
   });
 
   afterEach(() => vi.unstubAllGlobals());
@@ -39,6 +42,11 @@ describe('FileImageViewportComponent', () => {
   const click = (id: string): void => {
     host.querySelector<HTMLButtonElement>(`[data-testid="files-image-${id}"]`)!.click();
     fixture.detectChanges();
+  };
+  const press = (target: HTMLElement, key: string, options: KeyboardEventInit = {}): KeyboardEvent => {
+    const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...options });
+    target.dispatchEvent(event);
+    return event;
   };
 
   it('waits for dimensions and fits a large image below 25 percent without cropping', () => {
@@ -92,6 +100,64 @@ describe('FileImageViewportComponent', () => {
     click('actual');
     expect(viewport.scrollLeft).toBe(0);
     expect(viewport.scrollTop).toBe(0);
+  });
+
+  it('scrolls immediately along each arrow axis and keeps the viewport focused', () => {
+    load(1200, 900);
+    click('actual');
+    Object.defineProperties(viewport, {
+      scrollWidth: { value: 1200 },
+      scrollHeight: { value: 900 },
+    });
+    viewport.focus();
+
+    expect(press(viewport, 'ArrowRight').defaultPrevented).toBe(true);
+    expect(press(viewport, 'ArrowDown').defaultPrevented).toBe(true);
+    expect(press(viewport, 'ArrowLeft').defaultPrevented).toBe(true);
+    expect(press(viewport, 'ArrowUp', { repeat: true }).defaultPrevented).toBe(true);
+    expect(scrollBy.mock.calls).toEqual([
+      [{ left: 40, top: 0, behavior: 'instant' }],
+      [{ left: 0, top: 40, behavior: 'instant' }],
+      [{ left: -40, top: 0, behavior: 'instant' }],
+      [{ left: 0, top: -40, behavior: 'instant' }],
+    ]);
+    expect(document.activeElement).toBe(viewport);
+  });
+
+  it('leaves other keys, modified arrows, and keys outside the viewport available to the browser', () => {
+    load(1200, 900);
+    click('actual');
+    Object.defineProperties(viewport, {
+      scrollWidth: { value: 1200 },
+      scrollHeight: { value: 900 },
+    });
+    const zoom = host.querySelector<HTMLButtonElement>('[data-testid="files-image-zoom-in"]')!;
+
+    for (const key of ['Tab', 'Escape', 'PageDown', 'Home', 'End']) {
+      expect(press(viewport, key).defaultPrevented).toBe(false);
+    }
+    for (const options of [{ shiftKey: true }, { ctrlKey: true }, { altKey: true }, { metaKey: true }, { isComposing: true }]) {
+      expect(press(viewport, 'ArrowDown', options).defaultPrevented).toBe(false);
+    }
+    expect(press(zoom, 'ArrowDown').defaultPrevented).toBe(false);
+    expect(press(image, 'ArrowDown').defaultPrevented).toBe(false);
+    viewport.addEventListener('keydown', (event) => event.preventDefault(), { once: true });
+    press(viewport, 'ArrowDown');
+    expect(scrollBy).not.toHaveBeenCalled();
+  });
+
+  it('leaves native behavior for unloaded images and axes without overflow', () => {
+    Object.defineProperties(viewport, {
+      scrollWidth: { value: width },
+      scrollHeight: { value: 900 },
+    });
+    expect(press(viewport, 'ArrowDown').defaultPrevented).toBe(false);
+
+    load(270, 900);
+    click('actual');
+    expect(press(viewport, 'ArrowRight').defaultPrevented).toBe(false);
+    expect(press(viewport, 'ArrowDown').defaultPrevented).toBe(true);
+    expect(scrollBy).toHaveBeenCalledExactlyOnceWith({ left: 0, top: 40, behavior: 'instant' });
   });
 
   it('clears dimensions and transforms before a replacement URL can load, ignoring stale loads', () => {
