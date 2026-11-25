@@ -6656,6 +6656,45 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.ToTable("workspace_members", (string)null);
                 });
 
+            modelBuilder.Entity("Coglatas.Infrastructure.Persistence.CompilerOutputCaptureRow", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CaptureId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BindingDigest")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CapturedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("MaximumBodyBytes")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Projection")
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid?>("RunId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("TenantId", "ProjectId", "CaptureId");
+
+                    b.HasIndex("TenantId", "ProjectId", "RunId");
+
+                    b.ToTable("projectide_compiler_output_captures", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_projectide_compiler_output_capture_projection", "((\"DeletedAtUtc\" IS NOT NULL AND \"RunId\" IS NULL AND \"BindingDigest\" IS NULL\n    AND \"MaximumBodyBytes\" IS NULL AND \"Projection\" IS NULL)\nOR (\"DeletedAtUtc\" IS NULL AND \"RunId\" IS NOT NULL AND \"BindingDigest\" ~ '^[0-9a-f]{64}$'\n    AND \"MaximumBodyBytes\" BETWEEN 1 AND 33554432\n    AND jsonb_typeof(\"Projection\") = 'object'\n    AND \"Projection\" - ARRAY['Mode', 'State', 'Execution', 'Coverage', 'Verdict', 'EvidenceComplete',\n        'SemanticModelWasCaptured', 'IrWasCaptured', 'SourceMapWasCaptured'] = '{}'::jsonb\n    AND jsonb_typeof(\"Projection\" -> 'Mode') = 'number'\n    AND jsonb_typeof(\"Projection\" -> 'State') = 'number'\n    AND jsonb_typeof(\"Projection\" -> 'Execution') = 'number'\n    AND jsonb_typeof(\"Projection\" -> 'Coverage') = 'number'\n    AND jsonb_typeof(\"Projection\" -> 'Verdict') = 'number'\n    AND jsonb_typeof(\"Projection\" -> 'EvidenceComplete') = 'boolean'\n    AND jsonb_typeof(\"Projection\" -> 'SemanticModelWasCaptured') = 'boolean'\n    AND jsonb_typeof(\"Projection\" -> 'IrWasCaptured') = 'boolean'\n    AND jsonb_typeof(\"Projection\" -> 'SourceMapWasCaptured') = 'boolean')) IS TRUE");
+                        });
+                });
+
             modelBuilder.Entity("Coglatas.Infrastructure.Persistence.CompilerRecordingEvidenceRow", b =>
                 {
                     b.Property<Guid>("TenantId")
@@ -8592,6 +8631,14 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
 
                     b.Navigation("Workspace");
+                });
+
+            modelBuilder.Entity("Coglatas.Infrastructure.Persistence.CompilerOutputCaptureRow", b =>
+                {
+                    b.HasOne("Coglatas.Infrastructure.Persistence.CompilerRecordingEvidenceRow", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ProjectId", "RunId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Coglatas.Infrastructure.Persistence.CompilerRecordingEvidenceRow", b =>
