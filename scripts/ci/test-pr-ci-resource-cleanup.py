@@ -46,6 +46,11 @@ if action in ("inspect", "rm") and state.get("vanish_on") == [kind, action]:
 if action in ("inspect", "rm") and state.get("reject_on") == [kind, action]:
     print("sensitive-docker-error-must-not-be-published", file=sys.stderr)
     sys.exit(17)
+if kind == "network" and action == "rm" and "network_at_remove_failure" in state:
+    resources[args[-1]]["Containers"] = state["network_at_remove_failure"]
+    p.write_text(json.dumps(state))
+    print("sensitive-docker-error-must-not-be-published", file=sys.stderr)
+    sys.exit(17)
 if action == "ls":
     if "--filter" not in args:
         if state.get("inventory_error"):
@@ -306,6 +311,29 @@ class CleanupTests(unittest.TestCase):
                 result = self.invoke()
                 self.assertNotEqual(0, result.returncode)
                 self.assertIn("result=failure", result.stdout)
+
+    def test_network_remove_failure_classifies_only_the_post_failure_endpoint_state(self):
+        project = f"coglatas-security-{RUN}-{ATTEMPT}-zap"
+        endpoint = "f" * 64
+        for endpoints, category in (
+            ({endpoint: {"Name": "private-workload", "IPv4Address": "private-endpoint"}}, "endpoints-observed"),
+            ({}, "no-endpoints-observed"),
+            ([], "observation-unavailable"),
+        ):
+            with self.subTest(category=category):
+                self.state = {"calls": [], "container": {}, "network": {}, "volume": {}}
+                _, network, _ = self.add_project(project)
+                self.state["container"][endpoint] = {"Id": endpoint, "Config": {"Labels": {}}, "Mounts": []}
+                self.state["network_at_remove_failure"] = endpoints
+                result = self.invoke("security-scan", GITHUB_JOB="security-scan")
+                self.assertEqual(1, result.returncode)
+                self.assertEqual(f"PR CI cleanup failed: docker-network-rm-failed: {category}.\n", result.stderr)
+                self.assertIn("result=failure", result.stdout)
+                for private in (endpoint, network, project, "private-workload", "private-endpoint", "sensitive-docker-error"):
+                    self.assertNotIn(private, result.stdout + result.stderr)
+                self.assertIn(endpoint, self.state["container"])
+                self.assertIn(network, self.state["network"])
+                self.assertFalse(any(call[1] == "rm" and call[-1] == endpoint for call in self.state["calls"]))
 
     def test_standalone_scanner_disappearance_requires_absence_inventory(self):
         project = f"coglatas-security-{RUN}-{ATTEMPT}-zap"

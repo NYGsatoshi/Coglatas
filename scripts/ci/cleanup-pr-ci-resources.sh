@@ -131,17 +131,34 @@ def inspected(kind: str, resource: str) -> dict | None:
     return record
 
 
+def network_remove_observation(resource: str) -> str:
+    try:
+        record = inspected("network", resource)
+    except (CleanupError, OSError):
+        return "observation-unavailable"
+    if record is None:
+        return "disappeared-after-inventory"
+    endpoints = record.get("Containers")
+    if not isinstance(endpoints, dict):
+        return "observation-unavailable"
+    return "endpoints-observed" if endpoints else "no-endpoints-observed"
+
+
 def removed(kind: str, resource: str) -> None:
     arguments = [kind, "rm"]
     if kind == "container":
         arguments += ["--force"]
     try:
         docker(*arguments, resource)
-    except DockerFailure:
+    except DockerFailure as exc:
         # docker run --rm and existing worker EXIT cleanup can remove the
         # resource after our ownership check. Accept only proven disappearance;
         # a retained resource or failed inventory still fails the finalizer.
         if not absent(kind, resource):
+            if kind == "network":
+                # Observe the same owned network without touching its endpoints.
+                # Publish only the category; this is not proof of the cause.
+                raise DockerFailure(f"{exc}: {network_remove_observation(resource)}") from exc
             raise
 
 
