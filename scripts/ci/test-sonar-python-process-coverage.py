@@ -127,7 +127,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
                 else:
                     yield item.id()
 
-        for filename, count in (('test_sec_arch_reconcile.py', 25), ('test-mvp-a-final-checks.py', 10)):
+        for filename, count in (('test_sec_arch_reconcile.py', 30), ('test-mvp-a-final-checks.py', 10)):
             with self.subTest(filename=filename):
                 self.assertEqual(paths.count('scripts/ci/' + filename), 1)
                 name = 'canonical_existing_' + Path(filename).stem.replace('-', '_')
