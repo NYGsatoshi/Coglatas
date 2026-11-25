@@ -1,5 +1,10 @@
 # AI Context
 
+[Development Compiler recording evidence](verification/projectide-runtime-compiler-recording-evidence.md)
+adds scoped immutable receipt storage using persisted viewer revalidation. The
+development host supplies operation policy for the exact Source. This work adds
+no HTTP route, production registration or evidence-retention policy.
+
 [Private semantic-index lookup reuse](verification/projectide-semantic-index-lookup-reuse.md)
 retains only exact positional tables after fresh full-index construction. Public
 rows, metadata, input/coverage facts and query ownership stay current. Bounds,
