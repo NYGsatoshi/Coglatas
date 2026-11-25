@@ -12,6 +12,7 @@ using Coglatas.Web.Middleware;
 using Coglatas.Web.Security;
 using Coglatas.Web.Realtime;
 using Coglatas.Web.Notifications;
+using Coglatas.Web.ProjectIde;
 using Coglatas.Application.Notifications;
 using Coglatas.Web.Testing;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -42,6 +43,7 @@ builder.Services
     .AddApplication()
     .AddInfrastructure(builder.Configuration)
     .AddWebServices(builder.Configuration);
+var projectIdeDevelopmentRuntimeRegistered = builder.AddProjectIdeDevelopmentRuntime();
 if (browserSmokeResponseGateEnabled)
 {
     builder.Services.AddSingleton<BrowserSmokeResponseGateRegistry>();
@@ -289,6 +291,7 @@ if (browserSmokeResponseGateEnabled)
 }
 
 app.MapControllers();
+var projectIdeDevelopmentRuntimeEnabled = app.MapProjectIdeDevelopmentRuntime(projectIdeDevelopmentRuntimeRegistered);
 if (browserSmokeResponseGateEnabled)
 {
     BrowserSmokeAuthorizationOutboxProbe.MapEndpoint(app, app.Environment.EnvironmentName, browserSmokeResponseGateEnabled);
@@ -319,6 +322,11 @@ app.MapGet("/api/ui/runtime-config.js", async (
         ["tasks.kanbanV1"] = await featureFlags.IsEnabledAsync(FeatureKeys.KanbanV1, cancellationToken),
         ["tasks.ganttV1"] = await featureFlags.IsEnabledAsync(FeatureKeys.GanttV1, cancellationToken)
     };
+    if (projectIdeDevelopmentRuntimeEnabled)
+    {
+        flags["projectide.developmentRuntime"] = true;
+    }
+
     return Results.Text(
         $"window.__COGLATAS_FEATURE_FLAGS__ = {JsonSerializer.Serialize(flags)};",
         "text/javascript; charset=utf-8");
