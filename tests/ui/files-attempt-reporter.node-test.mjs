@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -138,8 +138,16 @@ test('withholds output if the report is oversized or symlinked', async (t) => {
   const input = join(root, filesReportInput);
   writeFileSync(input, Buffer.alloc(filesReportByteLimit + 1));
   await assert.rejects(collectFilesAttempts(root, options));
-  rmSync(input);
-  symlinkSync(options.archive, input);
+  const linkedReport = join(root, 'linked-report');
+  writeFileSync(input, JSON.stringify(validAttempts));
+  if (process.platform === 'win32') {
+    const reportDirectory = join(root, 'artifacts/files-attempt-report');
+    renameSync(reportDirectory, linkedReport);
+    symlinkSync(linkedReport, reportDirectory, 'junction');
+  } else {
+    renameSync(input, linkedReport);
+    symlinkSync(linkedReport, input, 'file');
+  }
   await assert.rejects(collectFilesAttempts(root, options));
   assert.equal(existsSync(join(root, 'artifacts/files-attempt-validated')), false);
 });

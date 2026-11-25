@@ -113,7 +113,7 @@ export default defineConfig({
         ["list"],
         ["html", { outputFolder: "playwright-report", open: "never" }],
         ["junit", { outputFile: "test-results/playwright-results.xml" }],
-        ...(process.env.COGLATAS_PLAYWRIGHT_REUSE_HOST_BUILD === "true"
+        ...(process.env.COGLATAS_FILES_ATTEMPT_REPORT === "1"
           ? [["./tests/ui/files-attempt-reporter.mjs"] as const]
           : [])
       ],

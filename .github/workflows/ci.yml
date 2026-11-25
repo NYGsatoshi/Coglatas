@@ -878,6 +878,7 @@ jobs:
           FRONTEND_STORYBOOK: "false"
           FRONTEND_PLAYWRIGHT: ${{ needs.frontend-build.outputs.frontend_playwright }}
           COGLATAS_PLAYWRIGHT_REUSE_HOST_BUILD: "true"
+          COGLATAS_FILES_ATTEMPT_REPORT: ${{ github.base_ref == 'projectide/integration-20261031' && '1' || '0' }}
         run: bash scripts/ci/run-frontend-parallel.sh
 
       - name: Upload browser artifacts on failure
@@ -923,7 +924,8 @@ jobs:
       - name: Collect sanitized Files browser attempts
         id: collect-files-attempts
         if: >-
-          always() && needs.frontend-build.outputs.frontend_playwright == 'true' &&
+          always() && github.base_ref == 'projectide/integration-20261031' &&
+          needs.frontend-build.outputs.frontend_playwright == 'true' &&
           (steps.run-frontend-checks.outcome == 'success' || steps.run-frontend-checks.outcome == 'failure' ||
           (steps.run-frontend-checks.outcome == 'cancelled' && hashFiles('artifacts/files-attempt-report/raw.json') != ''))
         timeout-minutes: 2
@@ -936,7 +938,7 @@ jobs:
         timeout-minutes: 2
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: files-browser-attempts
+          name: files-browser-attempts-attempt-${{ github.run_attempt }}
           path: |
             artifacts/files-attempt-validated/files-attempts.json
             artifacts/files-attempt-validated/files-attempts.json.sha256
