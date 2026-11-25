@@ -139,6 +139,7 @@ public sealed class ProjectIdeInspectionRuntimePostgreSqlTests
                 SELECT to_regclass('public.projectide_compiler_output_captures') IS NULL
                     AND to_regclass('projectide_development.projectide_compiler_output_captures') IS NULL
                 """));
+            Assert.DoesNotContain(writer.Model.GetEntityTypes(), entity => entity.GetTableName() == "projectide_compiler_output_captures");
             await CompilerRecordingDevelopmentSchema.ProvisionAsync(writer);
             await CompilerOutputCaptureDevelopmentSchema.ProvisionAsync(writer);
             await CompilerOutputCaptureDevelopmentSchema.ProvisionAsync(writer);

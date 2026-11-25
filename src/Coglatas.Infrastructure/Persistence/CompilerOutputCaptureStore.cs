@@ -23,9 +23,12 @@ public sealed class CompilerOutputCaptureStore(AppDbContext context, IClock cloc
 
         var reference = key.Recording;
         var binding = BindingDigest(reference);
-        var row = await context.Set<CompilerOutputCaptureRow>().AsNoTracking().SingleOrDefaultAsync(row =>
-            row.TenantId == reference.Source.TenantId && row.ProjectId == reference.Source.ProjectId && row.CaptureId == key.CaptureId &&
-            row.RunId == reference.RecordingId && row.BindingDigest == binding && row.DeletedAtUtc == null, cancellationToken);
+        var row = await context.Database.SqlQuery<CompilerOutputCapturePayload>($"""
+            SELECT "MaximumBodyBytes", "Projection"::text AS "Projection"
+            FROM projectide_development.projectide_compiler_output_captures
+            WHERE "TenantId" = {reference.Source.TenantId} AND "ProjectId" = {reference.Source.ProjectId} AND "CaptureId" = {key.CaptureId}
+                AND "RunId" = {reference.RecordingId} AND "BindingDigest" = {binding} AND "DeletedAtUtc" IS NULL
+            """).SingleOrDefaultAsync(cancellationToken);
         if (row is not { Projection: { } projection, MaximumBodyBytes: { } maximumBodyBytes } || !MatchesScope(key))
             return null;
 
@@ -109,15 +112,8 @@ public sealed class CompilerOutputCaptureStore(AppDbContext context, IClock cloc
         })).ToCanonicalBytes()).Value;
 }
 
-internal sealed class CompilerOutputCaptureRow
+internal sealed class CompilerOutputCapturePayload
 {
-    public Guid TenantId { get; private set; }
-    public Guid ProjectId { get; private set; }
-    public Guid CaptureId { get; private set; }
-    public Guid? RunId { get; private set; }
-    public string? BindingDigest { get; private set; }
-    public DateTimeOffset CapturedAtUtc { get; private set; }
-    public DateTimeOffset? DeletedAtUtc { get; private set; }
     public int? MaximumBodyBytes { get; private set; }
     public string? Projection { get; private set; }
 }
