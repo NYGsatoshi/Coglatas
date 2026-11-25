@@ -79,8 +79,9 @@ public sealed class ProjectTestRun
     public SourceJson Data { get; }
     public ContentDigest Digest { get; }
     internal ProjectTestRun(ProjectTestPlan plan, CompilerExecutionState execution, CompilerCoverage coverage,
-        CompilerFreshness freshness, IEnumerable<ProjectTestCaseResult> tests, string reason)
+        CompilerFreshness freshness, IEnumerable<ProjectTestCaseResult> tests, string reason, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         Input = plan.Input; Execution = execution; Coverage = coverage; Freshness = freshness; Reason = reason;
         DiscoveredTests = plan.DiscoveredTests; Tests = new ImmutableListView<ProjectTestCaseResult>(tests);
         ExecutedAssertions = Tests.Sum(test => test.Assertions.Count(item => item.Verdict is not CompilerVerdict.NotRun));
@@ -93,6 +94,7 @@ public sealed class ProjectTestRun
             freshness = freshness.ToString(), evidenceKind = CompilerContractTokens.Evidence(EvidenceKind), discoveredTests = DiscoveredTests, executedAssertions = ExecutedAssertions, reason,
             tests = Tests.Select(item => item.Data.Value).ToArray() });
         Digest = ContentDigest.Compute("coglatas.project-test-run/1", Data.ToCanonicalBytes());
+        cancellationToken.ThrowIfCancellationRequested();
     }
     internal static CompilerVerdict Aggregate(IEnumerable<CompilerVerdict> verdicts, bool complete)
     {
@@ -225,16 +227,24 @@ public sealed class ProjectTestPlan
             complete &= done;
             results.Add(new(id, assertions, assertions.Count == 0 ? "coglatas.zero-assertions" : "coglatas.local-input-defaults", done));
         }
-        return Result(CompilerExecutionState.Completed, complete ? CompilerCoverage.Complete : CompilerCoverage.Partial, results,
-            complete ? "coglatas.local-input-defaults" : "coglatas.incomplete-test-basis");
+        try
+        {
+            return Result(CompilerExecutionState.Completed, complete ? CompilerCoverage.Complete : CompilerCoverage.Partial, results,
+                complete ? "coglatas.local-input-defaults" : "coglatas.incomplete-test-basis", cancellationToken: cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return Cancelled();
+        }
         ProjectTestRun Cancelled() => Result(CompilerExecutionState.Cancelled, results.Any(item => item.Assertions.Count != 0) ? CompilerCoverage.Partial : CompilerCoverage.None,
             results, "coglatas.cancelled");
     }
     private ProjectTestRun Result(CompilerExecutionState execution, CompilerCoverage coverage, IEnumerable<ProjectTestCaseResult> tests,
-        string reason, CompilerFreshness freshness = CompilerFreshness.Current)
+        string reason, CompilerFreshness freshness = CompilerFreshness.Current, CancellationToken cancellationToken = default)
     {
-        try { return new(this, execution, coverage, freshness, tests, reason); }
-        catch (FormatException) { return new(this, CompilerExecutionState.ResourceExhausted, CompilerCoverage.None, freshness, [], "coglatas.test-artifact-bound-exhausted"); }
+        try { return new(this, execution, coverage, freshness, tests, reason, cancellationToken); }
+        catch (FormatException) { return new(this, CompilerExecutionState.ResourceExhausted, CompilerCoverage.None, freshness, [],
+            "coglatas.test-artifact-bound-exhausted", cancellationToken); }
     }
     private ProjectTestAssertionResult Evaluate(ProjectTestPlanDeclaration test, ProjectTestAssertion assertion, int remainingOperations)
     {
