@@ -25,6 +25,7 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
                 var input = DraftRenameTests.Draft();
                 var draft = input.Source.Context.Proposal!;
                 await using var seed = PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection);
+                Assert.DoesNotContain(seed.Model.GetEntityTypes(), entity => entity.GetTableName() == "project_ide_draft_candidates");
                 Assert.True(await PostgreSqlMigrationTestDatabase.ScalarAsync<bool>(connection,
                     "SELECT to_regclass('public.project_ide_draft_candidates') IS NULL " +
                     "AND to_regclass('projectide_development.project_ide_draft_candidates') IS NULL"));
@@ -94,11 +95,7 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
                 Assert.Empty(await seed.AuditLogs.AsNoTracking().ToListAsync());
                 Assert.Empty(await seed.OutboxEvents.AsNoTracking().ToListAsync());
 
-                outbox.BeforeReturn = async () =>
-                {
-                    session.RevokedAt = Now;
-                    await seed.SaveChangesAsync();
-                };
+                outbox.BeforeReturn = () => SetSessionRevokedAsync(connection, session.Id, Now);
                 Assert.Equal(ProjectDraftRenameSaveState.Unavailable, (await service.SaveAsync(command)).State);
                 Assert.Equal(1, await CandidateCount(connection));
                 Assert.Empty(await seed.IdempotencyRecords.AsNoTracking().ToListAsync());
@@ -106,20 +103,14 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
                 Assert.Empty(await seed.OutboxEvents.AsNoTracking().ToListAsync());
 
                 outbox.BeforeReturn = null;
-                session.RevokedAt = null;
-                await seed.SaveChangesAsync();
-                afterFlush.BeforeReturn = async () =>
-                {
-                    session.RevokedAt = Now;
-                    await seed.SaveChangesAsync();
-                };
+                await SetSessionRevokedAsync(connection, session.Id, null);
+                afterFlush.BeforeReturn = () => SetSessionRevokedAsync(connection, session.Id, Now);
                 Assert.Equal(ProjectDraftRenameSaveState.Unavailable, (await service.SaveAsync(command)).State);
                 Assert.Equal(1, await CandidateCount(connection));
                 Assert.Empty(await seed.IdempotencyRecords.AsNoTracking().ToListAsync());
                 Assert.Empty(await seed.AuditLogs.AsNoTracking().ToListAsync());
                 Assert.Empty(await seed.OutboxEvents.AsNoTracking().ToListAsync());
-                session.RevokedAt = null;
-                await seed.SaveChangesAsync();
+                await SetSessionRevokedAsync(connection, session.Id, null);
 
                 var saved = await service.SaveAsync(command);
                 Assert.Equal(ProjectDraftRenameSaveState.Saved, saved.State);
@@ -135,8 +126,7 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
                 Assert.Null(audit.ProjectId);
                 Assert.Single(await seed.OutboxEvents.AsNoTracking().ToListAsync());
 
-                session.RevokedAt = Now;
-                await seed.SaveChangesAsync();
+                await SetSessionRevokedAsync(connection, session.Id, Now);
                 Assert.Equal(ProjectDraftRenameSaveState.Unavailable, (await service.SaveAsync(command)).State);
                 Assert.Equal(2, await CandidateCount(connection));
             });
@@ -144,6 +134,14 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
     private static Task<long> CandidateCount(string database) =>
         PostgreSqlMigrationTestDatabase.ScalarAsync<long>(database,
             "SELECT count(*) FROM projectide_development.project_ide_draft_candidates");
+
+    private static async Task SetSessionRevokedAsync(string database, Guid sessionId, DateTimeOffset? revokedAt)
+    {
+        await using var writer = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+        var session = await writer.Sessions.SingleAsync(item => item.Id == sessionId);
+        session.RevokedAt = revokedAt;
+        await writer.SaveChangesAsync();
+    }
 
     private sealed class FixtureAuthority(ProposalContext draft, ContentDigest sourceDigest) : IProjectIdeOperationAuthorization
     {

@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Coglatas.Application.ProjectIde.Core;
 using Coglatas.Application.ProjectIde.Runtime;
@@ -41,24 +42,12 @@ public sealed class ProjectDraftRenameStore(AppDbContext db, IProjectDraftMateri
     public async Task<PartialSemanticModel?> LoadCurrentAsync(ProjectIdeViewerContext viewer, ProposalContext draft,
         bool forUpdate, CancellationToken cancellationToken)
     {
-        if (viewer.TenantId != draft.TargetBranch.TenantId.Value ||
-            (forUpdate && (!db.Database.IsNpgsql() || db.Database.CurrentTransaction is null)))
+        if (!CanAccess(viewer, draft.TargetBranch) || (forUpdate && db.Database.CurrentTransaction is null))
             return null;
 
-        var candidates = db.Set<ProjectIdeDraftCandidate>();
-        var query = forUpdate
-            ? candidates.FromSqlInterpolated($"""
-                SELECT * FROM projectide_development.project_ide_draft_candidates
-                WHERE "TenantId" = {viewer.TenantId} AND "ProjectId" = {draft.TargetBranch.ProjectId.Value}
-                  AND "BranchId" = {draft.TargetBranch.BranchId.Value} AND "ProposalId" = {draft.ProposalId.Value}
-                  AND "CandidateId" = {draft.CandidateRevisionId.Value}
-                FOR UPDATE
-                """)
-            : candidates;
-
-        var row = await ForDraft(query.AsNoTracking(), draft)
-            .SingleOrDefaultAsync(row => row.CandidateId == draft.CandidateRevisionId.Value, cancellationToken);
-        if (row is null || await candidates.AnyAsync(candidate => candidate.PredecessorId == row.CandidateId, cancellationToken))
+        var candidate = draft.CandidateRevisionId.Value;
+        var row = await FindAsync(draft, candidate, forUpdate, cancellationToken);
+        if (row is null || await HasSuccessorAsync(draft, candidate, cancellationToken))
             return null;
 
         var input = row.Decode(draft);
@@ -70,27 +59,38 @@ public sealed class ProjectDraftRenameStore(AppDbContext db, IProjectDraftMateri
     }
 
     public async Task<bool> IsTargetCurrentAsync(ProjectIdeViewerContext viewer, ProposalContext draft,
-        CancellationToken cancellationToken) => viewer.TenantId == draft.TargetBranch.TenantId.Value &&
-        await materializations.ReadCurrentHeadAsync(viewer, draft.TargetBranch, cancellationToken) == draft.CapturedTargetHead;
+        CancellationToken cancellationToken) => CanAccess(viewer, draft.TargetBranch) &&
+        await materializations.ReadCurrentHeadAsync(viewer, draft.TargetBranch, cancellationToken) == draft.CapturedTargetHead &&
+        CanAccess(viewer, draft.TargetBranch);
 
     public async Task<bool> StageRenameAsync(ProjectIdeViewerContext viewer, ProjectDraftRenamePlan plan,
         CancellationToken cancellationToken)
     {
         var before = plan.Before.Source.Context.Proposal;
         var after = plan.After.Source.Context.Proposal;
-        if (!db.Database.IsNpgsql() || db.Database.CurrentTransaction is null || before is null || after is null ||
-            viewer.TenantId != after.TargetBranch.TenantId.Value || !plan.ReferenceCoverageComplete)
+        if (db.Database.CurrentTransaction is null || before is null || after is null ||
+            !CanAccess(viewer, after.TargetBranch) || !plan.ReferenceCoverageComplete)
             return false;
 
-        var candidates = db.Set<ProjectIdeDraftCandidate>();
-        var stored = await ForDraft(candidates.AsNoTracking(), before)
-            .SingleOrDefaultAsync(row => row.CandidateId == before.CandidateRevisionId.Value, cancellationToken);
+        var predecessor = before.CandidateRevisionId.Value;
+        var stored = await FindAsync(before, predecessor, forUpdate: true, cancellationToken);
         if (stored?.Decode(before) is not { } current || plan.ApplyToDraft(current, cancellationToken) is null ||
-            await candidates.AnyAsync(row => row.PredecessorId == before.CandidateRevisionId.Value ||
-                row.CandidateId == after.CandidateRevisionId.Value, cancellationToken))
+            await HasSuccessorAsync(before, predecessor, cancellationToken))
             return false;
 
-        candidates.Add(ProjectIdeDraftCandidate.Create(plan.After, before.CandidateRevisionId.Value));
+        var transfer = new CompilerInputTransfer(plan.After);
+        var inserted = await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO projectide_development.project_ide_draft_candidates
+                ("CandidateId", "TenantId", "ProjectId", "BranchId", "ProposalId", "PredecessorId",
+                 "SourceBytes", "InputBytes", "SourceDigest", "InputDigest")
+            VALUES ({after.CandidateRevisionId.Value}, {viewer.TenantId}, {after.TargetBranch.ProjectId.Value},
+                    {after.TargetBranch.BranchId.Value}, {after.ProposalId.Value}, {predecessor},
+                    {transfer.RecoverSourceBytes()}, {transfer.RecoverManifestBytes()}, {plan.After.Source.Digest.Value},
+                    {plan.After.InputDigest.Value})
+            ON CONFLICT DO NOTHING
+            """, cancellationToken);
+        if (inserted != 1 || !CanAccess(viewer, after.TargetBranch))
+            return false;
         await audit.StageAsync(viewer, cancellationToken);
         return await outbox.StageAsync(viewer, after, cancellationToken);
     }
@@ -98,69 +98,59 @@ public sealed class ProjectDraftRenameStore(AppDbContext db, IProjectDraftMateri
     public async Task<ProjectDraftRenameSaved?> LoadSavedAsync(ProjectIdeViewerContext viewer, ProposalContext draft,
         CandidateRevisionId candidate, CancellationToken cancellationToken)
     {
-        if (viewer.TenantId != draft.TargetBranch.TenantId.Value)
+        if (!CanAccess(viewer, draft.TargetBranch))
             return null;
 
-        var row = await ForDraft(db.Set<ProjectIdeDraftCandidate>().AsNoTracking(), draft)
-            .SingleOrDefaultAsync(row => row.CandidateId == candidate.Value &&
-                row.PredecessorId == draft.CandidateRevisionId.Value, cancellationToken);
+        var row = await FindAsync(draft, candidate.Value, forUpdate: false, cancellationToken);
+        if (row is null || row.PredecessorId != draft.CandidateRevisionId.Value || !CanAccess(viewer, draft.TargetBranch))
+            return null;
         var next = new ProposalContext(draft.ProposalId, candidate, draft.BaseRevision, draft.CapturedTargetHead);
-        var input = row?.Decode(next);
+        var input = row.Decode(next);
         return input is null ? null : new(candidate, input.Source.Digest, input.InputDigest);
     }
 
-    private static IQueryable<ProjectIdeDraftCandidate> ForDraft(IQueryable<ProjectIdeDraftCandidate> candidates,
-        ProposalContext draft) => candidates.Where(row => row.TenantId == draft.TargetBranch.TenantId.Value &&
-            row.ProjectId == draft.TargetBranch.ProjectId.Value && row.BranchId == draft.TargetBranch.BranchId.Value &&
-            row.ProposalId == draft.ProposalId.Value);
-}
+    private bool CanAccess(ProjectIdeViewerContext viewer, BranchRef branch) =>
+        db.Database.IsNpgsql() && db.ActiveTenantId == viewer.TenantId && viewer.TenantId == branch.TenantId.Value;
 
-internal sealed class ProjectIdeDraftCandidate
-{
-    private ProjectIdeDraftCandidate() { }
-
-    public Guid CandidateId { get; private init; }
-    public Guid TenantId { get; private init; }
-    public Guid ProjectId { get; private init; }
-    public Guid BranchId { get; private init; }
-    public Guid ProposalId { get; private init; }
-    public Guid? PredecessorId { get; private init; }
-    public byte[] SourceBytes { get; private init; } = [];
-    public byte[] InputBytes { get; private init; } = [];
-    public string SourceDigest { get; private init; } = string.Empty;
-    public string InputDigest { get; private init; } = string.Empty;
-
-    public static ProjectIdeDraftCandidate Create(CompilerInputManifest input, Guid? predecessorId)
+    private Task<CandidateRow?> FindAsync(ProposalContext draft, Guid candidate, bool forUpdate, CancellationToken cancellationToken)
     {
-        var draft = input.Source.Context.Proposal ?? throw new ArgumentException("A Draft candidate is required.", nameof(input));
-        var transfer = new CompilerInputTransfer(input);
-        return new()
-        {
-            CandidateId = draft.CandidateRevisionId.Value,
-            TenantId = draft.TargetBranch.TenantId.Value,
-            ProjectId = draft.TargetBranch.ProjectId.Value,
-            BranchId = draft.TargetBranch.BranchId.Value,
-            ProposalId = draft.ProposalId.Value,
-            PredecessorId = predecessorId,
-            SourceBytes = transfer.RecoverSourceBytes(),
-            InputBytes = transfer.RecoverManifestBytes(),
-            SourceDigest = input.Source.Digest.Value,
-            InputDigest = input.InputDigest.Value
-        };
+        FormattableString command = $"""
+            SELECT "PredecessorId", "SourceBytes", "InputBytes", "SourceDigest", "InputDigest"
+            FROM projectide_development.project_ide_draft_candidates
+            WHERE "TenantId" = {draft.TargetBranch.TenantId.Value} AND "ProjectId" = {draft.TargetBranch.ProjectId.Value}
+                AND "BranchId" = {draft.TargetBranch.BranchId.Value} AND "ProposalId" = {draft.ProposalId.Value}
+                AND "CandidateId" = {candidate}
+            """;
+        if (forUpdate)
+            command = FormattableStringFactory.Create(command.Format + " FOR UPDATE", command.GetArguments());
+        return db.Database.SqlQuery<CandidateRow>(command).SingleOrDefaultAsync(cancellationToken);
     }
 
-    public CompilerInputManifest? Decode(ProposalContext expected)
+    private Task<bool> HasSuccessorAsync(ProposalContext draft, Guid candidate, CancellationToken cancellationToken) =>
+        db.Database.SqlQuery<bool>($"""
+            SELECT EXISTS (
+                SELECT 1 FROM projectide_development.project_ide_draft_candidates
+                WHERE "TenantId" = {draft.TargetBranch.TenantId.Value} AND "ProjectId" = {draft.TargetBranch.ProjectId.Value}
+                    AND "BranchId" = {draft.TargetBranch.BranchId.Value} AND "ProposalId" = {draft.ProposalId.Value}
+                    AND "PredecessorId" = {candidate}) AS "Value"
+            """).SingleAsync(cancellationToken);
+
+    private sealed record CandidateRow(Guid? PredecessorId, byte[] SourceBytes, byte[] InputBytes,
+        string SourceDigest, string InputDigest)
     {
-        try
+        public CompilerInputManifest? Decode(ProposalContext expected)
         {
-            var digest = ContentDigest.Parse(SourceJson.Parse(JsonSerializer.SerializeToUtf8Bytes(
-                new { algorithm = ContentDigest.Algorithm, value = InputDigest })));
-            var input = new CompilerInputTransfer(SourceBytes, InputBytes, digest).Materialize();
-            return input.Source.Context.Proposal == expected && input.Source.Digest.Value == SourceDigest ? input : null;
-        }
-        catch (Exception error) when (error is ArgumentException or FormatException or UnsupportedSourceException or JsonException)
-        {
-            return null;
+            try
+            {
+                var digest = ContentDigest.Parse(SourceJson.Parse(JsonSerializer.SerializeToUtf8Bytes(
+                    new { algorithm = ContentDigest.Algorithm, value = InputDigest })));
+                var input = new CompilerInputTransfer(SourceBytes, InputBytes, digest).Materialize();
+                return input.Source.Context.Proposal == expected && input.Source.Digest.Value == SourceDigest ? input : null;
+            }
+            catch (Exception error) when (error is ArgumentException or FormatException or UnsupportedSourceException or JsonException)
+            {
+                return null;
+            }
         }
     }
 }
