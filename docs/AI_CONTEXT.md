@@ -81,6 +81,8 @@ within the existing canonical JSON bound. All four pure Workbench protocols
 preserve original Compiler facts and newer notification contexts; no runtime
 authority, actual Avalonia or numerical assurance is inferred.
 
+[Paired local Test discovery](verification/projectide-test-discovery-clients.md) adds independent Core-produced inventory admission in Angular and the Windows pure ViewModel, with owned Source rows, separate decode/binding/evaluator facts and no Test execution. Existing reports, original recording receipts and processing bounds are retained; independent/runtime/actual Native acceptance remains open under P0 #1945.
+
 The [local Project Test CLI](verification/projectide-local-project-tests.md)
 exposes owned typed discovery and --discover without evaluating assertions or
 producing Test PASS. Original input/plan stamps, decode/coverage/evaluator facts,
