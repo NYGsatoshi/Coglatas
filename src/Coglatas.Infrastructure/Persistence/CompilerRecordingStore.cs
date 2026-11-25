@@ -107,9 +107,5 @@ public sealed class CompilerRecordingStore(AppDbContext context, ProjectIdeOpera
         }
     }
 
-    private sealed class CompilerRecordingEvidenceRow
-    {
-        public Guid ActorUserId { get; private set; }
-        public string Payload { get; private set; } = "";
-    }
+    private sealed record CompilerRecordingEvidenceRow(Guid ActorUserId, string Payload);
 }
