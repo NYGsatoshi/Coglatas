@@ -30,6 +30,8 @@ public interface IProjectDraftRenamePersistence
     Task<PartialSemanticModel?> LoadCurrentAsync(ProjectIdeViewerContext viewer, ProposalContext draft,
         bool forUpdate, CancellationToken cancellationToken);
 
+    Task<bool> IsTargetCurrentAsync(ProjectIdeViewerContext viewer, ProposalContext draft, CancellationToken cancellationToken);
+
     /// <summary>Stages a compare-and-swap, immutable revision, audit and required Outbox in the current transaction.</summary>
     Task<bool> StageRenameAsync(ProjectIdeViewerContext viewer, ProjectDraftRenamePlan plan,
         CancellationToken cancellationToken);
@@ -58,7 +60,8 @@ public sealed class ProjectDraftRenameService(ProjectIdeOperationAccess access,
 
         var next = CandidateRevisionId.New();
         var plan = await PrepareAsync(viewer, request, draft, next, forUpdate: false, cancellationToken);
-        if (plan is null || !await IsAllowedAsync(viewer, PreviewOperation, request, cancellationToken))
+        if (plan is null || !await drafts.IsTargetCurrentAsync(viewer, draft, cancellationToken) ||
+            !await IsAllowedAsync(viewer, PreviewOperation, request, cancellationToken))
             return null;
 
         return new(next, DigestPlan(plan), plan.PreviousName, plan.NewName);
@@ -78,12 +81,12 @@ public sealed class ProjectDraftRenameService(ProjectIdeOperationAccess access,
 
         var fingerprint = ContentDigest.Compute(FingerprintDomain, SourceJson.Parse(JsonSerializer.SerializeToUtf8Bytes(new
         {
-            target = request.Target.Data.Value,
-            source = request.SourceDigest.Data.Value,
-            input = request.InputDigest.Data.Value,
+            target = ContentDigest.Compute("coglatas.draft-rename-target/1", request.Target.Data.ToCanonicalBytes()).Value,
+            source = request.SourceDigest.Value,
+            input = request.InputDigest.Value,
             name = request.DisplayName,
             candidate = confirmation.NextCandidate.ToString(),
-            preview = confirmation.PreviewDigest.Data.Value
+            preview = confirmation.PreviewDigest.Value
         })).ToCanonicalBytes());
         var binding = new CreateIdempotencyContext(viewer.TenantId, viewer.UserId, SaveOperation.OperationId,
             confirmation.RequestIdentity, fingerprint.Value, "ProjectDraftCandidate", confirmation.NextCandidate.Value);
@@ -91,7 +94,7 @@ public sealed class ProjectDraftRenameService(ProjectIdeOperationAccess access,
         try
         {
             drafts.EnsureIsolatedWriteScope();
-            var result = await idempotency.ExecuteAsync(binding, async token =>
+            var result = await idempotency.ExecuteWithCommitCheckAsync(binding, async token =>
             {
                 var plan = await PrepareAsync(viewer, request, draft, confirmation.NextCandidate, forUpdate: true, token);
                 if (plan is null || DigestPlan(plan) != confirmation.PreviewDigest ||
@@ -109,6 +112,11 @@ public sealed class ProjectDraftRenameService(ProjectIdeOperationAccess access,
 
                 var saved = await drafts.LoadSavedAsync(viewer, draft, new(candidateId), token);
                 return saved is { } && saved.Candidate == confirmation.NextCandidate ? saved : null;
+            }, async token =>
+            {
+                if (!await drafts.IsTargetCurrentAsync(viewer, draft, token) ||
+                    !await IsAllowedAsync(viewer, SaveOperation, request, token))
+                    throw new DraftRenameUnavailableException();
             }, cancellationToken);
 
             // Check again after the transaction or replay lookup before sending even receipt metadata.
@@ -130,13 +138,21 @@ public sealed class ProjectDraftRenameService(ProjectIdeOperationAccess access,
     {
         var model = await drafts.LoadCurrentAsync(viewer, draft, forUpdate, cancellationToken);
         if (model is null || !model.Input.Source.Context.Equals(request.Target.Context) ||
-            model.Input.Source.Digest != request.SourceDigest || model.Input.InputDigest != request.InputDigest)
+            model.Input.Source.Digest != request.SourceDigest || model.Input.InputDigest != request.InputDigest ||
+            !await drafts.IsTargetCurrentAsync(viewer, draft, cancellationToken))
             return null;
 
         var nextContext = SourceRevisionContext.Candidate(new(draft.ProposalId, next, draft.BaseRevision, draft.CapturedTargetHead));
-        var preview = ProjectDraftRename.Preview(model, request.Target, request.InputDigest,
-            request.DisplayName, nextContext, cancellationToken);
-        return preview.Plan is { ReferenceCoverageComplete: true } plan ? plan : null;
+        try
+        {
+            var preview = ProjectDraftRename.Preview(model, request.Target, request.InputDigest,
+                request.DisplayName, nextContext, cancellationToken);
+            return preview.Plan is { ReferenceCoverageComplete: true } plan ? plan : null;
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
     }
 
     private Task<bool> IsAllowedAsync(ProjectIdeViewerContext viewer, SecurityOperationRef operation,

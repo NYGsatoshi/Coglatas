@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Common.Tenancy;
 using Coglatas.Application.ProjectIde.Runtime;
@@ -56,6 +57,22 @@ public sealed class ProjectDraftRenameRuntimeTests
         Assert.Empty(await fixture.Database.IdempotencyRecords.ToArrayAsync());
     }
 
+    [Fact]
+    public async Task BoundedLocationAndDisplayNameReturnARefusalWhenTheConfirmedPlanDiffers()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var request = fixture.Request with { DisplayName = new string('x', ProjectDraftRename.MaximumNameBytes) };
+        var preview = Assert.IsType<ProjectDraftRenamePreview>(await fixture.Service.PreviewAsync(request));
+        var location = JsonNode.Parse(request.Target.Data.CanonicalText)!.AsObject();
+        location["fixture-extension"] = new string('a', new SourceCodecLimits().MaximumBytes - 2048);
+        var changed = request with { Target = ProjectLocation.Parse(SourceJson.Parse(location.ToJsonString())) };
+        var confirmation = new ProjectDraftRenameConfirmation(changed, preview.NextCandidate, preview.PreviewDigest, "bounded-location-key");
+
+        Assert.Equal(ProjectDraftRenameSaveState.Unavailable, (await fixture.Service.SaveAsync(confirmation)).State);
+        Assert.Null(fixture.Drafts.Staged);
+        Assert.Empty(await fixture.Database.IdempotencyRecords.ToArrayAsync());
+    }
+
     private sealed class Fixture(AppDbContext database, MemoryDraft draft, Policy authority,
         ProjectDraftRenameService service, ProjectDraftRenameRequest request) : IAsyncDisposable
     {
@@ -85,7 +102,7 @@ public sealed class ProjectDraftRenameRuntimeTests
             var policy = new Policy();
             var drafts = new MemoryDraft(ProjectSemanticBinder.Bind(input));
             var service = new ProjectDraftRenameService(new ProjectIdeOperationAccess(viewers, policy),
-                drafts, new EfCreateIdempotencyCoordinator(db));
+                drafts, new InMemoryCoordinator(new EfCreateIdempotencyCoordinator(db)));
             return new(db, drafts, policy, service, new(DraftRenameTests.Target(input), input.Source.Digest, input.InputDigest, "Renamed"));
         }
 
@@ -99,6 +116,9 @@ public sealed class ProjectDraftRenameRuntimeTests
         public ProjectDraftRenamePlan? Staged { get; private set; }
 
         public void EnsureIsolatedWriteScope() { }
+
+        public Task<bool> IsTargetCurrentAsync(ProjectIdeViewerContext viewer, ProposalContext draft,
+            CancellationToken cancellationToken) => Task.FromResult(true);
 
         public Task<PartialSemanticModel?> LoadCurrentAsync(ProjectIdeViewerContext viewer, ProposalContext draft,
             bool forUpdate, CancellationToken cancellationToken)
@@ -119,6 +139,24 @@ public sealed class ProjectDraftRenameRuntimeTests
             CandidateRevisionId candidate, CancellationToken cancellationToken) =>
             Task.FromResult<ProjectDraftRenameSaved?>(Staged is { } plan
                 ? new(candidate, plan.After.Source.Digest, plan.After.InputDigest) : null);
+    }
+
+    private sealed class InMemoryCoordinator(EfCreateIdempotencyCoordinator inner) : ICreateIdempotencyCoordinator
+    {
+        public Task<IdempotentCreateResult<T>> ExecuteAsync<T>(CreateIdempotencyContext context,
+            Func<CancellationToken, Task<T>> stageCreation, Func<Guid, CancellationToken, Task<T?>> loadCommittedResource,
+            CancellationToken cancellationToken = default) where T : class =>
+            inner.ExecuteAsync(context, stageCreation, loadCommittedResource, cancellationToken);
+
+        public Task<IdempotentCreateResult<T>> ExecuteWithCommitCheckAsync<T>(CreateIdempotencyContext context,
+            Func<CancellationToken, Task<T>> stageCreation, Func<Guid, CancellationToken, Task<T?>> loadCommittedResource,
+            Func<CancellationToken, Task> validateBeforeCommit, CancellationToken cancellationToken = default) where T : class =>
+            inner.ExecuteAsync(context, async token =>
+            {
+                var result = await stageCreation(token);
+                await validateBeforeCommit(token);
+                return result;
+            }, loadCommittedResource, cancellationToken);
     }
 
     private sealed class Policy : IProjectIdeOperationAuthorization

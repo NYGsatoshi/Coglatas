@@ -8,6 +8,7 @@ using Coglatas.Infrastructure.Audit;
 using Coglatas.Infrastructure.Persistence;
 using Coglatas.Tests.ProjectIde;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace Coglatas.Tests.PostgreSql;
 
@@ -46,17 +47,26 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
 
                 var currentTenant = new CurrentTenantService();
                 currentTenant.SetTenant(tenant.Id, tenant.Slug);
-                await using var requestDb = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(connection).Options, currentTenant);
+                var afterFlush = new AfterFlush();
+                await using var requestDb = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
+                    .UseNpgsql(connection).AddInterceptors(afterFlush).Options, currentTenant);
                 var viewer = new Viewer(user.Id, session.Id);
                 var clock = new Clock();
                 var access = new ProjectIdeOperationAccess(new ProjectIdeViewerContextReader(viewer, currentTenant,
                     new SessionRepository(requestDb), new TenantRepository(requestDb), clock), new FixtureAuthority(draft, input.Source.Digest));
                 var outbox = new FixtureOutbox(requestDb);
-                var service = new ProjectDraftRenameService(access, new ProjectDraftRenameStore(requestDb, new FixtureMaterializations(),
-                    new DbAuditLogger(requestDb, clock, viewer, currentTenant), outbox), new EfCreateIdempotencyCoordinator(requestDb));
+                var materializations = new FixtureMaterializations(draft.CapturedTargetHead);
+                var service = new ProjectDraftRenameService(access, new ProjectDraftRenameStore(requestDb, materializations,
+                    new FixtureAudit(new DbAuditLogger(requestDb, clock, viewer, currentTenant)), outbox),
+                    new EfCreateIdempotencyCoordinator(requestDb));
                 var request = new ProjectDraftRenameRequest(DraftRenameTests.Target(input), input.Source.Digest, input.InputDigest, "Private name");
                 var preview = Assert.IsType<ProjectDraftRenamePreview>(await service.PreviewAsync(request));
                 var command = new ProjectDraftRenameConfirmation(request, preview.NextCandidate, preview.PreviewDigest, "retryable-draft");
+
+                materializations.CurrentHead = new(draft.TargetBranch, RevisionId.New());
+                Assert.Null(await service.PreviewAsync(request));
+                Assert.Equal(ProjectDraftRenameSaveState.Unavailable, (await service.SaveAsync(command)).State);
+                materializations.CurrentHead = draft.CapturedTargetHead;
 
                 Assert.Equal(ProjectDraftRenameSaveState.Unavailable, (await service.SaveAsync(command)).State);
                 Assert.Equal(1, await CandidateCount(connection));
@@ -94,6 +104,19 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
                 outbox.BeforeReturn = null;
                 session.RevokedAt = null;
                 await seed.SaveChangesAsync();
+                afterFlush.BeforeReturn = async () =>
+                {
+                    session.RevokedAt = Now;
+                    await seed.SaveChangesAsync();
+                };
+                Assert.Equal(ProjectDraftRenameSaveState.Unavailable, (await service.SaveAsync(command)).State);
+                Assert.Equal(1, await CandidateCount(connection));
+                Assert.Empty(await seed.IdempotencyRecords.AsNoTracking().ToListAsync());
+                Assert.Empty(await seed.AuditLogs.AsNoTracking().ToListAsync());
+                Assert.Empty(await seed.OutboxEvents.AsNoTracking().ToListAsync());
+                session.RevokedAt = null;
+                await seed.SaveChangesAsync();
+
                 var saved = await service.SaveAsync(command);
                 Assert.Equal(ProjectDraftRenameSaveState.Saved, saved.State);
                 Assert.Equal(saved, await service.SaveAsync(command));
@@ -104,6 +127,8 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
                 var audit = Assert.Single(await seed.AuditLogs.AsNoTracking().ToListAsync());
                 Assert.Equal("ProjectDraftRenamed", audit.Action);
                 Assert.DoesNotContain(request.DisplayName, audit.Summary);
+                Assert.Null(audit.EntityId);
+                Assert.Null(audit.ProjectId);
                 Assert.Single(await seed.OutboxEvents.AsNoTracking().ToListAsync());
 
                 session.RevokedAt = Now;
@@ -123,11 +148,32 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
                 digest == sourceDigest.Value && operation.OperationId is "coglatas.draft.rename.preview" or "coglatas.draft.rename.apply");
     }
 
-    private sealed class FixtureMaterializations : IProjectDraftMaterializationReader
+    private sealed class FixtureMaterializations(RevisionRef head) : IProjectDraftMaterializationReader
     {
+        public RevisionRef CurrentHead { get; set; } = head;
+
         public Task<IReadOnlyList<CompilerMaterializedSnapshot>?> ReadAsync(ProjectIdeViewerContext viewer,
             CompilerInputManifest input, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<CompilerMaterializedSnapshot>?>([]);
+
+        public Task<RevisionRef?> ReadCurrentHeadAsync(ProjectIdeViewerContext viewer, BranchRef branch,
+            CancellationToken cancellationToken) => Task.FromResult<RevisionRef?>(CurrentHead);
+    }
+
+    private sealed class AfterFlush : SaveChangesInterceptor
+    {
+        public Func<Task>? BeforeReturn { get; set; }
+
+        public override async ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result,
+            CancellationToken cancellationToken = default)
+        {
+            if (BeforeReturn is { } callback && eventData.Context?.ChangeTracker.Entries<OutboxEvent>().Any() == true)
+            {
+                BeforeReturn = null;
+                await callback();
+            }
+            return result;
+        }
     }
 
     private sealed class FixtureOutbox(AppDbContext db) : IProjectDraftRenameOutbox
@@ -148,6 +194,13 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
                 await callback();
             return Accept;
         }
+    }
+
+    private sealed class FixtureAudit(IAuditLogger audit) : IProjectDraftRenameAudit
+    {
+        public Task StageAsync(ProjectIdeViewerContext viewer, CancellationToken cancellationToken) =>
+            audit.LogAsync(new AuditLogEntry(viewer.UserId, "ProjectDraftRenamed", "ProjectDraft", null,
+                "A Project Draft display name changed.", TenantId: viewer.TenantId), cancellationToken);
     }
 
     private sealed record Viewer(Guid? UserId, Guid? SessionId) : ICurrentUser

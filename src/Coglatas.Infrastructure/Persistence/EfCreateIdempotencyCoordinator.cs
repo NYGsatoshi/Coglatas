@@ -11,11 +11,34 @@ public sealed class EfCreateIdempotencyCoordinator(
     AppDbContext dbContext,
     ITaskExecutionScopeRepository? taskExecutionScopes = null) : ICreateIdempotencyCoordinator
 {
-    public async Task<IdempotentCreateResult<T>> ExecuteAsync<T>(
+    public Task<IdempotentCreateResult<T>> ExecuteAsync<T>(
         CreateIdempotencyContext context,
         Func<CancellationToken, Task<T>> stageCreation,
         Func<Guid, CancellationToken, Task<T?>> loadCommittedResource,
         CancellationToken cancellationToken = default)
+        where T : class =>
+        ExecuteCoreAsync(context, stageCreation, loadCommittedResource, null, cancellationToken);
+
+    public Task<IdempotentCreateResult<T>> ExecuteWithCommitCheckAsync<T>(
+        CreateIdempotencyContext context,
+        Func<CancellationToken, Task<T>> stageCreation,
+        Func<Guid, CancellationToken, Task<T?>> loadCommittedResource,
+        Func<CancellationToken, Task> validateBeforeCommit,
+        CancellationToken cancellationToken = default)
+        where T : class
+    {
+        ArgumentNullException.ThrowIfNull(validateBeforeCommit);
+        return dbContext.Database.IsRelational()
+            ? ExecuteCoreAsync(context, stageCreation, loadCommittedResource, validateBeforeCommit, cancellationToken)
+            : Task.FromResult(new IdempotentCreateResult<T>(IdempotentCreateDisposition.ReplayUnavailable, null));
+    }
+
+    private async Task<IdempotentCreateResult<T>> ExecuteCoreAsync<T>(
+        CreateIdempotencyContext context,
+        Func<CancellationToken, Task<T>> stageCreation,
+        Func<Guid, CancellationToken, Task<T?>> loadCommittedResource,
+        Func<CancellationToken, Task>? validateBeforeCommit,
+        CancellationToken cancellationToken)
         where T : class
     {
         ArgumentNullException.ThrowIfNull(stageCreation);
@@ -73,6 +96,10 @@ public sealed class EfCreateIdempotencyCoordinator(
             if (taskExecutionScopes?.HasPendingSourcePolicyDocuments == true)
             {
                 await taskExecutionScopes.FlushPendingSourcePolicyDocumentsAsync(cancellationToken);
+            }
+            if (validateBeforeCommit is not null)
+            {
+                await validateBeforeCommit(cancellationToken);
             }
             await transaction.CommitAsync(cancellationToken);
             return new IdempotentCreateResult<T>(IdempotentCreateDisposition.Created, value);

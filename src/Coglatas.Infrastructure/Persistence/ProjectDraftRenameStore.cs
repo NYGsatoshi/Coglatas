@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.ProjectIde.Core;
 using Coglatas.Application.ProjectIde.Runtime;
 using Coglatas.Domain.ProjectIde;
@@ -12,6 +11,9 @@ public interface IProjectDraftMaterializationReader
     /// <summary>Resolves the current authorized materializations for an exact manifest, or refuses.</summary>
     Task<IReadOnlyList<CompilerMaterializedSnapshot>?> ReadAsync(ProjectIdeViewerContext viewer,
         CompilerInputManifest input, CancellationToken cancellationToken);
+
+    /// <summary>Reads the current target independently of the stored Draft's captured target.</summary>
+    Task<RevisionRef?> ReadCurrentHeadAsync(ProjectIdeViewerContext viewer, BranchRef branch, CancellationToken cancellationToken);
 }
 
 public interface IProjectDraftRenameOutbox
@@ -20,9 +22,15 @@ public interface IProjectDraftRenameOutbox
     Task<bool> StageAsync(ProjectIdeViewerContext viewer, ProposalContext draft, CancellationToken cancellationToken);
 }
 
+public interface IProjectDraftRenameAudit
+{
+    /// <summary>Stages the private Draft audit event under the host's approved audit visibility policy.</summary>
+    Task StageAsync(ProjectIdeViewerContext viewer, CancellationToken cancellationToken);
+}
+
 /// <summary>PostgreSQL persistence for a host that supplies current authority and scoped event routing.</summary>
 public sealed class ProjectDraftRenameStore(AppDbContext db, IProjectDraftMaterializationReader materializations,
-    IAuditLogger audit, IProjectDraftRenameOutbox outbox) : IProjectDraftRenamePersistence
+    IProjectDraftRenameAudit audit, IProjectDraftRenameOutbox outbox) : IProjectDraftRenamePersistence
 {
     public void EnsureIsolatedWriteScope()
     {
@@ -61,6 +69,10 @@ public sealed class ProjectDraftRenameStore(AppDbContext db, IProjectDraftMateri
         return snapshots is null ? null : ProjectSemanticBinder.Bind(input, snapshots, cancellationToken);
     }
 
+    public async Task<bool> IsTargetCurrentAsync(ProjectIdeViewerContext viewer, ProposalContext draft,
+        CancellationToken cancellationToken) => viewer.TenantId == draft.TargetBranch.TenantId.Value &&
+        await materializations.ReadCurrentHeadAsync(viewer, draft.TargetBranch, cancellationToken) == draft.CapturedTargetHead;
+
     public async Task<bool> StageRenameAsync(ProjectIdeViewerContext viewer, ProjectDraftRenamePlan plan,
         CancellationToken cancellationToken)
     {
@@ -79,9 +91,7 @@ public sealed class ProjectDraftRenameStore(AppDbContext db, IProjectDraftMateri
             return false;
 
         candidates.Add(ProjectIdeDraftCandidate.Create(plan.After, before.CandidateRevisionId.Value));
-        await audit.LogAsync(new AuditLogEntry(viewer.UserId, "ProjectDraftRenamed", "ProjectDraftCandidate",
-            after.CandidateRevisionId.Value, "A Project Draft display name changed.",
-            ProjectId: after.TargetBranch.ProjectId.Value, TenantId: viewer.TenantId), cancellationToken);
+        await audit.StageAsync(viewer, cancellationToken);
         return await outbox.StageAsync(viewer, after, cancellationToken);
     }
 
