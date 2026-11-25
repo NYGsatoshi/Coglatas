@@ -58,7 +58,7 @@ public sealed class ProjectHistoryCheckpointStore(AppDbContext database, IProjec
             var project = revision.Branch.ProjectId.Value;
             var branch = revision.Branch.BranchId.Value;
             var row = await database.Database.SqlQuery<CheckpointBody>($"""
-                SELECT "SourceBytes", "InputBytes" FROM projectide_history_checkpoints
+                SELECT "SourceBytes", "InputBytes" FROM projectide_development.projectide_history_checkpoints
                 WHERE "TenantId" = {tenant} AND "ProjectId" = {project} AND "BranchId" = {branch}
                   AND "RevisionId" = {revision.RevisionId.Value} AND "VersionId" = {record.Version}
                   AND "DeletedAtUtc" IS NULL AND octet_length("SourceBytes") <= {remainingSourceBytes}
@@ -101,7 +101,7 @@ public sealed class ProjectHistoryCheckpointStore(AppDbContext database, IProjec
         // Check the complete window in one database statement so its members share one visibility snapshot.
         var retained = await database.Database.SqlQuery<CheckpointVersion>($"""
             SELECT checkpoint."BranchId", checkpoint."RevisionId", checkpoint."VersionId"
-            FROM projectide_history_checkpoints AS checkpoint
+            FROM projectide_development.projectide_history_checkpoints AS checkpoint
             JOIN jsonb_to_recordset(CAST({expected} AS jsonb)) AS expected
                 ("ProjectId" uuid, "BranchId" uuid, "RevisionId" uuid, "Context" text, "SourceDigest" text, "InputDigest" text)
                 ON checkpoint."ProjectId" = expected."ProjectId"
@@ -178,7 +178,7 @@ public sealed class ProjectHistoryCheckpointStore(AppDbContext database, IProjec
 
         var row = await database.Database.SqlQuery<CheckpointMetadata>($"""
             SELECT "VersionId", "BranchSequence", "Context", "SourceDigest", "InputDigest", CAST("Parents" AS text) AS "Parents"
-            FROM projectide_history_checkpoints
+            FROM projectide_development.projectide_history_checkpoints
             WHERE "TenantId" = {tenant} AND "ProjectId" = {revision.Branch.ProjectId.Value}
               AND "BranchId" = {revision.Branch.BranchId.Value} AND "RevisionId" = {revision.RevisionId.Value}
               AND "DeletedAtUtc" IS NULL

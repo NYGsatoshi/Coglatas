@@ -119,8 +119,11 @@ comparisons. Revert prepares an inverse Draft at the captured current Branch
 head using the existing Core conflict rules.
 
 The explicitly composed PostgreSQL checkpoint reader loads scoped immutable
-Source and Compiler input bytes. The schema permits a one-way tombstone that
-removes both stored bodies and invalidates captured reads. Revert also
+Source and Compiler input bytes. Development fixtures call
+`ProjectHistoryCheckpointDevelopmentSchema.ProvisionAsync` after regular
+database migrations to install the table and guard in
+`projectide_development`. The table permits a one-way tombstone that removes
+both stored bodies and invalidates captured reads. Revert also
 requires a trusted Branch-head reader and a bounded, retained same-Branch
 lineage. Persisted typed deltas and compaction, operational retention policy,
 governed Revert persistence, and client adoption are tracked by #1932.

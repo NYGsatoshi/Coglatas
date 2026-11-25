@@ -8,6 +8,7 @@ using Coglatas.Domain.ProjectIde;
 using Coglatas.Infrastructure.Persistence;
 using Coglatas.Tests.PostgreSql;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using static Coglatas.Tests.ProjectIde.CompilerContractFixtures;
 
 namespace Coglatas.Tests.ProjectIde;
@@ -141,6 +142,11 @@ public sealed class ProjectHistoryRuntimeTests
             var history = new HistoryFixture();
             var tenant = new TenantFixture(history.Before.Context.Branch.TenantId.Value);
             await using var seed = PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection);
+            Assert.True(await seed.Database.SqlQuery<bool>($"""
+                SELECT to_regclass('projectide_development.projectide_history_checkpoints') IS NULL
+                   AND to_regclass('public.projectide_history_checkpoints') IS NULL AS "Value"
+                """).SingleAsync());
+            await ProjectHistoryCheckpointDevelopmentSchema.ProvisionAsync(seed);
             await tenant.SeedAsync(seed);
             await InsertCheckpointAsync(seed, history.BeforeSource, 0);
             await InsertCheckpointAsync(seed, history.AfterSource, 1, history.Before.Revision);
@@ -168,8 +174,14 @@ public sealed class ProjectHistoryRuntimeTests
             Assert.True(await store.IsCurrentAsync(captured, null, default));
 
             var revisionId = history.After.Revision.RevisionId.Value;
+            var editing = await Assert.ThrowsAsync<PostgresException>(() => seed.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE projectide_development.projectide_history_checkpoints
+                SET "SourceBytes" = {history.BeforeSource.Data.ToCanonicalBytes()}
+                WHERE "RevisionId" = {revisionId}
+                """));
+            Assert.Equal(PostgresErrorCodes.CheckViolation, editing.SqlState);
             Assert.Equal(1, await seed.Database.ExecuteSqlInterpolatedAsync($"""
-                UPDATE projectide_history_checkpoints
+                UPDATE projectide_development.projectide_history_checkpoints
                 SET "SourceBytes" = NULL, "InputBytes" = NULL, "DeletedAtUtc" = {Now}
                 WHERE "RevisionId" = {revisionId}
                 """));
@@ -179,10 +191,16 @@ public sealed class ProjectHistoryRuntimeTests
             Assert.Null((await reader.CompareAsync(history.Before, history.After)).Value);
             Assert.Null((await reader.PreviewRevertAsync(history.Before, history.After, history.Head, proposal)).Value);
             Assert.Equal(1, await seed.Database.SqlQuery<int>($"""
-                SELECT count(*)::integer AS "Value" FROM projectide_history_checkpoints
+                SELECT count(*)::integer AS "Value" FROM projectide_development.projectide_history_checkpoints
                 WHERE "RevisionId" = {revisionId} AND "DeletedAtUtc" IS NOT NULL
                   AND "SourceBytes" IS NULL AND "InputBytes" IS NULL
                 """).SingleAsync());
+            var restoration = await Assert.ThrowsAsync<PostgresException>(() => seed.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE projectide_development.projectide_history_checkpoints
+                SET "SourceBytes" = {history.AfterSource.Data.ToCanonicalBytes()}, "DeletedAtUtc" = NULL
+                WHERE "RevisionId" = {revisionId}
+                """));
+            Assert.Equal(PostgresErrorCodes.CheckViolation, restoration.SqlState);
         });
 
     private static Task<int> InsertCheckpointAsync(AppDbContext db, ProjectSource source, long sequence, params RevisionRef[] parents)
@@ -195,7 +213,7 @@ public sealed class ProjectHistoryRuntimeTests
             RevisionId = parent.RevisionId.Value
         }));
         return db.Database.ExecuteSqlInterpolatedAsync($"""
-            INSERT INTO projectide_history_checkpoints
+            INSERT INTO projectide_development.projectide_history_checkpoints
                 ("TenantId", "ProjectId", "BranchId", "RevisionId", "VersionId", "BranchSequence",
                  "Context", "SourceDigest", "InputDigest", "Parents", "SourceBytes", "InputBytes")
             VALUES ({revision.Branch.TenantId.Value}, {revision.Branch.ProjectId.Value}, {revision.Branch.BranchId.Value},
