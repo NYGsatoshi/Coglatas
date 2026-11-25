@@ -87,13 +87,25 @@ public sealed partial class SyntheticWorkbenchViewModel
         var execution = actual!.Response.Execution!;
         var snapshot = ProjectCompilerPredicateObservationSnapshot.Read(execution, compilation!, execution.Observation, diagnostic!, mode, maximumBodyBytes, token);
         if (!Current()) return false;
-        _recordedOperators = snapshot; _operatorDiagnostic = diagnostic; _operatorCompilation = compilation; _operatorSnapshotSelection = selection; Changed();
-        if (token.IsCancellationRequested)
+        _recordedOperators = snapshot;
+        _operatorDiagnostic = diagnostic;
+        _operatorCompilation = compilation;
+        _operatorSnapshotSelection = selection;
+        Exception? withdrawalFailure = null;
+        bool cancelledAtPublication;
+        try { Changed(); }
+        finally
         {
-            if (generation == _operatorSnapshotGeneration && ReferenceEquals(_recordedOperators, snapshot))
-            { ClearOperatorSnapshot(); Changed(); }
-            token.ThrowIfCancellationRequested();
+            cancelledAtPublication = token.IsCancellationRequested;
+            if (cancelledAtPublication && generation == _operatorSnapshotGeneration && ReferenceEquals(_recordedOperators, snapshot))
+            {
+                ClearOperatorSnapshot();
+                withdrawalFailure = NotifyRecordingWithdrawal();
+            }
         }
+        // If publication threw, its original failure is already propagating.
+        if (cancelledAtPublication)
+            throw new OperationCanceledException("Operator recording read was cancelled.", withdrawalFailure, token);
         return Current() && ReferenceEquals(RecordedOperators, snapshot) && snapshot.State != CompilerPredicateObservationSnapshotState.RefusedInvocation;
     }
 

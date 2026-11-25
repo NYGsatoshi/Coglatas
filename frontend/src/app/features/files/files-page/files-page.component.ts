@@ -240,6 +240,7 @@ export class FilesPageComponent {
   readonly previewActionStatus = computed(() => renderFileMessage(this.i18n, this.previewActionStatusState()));
   readonly previewOverlay = signal(this.isCompactViewport());
   readonly previewExpanded = signal(false);
+  readonly previewMoreActionsOpen = signal(false);
   readonly previewModal = computed(() => this.previewOverlay() || this.previewExpanded());
   readonly previewOpen = computed(() => this.previewFile() !== null);
   readonly inspectorTab = signal<FileInspectorTab>('preview');
