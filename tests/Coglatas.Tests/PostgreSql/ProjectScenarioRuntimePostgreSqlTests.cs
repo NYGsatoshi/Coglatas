@@ -74,7 +74,7 @@ public sealed class ProjectScenarioRuntimePostgreSqlTests
             Assert.Null(audit.MetadataJson);
             Assert.Single(await fresh.IdempotencyRecords.AsNoTracking().ToListAsync());
             var immutable = await Assert.ThrowsAsync<PostgresException>(() => fresh.Database.ExecuteSqlRawAsync(
-                "UPDATE projectide_scenarios SET \"CanonicalOverlay\" = \"CanonicalOverlay\""));
+                "UPDATE projectide_development.projectide_scenarios SET \"CanonicalOverlay\" = \"CanonicalOverlay\""));
             Assert.Equal(PostgresErrorCodes.RaiseException, immutable.SqlState);
         });
 
@@ -141,7 +141,8 @@ public sealed class ProjectScenarioRuntimePostgreSqlTests
             Assert.Null(await runtime.SaveAsync(model, input.InputDigest, [change], "staged-request", default));
             Assert.Empty(await db.IdempotencyRecords.AsNoTracking().ToListAsync());
             Assert.Empty(await db.AuditLogs.AsNoTracking().ToListAsync());
-            Assert.Equal(0, await db.Database.SqlQueryRaw<long>("SELECT COUNT(*) AS \"Value\" FROM projectide_scenarios").SingleAsync());
+            Assert.Equal(0, await db.Database.SqlQueryRaw<long>(
+                "SELECT COUNT(*) AS \"Value\" FROM projectide_development.projectide_scenarios").SingleAsync());
         });
 
     [PostgreSqlFact]
@@ -162,7 +163,8 @@ public sealed class ProjectScenarioRuntimePostgreSqlTests
         Assert.Equal(saves[0], saves[1]);
         Assert.Single(await first.IdempotencyRecords.AsNoTracking().ToListAsync());
         Assert.Single(await first.AuditLogs.AsNoTracking().ToListAsync());
-        Assert.Equal(1, await first.Database.SqlQueryRaw<long>("SELECT COUNT(*) AS \"Value\" FROM projectide_scenarios").SingleAsync());
+        Assert.Equal(1, await first.Database.SqlQueryRaw<long>(
+            "SELECT COUNT(*) AS \"Value\" FROM projectide_development.projectide_scenarios").SingleAsync());
     });
 
     private static CompilerInputManifest Basis(Guid tenantId, int revision = 5, string title = "private-basis-title")
@@ -195,6 +197,12 @@ public sealed class ProjectScenarioRuntimePostgreSqlTests
         PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(PostgreSqlTestEnvironment.RequireConnectionString(), async connection =>
         {
             await using var writer = PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection);
+            Assert.DoesNotContain(writer.Model.GetEntityTypes(), entity => entity.GetTableName() == "projectide_scenarios");
+            Assert.True(await writer.Database.SqlQueryRaw<bool>("""
+                SELECT to_regclass('public.projectide_scenarios') IS NULL
+                    AND to_regclass('projectide_development.projectide_scenarios') IS NULL AS "Value"
+                """).SingleAsync());
+            await ProjectScenarioDevelopmentSchema.ProvisionAsync(writer);
             var tenant = new Tenant { Slug = "scenario-test", Name = "Scenario", DisplayName = "Scenario" };
             var user = new User { Email = "scenario@example.invalid", NormalizedEmail = "SCENARIO@EXAMPLE.INVALID" };
             var session = new Session { UserId = user.Id, SessionKeyHash = "synthetic-scenario-hash", ExpiresAt = Now.AddHours(1) };

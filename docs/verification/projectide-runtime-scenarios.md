@@ -7,7 +7,11 @@ binds the exact base context, Source and input digests, and canonical
 overrides. Reusing a key with an altered payload returns unavailable. An
 identical retry rechecks current access to the original version.
 
-PostgreSQL keeps the scoped immutable row and its canonical typed delta.
+An explicitly provisioned disposable PostgreSQL database keeps the scoped
+immutable row and its canonical typed delta in `projectide_development`.
+`ProjectScenarioDevelopmentSchema.ProvisionAsync` installs the table after
+the normal AppDb migrations. Scoped SQL uses the existing AppDbContext
+transaction without registering a Scenario entity in the default model.
 The base Source, settings, run bodies and regional contributions are absent
 from this table. The audit entry contains only the event and scope identities.
 The save, idempotency claim and audit entry share one transaction.
