@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Common.Tenancy;
 using Coglatas.Application.ProjectIde.Core;
@@ -75,6 +76,9 @@ public sealed class CompilerRecordingStorePostgreSqlTests
         var store = fixture.Store(context);
         Assert.Equal(CompilerRecordingWriteOutcome.Unavailable, await store.RecordAsync(child, default));
         Assert.Equal(CompilerRecordingWriteOutcome.Recorded, await store.RecordAsync(original, default));
+        fixture.Authorization.AllowRead = false;
+        Assert.Equal(CompilerRecordingWriteOutcome.Unavailable, await store.RecordAsync(child, default));
+        fixture.Authorization.AllowRead = true;
 
         async ValueTask SetRevokedAsync(bool revoked) => await PostgreSqlMigrationTestDatabase.ExecuteAsync(fixture.Database,
             "UPDATE sessions SET \"RevokedAt\" = CASE WHEN @revoked THEN now() ELSE NULL END WHERE \"Id\" = @session",
@@ -152,16 +156,16 @@ public sealed class CompilerRecordingStorePostgreSqlTests
 
     private sealed class AuthorizationPolicy(Seed seed) : IProjectIdeOperationAuthorization
     {
-        private int _attempts;
+        private readonly ConcurrentDictionary<SecurityOperationRef, int> _attempts = new();
         public bool AllowRead { get; set; } = true;
         public Func<SecurityOperationRef, int, ValueTask>? BeforeDecision { get; set; }
-        public void Reset() => _attempts = 0;
+        public void Reset() => _attempts.Clear();
 
         public async ValueTask<bool> IsAllowedAsync(ProjectIdeViewerContext viewer, SecurityOperationRef operation,
             SecuritySourceIdentitySnapshot source, string sourceDigest, CancellationToken cancellationToken)
         {
             if (BeforeDecision is { } callback)
-                await callback(operation, Interlocked.Increment(ref _attempts));
+                await callback(operation, _attempts.AddOrUpdate(operation, 1, (_, attempts) => attempts + 1));
             return viewer.UserId == seed.UserId && source.ProjectId == seed.ProjectId &&
                 (operation == CompilerRecordingOperations.Record || (AllowRead && operation == CompilerRecordingOperations.Read));
         }

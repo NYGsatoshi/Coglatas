@@ -23,7 +23,8 @@ or route for this store.
 The Project and Tenant foreign key binds every recording to the same Project
 scope. Rows are write-once. A retry by the same actor succeeds idempotently only
 for the exact same evidence. A diagnostic rerun must link a stored origin with
-the same Source and execution input and the original receipt digest.
+the same Source and execution input and the original receipt digest. Recording
+the rerun also requires current read permission for that origin.
 
 The store makes no currentness, producer trust, evidence eligibility or Release
 decision. #1938 independent acceptance and the remaining #1034 capture,

@@ -26,7 +26,7 @@ public sealed class CompilerRecordingStore(AppDbContext context, ProjectIdeOpera
             return CompilerRecordingWriteOutcome.Unavailable;
 
         var evidence = CompilerRecordingEvidence.FromInvocation(invocation);
-        if (!await access.IsAllowedAsync(viewer, CompilerRecordingOperations.Record, evidence.Source, evidence.SourceDigest, cancellationToken))
+        if (!await CanRecordAsync(viewer, evidence, cancellationToken))
             return CompilerRecordingWriteOutcome.Unavailable;
 
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
@@ -50,7 +50,7 @@ public sealed class CompilerRecordingStore(AppDbContext context, ProjectIdeOpera
                 return CompilerRecordingWriteOutcome.Unavailable;
         }
 
-        if (!await access.IsAllowedAsync(viewer, CompilerRecordingOperations.Record, evidence.Source, evidence.SourceDigest, cancellationToken))
+        if (!await CanRecordAsync(viewer, evidence, cancellationToken))
             return CompilerRecordingWriteOutcome.Unavailable;
 
         await transaction.CommitAsync(cancellationToken);
@@ -74,6 +74,11 @@ public sealed class CompilerRecordingStore(AppDbContext context, ProjectIdeOpera
         return await access.IsAllowedAsync(viewer, CompilerRecordingOperations.Read, evidence.Source, evidence.SourceDigest, cancellationToken)
             ? evidence : null;
     }
+
+    private async Task<bool> CanRecordAsync(ProjectIdeViewerContext viewer, CompilerRecordingEvidence evidence, CancellationToken cancellationToken) =>
+        await access.IsAllowedAsync(viewer, CompilerRecordingOperations.Record, evidence.Source, evidence.SourceDigest, cancellationToken) &&
+        (evidence.OriginRunId is null ||
+         await access.IsAllowedAsync(viewer, CompilerRecordingOperations.Read, evidence.Source, evidence.SourceDigest, cancellationToken));
 
     private async Task<bool> OriginMatchesAsync(CompilerRecordingEvidence evidence, Guid originId, CancellationToken cancellationToken)
     {
