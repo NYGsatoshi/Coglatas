@@ -32,10 +32,21 @@ class AngularProofTests(unittest.TestCase):
         specs = MODULE.spec_inventory(self.tracked)
         baseline = MODULE.command(self.root, "baseline", specs)
         self.assertFalse(any(item.startswith(("--include", "--runner-args")) for item in baseline))
-        self.assertEqual(MODULE.command(self.root, "shard-1", specs),
-                         baseline + ["--runner-args=--shard=1/2"])
-        self.assertEqual(MODULE.command(self.root, "shard-2", specs),
-                         baseline + ["--runner-args=--shard=2/2"])
+        self.assertEqual(MODULE.command(self.root, "shard-1", specs), baseline)
+        self.assertEqual(MODULE.command(self.root, "shard-2", specs), baseline)
+        key = MODULE.PROOF_SHARD_ENV
+        inherited = {"CI": "true", key: "2/2", "PATH": "/usr/bin"}
+        self.assertNotIn(key, MODULE.runner_environment("baseline", inherited))
+        self.assertEqual(MODULE.runner_environment("shard-1", inherited)[key], "1/2")
+        self.assertEqual(MODULE.runner_environment("shard-2", inherited)[key], "2/2")
+        self.assertEqual(inherited[key], "2/2")
+        with self.assertRaises(ValueError):
+            MODULE.runner_environment("shard-1", {})
+        with self.assertRaises(ValueError):
+            MODULE.runner_environment("unknown", inherited)
+        config = (MODULE.ROOT / "frontend/vitest.config.ts").read_text()
+        self.assertIn(key, config)
+        self.assertIn("{ shard: proofShard }", config)
         with self.assertRaises(ValueError):
             MODULE.command(self.root, "unknown", specs)
         with self.assertRaises(ValueError):

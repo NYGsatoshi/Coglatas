@@ -16,6 +16,7 @@ import time
 ROOT = Path(__file__).resolve().parents[2]
 LANES = ("baseline", "shard-1", "shard-2")
 SHARDS = {"baseline": None, "shard-1": "1/2", "shard-2": "2/2"}
+PROOF_SHARD_ENV = "COGLATAS_SONAR_ANGULAR_PROOF_SHARD"
 LCOV = "frontend/coverage/frontend/lcov.info"
 INPUTS = ("frontend/package.json", "frontend/package-lock.json",
           "frontend/angular.json", "frontend/vitest.config.ts")
@@ -89,12 +90,21 @@ def command(root: Path, lane: str, specs: set[str]) -> list[str]:
     args = ["npm", "--prefix", "frontend", "run", "test:coverage", "--",
             "--reporters=json",
             "--output-file=" + str(root / "artifacts/sonar-angular-proof/tests.json")]
-    # Do not filter builder entry points: doing so changes shared chunks and
-    # Istanbul's branch identity. Let the runner partition the full build.
+    # Every lane executes the same builder command. Only the runner's
+    # reviewed config receives an explicit shard selection.
+    runner_shard(lane)
+    return args
+
+
+def runner_environment(lane: str, inherited: dict[str, str]) -> dict[str, str]:
+    environment = dict(inherited)
+    environment.pop(PROOF_SHARD_ENV, None)
     shard = runner_shard(lane)
     if shard is not None:
-        args.append("--runner-args=--shard=" + shard)
-    return args
+        if environment.get("CI") != "true" and environment.get("GITHUB_ACTIONS") != "true":
+            raise ValueError("Native shard qualification requires CI")
+        environment[PROOF_SHARD_ENV] = shard
+    return environment
 
 
 def source_identity(name: str, root: Path, tracked: set[str]) -> str:
@@ -280,7 +290,8 @@ def collect(lane: str) -> None:
     if (ROOT / LCOV).exists():
         raise ValueError("Pre-existing Angular coverage report")
     start = time.monotonic()
-    subprocess.run(command(ROOT, lane, specs), cwd=ROOT, check=True)
+    subprocess.run(command(ROOT, lane, specs), cwd=ROOT, check=True,
+                   env=runner_environment(lane, os.environ))
     elapsed = round(time.monotonic() - start, 3)
     if checkout_identity(ROOT) != identity:
         raise ValueError("Angular checkout changed during execution")

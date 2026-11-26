@@ -332,5 +332,93 @@ class CoverageTests(unittest.TestCase):
         MODULE.verify_parallel_handoff(self.root, folder, sha, "100", "1", compare_build=True)
 
 
+    def test_shard_commands_preserve_native_collector_and_unfiltered_baseline(self):
+        baseline = MODULE.shard_command("baseline")
+        self.assertNotIn("--filter", baseline)
+        self.assertIn("XPlat Code Coverage;Format=opencover", baseline)
+        self.assertIn("trx;LogFileName=backend-tests.trx", baseline)
+        for lane in MODULE.SHARD_LANES[1:]:
+            command = MODULE.shard_command(lane)
+            self.assertEqual(command[:-2], baseline)
+            self.assertEqual(command[-2:], ["--filter", MODULE.shard_filter(lane)])
+        self.assertIn("FullyQualifiedName!~Coglatas.Tests.PostgreSql.",
+                      MODULE.shard_filter("remaining"))
+        with self.assertRaises(ValueError):
+            MODULE.shard_command("unknown")
+
+    def test_native_shard_union_rejects_missing_duplicate_extra_and_changed_coverage(self):
+        from collections import Counter
+
+        tests = Counter({("Class" + str(i), "Method", "Test" + str(i)): 2
+                         for i in range(4)})
+        seq = ("SequencePoint", "Module", "Class", "Method", "src/App/Logic.cs", 1)
+        branch = ("BranchPoint", "Module", "Class", "Method", "src/App/Logic.cs", 1)
+        baseline = {seq: True, branch: True}
+        shards = {lane: (Counter({key: 2}), {seq: i == 0, branch: i == 1})
+                  for i, (lane, key) in enumerate(zip(MODULE.SHARD_LANES[1:], tests))}
+        result = MODULE.require_shard_equivalence(tests, baseline, shards)
+        self.assertEqual(result["passedTests"], 8)
+        self.assertEqual(result["branchVisited"], 1)
+        self.assertEqual(result["sequenceVisited"], 1)
+        lane = MODULE.SHARD_LANES[1]
+        key = next(iter(tests))
+        second = MODULE.SHARD_LANES[2]
+        for changed in (
+            {name: value for name, value in shards.items() if name != lane},
+            shards | {lane: (Counter({key: 1}), shards[lane][1])},
+            shards | {lane: (shards[second][0], shards[lane][1])},
+            shards | {lane: (Counter({("Unexpected", "Method", "Test"): 2}), shards[lane][1])},
+            shards | {lane: (shards[lane][0], {seq: False, branch: False})},
+            shards | {lane: (shards[lane][0], {seq: True, branch: False, ("Extra",): False})},
+        ):
+            with self.assertRaises(ValueError):
+                MODULE.require_shard_equivalence(tests, baseline, changed)
+
+    def test_native_point_identity_includes_branch_and_sequence_coordinates(self):
+        raw = b"""<CoverageSession><Modules><Module><ModuleName>App</ModuleName>
+<Files><File uid="1" fullPath="/_/src/App/Logic.cs"/></Files>
+<Classes><Class><FullName>Logic</FullName><Methods><Method><Name>Run()</Name>
+<FileRef uid="1"/><SequencePoints><SequencePoint vc="1" uspid="1" ordinal="0" sl="1" sc="1" el="1" ec="3" bec="2" bev="1" fileid="1"/></SequencePoints>
+<BranchPoints><BranchPoint vc="0" uspid="1" sl="1" offset="0" offsetend="2" path="0" ordinal="0" fileid="1"/>
+<BranchPoint vc="1" uspid="1" sl="1" offset="0" offsetend="4" path="1" ordinal="1" fileid="1"/></BranchPoints>
+</Method></Methods></Class></Classes></Module></Modules></CoverageSession>"""
+        tracked = {"src/App/Logic.cs"}
+        points = MODULE.native_source_points(raw, self.root, tracked)
+        self.assertEqual(len(points), 3)
+        self.assertEqual(sum(points.values()), 2)
+        # Real pinned Coverlet reports contain no sequence-point offset.
+        self.assertIn(b'ordinal="0" sl="1"', raw)
+        self.assertNotIn(b'offset=', raw.split(b'</SequencePoints>')[0])
+        for invalid in (raw.replace(b' uspid="1"', b'', 1),
+                        raw.replace(b' offsetend="2"', b'', 1),
+                        raw.replace(b'</SequencePoints>', raw.split(b'<SequencePoints>')[1]
+                                    .split(b'</SequencePoints>')[0] + b'</SequencePoints>')):
+            with self.assertRaises(ValueError):
+                MODULE.native_source_points(invalid, self.root, tracked)
+        changed = MODULE.native_source_points(raw.replace(b'path="1"', b'path="2"'),
+                                               self.root, tracked)
+        self.assertNotEqual(points, changed)
+        with self.assertRaises(ValueError):
+            MODULE.native_source_points(raw.replace(b'fileid="1"', b'fileid="9"'),
+                                        self.root, tracked)
+        with self.assertRaises(ValueError):
+            MODULE.native_source_points(raw, self.root, set())
+
+    def test_shard_trx_identity_preserves_theory_row_multiplicity(self):
+        path = str(self.root / MODULE.TEST_ASSEMBLY)
+        raw = f"""<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+<Results><UnitTestResult testId="1" testName="Case(1)" outcome="Passed"/>
+<UnitTestResult testId="1" testName="Case(1)" outcome="Passed"/></Results>
+<TestDefinitions><UnitTest id="1"><TestMethod className="Fixture" name="Case" codeBase="{path}"/></UnitTest></TestDefinitions>
+<ResultSummary outcome="Completed"><Counters total="2" executed="2" passed="2" failed="0"/></ResultSummary></TestRun>""".encode()
+        self.assertEqual(MODULE.trx_identities(raw, self.root)[("Fixture", "Case", "Case(1)")], 2)
+        for invalid in (raw.replace(b'passed="2"', b'passed="1"'),
+                        raw.replace(b'outcome="Passed"', b'outcome="Failed"'),
+                        raw.replace(b'codeBase="', b'codeBase="/wrong'),
+                        raw.replace(b'testId="1"', b'testId="2"')):
+            with self.assertRaises(ValueError):
+                MODULE.trx_identities(invalid, self.root)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -699,5 +699,23 @@ class SonarParallelCoverageTests(unittest.TestCase):
                 self.assertEqual(invoke(verify, accepted).returncode, 0)
 
 
+    def test_sharding_is_credential_free_qualification_not_publication(self):
+        proof = (ROOT / ".github/workflows/sonar-dotnet-shard-proof.yml").read_text()
+        production = WORKFLOW.read_text()
+        self.assertIn('branches: ["ci/sonar-coverage-*"]', proof)
+        self.assertIn("lane: [baseline, files-db, other-db, security-aq, remaining]", proof)
+        self.assertIn("fail-fast: false", proof)
+        self.assertIn("needs: collect", proof)
+        self.assertIn("shard-compare", proof)
+        self.assertIn('shard-run --lane "$PROOF_LANE"', proof)
+        self.assertIn("Verify executed tests and production coverage before publication", proof)
+        self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", proof)
+        self.assertNotIn("secrets.", proof)
+        self.assertNotIn("SONAR_TOKEN", proof)
+        self.assertNotIn("sonarcloud-analysis", proof)
+        self.assertNotIn("shard-run", production)
+        self.assertNotIn("shard-compare", production)
+
+
 if __name__ == "__main__":
     unittest.main()
