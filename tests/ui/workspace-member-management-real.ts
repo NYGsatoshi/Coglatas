@@ -2,6 +2,14 @@ import { expect, type Page, type Request, type Response } from '@playwright/test
 
 type Member = { userId: string; displayName: string; role: number; status: number };
 
+export type WorkspaceMemberJourneyHooks = {
+  beforeAdmission?: (manager: Page, recipient: Page, userId: string) => Promise<void>;
+  afterAdmission?: (manager: Page, recipient: Page, userId: string) => Promise<void>;
+  afterReadOnly?: (manager: Page, recipient: Page, userId: string) => Promise<void>;
+  afterRestored?: (manager: Page, recipient: Page, userId: string) => Promise<void>;
+  afterRemoval?: (manager: Page, recipient: Page, userId: string) => Promise<void>;
+};
+
 /** Existing synthetic seed and real Angular commands only; no intercepted responses. */
 export async function exerciseWorkspaceMemberManagement(
   manager: Page,
@@ -10,6 +18,7 @@ export async function exerciseWorkspaceMemberManagement(
   conversationId: string,
   expectedMessage: string,
   recipientName: string,
+  hooks: WorkspaceMemberJourneyHooks = {},
 ) {
   const api = `/api/workspaces/${workspaceId}/members`;
   const route = `/app/workspaces/${workspaceId}/members`;
@@ -30,6 +39,7 @@ export async function exerciseWorkspaceMemberManagement(
     expect(self.userId).toMatch(/^[0-9a-f-]{36}$/iu);
     expect(self.systemRole, 'the recipient has no platform-management bypass').toBe(0);
     expect((await recipient.request.get(options)).status(), 'recipient is initially outside the new Workspace').toBe(404);
+    await hooks.beforeAdmission?.(manager, recipient, self.userId);
 
     await manager.getByTestId('workspace-member-add').click();
     const add = manager.getByRole('dialog', { name: 'Add member', exact: true });
@@ -68,15 +78,18 @@ export async function exerciseWorkspaceMemberManagement(
     const initialMessages = await recipient.request.get(messages);
     expect(initialMessages.status(), 'new member can read the canonical General body').toBe(200);
     expect(await initialMessages.text()).toContain(expectedMessage);
+    await hooks.afterAdmission?.(manager, recipient, self.userId);
 
     await changeRole(manager, api, self.userId, recipientName, 'Read only', 4);
     await manager.reload();
     await assertPersistedMember(manager, api, self.userId, 4);
     expect((await recipient.request.get(options)).status(), 'ReadOnly loses management authority').toBe(403);
     expect((await recipient.request.get(api)).status(), 'ReadOnly retains ordinary directory access').toBe(200);
+    await hooks.afterReadOnly?.(manager, recipient, self.userId);
     await changeRole(manager, api, self.userId, recipientName, 'Admin', 1);
     await assertPersistedMember(manager, api, self.userId, 1);
     expect((await recipient.request.get(options)).status(), 'restored Admin is a positive control before removal').toBe(200);
+    await hooks.afterRestored?.(manager, recipient, self.userId);
 
     await openDetail(manager, api, self.userId, recipientName);
     await manager.getByTestId('workspace-member-remove').click();
@@ -104,6 +117,7 @@ export async function exerciseWorkspaceMemberManagement(
     for (const id of [workspaceId, conversationId, self.userId]) {
       expect(await deniedMessages.text()).not.toContain(id);
     }
+    await hooks.afterRemoval?.(manager, recipient, self.userId);
     await expect(manager.getByTestId('workspace-member-editor')).toHaveCount(0);
     const afterRemovalCandidates = await manager.request.get(api + '/management/candidates', { params: { q: recipientName } });
     expect(afterRemovalCandidates.status()).toBe(200);
