@@ -116,6 +116,31 @@ public sealed class ProjectHistoryCheckpointStore(AppDbContext database, IProjec
             VersionOf(retained.Select(row => (row.BranchId, row.RevisionId, row.VersionId))) == window.Version;
     }
 
+    public async Task<bool> DeleteAsync(ProjectHistorySource source, Func<CancellationToken, Task<bool>> reauthorize,
+        CancellationToken cancellationToken)
+    {
+        var revision = source.Revision;
+        var branch = revision.Branch;
+        var tenant = branch.TenantId.Value;
+        if (!database.Database.IsNpgsql() || database.ActiveTenantId != tenant)
+            return false;
+
+        await using var transaction = await database.Database.BeginTransactionAsync(cancellationToken);
+        var changed = await database.Database.ExecuteSqlInterpolatedAsync($"""
+            UPDATE projectide_development.projectide_history_checkpoints
+            SET "SourceBytes" = NULL, "InputBytes" = NULL, "DeletedAtUtc" = statement_timestamp()
+            WHERE "TenantId" = {tenant} AND "ProjectId" = {branch.ProjectId.Value} AND "BranchId" = {branch.BranchId.Value}
+              AND "RevisionId" = {revision.RevisionId.Value} AND "Context" = {source.Context.Data.CanonicalText}
+              AND "SourceDigest" = {source.SourceDigest.Value} AND "InputDigest" = {source.InputDigest.Value}
+              AND "DeletedAtUtc" IS NULL
+            """, cancellationToken);
+        if (changed != 1 || !await reauthorize(cancellationToken) || database.ActiveTenantId != tenant)
+            return false;
+
+        await transaction.CommitAsync(cancellationToken);
+        return true;
+    }
+
     private async Task<bool> HeadMatchesAsync(RevisionRef? requiredHead, CancellationToken cancellationToken) =>
         requiredHead is null || (database.ActiveTenantId == requiredHead.Branch.TenantId.Value &&
             requiredHead == await heads.ReadAsync(requiredHead.Branch, cancellationToken));

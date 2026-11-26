@@ -25,7 +25,8 @@ public sealed record ProjectHistorySource
 
 /// <summary>Preconfigured operations whose policies require current History capability and exact Source scope.</summary>
 public sealed record ProjectHistoryOperations(SecurityOperationRef Query, SecurityOperationRef Materialize,
-    SecurityOperationRef Compare, SecurityOperationRef Navigate, SecurityOperationRef Export, SecurityOperationRef PreviewRevert);
+    SecurityOperationRef Compare, SecurityOperationRef Navigate, SecurityOperationRef Export, SecurityOperationRef PreviewRevert,
+    SecurityOperationRef? Delete = null);
 
 public sealed class ProjectHistoryWindow(Guid version, IEnumerable<ProjectHistorySource> sources)
 {
@@ -47,6 +48,10 @@ public interface IProjectHistoryRuntimeStore
 
     /// <summary>Confirms the captured retention version, all retained identities and any required live head.</summary>
     ValueTask<bool> IsCurrentAsync(ProjectHistoryWindow window, RevisionRef? requiredHead, CancellationToken cancellationToken);
+
+    /// <summary>Clears one exact retained checkpoint and checks current authority before committing.</summary>
+    Task<bool> DeleteAsync(ProjectHistorySource source, Func<CancellationToken, Task<bool>> reauthorize,
+        CancellationToken cancellationToken);
 }
 
 public enum ProjectHistoryAccessState { Ready, NotFoundOrDenied, Unavailable }
@@ -74,6 +79,19 @@ public sealed class ProjectHistoryService(ProjectIdeOperationAccess access, IPro
     public Task<ProjectHistoryAccessResult<SourceJson>> ExportAsync(ProjectHistorySource source,
         CancellationToken cancellationToken = default) =>
         ReadAsync([source], operations.Export, null, (window, token) => window.Reconstruct(source, token)?.Source?.Data, cancellationToken);
+
+    public async Task<bool> DeleteAsync(ProjectHistorySource source, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (operations.Delete is not { } operation || access.CaptureViewer() is not { } viewer)
+            return false;
+
+        var identity = SecuritySourceIdentitySnapshot.Capture(source.Context, source.InputDigest);
+        Task<bool> Allowed(CancellationToken token) =>
+            access.IsAllowedAsync(viewer, operation, identity, source.SourceDigest.Value, token);
+        return await Allowed(cancellationToken) && await store.DeleteAsync(source, Allowed, cancellationToken) &&
+            await Allowed(cancellationToken);
+    }
 
     public Task<ProjectHistoryAccessResult<ProjectSemanticDiff>> CompareAsync(ProjectHistorySource before, ProjectHistorySource after,
         CancellationToken cancellationToken = default) =>

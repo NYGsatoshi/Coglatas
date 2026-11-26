@@ -127,3 +127,11 @@ both stored bodies and invalidates captured reads. Revert also
 requires a trusted Branch-head reader and a bounded, retained same-Branch
 lineage. Persisted typed deltas and compaction, operational retention policy,
 governed Revert persistence, and client adoption are tracked by #1932.
+
+The development host can configure a separate operation for checkpoint
+deletion. An authorized request clears both retained bodies only for the exact
+Source and Compiler input identity. The transaction checks authority again
+after staging the tombstone and rolls back if authority has changed. The
+tombstone leaves the checkpoint identity reserved and invalidates captured
+read windows. Retention schedules and deletion eligibility come from the host's
+approved policy.

@@ -17,7 +17,8 @@ public sealed class ProjectHistoryRuntimeTests
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 26, 0, 0, 0, TimeSpan.Zero);
     private static readonly ProjectHistoryOperations Operations = new(new("fixture.history.query"), new("fixture.history.read"),
-        new("fixture.history.compare"), new("fixture.history.navigate"), new("fixture.history.export"), new("fixture.history.revert"));
+        new("fixture.history.compare"), new("fixture.history.navigate"), new("fixture.history.export"), new("fixture.history.revert"),
+        new SecurityOperationRef("fixture.history.delete"));
 
     [Fact]
     public async Task QueryAndNavigationUseExactAuthorizedLineageWhileExportRequiresItsOwnOperation()
@@ -177,11 +178,22 @@ public sealed class ProjectHistoryRuntimeTests
                 WHERE "RevisionId" = {revisionId}
                 """));
             Assert.Equal(PostgresErrorCodes.CheckViolation, editing.SqlState);
-            Assert.Equal(1, await seed.Database.ExecuteSqlInterpolatedAsync($"""
-                UPDATE projectide_development.projectide_history_checkpoints
-                SET "SourceBytes" = NULL, "InputBytes" = NULL, "DeletedAtUtc" = {Now}
-                WHERE "RevisionId" = {revisionId}
-                """));
+            history.Allowed = (operation, _) => operation != Operations.Delete;
+            Assert.False(await reader.DeleteAsync(history.After));
+            Assert.Equal(history.AfterSource.Data, (await reader.ExportAsync(history.After)).Value);
+
+            var deleteDecisions = 0;
+            history.Allowed = (operation, _) => operation != Operations.Delete || ++deleteDecisions == 1;
+            Assert.False(await reader.DeleteAsync(history.After));
+            Assert.Equal(2, deleteDecisions);
+            Assert.True(await store.IsCurrentAsync(captured, null, default));
+
+            history.Allowed = (_, _) => true;
+            var changedInput = new ProjectHistorySource(history.After.Context, history.After.SourceDigest, history.Before.InputDigest);
+            Assert.False(await reader.DeleteAsync(changedInput));
+            Assert.True(await reader.DeleteAsync(history.After));
+            Assert.False(await reader.DeleteAsync(history.After));
+            Assert.Equal(history.BeforeSource.Data, (await reader.ExportAsync(history.Before)).Value);
             Assert.Null(await store.LoadAsync(captured, default));
             Assert.False(await store.IsCurrentAsync(captured, null, default));
             Assert.Null((await reader.ExportAsync(history.After)).Value);
@@ -273,6 +285,9 @@ public sealed class ProjectHistoryRuntimeTests
                 await observed(CurrentChecks);
             return window.Version == _version && Retained && (requiredHead is null || requiredHead == Latest);
         }
+
+        public Task<bool> DeleteAsync(ProjectHistorySource source, Func<CancellationToken, Task<bool>> reauthorize,
+            CancellationToken cancellationToken) => Task.FromResult(false);
 
         public ValueTask<bool> IsAllowedAsync(ProjectIdeViewerContext viewer, SecurityOperationRef operation, SecuritySourceIdentitySnapshot source,
             string sourceDigest, CancellationToken cancellationToken) => ValueTask.FromResult(Allowed(operation, source));
