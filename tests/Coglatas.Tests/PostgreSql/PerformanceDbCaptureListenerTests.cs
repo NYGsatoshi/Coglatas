@@ -16,7 +16,7 @@ public sealed class PerformanceDbCaptureListenerTests
         using var source = new ActivitySource("Npgsql");
         using (var measurement = active.Begin())
         {
-            using (var activity = source.StartActivity("perf-capture-listener-isolation"))
+            using (var activity = source.StartActivity())
             {
                 Assert.NotNull(activity);
                 activity.SetTag("db.query.text", "SELECT 1");
@@ -31,7 +31,7 @@ public sealed class PerformanceDbCaptureListenerTests
         // capture's command, and reversing the roles must remain isolated.
         using var isolated = inactive.Begin();
         Assert.Empty(isolated.Snapshot());
-        using (var activity = source.StartActivity("perf-capture-listener-reversed"))
+        using (var activity = source.StartActivity())
         {
             Assert.NotNull(activity);
             activity.SetTag("db.query.text", "SELECT 2 FROM task_items");

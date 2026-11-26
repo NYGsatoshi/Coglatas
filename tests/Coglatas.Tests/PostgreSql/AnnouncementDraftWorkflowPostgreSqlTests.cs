@@ -5,6 +5,7 @@ using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace Coglatas.Tests.PostgreSql;
 
@@ -114,8 +115,15 @@ public sealed class AnnouncementDraftWorkflowPostgreSqlTests
         var tenantTwo = new CurrentTenantService();
         tenantOne.SetTenant(tenant.Id, tenant.Slug);
         tenantTwo.SetTenant(tenant.Id, tenant.Slug);
-        await using var contextOne = new AppDbContext(options, tenantOne);
-        await using var contextTwo = new AppDbContext(options, tenantTwo);
+        // Both repositories must have read the same candidate version before
+        // either saves. Otherwise a fast runner can serialize the reads and
+        // never exercise the losing version-fenced update.
+        var barrier = new ClaimSaveBarrier();
+        var claimOptions = new DbContextOptionsBuilder<AppDbContext>(options)
+            .AddInterceptors(barrier)
+            .Options;
+        await using var contextOne = new AppDbContext(claimOptions, tenantOne);
+        await using var contextTwo = new AppDbContext(claimOptions, tenantTwo);
         var repositoryOne = new AnnouncementDraftRepository(contextOne, tenantOne);
         var repositoryTwo = new AnnouncementDraftRepository(contextTwo, tenantTwo);
 
@@ -123,7 +131,10 @@ public sealed class AnnouncementDraftWorkflowPostgreSqlTests
             repositoryOne.ClaimDueAsync("announcement-worker-one", now, 10, TimeSpan.FromMinutes(2)),
             repositoryTwo.ClaimDueAsync("announcement-worker-two", now, 10, TimeSpan.FromMinutes(2)));
 
+        Assert.Equal(2, barrier.Arrivals);
         Assert.Single(claims.SelectMany(items => items));
+        var loser = claims[0].Count == 0 ? contextOne : contextTwo;
+        Assert.Empty(loser.ChangeTracker.Entries());
         seed.ChangeTracker.Clear();
         var persisted = await seed.AnnouncementDrafts.SingleAsync(item => item.Id == draft.Id);
         Assert.NotNull(persisted.PublicationClaimToken);
@@ -207,6 +218,25 @@ public sealed class AnnouncementDraftWorkflowPostgreSqlTests
         Assert.Equal(workspace.Id, target.WorkspaceId);
         Assert.Null(target.GroupId);
         Assert.Null(target.ChannelId);
+    }
+
+    private sealed class ClaimSaveBarrier : SaveChangesInterceptor
+    {
+        private readonly TaskCompletionSource _bothReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _arrivals;
+
+        public int Arrivals => Volatile.Read(ref _arrivals);
+
+        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData,
+            InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Increment(ref _arrivals) == 2)
+                _bothReady.TrySetResult();
+            await _bothReady.Task.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
+            return result;
+        }
     }
 
     private static Task<long> TableCountAsync(string database) =>
