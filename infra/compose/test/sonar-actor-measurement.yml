@@ -1,0 +1,17 @@
+# Measurement only: existing frozen actor remains unchanged and Bash owns cleanup.
+# No public ports, deployment artifact, intake admission or additional enforcement authority.
+services:
+  postgres:
+    image: postgres@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4 # PostgreSQL 18.6
+  real-backend-playwright:
+    command:
+      - node
+      - --test
+      - --experimental-test-coverage
+      - --test-concurrency=1
+      - --test-coverage-include=tests/ui/actor-replacement-real.mjs
+      - --test-reporter=spec
+      - --test-reporter-destination=/control/native.spec.private.log
+      - --test-reporter=lcov
+      - --test-reporter-destination=/control/actor-native.lcov
+      - tests/ui/actor-replacement-real.mjs
