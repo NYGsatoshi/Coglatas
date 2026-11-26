@@ -6,6 +6,7 @@ import { catchError, distinctUntilChanged, forkJoin, map, Observable, of } from 
 import { AqApi, ManageableEventCandidate, Page, SurveyField, aqSegment } from './aq-api';
 import { createCryptographicUuid } from '../../core/security/client-id';
 import { AQ_WORKSPACE_COPY } from './aq-workspace-copy';
+import { AqQrShare } from './aq-qr-share';
 
 interface EventSettings {
   nameMode: 'anonymous' | 'optionalName' | 'requiredName';
@@ -41,7 +42,7 @@ interface Preview {
 }
 
 @Component({
-  imports: [RouterLink],
+  imports: [RouterLink, AqQrShare],
   styleUrl: './aq-page.css',
   templateUrl: './aq-management.html',
 })
@@ -264,6 +265,11 @@ export class AqManagement {
     const campaign = this.campaigns().find(item => item.id === id);
     if (campaign) this.selectForm(campaign.formDefinitionId);
     this.reloadTargets(id);
+  }
+
+  protected selectTarget(id: string): void {
+    this.targetId.set(id);
+    this.publicEntry.set('');
   }
 
   private reloadTargets(id: string): void {
