@@ -194,48 +194,16 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  sonarcloud:
-    name: SonarQube Cloud / .NET and multi-language analysis
+  python-coverage:
+    name: Python and GCP native coverage without analysis credentials
     permissions:
       contents: read
-    needs: [target, windows-dotnet]
+    needs: target
     if: needs.target.outputs.should_scan == 'true' && github.repository == 'NYGsatoshi/Coglatas'
-    environment: sonarcloud-analysis
     runs-on: ubuntu-24.04
     timeout-minutes: 75
-    services:
-      postgres:
-        image: postgres:18.7@sha256:c699303802144847d238196173655dbbecf7a96aeca1565f2b02eb671a1f0b6b # PostgreSQL 18.7
-        env:
-          POSTGRES_DB: coglatas_ci
-          POSTGRES_USER: coglatas_ci
-          POSTGRES_PASSWORD: coglatas_ci_password
-          POSTGRES_INITDB_ARGS: >-
-            --set=log_error_verbosity=terse
-            --set=log_min_error_statement=panic
-            --set=log_parameter_max_length=0
-            --set=log_parameter_max_length_on_error=0
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U coglatas_ci -d coglatas_ci"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      ASPNETCORE_ENVIRONMENT: Test
-      COGLATAS_TEST_USE_MIGRATED_TEMPLATE: "true"
-      ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=coglatas_ci;Username=coglatas_ci;Password=coglatas_ci_password
-      POSTGRES_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=coglatas_ci;Username=coglatas_ci;Password=coglatas_ci_password
-      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
-      DOTNET_NOLOGO: "1"
-      SONAR_ANALYSIS_KIND: ${{ needs.target.outputs.analysis_kind }}
-      SONAR_PR_NUMBER: ${{ needs.target.outputs.pr_number }}
-      SONAR_PR_BRANCH: ${{ needs.target.outputs.pr_branch }}
-      SONAR_PR_BASE: ${{ needs.target.outputs.pr_base }}
-      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
-      SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
-
+    outputs:
+      digest: ${{ steps.handoff.outputs.digest }}
     steps:
       - name: Checkout exact trusted repository revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -248,37 +216,6 @@ jobs:
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           global-json-file: global.json
-
-      - name: Download native Windows coverage from this exact workflow run
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: sonar-windows-dotnet-coverage
-          path: artifacts/sonar-windows
-
-      - name: Independently verify Windows bytes before analysis credentials
-        run: >-
-          python3 -B scripts/ci/verify-sonar-windows-coverage.py consume
-          --folder artifacts/sonar-windows --git /usr/bin/git
-          --sha "$GITHUB_SHA" --run "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT"
-
-      - name: Install pinned SonarScanner for .NET
-        shell: bash
-        run: |
-          set -euo pipefail
-          dotnet tool install dotnet-sonarscanner \
-            --tool-path "$RUNNER_TEMP/sonar-tools" \
-            --version 12.0.0
-
-      - name: Restore the solution without analysis credentials
-        run: dotnet restore Coglatas.slnx --verbosity minimal
-
-      - name: Restore repository-pinned EF tooling without analysis credentials
-        run: dotnet tool restore
-
-      - name: Verify PostgreSQL diagnostic privacy
-        env:
-          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
-        run: python3 -B scripts/ci/verify-postgres-log-privacy.py --container "$POSTGRES_CONTAINER"
 
       - name: Install checksum-pinned Python coverage tool without analysis credentials
         run: >-
@@ -437,6 +374,65 @@ jobs:
           path: artifacts/sonar-gcp/coverage.xml
           if-no-files-found: error
           retention-days: 7
+
+      - name: Retain original Python coverage and native shards
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-python-native-coverage
+          path: |
+            artifacts/sonar-python/coverage.xml
+            artifacts/sonar-python/coverage.native.json
+            artifacts/sonar-python/coverage.native.data
+            artifacts/sonar-python/native-shards/*
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Bind Python coverage handoff to exact execution
+        id: handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          for report in artifacts/sonar-python/coverage.xml artifacts/sonar-gcp/coverage.xml; do
+            test -s "$report"
+            test ! -L "$report"
+          done
+          digest="$(
+            {
+              printf '%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_WORKSPACE"
+              sha256sum -- artifacts/sonar-python/coverage.xml artifacts/sonar-gcp/coverage.xml
+            } | sha256sum | cut -d ' ' -f1
+          )"
+          printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Python scanner inputs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-python-handoff-${{ github.run_attempt }}
+          path: |
+            artifacts/sonar-python/coverage.xml
+            artifacts/sonar-gcp/coverage.xml
+          if-no-files-found: error
+          retention-days: 7
+
+  javascript-coverage:
+    name: Node and Angular native coverage without analysis credentials
+    permissions:
+      contents: read
+    needs: target
+    if: needs.target.outputs.should_scan == 'true' && github.repository == 'NYGsatoshi/Coglatas'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    outputs:
+      digest: ${{ steps.handoff.outputs.digest }}
+    steps:
+      - name: Checkout exact trusted repository revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up repository frontend Node version
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -792,6 +788,192 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Bind JavaScript coverage handoff to exact execution
+        id: handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          for report in artifacts/sonar-node/lcov.info artifacts/sonar-pilot-helper/lcov.info artifacts/sonar-operational/c8/lcov.info frontend/coverage/frontend/lcov.info; do
+            test -s "$report"
+            test ! -L "$report"
+          done
+          digest="$(
+            {
+              printf '%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_WORKSPACE"
+              sha256sum -- artifacts/sonar-node/lcov.info artifacts/sonar-pilot-helper/lcov.info artifacts/sonar-operational/c8/lcov.info frontend/coverage/frontend/lcov.info
+            } | sha256sum | cut -d ' ' -f1
+          )"
+          printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Upload JavaScript scanner inputs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-javascript-handoff-${{ github.run_attempt }}
+          path: |
+            artifacts/sonar-node/lcov.info
+            artifacts/sonar-pilot-helper/lcov.info
+            artifacts/sonar-operational/c8/lcov.info
+            frontend/coverage/frontend/lcov.info
+          if-no-files-found: error
+          retention-days: 7
+
+  sonarcloud:
+    name: SonarQube Cloud / .NET and multi-language analysis
+    permissions:
+      contents: read
+    needs: [target, windows-dotnet, python-coverage, javascript-coverage]
+    if: needs.target.outputs.should_scan == 'true' && github.repository == 'NYGsatoshi/Coglatas'
+    environment: sonarcloud-analysis
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    services:
+      postgres:
+        image: postgres:18.7@sha256:c699303802144847d238196173655dbbecf7a96aeca1565f2b02eb671a1f0b6b # PostgreSQL 18.7
+        env:
+          POSTGRES_DB: coglatas_ci
+          POSTGRES_USER: coglatas_ci
+          POSTGRES_PASSWORD: coglatas_ci_password
+          POSTGRES_INITDB_ARGS: >-
+            --set=log_error_verbosity=terse
+            --set=log_min_error_statement=panic
+            --set=log_parameter_max_length=0
+            --set=log_parameter_max_length_on_error=0
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U coglatas_ci -d coglatas_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      ASPNETCORE_ENVIRONMENT: Test
+      COGLATAS_TEST_USE_MIGRATED_TEMPLATE: "true"
+      ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=coglatas_ci;Username=coglatas_ci;Password=coglatas_ci_password
+      POSTGRES_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=coglatas_ci;Username=coglatas_ci;Password=coglatas_ci_password
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+      SONAR_ANALYSIS_KIND: ${{ needs.target.outputs.analysis_kind }}
+      SONAR_PR_NUMBER: ${{ needs.target.outputs.pr_number }}
+      SONAR_PR_BRANCH: ${{ needs.target.outputs.pr_branch }}
+      SONAR_PR_BASE: ${{ needs.target.outputs.pr_base }}
+      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+      SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+
+    steps:
+      - name: Checkout exact trusted repository revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up repository-pinned .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Download native Windows coverage from this exact workflow run
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sonar-windows-dotnet-coverage
+          path: artifacts/sonar-windows
+
+      - name: Independently verify Windows bytes before analysis credentials
+        run: >-
+          python3 -B scripts/ci/verify-sonar-windows-coverage.py consume
+          --folder artifacts/sonar-windows --git /usr/bin/git
+          --sha "$GITHUB_SHA" --run "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT"
+
+      - name: Install pinned SonarScanner for .NET
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet tool install dotnet-sonarscanner \
+            --tool-path "$RUNNER_TEMP/sonar-tools" \
+            --version 12.0.0
+
+      - name: Restore the solution without analysis credentials
+        run: dotnet restore Coglatas.slnx --verbosity minimal
+
+      - name: Restore repository-pinned EF tooling without analysis credentials
+        run: dotnet tool restore
+
+      - name: Verify PostgreSQL diagnostic privacy
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: python3 -B scripts/ci/verify-postgres-log-privacy.py --container "$POSTGRES_CONTAINER"
+
+      - name: Set up repository frontend Node version
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "26"
+
+      - name: Install pinned frontend package manager
+        run: npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
+
+      - name: Install frontend dependencies without analysis credentials
+        run: bash scripts/ci/npm-ci-retry.sh frontend
+
+      - name: Install existing reporter dependencies without analysis credentials
+        run: bash scripts/ci/npm-ci-retry.sh .
+
+      - name: Download Python scanner inputs from this attempt
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sonar-python-handoff-${{ github.run_attempt }}
+          path: artifacts
+
+      - name: Verify Python coverage handoff before scanner credentials
+        shell: bash
+        env:
+          EXPECTED_DIGEST: ${{ needs.python-coverage.outputs.digest }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          for report in artifacts/sonar-python/coverage.xml artifacts/sonar-gcp/coverage.xml; do
+            test -s "$report"
+            test ! -L "$report"
+          done
+          digest="$(
+            {
+              printf '%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_WORKSPACE"
+              sha256sum -- artifacts/sonar-python/coverage.xml artifacts/sonar-gcp/coverage.xml
+            } | sha256sum | cut -d ' ' -f1
+          )"
+          [[ "$EXPECTED_DIGEST" =~ ^[0-9a-f]{64}$ && "$digest" == "$EXPECTED_DIGEST" ]] || {
+            echo "::error::Coverage handoff identity or bytes differ from producer."
+            exit 1
+          }
+
+      - name: Download JavaScript scanner inputs from this attempt
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sonar-javascript-handoff-${{ github.run_attempt }}
+          path: .
+
+      - name: Verify JavaScript coverage handoff before scanner credentials
+        shell: bash
+        env:
+          EXPECTED_DIGEST: ${{ needs.javascript-coverage.outputs.digest }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          for report in artifacts/sonar-node/lcov.info artifacts/sonar-pilot-helper/lcov.info artifacts/sonar-operational/c8/lcov.info frontend/coverage/frontend/lcov.info; do
+            test -s "$report"
+            test ! -L "$report"
+          done
+          digest="$(
+            {
+              printf '%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_WORKSPACE"
+              sha256sum -- artifacts/sonar-node/lcov.info artifacts/sonar-pilot-helper/lcov.info artifacts/sonar-operational/c8/lcov.info frontend/coverage/frontend/lcov.info
+            } | sha256sum | cut -d ' ' -f1
+          )"
+          [[ "$EXPECTED_DIGEST" =~ ^[0-9a-f]{64}$ && "$digest" == "$EXPECTED_DIGEST" ]] || {
+            echo "::error::Coverage handoff identity or bytes differ from producer."
+            exit 1
+          }
+
       - name: Begin pinned SonarCloud analysis
         shell: bash
         env:
@@ -962,10 +1144,6 @@ jobs:
             artifacts/sonar-dotnet/binary-provenance.json
             artifacts/sonar-dotnet/pre-test-rebuild/
             artifacts/sonar-dotnet/executed-binaries/
-            artifacts/sonar-python/coverage.xml
-            artifacts/sonar-python/coverage.native.json
-            artifacts/sonar-python/coverage.native.data
-            artifacts/sonar-python/native-shards/*
           if-no-files-found: error
           retention-days: 7
 
