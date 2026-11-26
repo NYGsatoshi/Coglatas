@@ -57,13 +57,18 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
                     .UseNpgsql(connection).AddInterceptors(afterFlush).Options, currentTenant);
                 var viewer = new Viewer(user.Id, session.Id);
                 var clock = new Clock();
-                var access = new ProjectIdeOperationAccess(new ProjectIdeViewerContextReader(viewer, currentTenant,
-                    new SessionRepository(requestDb), new TenantRepository(requestDb), clock), new FixtureAuthority(draft, input.Source.Digest));
                 var outbox = new FixtureOutbox(requestDb);
                 var materializations = new FixtureMaterializations(draft.CapturedTargetHead);
-                var service = new ProjectDraftRenameService(access, new ProjectDraftRenameStore(requestDb, materializations,
-                    new FixtureAudit(new DbAuditLogger(requestDb, clock, viewer, currentTenant)), outbox),
-                    new EfCreateIdempotencyCoordinator(requestDb));
+                ProjectDraftRenameService CreateService(AppDbContext context, FixtureOutbox events)
+                {
+                    var access = new ProjectIdeOperationAccess(new ProjectIdeViewerContextReader(viewer, currentTenant,
+                        new SessionRepository(context), new TenantRepository(context), clock), new FixtureAuthority(draft, input.Source.Digest));
+                    var store = new ProjectDraftRenameStore(context, materializations,
+                        new FixtureAudit(new DbAuditLogger(context, clock, viewer, currentTenant)), events);
+                    return new ProjectDraftRenameService(access, store, new EfCreateIdempotencyCoordinator(context));
+                }
+
+                var service = CreateService(requestDb, outbox);
                 var request = new ProjectDraftRenameRequest(DraftRenameTests.Target(input), input.Source.Digest, input.InputDigest, "Private name");
                 var preview = Assert.IsType<ProjectDraftRenamePreview>(await service.PreviewAsync(request));
                 var command = new ProjectDraftRenameConfirmation(request, preview.NextCandidate, preview.PreviewDigest, "retryable-draft");
@@ -109,9 +114,43 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
                 Assert.Empty(await seed.OutboxEvents.AsNoTracking().ToListAsync());
                 await SetSessionRevokedAsync(connection, session.Id, null);
 
-                var saved = await service.SaveAsync(command);
+                afterFlush.BeforeReturn = () =>
+                {
+                    materializations.CurrentHead = new(draft.TargetBranch, RevisionId.New());
+                    return Task.CompletedTask;
+                };
+                Assert.Equal(ProjectDraftRenameSaveState.Unavailable, (await service.SaveAsync(command)).State);
+                Assert.Equal(1, await CandidateCount(connection));
+                Assert.Empty(await seed.IdempotencyRecords.AsNoTracking().ToListAsync());
+                Assert.Empty(await seed.AuditLogs.AsNoTracking().ToListAsync());
+                Assert.Empty(await seed.OutboxEvents.AsNoTracking().ToListAsync());
+                materializations.CurrentHead = draft.CapturedTargetHead;
+
+                var concurrentClaim = new ClaimAttempt();
+                await using var retryDb = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
+                    .UseNpgsql(connection).AddInterceptors(concurrentClaim).Options, currentTenant);
+                var retryService = CreateService(retryDb, new FixtureOutbox(retryDb) { Accept = true });
+                var firstWriteStaged = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                outbox.BeforeReturn = async () =>
+                {
+                    firstWriteStaged.SetResult();
+                    await concurrentClaim.Started.Task.WaitAsync(TimeSpan.FromSeconds(15));
+                };
+
+                var first = service.SaveAsync(command);
+                var firstCompletion = await Task.WhenAny(first, firstWriteStaged.Task).WaitAsync(TimeSpan.FromSeconds(15));
+                if (ReferenceEquals(firstCompletion, first))
+                    Assert.Equal(ProjectDraftRenameSaveState.Saved, (await first).State);
+                Assert.True(firstWriteStaged.Task.IsCompletedSuccessfully);
+                var results = await Task.WhenAll(first, retryService.SaveAsync(command));
+                outbox.BeforeReturn = null;
+
+                var saved = results[0];
                 Assert.Equal(ProjectDraftRenameSaveState.Saved, saved.State);
+                Assert.Equal(saved, results[1]);
                 Assert.Equal(saved, await service.SaveAsync(command));
+                var changedPayload = command with { Request = request with { DisplayName = "Different private name" } };
+                Assert.Equal(ProjectDraftRenameSaveState.RequestMismatch, (await retryService.SaveAsync(changedPayload)).State);
                 Assert.Equal(ProjectDraftRenameSaveState.Unavailable,
                     (await service.SaveAsync(command with { RequestIdentity = "fresh-key-stale-draft" })).State);
                 Assert.Equal(2, await CandidateCount(connection));
@@ -173,6 +212,20 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
                 await callback();
             }
             return result;
+        }
+    }
+
+    private sealed class ClaimAttempt : SaveChangesInterceptor
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData,
+            InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            if (eventData.Context?.ChangeTracker.Entries<IdempotencyRecord>()
+                .Any(entry => entry.State == EntityState.Added) == true)
+                Started.TrySetResult();
+            return ValueTask.FromResult(result);
         }
     }
 

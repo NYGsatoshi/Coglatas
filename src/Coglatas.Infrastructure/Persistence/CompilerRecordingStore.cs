@@ -50,7 +50,8 @@ public sealed class CompilerRecordingStore(AppDbContext context, ProjectIdeOpera
                 return CompilerRecordingWriteOutcome.Unavailable;
         }
 
-        if (!await CanRecordAsync(viewer, evidence, cancellationToken))
+        if (!await CanRecordAsync(viewer, evidence, cancellationToken) ||
+            !await LockActiveTenantAsync(viewer.TenantId, cancellationToken))
             return CompilerRecordingWriteOutcome.Unavailable;
 
         await transaction.CommitAsync(cancellationToken);
@@ -66,13 +67,30 @@ public sealed class CompilerRecordingStore(AppDbContext context, ProjectIdeOpera
             !await access.IsAllowedAsync(viewer, CompilerRecordingOperations.Read, source, sourceDigest, cancellationToken))
             return null;
 
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
         var row = await FindRowAsync(source.TenantId, source.ProjectId, runId, cancellationToken);
         var evidence = row is null ? null : ReadEvidence(row);
         if (evidence is null || evidence.Source != source || evidence.SourceDigest != sourceDigest)
             return null;
 
-        return await access.IsAllowedAsync(viewer, CompilerRecordingOperations.Read, evidence.Source, evidence.SourceDigest, cancellationToken)
-            ? evidence : null;
+        if (!await access.IsAllowedAsync(viewer, CompilerRecordingOperations.Read, evidence.Source, evidence.SourceDigest, cancellationToken) ||
+            !await LockActiveTenantAsync(viewer.TenantId, cancellationToken))
+            return null;
+
+        await transaction.CommitAsync(cancellationToken);
+        return evidence;
+    }
+
+    // Keep the final lifecycle check current through the transaction commit.
+    // PostgreSQL allows concurrent readers but makes tenant updates wait.
+    private async Task<bool> LockActiveTenantAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        var rows = await context.Database.SqlQuery<int>($"""
+            SELECT 1 AS "Value" FROM public.tenants
+            WHERE "Id" = {tenantId} AND "Status" = 'Active' AND "DeletedAt" IS NULL
+            FOR SHARE
+            """).ToListAsync(cancellationToken);
+        return rows.Count != 0;
     }
 
     private async Task<bool> CanRecordAsync(ProjectIdeViewerContext viewer, CompilerRecordingEvidence evidence, CancellationToken cancellationToken) =>

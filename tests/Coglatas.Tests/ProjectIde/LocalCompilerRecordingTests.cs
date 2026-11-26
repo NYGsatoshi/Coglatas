@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Coglatas.Application.ProjectIde.Core;
+using Coglatas.Application.ProjectIde.Runtime;
 using Coglatas.Domain.ProjectIde;
 
 namespace Coglatas.Tests.ProjectIde;
@@ -104,6 +105,47 @@ public sealed class LocalCompilerRecordingTests
         var diagnostic = await session.ExecuteAsync(session.Prepare(request, Guid.NewGuid(), diagnosticOrigin: cancelled.Receipt), request);
         Assert.Equal(expected, diagnostic.Response.Compilation!.Result.Data); Assert.NotEqual(cancelled.Receipt.AttemptId, diagnostic.Receipt.AttemptId);
         Assert.Equal(cancelled.Receipt.AttemptId.ToString(), diagnostic.Receipt.Manifest.Data.Value.GetProperty("origin").GetProperty("attemptId").GetString());
+    }
+
+    [Fact]
+    public async Task RecordingEvidenceKeepsExactDiagnosticLineageWithoutRetainingPrivateBodies()
+    {
+        var (input, request) = Probe();
+        using var session = new LocalCompilerRecordingSession(Profile(input));
+        var original = await LocalCompilerRecordedInvocation.ExecuteAsync(session,
+            session.Prepare(request, Guid.NewGuid()), request);
+        var diagnostic = await LocalCompilerRecordedInvocation.ExecuteAsync(session,
+            session.Prepare(request, Guid.NewGuid(), CompilerOutputSnapshotMode.AvailableOutputs,
+                diagnosticOrigin: original.Receipt), request);
+        var capture = Assert.IsType<ProjectCompilerOutputSnapshot>(diagnostic.Receipt.Snapshot);
+        Assert.NotEmpty(capture.Bodies);
+
+        var originalEvidence = CompilerRecordingEvidence.FromInvocation(original);
+        Assert.Null(originalEvidence.OriginRunId);
+        Assert.Null(originalEvidence.OriginReceiptDigest);
+        var evidence = CompilerRecordingEvidence.FromInvocation(diagnostic);
+        Assert.Equal(SecuritySourceIdentitySnapshot.Capture(input.Source.Context, input.InputDigest), evidence.Source);
+        Assert.Equal(input.Source.Digest.Value, evidence.SourceDigest);
+        Assert.Equal(diagnostic.Receipt.Manifest.RunId, evidence.RunId);
+        Assert.Equal(diagnostic.Receipt.AttemptId, evidence.AttemptId);
+        Assert.NotEqual(originalEvidence.AttemptId, evidence.AttemptId);
+        Assert.Equal(original.Receipt.Manifest.RunId, evidence.OriginRunId);
+        Assert.Equal(original.Receipt.Digest.Value, evidence.OriginReceiptDigest);
+        Assert.Equal(capture.Digest.Value, evidence.CaptureDigest);
+        Assert.Equal(capture.State, evidence.OriginalCaptureState);
+        Assert.Equal(originalEvidence.Result?.ResultDigest, evidence.Result?.ResultDigest);
+
+        var payload = JsonSerializer.SerializeToElement(evidence);
+        Assert.Equal(new[] { "AttemptId", "CaptureDigest", "CaptureMode", "CompilerInputId", "ExecutionInputDigest", "HostStatus",
+                "ManifestDigest", "MaterializationsDigest", "OriginReceiptDigest", "OriginRunId", "OriginalCaptureState", "ReceiptDigest",
+                "Result", "RunId", "Source", "SourceDigest" },
+            payload.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal));
+        var serialized = payload.GetRawText();
+        var sessionId = diagnostic.Receipt.Manifest.Data.Value.GetProperty("sessionId").GetString();
+        Assert.DoesNotContain(Assert.IsType<string>(sessionId), serialized, StringComparison.Ordinal);
+        Assert.DoesNotContain(input.Source.Documents[0].LogicalName, serialized, StringComparison.Ordinal);
+        foreach (var body in capture.Bodies.Values)
+            Assert.DoesNotContain(body.CanonicalText, serialized, StringComparison.Ordinal);
     }
 
     [Theory]
