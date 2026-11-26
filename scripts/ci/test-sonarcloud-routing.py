@@ -554,6 +554,8 @@ class SonarParallelCoverageTests(unittest.TestCase):
             "artifacts/sonar-node/lcov.info",
             "artifacts/sonar-pilot-helper/lcov.info",
             "artifacts/sonar-operational/c8/lcov.info",
+        ),
+        "Angular": (
             "frontend/coverage/frontend/lcov.info",
         ),
     }
@@ -586,10 +588,10 @@ class SonarParallelCoverageTests(unittest.TestCase):
     def test_parallel_producers_are_required_and_credential_free(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
         scanner = self.job(workflow, "sonarcloud")
-        self.assertIn("needs: [target, windows-dotnet, python-coverage, javascript-coverage]", scanner)
+        self.assertIn("needs: [target, windows-dotnet, python-coverage, javascript-coverage, angular-coverage]", scanner)
         self.assertIn("environment: sonarcloud-analysis", scanner)
         self.assertNotIn("if: always()", scanner.split("    steps:", 1)[0])
-        for name in ("windows-dotnet", "python-coverage", "javascript-coverage"):
+        for name in ("windows-dotnet", "python-coverage", "javascript-coverage", "angular-coverage"):
             producer = self.job(workflow, name)
             self.assertIn("    needs: target", producer)
             self.assertIn("    permissions:\n      contents: read", producer)
@@ -613,6 +615,20 @@ class SonarParallelCoverageTests(unittest.TestCase):
                 for report in reports:
                     self.assertIn("            " + report, producer)
                     self.assertIn(report, scanner)
+        node = self.job(workflow, "javascript-coverage")
+        angular = self.job(workflow, "angular-coverage")
+        self.assertNotIn("npm --prefix frontend run test:coverage", node)
+        self.assertEqual(angular.count("npm --prefix frontend run test:coverage"), 1)
+        self.assertNotIn("Measure existing operational contract controls", angular)
+        self.assertIn("Measure existing operational contract controls", node)
+        self.assertIn("Measure existing Pilot helpers", node)
+        self.assertIn("Measure existing Functional and roster Node controls", node)
+        self.assertIn("          path: artifacts\n", scanner.split(
+            "- name: Download JavaScript scanner inputs from this attempt", 1
+        )[1].split("- name: Verify JavaScript coverage handoff", 1)[0])
+        self.assertIn("          path: frontend/coverage/frontend\n", scanner.split(
+            "- name: Download Angular scanner inputs from this attempt", 1
+        )[1].split("- name: Verify Angular coverage handoff", 1)[0])
         self.assertNotIn("npm --prefix frontend run test:coverage", scanner)
         self.assertNotIn("python3 -B -m coverage run", scanner)
         self.assertIn("Build inside the SonarScanner begin/end interval", scanner)

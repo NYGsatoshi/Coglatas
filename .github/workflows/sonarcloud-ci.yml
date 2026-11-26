@@ -417,7 +417,7 @@ jobs:
           retention-days: 7
 
   javascript-coverage:
-    name: Node and Angular native coverage without analysis credentials
+    name: Node native coverage without analysis credentials
     permissions:
       contents: read
     needs: target
@@ -773,6 +773,67 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Bind JavaScript coverage handoff to exact execution
+        id: handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          for report in artifacts/sonar-node/lcov.info artifacts/sonar-pilot-helper/lcov.info artifacts/sonar-operational/c8/lcov.info; do
+            test -s "$report"
+            test ! -L "$report"
+          done
+          digest="$(
+            {
+              printf '%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_WORKSPACE"
+              sha256sum -- artifacts/sonar-node/lcov.info artifacts/sonar-pilot-helper/lcov.info artifacts/sonar-operational/c8/lcov.info
+            } | sha256sum | cut -d ' ' -f1
+          )"
+          printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Upload JavaScript scanner inputs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-javascript-handoff-${{ github.run_attempt }}
+          path: |
+            artifacts/sonar-node/lcov.info
+            artifacts/sonar-pilot-helper/lcov.info
+            artifacts/sonar-operational/c8/lcov.info
+          if-no-files-found: error
+          retention-days: 7
+
+  angular-coverage:
+    name: Angular native coverage without analysis credentials
+    permissions:
+      contents: read
+    needs: target
+    if: needs.target.outputs.should_scan == 'true' && github.repository == 'NYGsatoshi/Coglatas'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    outputs:
+      digest: ${{ steps.handoff.outputs.digest }}
+    steps:
+      - name: Checkout exact trusted repository revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up repository frontend Node version
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "26"
+
+      - name: Install pinned frontend package manager
+        run: npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
+
+      - name: Install frontend dependencies without analysis credentials
+        run: bash scripts/ci/npm-ci-retry.sh frontend
+
+      - name: Install existing reporter dependencies without analysis credentials
+        run: bash scripts/ci/npm-ci-retry.sh .
+
       - name: Generate frontend coverage before scanner credentials
         run: |
           npm --prefix frontend run test:coverage
@@ -788,32 +849,29 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Bind JavaScript coverage handoff to exact execution
+      - name: Bind Angular coverage handoff to exact execution
         id: handoff
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          for report in artifacts/sonar-node/lcov.info artifacts/sonar-pilot-helper/lcov.info artifacts/sonar-operational/c8/lcov.info frontend/coverage/frontend/lcov.info; do
+          for report in frontend/coverage/frontend/lcov.info; do
             test -s "$report"
             test ! -L "$report"
           done
           digest="$(
             {
               printf '%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_WORKSPACE"
-              sha256sum -- artifacts/sonar-node/lcov.info artifacts/sonar-pilot-helper/lcov.info artifacts/sonar-operational/c8/lcov.info frontend/coverage/frontend/lcov.info
+              sha256sum -- frontend/coverage/frontend/lcov.info
             } | sha256sum | cut -d ' ' -f1
           )"
           printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
 
-      - name: Upload JavaScript scanner inputs
+      - name: Upload Angular scanner inputs
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: sonar-javascript-handoff-${{ github.run_attempt }}
+          name: sonar-angular-handoff-${{ github.run_attempt }}
           path: |
-            artifacts/sonar-node/lcov.info
-            artifacts/sonar-pilot-helper/lcov.info
-            artifacts/sonar-operational/c8/lcov.info
             frontend/coverage/frontend/lcov.info
           if-no-files-found: error
           retention-days: 7
@@ -822,7 +880,7 @@ jobs:
     name: SonarQube Cloud / .NET and multi-language analysis
     permissions:
       contents: read
-    needs: [target, windows-dotnet, python-coverage, javascript-coverage]
+    needs: [target, windows-dotnet, python-coverage, javascript-coverage, angular-coverage]
     if: needs.target.outputs.should_scan == 'true' && github.repository == 'NYGsatoshi/Coglatas'
     environment: sonarcloud-analysis
     runs-on: ubuntu-24.04
@@ -950,7 +1008,7 @@ jobs:
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: sonar-javascript-handoff-${{ github.run_attempt }}
-          path: .
+          path: artifacts
 
       - name: Verify JavaScript coverage handoff before scanner credentials
         shell: bash
@@ -959,14 +1017,42 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          for report in artifacts/sonar-node/lcov.info artifacts/sonar-pilot-helper/lcov.info artifacts/sonar-operational/c8/lcov.info frontend/coverage/frontend/lcov.info; do
+          for report in artifacts/sonar-node/lcov.info artifacts/sonar-pilot-helper/lcov.info artifacts/sonar-operational/c8/lcov.info; do
             test -s "$report"
             test ! -L "$report"
           done
           digest="$(
             {
               printf '%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_WORKSPACE"
-              sha256sum -- artifacts/sonar-node/lcov.info artifacts/sonar-pilot-helper/lcov.info artifacts/sonar-operational/c8/lcov.info frontend/coverage/frontend/lcov.info
+              sha256sum -- artifacts/sonar-node/lcov.info artifacts/sonar-pilot-helper/lcov.info artifacts/sonar-operational/c8/lcov.info
+            } | sha256sum | cut -d ' ' -f1
+          )"
+          [[ "$EXPECTED_DIGEST" =~ ^[0-9a-f]{64}$ && "$digest" == "$EXPECTED_DIGEST" ]] || {
+            echo "::error::Coverage handoff identity or bytes differ from producer."
+            exit 1
+          }
+
+      - name: Download Angular scanner inputs from this attempt
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sonar-angular-handoff-${{ github.run_attempt }}
+          path: frontend/coverage/frontend
+
+      - name: Verify Angular coverage handoff before scanner credentials
+        shell: bash
+        env:
+          EXPECTED_DIGEST: ${{ needs.angular-coverage.outputs.digest }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          for report in frontend/coverage/frontend/lcov.info; do
+            test -s "$report"
+            test ! -L "$report"
+          done
+          digest="$(
+            {
+              printf '%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_WORKSPACE"
+              sha256sum -- frontend/coverage/frontend/lcov.info
             } | sha256sum | cut -d ' ' -f1
           )"
           [[ "$EXPECTED_DIGEST" =~ ^[0-9a-f]{64}$ && "$digest" == "$EXPECTED_DIGEST" ]] || {
