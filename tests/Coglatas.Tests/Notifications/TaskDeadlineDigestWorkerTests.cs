@@ -46,6 +46,36 @@ public sealed class TaskDeadlineDigestWorkerTests
     }
 
     [Fact]
+    public async Task CancellationDuringTenantSchedulingPropagatesAndStopsLaterTenants()
+    {
+        var tenantId = Guid.NewGuid();
+        var laterTenantId = Guid.NewGuid();
+        using var cancellation = new CancellationTokenSource();
+        var state = new WorkerState
+        {
+            CancelDuringSchedulingTenantId = tenantId,
+            CancellationSource = cancellation
+        };
+        state.TenantIds.AddRange([tenantId, laterTenantId]);
+        state.ClaimsByTenant[tenantId] = [CreateClaim(tenantId)];
+        state.ClaimsByTenant[laterTenantId] = [CreateClaim(laterTenantId)];
+        await using var provider = BuildProvider(state);
+        var logger = new RecordingLogger<TaskDeadlineDigestWorker>();
+        using var worker = CreateWorker(provider, logger, new TaskDeadlineDigestWorkerOptions());
+
+        var exception = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => worker.RunOnceAsync(cancellation.Token));
+
+        Assert.Equal(cancellation.Token, exception.CancellationToken);
+        Assert.True(cancellation.IsCancellationRequested);
+        Assert.Equal([tenantId], state.SchedulerCalls.Select(call => call.TenantId));
+        Assert.Empty(state.GenerationCalls);
+        Assert.Empty(state.FailureCalls);
+        Assert.Empty(state.SucceededGenerationJobIds);
+        Assert.Empty(logger.Entries);
+    }
+
+    [Fact]
     public async Task CancellationDuringGenerationPropagatesAndStopsNotYetStartedClaims()
     {
         var tenantId = Guid.NewGuid();
@@ -285,6 +315,9 @@ public sealed class TaskDeadlineDigestWorkerTests
             cancellationToken.ThrowIfCancellationRequested();
             var tenantId = currentTenant.TenantId;
             state.SchedulerCalls.Add(new SchedulerCall(tenantId, settings));
+            if (state.CancelDuringSchedulingTenantId == tenantId)
+                state.CancellationSource!.Cancel();
+            cancellationToken.ThrowIfCancellationRequested();
             if (state.SchedulerFailures.TryGetValue(tenantId, out var exception))
                 throw exception;
             return Task.FromResult(
@@ -511,6 +544,7 @@ public sealed class TaskDeadlineDigestWorkerTests
         public ConcurrentQueue<GenerationCall> GenerationCalls { get; } = [];
         public ConcurrentQueue<FailureCall> FailureCalls { get; } = [];
         public ConcurrentQueue<Guid> SucceededGenerationJobIds { get; } = [];
+        public Guid? CancelDuringSchedulingTenantId { get; init; }
         public Guid? CancelDuringGenerationJobId { get; init; }
         public CancellationTokenSource? CancellationSource { get; init; }
         public GenerationStartGate? GenerationStartGate { get; init; }

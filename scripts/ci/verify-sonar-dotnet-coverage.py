@@ -332,8 +332,11 @@ def native_source_points(raw: bytes, root: Path, tracked: set[str]) -> dict:
                 method_name = method.findtext("Name")
                 file_ref = method.find("FileRef")
                 for tag, attrs in (
-                    ("SequencePoint", ("sl", "sc", "el", "ec", "offset")),
-                    ("BranchPoint", ("sl", "offset", "path", "ordinal")),
+                    # Coverlet 10.1.1 emits ordinal/uspid and source spans for
+                    # sequence points, not IL offset. Branch points retain both
+                    # IL offsets and their path/ordinal. Compare native identities.
+                    ("SequencePoint", ("sl", "sc", "el", "ec", "ordinal", "uspid")),
+                    ("BranchPoint", ("sl", "offset", "offsetend", "path", "ordinal")),
                 ):
                     for point in method.findall("./" + tag + "s/" + tag):
                         uid = point.get("fileid") or (
@@ -344,14 +347,20 @@ def native_source_points(raw: bytes, root: Path, tracked: set[str]) -> dict:
                         if source is None:
                             continue
                         visits = int(point.attrib["vc"])
-                        coordinates = tuple(int(point.attrib[key]) for key in attrs)
+                        try:
+                            coordinates = tuple(int(point.attrib[key]) for key in attrs)
+                        except (KeyError, ValueError) as error:
+                            raise ValueError("Missing or invalid native " + tag
+                                             + " identity attribute") from error
                         if (not module_name or not class_name or not method_name
                                 or visits < 0 or coordinates[0] < 1
                                 or any(value < 0 for value in coordinates)):
                             raise ValueError("Invalid native point identity")
                         key = (tag, module_name, class_name, method_name, source,
                                *coordinates)
-                        points[key] = points.get(key, False) or visits > 0
+                        if key in points:
+                            raise ValueError("Duplicate native point identity: " + repr(key))
+                        points[key] = visits > 0
     if not points or not any(points.values()):
         raise ValueError("No tracked native coverage points")
     return points
@@ -381,10 +390,15 @@ def require_shard_equivalence(baseline_tests, baseline_points, shards) -> dict:
     if union_points != baseline_points:
         missing = len(set(baseline_points) - set(union_points))
         extra = len(set(union_points) - set(baseline_points))
-        different = sum(baseline_points[key] != union_points[key]
-                        for key in set(baseline_points).intersection(union_points))
+        changed = [key for key in set(baseline_points).intersection(union_points)
+                   if baseline_points[key] != union_points[key]]
+        # Bounded source-only diagnostics, not raw application/test data.
+        examples = sorted(changed)[:10]
+        print(json.dumps({"changedHitExamples": [
+            {"point": list(key), "baseline": baseline_points[key], "shards": union_points[key]}
+            for key in examples]}, sort_keys=True))
         raise ValueError(f"Native source coverage differs: {missing} missing, "
-                         f"{extra} extra, {different} changed hit states")
+                         f"{extra} extra, {len(changed)} changed hit states")
     result = {"passedTests": sum(union_tests.values())}
     for tag, label in (("SequencePoint", "sequence"), ("BranchPoint", "branch")):
         subset = {key: value for key, value in union_points.items() if key[0] == tag}

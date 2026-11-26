@@ -378,14 +378,23 @@ class CoverageTests(unittest.TestCase):
         raw = b"""<CoverageSession><Modules><Module><ModuleName>App</ModuleName>
 <Files><File uid="1" fullPath="/_/src/App/Logic.cs"/></Files>
 <Classes><Class><FullName>Logic</FullName><Methods><Method><Name>Run()</Name>
-<FileRef uid="1"/><SequencePoints><SequencePoint vc="1" sl="1" sc="1" el="1" ec="3" offset="0" fileid="1"/></SequencePoints>
-<BranchPoints><BranchPoint vc="0" sl="1" offset="0" path="0" ordinal="0" fileid="1"/>
-<BranchPoint vc="1" sl="1" offset="0" path="1" ordinal="1" fileid="1"/></BranchPoints>
+<FileRef uid="1"/><SequencePoints><SequencePoint vc="1" uspid="1" ordinal="0" sl="1" sc="1" el="1" ec="3" bec="2" bev="1" fileid="1"/></SequencePoints>
+<BranchPoints><BranchPoint vc="0" uspid="1" sl="1" offset="0" offsetend="2" path="0" ordinal="0" fileid="1"/>
+<BranchPoint vc="1" uspid="1" sl="1" offset="0" offsetend="4" path="1" ordinal="1" fileid="1"/></BranchPoints>
 </Method></Methods></Class></Classes></Module></Modules></CoverageSession>"""
         tracked = {"src/App/Logic.cs"}
         points = MODULE.native_source_points(raw, self.root, tracked)
         self.assertEqual(len(points), 3)
         self.assertEqual(sum(points.values()), 2)
+        # Real pinned Coverlet reports contain no sequence-point offset.
+        self.assertIn(b'ordinal="0" sl="1"', raw)
+        self.assertNotIn(b'offset=', raw.split(b'</SequencePoints>')[0])
+        for invalid in (raw.replace(b' uspid="1"', b'', 1),
+                        raw.replace(b' offsetend="2"', b'', 1),
+                        raw.replace(b'</SequencePoints>', raw.split(b'<SequencePoints>')[1]
+                                    .split(b'</SequencePoints>')[0] + b'</SequencePoints>')):
+            with self.assertRaises(ValueError):
+                MODULE.native_source_points(invalid, self.root, tracked)
         changed = MODULE.native_source_points(raw.replace(b'path="1"', b'path="2"'),
                                                self.root, tracked)
         self.assertNotEqual(points, changed)
