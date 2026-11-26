@@ -1,0 +1,59 @@
+# D4=A owner-authorized, ephemeral, NO-MERGE evidence collection on diagnostic branch only.
+# The existing static Playwright selector and required CI contexts are not changed.
+name: ProjectIDE 26-spec roster diagnostic (NO-MERGE)
+
+on:
+  push:
+    branches:
+      - diagnostic/batch6-browser-roster-26spec-20261122
+    paths:
+      - .github/workflows/projectide-batch7-roster-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  projectide-roster-list-only:
+    name: Diagnostic-only 26-spec Playwright roster
+    if: github.repository == 'NYGsatoshi/Coglatas' && github.ref == 'refs/heads/diagnostic/batch6-browser-roster-26spec-20261122'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact diagnostic source with no retained credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Use pinned Node runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '26'
+      - name: Install existing locked test tooling without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Execute only the diagnostic spec and retain original list and IDs
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:4173
+          FORCE_COLOR: '0'
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          node node_modules/@playwright/test/cli.js test \
+            --config playwright.config.ts \
+            --project=chromium-desktop \
+            tests/ui/projectide-roster-diagnostic.spec.ts \
+            2>&1 | tee projectide-roster-once.log
+          grep -q 'BATCH6_BROWSER_ROSTER_SUMMARY ' projectide-roster-once.log
+          count="$(grep -c 'BATCH6_BROWSER_ROSTER_ID ' projectide-roster-once.log)"
+          test "$count" -gt 0
+          printf 'BATCH7_ROSTER_DIAGNOSTIC_HEAD=%s\n' "$GITHUB_SHA"
+          printf 'BATCH7_ROSTER_DIAGNOSTIC_ID_LINES=%s\n' "$count"
+      - name: Retain bounded diagnostic-only text evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: projectide-roster-once-${{ github.run_id }}
+          path: |
+            projectide-roster-once.log
+            test-results/**/batch6-original-26-projectide-manifest.txt
+            test-results/**/batch6-original-26-projectide-playwright-list.txt
+          if-no-files-found: warn
+          retention-days: 14
