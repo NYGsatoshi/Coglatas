@@ -112,5 +112,86 @@ def main() -> None:
     print(json.dumps(result))
 
 
+def _native_verifier():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "native_binaries", Path(__file__).with_name("verify-sonar-windows-coverage.py"))
+    if spec is None or spec.loader is None:
+        raise ValueError("Native binary verifier is unavailable")
+    verifier = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(verifier)
+    return verifier
+
+
+def verify_parallel_handoff(root: Path, folder: Path, sha: str, run: str,
+                            attempt: str, *, compare_build: bool = False) -> None:
+    """Check producer evidence and, after the scanner build, production identity."""
+    if not re.fullmatch(r"[a-f0-9]{40}", sha) or not all(
+            re.fullmatch(r"[1-9][0-9]*", x) for x in (run, attempt)):
+        raise ValueError("Expected source SHA, run and attempt")
+    native = _native_verifier()
+    tree, _ = native.git_reader(root, Path("/usr/bin/git"), sha)
+    relative = folder.relative_to(root).as_posix()
+
+    def read(name: str) -> bytes:
+        data = native.owned_bytes(root, relative + "/" + name)
+        if not data:
+            raise ValueError("Empty native evidence: " + name)
+        return data
+
+    report = read("verified.opencover.xml")
+    receipt = json.loads(read("receipt.json"))
+    measured = verify_report(folder / "verified.opencover.xml", root)
+    if (receipt.get("sourceSha") != sha or receipt.get("treeSha") != tree
+            or receipt.get("scope") != "DOTNET_COVERAGE_IMPORT_ONLY_NOT_RELEASE_ACCEPTANCE"
+            or any(receipt.get(key) != value for key, value in measured.items())
+            or measured["reportSha256"] != native.digest(report)):
+        raise ValueError("Native coverage receipt differs from checkout or report")
+    trx = read("backend-tests.trx")
+    mapping = read("deterministic-source-roots.original")
+    before = json.loads(read("pre-test-rebuild/outputs.json"))
+    executed = json.loads(read("binary-provenance.json"))
+    if (before.get("sourceSha") != sha or executed.get("sourceSha") != sha
+            or executed.get("runId") != run or executed.get("attempt") != attempt
+            or executed.get("productionBinariesUnchanged") is not True
+            or executed.get("trxSha256") != native.digest(trx)
+            or executed.get("sourceMappingSha256") != native.digest(mapping)):
+        raise ValueError("Native execution receipt differs from run or evidence")
+
+    expected = {"assemblies/" + name + "." + ext
+                for name in native.ASSEMBLIES for ext in ("dll", "pdb")}
+    initial = before.get("artifacts")
+    actual = executed.get("executedArtifacts")
+    for record in (initial, actual):
+        if not isinstance(record, dict) or set(record) != expected or any(
+                not isinstance(value, str) or not re.fullmatch(r"[a-f0-9]{64}", value)
+                for value in record.values()):
+            raise ValueError("Unexpected native assembly digest inventory")
+
+    # The native test-only rebuild intentionally changes the test DLL/PDB.
+    for name in native.ASSEMBLIES:
+        if name == "Coglatas.Tests":
+            continue
+        for ext in ("dll", "pdb"):
+            key = "assemblies/" + name + "." + ext
+            if initial[key] != actual[key]:
+                raise ValueError("Production binary changed during native coverage: " + key)
+            if compare_build:
+                output = "bin/Release/net11.0/" + name + "." + ext
+                project = native.owned_bytes(root, native.ASSEMBLIES[name] + "/" + output)
+                copied = native.owned_bytes(root, "tests/Coglatas.Tests/" + output)
+                if native.digest(project) != actual[key] or copied != project:
+                    raise ValueError("Scanner build differs from measured production binary: " + key)
+
+    if compare_build:
+        current = native.owned_bytes(root,
+            "tests/Coglatas.Tests/bin/Release/net11.0/CoverletSourceRootsMapping_Coglatas.Tests")
+        if current != mapping:
+            raise ValueError("Scanner build source mapping differs from measured production mapping")
+    print("Native Ubuntu coverage receipt and production identity verified"
+          + (" against scanner build" if compare_build else " before scanner begin"))
+
+
 if __name__ == "__main__":
     main()
