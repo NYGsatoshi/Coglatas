@@ -31,6 +31,7 @@ export function validAqQrShare(value: AqQrShareData): boolean {
 export class AqQrShare {
   readonly campaignId = input.required<string>();
   readonly targetId = input.required<string>();
+  readonly suspended = input(false);
   private readonly api = inject(AqApi);
   private readonly refreshVersion = signal(0);
   protected readonly share = signal<AqQrShareData | null>(null);
@@ -44,22 +45,30 @@ export class AqQrShare {
   protected readonly printing = signal(false);
   private generation = 0;
   private logoGeneration = 0;
+  private lastCampaign = '';
+  private lastTarget = '';
+  private projection: HTMLDialogElement | null = null;
 
   constructor() {
     effect(onCleanup => {
       const campaign = this.campaignId();
       const target = this.targetId();
       this.refreshVersion();
+      const suspended = this.suspended();
+      const changed = this.lastCampaign !== campaign || this.lastTarget !== target;
+      this.lastCampaign = campaign;
+      this.lastTarget = target;
       const generation = ++this.generation;
       this.share.set(null);
-      this.logo.set('');
+      if (changed) this.logo.set('');
       ++this.logoGeneration;
       this.logoLoading.set(false);
       this.printing.set(false);
       this.notice.set('');
       this.error.set('');
       this.unavailable.set(false);
-      this.loading.set(true);
+      this.loading.set(!suspended);
+      if (suspended) return;
       const subscription = this.api.read<AqQrShareData>('survey-campaigns/' + aqSegment(campaign) + '/qr-share',
         { targetId: target }).subscribe({
         next: value => {
@@ -78,17 +87,18 @@ export class AqQrShare {
         ++this.generation;
         ++this.logoGeneration;
         subscription.unsubscribe();
+        if (this.projection) this.closeProjection(this.projection);
       });
     });
   }
 
   protected refresh(): void {
-    this.refreshVersion.update(version => version + 1);
+    if (!this.suspended()) this.refreshVersion.update(version => version + 1);
   }
 
   protected async copyUrl(): Promise<void> {
     const share = this.share();
-    if (!share) return;
+    if (!share || this.suspended()) return;
     const generation = this.generation;
     this.clearMessages();
     try {
@@ -101,7 +111,7 @@ export class AqQrShare {
 
   protected async copyQr(): Promise<void> {
     const share = this.share();
-    if (!share) return;
+    if (!share || this.suspended()) return;
     const generation = this.generation;
     this.clearMessages();
     try {
@@ -113,16 +123,27 @@ export class AqQrShare {
   }
 
   protected showProjection(dialog: HTMLDialogElement): void {
-    if (!this.share() || dialog.open) return;
-    dialog.showModal();
+    if (!this.share() || this.suspended() || dialog.open) return;
+    try {
+      dialog.showModal();
+      this.projection = dialog;
+    } catch {
+      this.error.set('投影表示を開始できませんでした。QR画像をご利用ください。');
+      return;
+    }
     // The modal covers the viewport even if the browser denies fullscreen.
-    void dialog.requestFullscreen?.().then(() => {
-      if (!dialog.open && document.fullscreenElement === dialog) void document.exitFullscreen().catch(() => undefined);
-    }).catch(() => undefined);
+    if (typeof dialog.requestFullscreen === 'function') {
+      void dialog.requestFullscreen().then(() => {
+        if ((!dialog.open || this.projection !== dialog) && document.fullscreenElement === dialog) {
+          void document.exitFullscreen().catch(() => undefined);
+        }
+      }).catch(() => undefined);
+    }
   }
 
   protected closeProjection(dialog: HTMLDialogElement): void {
     if (document.fullscreenElement === dialog) void document.exitFullscreen().catch(() => undefined);
+    if (this.projection === dialog) this.projection = null;
     if (dialog.open) dialog.close();
   }
 
@@ -130,7 +151,7 @@ export class AqQrShare {
     const control = event.target as HTMLInputElement;
     const file = control.files?.[0];
     control.value = '';
-    if (!file) return;
+    if (!file || this.suspended()) return;
     const generation = ++this.logoGeneration;
     this.clearMessages();
     this.logo.set('');
@@ -154,7 +175,7 @@ export class AqQrShare {
 
   protected async downloadPoster(): Promise<void> {
     const share = this.share();
-    if (!share || this.printing() || this.logoLoading()) return;
+    if (!share || this.suspended() || this.printing() || this.logoLoading()) return;
     const generation = this.generation;
     const logoGeneration = this.logoGeneration;
     this.clearMessages();
