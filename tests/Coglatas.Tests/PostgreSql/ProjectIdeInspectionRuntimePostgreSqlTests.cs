@@ -51,6 +51,38 @@ public sealed class ProjectIdeInspectionRuntimePostgreSqlTests
     });
 
     [PostgreSqlFact]
+    public Task ProfilePreservesAnAdmittedPrefixAndWithholdsDistinctSourceContributions() => WithRuntimeAsync(async fixture =>
+    {
+        var input = fixture.Plan.Input;
+        var prefix = ProjectSimulation.Execute(new(fixture.Plan, Guid.NewGuid(), limits: new(MaximumEvents: 3)), input.InputDigest);
+        fixture.Recordings.Simulation = prefix;
+        var prefixReference = Reference(input, prefix.Manifest.RunId, prefix.Digest);
+
+        var view = Assert.IsType<ProjectIdeModelProfileView>(await fixture.Runtime.QueryProfileAsync(prefixReference, 3));
+        Assert.Equal(SimulationTraceProfileState.Incomplete, view.State);
+        Assert.Equal(CompilerExecutionState.ResourceExhausted, view.Execution);
+        Assert.Equal(CompilerCoverage.Partial, view.Coverage);
+        Assert.Equal(2, view.ElapsedVirtualTicks);
+        Assert.Equal(1, view.OpenTasks);
+        Assert.Equal(view, await fixture.Runtime.ExportProfileAsync(prefixReference, 3));
+
+        var graph = CompilerBindingClosureTests.Graph(withRelation: true, twoBVersions: true);
+        var multiSourceInput = CompilerExecutionPlanTests.Request(graph.Input);
+        Assert.Equal(input.Source.Context, multiSourceInput.Source.Context);
+        var publication = PureCoreCompiler.Compile(multiSourceInput, multiSourceInput.Compiler, graph.Snapshots).Publication;
+        var multiSourcePlan = Assert.IsType<CompilerExecutionPlan>(publication?.ExecutionPlan);
+        Assert.Contains(multiSourcePlan.Scope.Regions, region => region.Binding.Source.ProjectId != multiSourceInput.Source.ProjectId);
+        var multiSourceRun = ProjectSimulation.Execute(new(multiSourcePlan, Guid.NewGuid()), multiSourceInput.InputDigest);
+        Assert.Equal(CompilerExecutionState.Completed, multiSourceRun.Execution);
+        Assert.NotEmpty(multiSourceRun.Events);
+        fixture.Recordings.Simulation = multiSourceRun;
+        var multiSourceReference = Reference(multiSourceInput, multiSourceRun.Manifest.RunId, multiSourceRun.Digest);
+
+        Assert.Null(await fixture.Runtime.QueryProfileAsync(multiSourceReference, multiSourceRun.Events.Count));
+        Assert.Null(await fixture.Runtime.ExportProfileAsync(multiSourceReference, multiSourceRun.Events.Count));
+    });
+
+    [PostgreSqlFact]
     public Task OutputBindsOriginalCaptureAndLimitsReadsExportsAndDeletion() => WithRuntimeAsync(async fixture =>
     {
         var input = fixture.Plan.Input;
