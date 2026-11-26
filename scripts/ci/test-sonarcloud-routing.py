@@ -558,6 +558,14 @@ class SonarParallelCoverageTests(unittest.TestCase):
         "Angular": (
             "frontend/coverage/frontend/lcov.info",
         ),
+        "DotNet": (
+            "artifacts/sonar-dotnet/verified.opencover.xml",
+            "artifacts/sonar-dotnet/receipt.json",
+            "artifacts/sonar-dotnet/backend-tests.trx",
+            "artifacts/sonar-dotnet/deterministic-source-roots.original",
+            "artifacts/sonar-dotnet/binary-provenance.json",
+            "artifacts/sonar-dotnet/pre-test-rebuild/outputs.json",
+        ),
     }
 
     @staticmethod
@@ -588,10 +596,10 @@ class SonarParallelCoverageTests(unittest.TestCase):
     def test_parallel_producers_are_required_and_credential_free(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
         scanner = self.job(workflow, "sonarcloud")
-        self.assertIn("needs: [target, windows-dotnet, python-coverage, javascript-coverage, angular-coverage]", scanner)
+        self.assertIn("needs: [target, windows-dotnet, python-coverage, javascript-coverage, angular-coverage, dotnet-coverage]", scanner)
         self.assertIn("environment: sonarcloud-analysis", scanner)
         self.assertNotIn("if: always()", scanner.split("    steps:", 1)[0])
-        for name in ("windows-dotnet", "python-coverage", "javascript-coverage", "angular-coverage"):
+        for name in ("windows-dotnet", "python-coverage", "javascript-coverage", "angular-coverage", "dotnet-coverage"):
             producer = self.job(workflow, name)
             self.assertIn("    needs: target", producer)
             self.assertIn("    permissions:\n      contents: read", producer)
@@ -632,7 +640,24 @@ class SonarParallelCoverageTests(unittest.TestCase):
         self.assertNotIn("npm --prefix frontend run test:coverage", scanner)
         self.assertNotIn("python3 -B -m coverage run", scanner)
         self.assertIn("Build inside the SonarScanner begin/end interval", scanner)
-        self.assertIn("Generate .NET coverage without analysis credentials", scanner)
+        dotnet = self.job(workflow, "dotnet-coverage")
+        self.assertIn("Generate .NET coverage without analysis credentials", dotnet)
+        self.assertNotIn("Generate .NET coverage without analysis credentials", scanner)
+        self.assertIn("Build fresh deterministic Ubuntu coverage binaries", dotnet)
+        self.assertIn("Verify executed tests and production coverage before publication", dotnet)
+        self.assertIn("Retain .NET coverage and source receipt", dotnet)
+        self.assertIn("Verify PostgreSQL diagnostic privacy", dotnet)
+        self.assertNotIn("services:", scanner)
+        self.assertNotIn("dotnet test ", scanner)
+        self.assertIn("          path: artifacts/sonar-dotnet\n", scanner.split(
+            "- name: Download DotNet scanner inputs from this attempt", 1
+        )[1].split("- name: Verify DotNet coverage handoff", 1)[0])
+        self.assertLess(scanner.index("Validate native Ubuntu coverage receipt before scanner credentials"),
+                        scanner.index("Begin pinned SonarCloud analysis"))
+        self.assertLess(scanner.index("Build inside the SonarScanner begin/end interval"),
+                        scanner.index("Require scanner build to match measured Ubuntu production binaries"))
+        self.assertLess(scanner.index("Require scanner build to match measured Ubuntu production binaries"),
+                        scanner.index("Publish SonarCloud report"))
 
     def test_real_handoff_shell_rejects_stale_or_tampered_inputs(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")

@@ -219,5 +219,118 @@ class CoverageTests(unittest.TestCase):
                     MODULE.verify_report(self.report, self.root)
 
 
+    def parallel_fixture(self):
+        for args in (["init", "--quiet"], ["add", "src"],
+                     ["-c", "user.name=Coverage control", "-c",
+                      "user.email=coverage@example.test", "-c", "commit.gpgsign=false",
+                      "commit", "--quiet", "-m", "Synthetic coverage fixture"]):
+            subprocess.run(["git", *args], cwd=self.root, check=True, capture_output=True)
+        sha = subprocess.check_output(["git", "rev-parse", "HEAD"],
+                                      cwd=self.root, text=True).strip()
+        tree = subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"],
+                                       cwd=self.root, text=True).strip()
+        native = MODULE._native_verifier()
+        folder = self.root / "artifacts/sonar-dotnet"
+        folder.mkdir(parents=True)
+        self.write_report()
+        report = folder / "verified.opencover.xml"
+        report.write_bytes(self.report.read_bytes())
+        receipt = MODULE.verify_report(report, self.root)
+        receipt.update(sourceSha=sha, treeSha=tree,
+                       scope="DOTNET_COVERAGE_IMPORT_ONLY_NOT_RELEASE_ACCEPTANCE")
+        (folder / "receipt.json").write_text(json.dumps(receipt))
+        trx = b"synthetic TRX fixture for handoff binding"
+        mapping = b"synthetic source mapping"
+        (folder / "backend-tests.trx").write_bytes(trx)
+        (folder / "deterministic-source-roots.original").write_bytes(mapping)
+        digests = {}
+        for name, project in native.ASSEMBLIES.items():
+            for ext in ("dll", "pdb"):
+                output = "bin/Release/net11.0/" + name + "." + ext
+                data = (name + ext + sha).encode()
+                for prefix in (project, "tests/Coglatas.Tests"):
+                    path = self.root / prefix / output
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(data)
+                digests["assemblies/" + name + "." + ext] = native.digest(data)
+        mapping_path = self.root / "tests/Coglatas.Tests/bin/Release/net11.0/CoverletSourceRootsMapping_Coglatas.Tests"
+        mapping_path.write_bytes(mapping)
+        (folder / "pre-test-rebuild").mkdir()
+        (folder / "pre-test-rebuild/outputs.json").write_text(
+            json.dumps(dict(sourceSha=sha, artifacts=digests)))
+        executed = dict(sourceSha=sha, runId="100", attempt="1",
+                        productionBinariesUnchanged=True,
+                        trxSha256=native.digest(trx), sourceMappingSha256=native.digest(mapping),
+                        executedArtifacts=digests.copy())
+        executed["executedArtifacts"]["assemblies/Coglatas.Tests.dll"] = "0" * 64
+        (folder / "binary-provenance.json").write_text(json.dumps(executed))
+        return folder, sha
+
+    def test_parallel_handoff_requires_exact_execution_and_scanner_build(self):
+        folder, sha = self.parallel_fixture()
+        MODULE.verify_parallel_handoff(self.root, folder, sha, "100", "1")
+        MODULE.verify_parallel_handoff(self.root, folder, sha, "100", "1", compare_build=True)
+        for identity in (("0" * 40, "100", "1"), (sha, "101", "1"),
+                         (sha, "100", "2"), (sha, "0", "1")):
+            with self.subTest(identity=identity), self.assertRaises(ValueError):
+                MODULE.verify_parallel_handoff(self.root, folder, *identity)
+
+    def test_parallel_handoff_rejects_receipt_and_native_evidence_changes(self):
+        folder, sha = self.parallel_fixture()
+        for name in ("verified.opencover.xml", "backend-tests.trx",
+                     "deterministic-source-roots.original", "receipt.json",
+                     "pre-test-rebuild/outputs.json", "binary-provenance.json"):
+            path = folder / name
+            original = path.read_bytes()
+            with self.subTest(name=name):
+                path.write_bytes(b"")
+                with self.assertRaises(ValueError):
+                    MODULE.verify_parallel_handoff(self.root, folder, sha, "100", "1")
+                path.write_bytes(original)
+        for name in ("verified.opencover.xml", "backend-tests.trx",
+                     "deterministic-source-roots.original"):
+            path = folder / name
+            original = path.read_bytes()
+            with self.subTest(name=name):
+                path.write_bytes(original + b" ")
+                with self.assertRaises(ValueError):
+                    MODULE.verify_parallel_handoff(self.root, folder, sha, "100", "1")
+                path.write_bytes(original)
+        path = folder / "binary-provenance.json"
+        original = path.read_bytes()
+        for key, replacement in (
+            ("productionBinariesUnchanged", False),
+            ("executedArtifacts", {}),
+            ("sourceMappingSha256", "1" * 64),
+            ("executedArtifacts", json.loads(original)["executedArtifacts"] |
+             {"assemblies/Coglatas.Domain.dll": "1" * 64}),
+        ):
+            with self.subTest(key=key):
+                value = json.loads(original)
+                value[key] = replacement
+                path.write_text(json.dumps(value))
+                with self.assertRaises(ValueError):
+                    MODULE.verify_parallel_handoff(self.root, folder, sha, "100", "1")
+        path.write_bytes(original)
+        MODULE.verify_parallel_handoff(self.root, folder, sha, "100", "1")
+
+    def test_parallel_handoff_rejects_scanner_binary_copy_and_mapping_mismatches(self):
+        folder, sha = self.parallel_fixture()
+        paths = (
+            "src/Coglatas.Domain/bin/Release/net11.0/Coglatas.Domain.dll",
+            "tests/Coglatas.Tests/bin/Release/net11.0/Coglatas.Domain.pdb",
+            "tests/Coglatas.Tests/bin/Release/net11.0/CoverletSourceRootsMapping_Coglatas.Tests",
+        )
+        for name in paths:
+            path = self.root / name
+            original = path.read_bytes()
+            with self.subTest(name=name):
+                path.write_bytes(original + b"changed")
+                with self.assertRaises(ValueError):
+                    MODULE.verify_parallel_handoff(self.root, folder, sha, "100", "1", compare_build=True)
+                path.write_bytes(original)
+        MODULE.verify_parallel_handoff(self.root, folder, sha, "100", "1", compare_build=True)
+
+
 if __name__ == "__main__":
     unittest.main()
