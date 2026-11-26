@@ -41,8 +41,44 @@ public sealed class TaskDeadlineDigestWorkerTests
         Assert.Equal(
             new[] { failedClaim.JobId, succeedingClaim.JobId }.Order(),
             state.GenerationCalls.Select(call => call.JobId).Order());
-        Assert.Equal([failedClaim.JobId], state.FailureCalls.Select(call => call.JobId));
+        Assert.All(state.GenerationCalls, call => Assert.Equal(processingTenantId, call.TenantId));
+        var failure = Assert.Single(state.FailureCalls);
+        Assert.Equal(failedClaim.JobId, failure.JobId);
+        Assert.Equal(processingTenantId, failure.TenantId);
+        Assert.Equal(TaskDeadlineDigestErrorCodes.GenerationTimeout, failure.ErrorCode);
         Assert.Equal([succeedingClaim.JobId], state.SucceededGenerationJobIds);
+    }
+
+    [Fact]
+    public async Task CancellationDuringTenantSchedulingPropagatesAndStopsLaterTenants()
+    {
+        var tenantId = Guid.NewGuid();
+        var laterTenantId = Guid.NewGuid();
+        using var cancellation = new CancellationTokenSource();
+        var state = new WorkerState
+        {
+            CancelDuringSchedulingTenantId = tenantId,
+            CancellationSource = cancellation
+        };
+        state.TenantIds.AddRange([tenantId, laterTenantId]);
+        state.ClaimsByTenant[tenantId] = [CreateClaim(tenantId)];
+        state.ClaimsByTenant[laterTenantId] = [CreateClaim(laterTenantId)];
+        await using var provider = BuildProvider(state);
+        var logger = new RecordingLogger<TaskDeadlineDigestWorker>();
+        using var worker = CreateWorker(provider, logger, new TaskDeadlineDigestWorkerOptions());
+
+        var exception = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => worker.RunOnceAsync(cancellation.Token));
+
+        Assert.Equal(cancellation.Token, exception.CancellationToken);
+        Assert.True(cancellation.IsCancellationRequested);
+        var scheduled = Assert.Single(state.SchedulerCalls);
+        Assert.Equal(tenantId, scheduled.TenantId);
+        Assert.Equal(new TaskDeadlineDigestWorkerOptions().ToRunSettings(), scheduled.Settings);
+        Assert.Empty(state.GenerationCalls);
+        Assert.Empty(state.FailureCalls);
+        Assert.Empty(state.SucceededGenerationJobIds);
+        Assert.Empty(logger.Entries);
     }
 
     [Fact]
@@ -138,6 +174,7 @@ public sealed class TaskDeadlineDigestWorkerTests
             [(scheduleHeavyTenantId, 500), (scheduleHeavyTenantId, 1)],
             state.UpsertRequests);
         Assert.Equal(101, state.ClaimRequests.Count);
+        Assert.Equal(tenantIds, state.ClaimRequests.Select(request => request.TenantId));
         Assert.All(state.ClaimRequests, request =>
         {
             Assert.Equal(100, request.BatchSize);
@@ -171,6 +208,8 @@ public sealed class TaskDeadlineDigestWorkerTests
         await worker.RunOnceAsync();
 
         Assert.Equal(3, logger.Entries.Count);
+        Assert.Equal([LogLevel.Warning, LogLevel.Warning, LogLevel.Error],
+            logger.Entries.Select(entry => entry.Level));
         Assert.All(logger.Entries, entry => Assert.Null(entry.Exception));
         var errorCodes = logger.Entries
             .SelectMany(entry => entry.Properties)
@@ -285,6 +324,9 @@ public sealed class TaskDeadlineDigestWorkerTests
             cancellationToken.ThrowIfCancellationRequested();
             var tenantId = currentTenant.TenantId;
             state.SchedulerCalls.Add(new SchedulerCall(tenantId, settings));
+            if (state.CancelDuringSchedulingTenantId == tenantId)
+                state.CancellationSource!.Cancel();
+            cancellationToken.ThrowIfCancellationRequested();
             if (state.SchedulerFailures.TryGetValue(tenantId, out var exception))
                 throw exception;
             return Task.FromResult(
@@ -511,6 +553,7 @@ public sealed class TaskDeadlineDigestWorkerTests
         public ConcurrentQueue<GenerationCall> GenerationCalls { get; } = [];
         public ConcurrentQueue<FailureCall> FailureCalls { get; } = [];
         public ConcurrentQueue<Guid> SucceededGenerationJobIds { get; } = [];
+        public Guid? CancelDuringSchedulingTenantId { get; init; }
         public Guid? CancelDuringGenerationJobId { get; init; }
         public CancellationTokenSource? CancellationSource { get; init; }
         public GenerationStartGate? GenerationStartGate { get; init; }
