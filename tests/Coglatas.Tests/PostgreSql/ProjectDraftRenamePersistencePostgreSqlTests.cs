@@ -57,6 +57,7 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
                     .UseNpgsql(connection).AddInterceptors(afterFlush).Options, currentTenant);
                 var viewer = new Viewer(user.Id, session.Id);
                 var clock = new Clock();
+                var auditClock = new Clock();
                 var outbox = new FixtureOutbox(requestDb);
                 var materializations = new FixtureMaterializations(draft.CapturedTargetHead);
                 ProjectDraftRenameService CreateService(AppDbContext context, FixtureOutbox events)
@@ -64,7 +65,7 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
                     var access = new ProjectIdeOperationAccess(new ProjectIdeViewerContextReader(viewer, currentTenant,
                         new SessionRepository(context), new TenantRepository(context), clock), new FixtureAuthority(draft, input.Source.Digest));
                     var store = new ProjectDraftRenameStore(context, materializations,
-                        new FixtureAudit(new DbAuditLogger(context, clock, viewer, currentTenant)), events);
+                        new FixtureAudit(new DbAuditLogger(context, auditClock, viewer, currentTenant)), events);
                     return new ProjectDraftRenameService(access, store, new EfCreateIdempotencyCoordinator(context));
                 }
 
@@ -85,6 +86,16 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
                 Assert.Empty(await seed.OutboxEvents.AsNoTracking().ToListAsync());
 
                 outbox.Accept = true;
+                var auditFailure = new InvalidOperationException("Synthetic Draft Rename audit staging failure.");
+                auditClock.Failure = auditFailure;
+                Assert.Same(auditFailure, await Assert.ThrowsAsync<InvalidOperationException>(() => service.SaveAsync(command)));
+                auditClock.Failure = null;
+                Assert.False(requestDb.ChangeTracker.HasChanges());
+                Assert.Equal(1, await CandidateCount(connection));
+                Assert.Empty(await seed.IdempotencyRecords.AsNoTracking().ToListAsync());
+                Assert.Empty(await seed.AuditLogs.AsNoTracking().ToListAsync());
+                Assert.Empty(await seed.OutboxEvents.AsNoTracking().ToListAsync());
+
                 using (var cancelled = new CancellationTokenSource())
                 {
                     outbox.CancelDuringStage = cancelled;
@@ -269,6 +280,8 @@ public sealed class ProjectDraftRenamePersistencePostgreSqlTests
 
     private sealed class Clock : IClock
     {
-        public DateTimeOffset UtcNow => Now;
+        public Exception? Failure { get; set; }
+
+        public DateTimeOffset UtcNow => Failure is { } failure ? throw failure : Now;
     }
 }
