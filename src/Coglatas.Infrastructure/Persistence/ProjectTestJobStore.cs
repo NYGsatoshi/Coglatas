@@ -68,11 +68,15 @@ public sealed class ProjectTestJobStore(AppDbContext db) : IProjectTestJobStore
             WHERE tenant_id = {key.Branch.TenantId.Value} AND project_id = {key.Branch.ProjectId.Value}
                 AND branch_id = {key.Branch.BranchId.Value} AND job_id = {key.JobId} AND state = 0
             """, cancellationToken);
-        if (changed != 1 || !await reauthorize(cancellationToken) || !CanAccess(key))
+        if (changed != 1)
+            return null;
+
+        var persisted = await ReadAsync(key, forUpdate: false, cancellationToken);
+        if (persisted is null || !await reauthorize(cancellationToken) || !CanAccess(key))
             return null;
 
         await transaction.CommitAsync(cancellationToken);
-        return terminal;
+        return persisted;
     }
 
     private async Task<ProjectTestJob?> ReadAsync(ProjectTestJobKey key, bool forUpdate, CancellationToken cancellationToken)

@@ -40,9 +40,10 @@ public sealed class ProjectTestRuntimePostgreSqlTests
                 Assert.Null(await runtime.FindAsync(fixture.Key));
             }
 
+            ProjectTestJobView finished;
             await using (var second = fixture.Open())
             {
-                var finished = Assert.IsType<ProjectTestJobView>(await fixture.Runtime(second).ExecuteAsync(fixture.Key));
+                finished = Assert.IsType<ProjectTestJobView>(await fixture.Runtime(second).ExecuteAsync(fixture.Key));
                 Assert.Equal(ProjectTestJobState.Completed, finished.State);
                 Assert.Null(finished.Result);
             }
@@ -50,9 +51,11 @@ public sealed class ProjectTestRuntimePostgreSqlTests
             await using (var third = fixture.Open())
             {
                 var runtime = fixture.Runtime(third);
+                Assert.Equal(finished, await runtime.ExecuteAsync(fixture.Key));
                 Assert.Null(await runtime.ExportAsync(fixture.Key));
                 fixture.Policy.Allowed.Add(ProjectTestRuntime.ReadOperation);
                 var visible = Assert.IsType<ProjectTestJobView>(await runtime.FindAsync(fixture.Key));
+                Assert.Equal(finished.TerminalAtUtc, visible.TerminalAtUtc);
                 var result = Assert.IsType<ProjectTestResultSummary>(visible.Result);
                 Assert.Equal(CompilerVerdict.Pass, result.Verdict);
                 Assert.Equal(CompilerCoverage.Complete, result.Coverage);
@@ -104,7 +107,7 @@ public sealed class ProjectTestRuntimePostgreSqlTests
             Assert.Equal(ProjectTestJobState.Cancelled, cancelled.State);
             resume.SetResult();
             var observed = Assert.IsType<ProjectTestJobView>(await executing);
-            Assert.Equal(ProjectTestJobState.Cancelled, observed.State);
+            Assert.Equal(cancelled, observed);
             Assert.Null(observed.Result);
             Assert.Null(await runtime.ExportAsync(fixture.Key, bound.Token));
         });
@@ -232,6 +235,6 @@ public sealed class ProjectTestRuntimePostgreSqlTests
 
     private sealed class FixedClock : IClock
     {
-        public DateTimeOffset UtcNow => Now;
+        public DateTimeOffset UtcNow => Now.AddTicks(1);
     }
 }
