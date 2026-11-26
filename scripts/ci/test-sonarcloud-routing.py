@@ -544,5 +544,144 @@ class SonarSourceScopeTests(unittest.TestCase):
         self.assertNotIn("sonar.scm.exclusions.disabled", settings)
 
 
+class SonarParallelCoverageTests(unittest.TestCase):
+    REPORTS = {
+        "Python": (
+            "artifacts/sonar-python/coverage.xml",
+            "artifacts/sonar-gcp/coverage.xml",
+        ),
+        "JavaScript": (
+            "artifacts/sonar-node/lcov.info",
+            "artifacts/sonar-pilot-helper/lcov.info",
+            "artifacts/sonar-operational/c8/lcov.info",
+            "frontend/coverage/frontend/lcov.info",
+        ),
+    }
+
+    @staticmethod
+    def job(workflow: str, name: str) -> str:
+        import re
+        match = re.search(r"(?ms)^  " + re.escape(name) + r":\n(.*?)(?=^  [a-z][\w-]*:\n|\Z)", workflow)
+        if match is None:
+            raise AssertionError("Missing job: " + name)
+        return match.group(1)
+
+    @staticmethod
+    def shell(workflow: str, name: str) -> str:
+        lines = workflow.splitlines()
+        anchor = lines.index("      - name: " + name)
+        start = lines.index("        run: |", anchor + 1)
+        body = []
+        for line in lines[start + 1:]:
+            if line.startswith("          "):
+                body.append(line[10:])
+            elif not line.strip():
+                body.append("")
+            else:
+                break
+        if not body:
+            raise AssertionError("Missing shell for " + name)
+        return "\n".join(body)
+
+    def test_parallel_producers_are_required_and_credential_free(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        scanner = self.job(workflow, "sonarcloud")
+        self.assertIn("needs: [target, windows-dotnet, python-coverage, javascript-coverage]", scanner)
+        self.assertIn("environment: sonarcloud-analysis", scanner)
+        self.assertNotIn("if: always()", scanner.split("    steps:", 1)[0])
+        for name in ("windows-dotnet", "python-coverage", "javascript-coverage"):
+            producer = self.job(workflow, name)
+            self.assertIn("    needs: target", producer)
+            self.assertIn("    permissions:\n      contents: read", producer)
+            self.assertNotIn("environment: sonarcloud-analysis", producer)
+            self.assertNotIn("secrets.", producer)
+            self.assertNotIn("SONAR_TOKEN", producer)
+        self.assertEqual(scanner.count("secrets.SONAR_TOKEN"), 2)
+        for kind, reports in self.REPORTS.items():
+            with self.subTest(kind=kind):
+                producer_id = kind.lower() + "-coverage"
+                producer = self.job(workflow, producer_id)
+                name = "sonar-" + kind.lower() + "-handoff-${{ github.run_attempt }}"
+                self.assertIn("name: " + name, producer)
+                self.assertIn("name: " + name, scanner)
+                self.assertIn("needs." + producer_id + ".outputs.digest", scanner)
+                self.assertIn("steps.handoff.outputs.digest", producer)
+                self.assertLess(
+                    scanner.index("Verify " + kind + " coverage handoff before scanner credentials"),
+                    scanner.index("Begin pinned SonarCloud analysis"),
+                )
+                for report in reports:
+                    self.assertIn("            " + report, producer)
+                    self.assertIn(report, scanner)
+        self.assertNotIn("npm --prefix frontend run test:coverage", scanner)
+        self.assertNotIn("python3 -B -m coverage run", scanner)
+        self.assertIn("Build inside the SonarScanner begin/end interval", scanner)
+        self.assertIn("Generate .NET coverage without analysis credentials", scanner)
+
+    def test_real_handoff_shell_rejects_stale_or_tampered_inputs(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        for kind, reports in self.REPORTS.items():
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+                subprocess.run(
+                    ["git", "-c", "user.name=CI", "-c", "user.email=ci@example.invalid",
+                     "-c", "commit.gpgsign=false", "commit", "-q", "--allow-empty", "-m", "fixture"],
+                    cwd=root, check=True,
+                )
+                sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+                output = root / "github-output"
+                env = os.environ | {
+                    "GITHUB_SHA": sha,
+                    "GITHUB_RUN_ID": "100",
+                    "GITHUB_RUN_ATTEMPT": "1",
+                    "GITHUB_WORKSPACE": str(root),
+                    "GITHUB_OUTPUT": str(output),
+                }
+                for index, report in enumerate(reports):
+                    path = root / report
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(("native fixture " + str(index)).encode())
+                produce = self.shell(workflow, "Bind " + kind + " coverage handoff to exact execution")
+                verify = self.shell(workflow, "Verify " + kind + " coverage handoff before scanner credentials")
+
+                def invoke(script, values):
+                    return subprocess.run(
+                        ["bash", "-c", script], cwd=root, env=values,
+                        text=True, capture_output=True, check=False, timeout=15,
+                    )
+
+                result = invoke(produce, env)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                value = output.read_text().strip()
+                self.assertRegex(value, r"^digest=[0-9a-f]{64}$")
+                accepted = env | {"EXPECTED_DIGEST": value.split("=", 1)[1]}
+                result = invoke(verify, accepted)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                for key, invalid in (
+                    ("GITHUB_SHA", "0" * 40),
+                    ("GITHUB_RUN_ID", "101"),
+                    ("GITHUB_RUN_ATTEMPT", "2"),
+                    ("GITHUB_WORKSPACE", str(root / "other")),
+                    ("EXPECTED_DIGEST", ""),
+                    ("EXPECTED_DIGEST", "0" * 64),
+                ):
+                    self.assertNotEqual(invoke(verify, accepted | {key: invalid}).returncode, 0, key)
+                report = root / reports[0]
+                original = report.read_bytes()
+                for changed in (b"modified", b""):
+                    report.write_bytes(changed)
+                    self.assertNotEqual(invoke(verify, accepted).returncode, 0)
+                report.unlink()
+                self.assertNotEqual(invoke(verify, accepted).returncode, 0)
+                other = root / "substitute"
+                other.write_bytes(original)
+                report.symlink_to(other)
+                self.assertNotEqual(invoke(verify, accepted).returncode, 0)
+                report.unlink()
+                report.write_bytes(original)
+                self.assertEqual(invoke(verify, accepted).returncode, 0)
+
+
 if __name__ == "__main__":
     unittest.main()
