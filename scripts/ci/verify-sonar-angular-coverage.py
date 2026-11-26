@@ -14,9 +14,8 @@ import subprocess
 import time
 
 ROOT = Path(__file__).resolve().parents[2]
-LANES = ("baseline", "collaboration", "remaining")
-COLLABORATION = tuple("frontend/src/app/features/" + name + "/"
-                      for name in ("projects", "messaging", "files"))
+LANES = ("baseline", "shard-1", "shard-2")
+SHARDS = {"baseline": None, "shard-1": "1/2", "shard-2": "2/2"}
 LCOV = "frontend/coverage/frontend/lcov.info"
 INPUTS = ("frontend/package.json", "frontend/package-lock.json",
           "frontend/angular.json", "frontend/vitest.config.ts")
@@ -78,26 +77,23 @@ def spec_inventory(tracked: set[str]) -> set[str]:
     return specs
 
 
-def selection(lane: str, specs: set[str]) -> list[str]:
-    if lane not in LANES:
+def runner_shard(lane: str) -> str | None:
+    if lane not in SHARDS:
         raise ValueError("Unknown Angular qualification lane")
-    group = {name for name in specs if name.startswith(COLLABORATION)}
-    remainder = specs - group
-    if not group or not remainder:
-        raise ValueError("Empty Angular partition")
-    return sorted({"baseline": specs, "collaboration": group,
-                   "remaining": remainder}[lane])
+    return SHARDS[lane]
 
 
 def command(root: Path, lane: str, specs: set[str]) -> list[str]:
+    if not specs:
+        raise ValueError("Empty Angular test inventory")
     args = ["npm", "--prefix", "frontend", "run", "test:coverage", "--",
             "--reporters=json",
             "--output-file=" + str(root / "artifacts/sonar-angular-proof/tests.json")]
-    # Angular's own default discovery remains the unfiltered baseline.
-    # Use individually tracked paths, not a second test runner or a fuzzy filter.
-    if lane != "baseline":
-        args.extend("--include=" + name.removeprefix("frontend/")
-                    for name in selection(lane, specs))
+    # Do not filter builder entry points: doing so changes shared chunks and
+    # Istanbul's branch identity. Let the runner partition the full build.
+    shard = runner_shard(lane)
+    if shard is not None:
+        args.append("--runner-args=--shard=" + shard)
     return args
 
 
@@ -122,7 +118,7 @@ def source_identity(name: str, root: Path, tracked: set[str]) -> str:
     return relative
 
 
-def test_inventory(raw: bytes, root: Path, expected: set[str]) -> Counter:
+def test_inventory(raw: bytes, root: Path, expected: set[str], *, exact: bool = True) -> Counter:
     report = json.loads(raw)
     if report.get("success") is not True or report.get("numFailedTests") != 0:
         raise ValueError("Native Angular execution did not pass")
@@ -143,7 +139,8 @@ def test_inventory(raw: bytes, root: Path, expected: set[str]) -> Counter:
                     or any(not isinstance(value, str) for value in ancestors)):
                 raise ValueError("Skipped, failed or unidentified native test: " + source)
             tests[(source, tuple(ancestors), title)] += 1
-    if files != expected:
+    if (not files or not files.issubset(expected)
+            or (exact and files != expected)):
         raise ValueError("Angular test file set differs from selected tracked inventory")
     if (not tests or report.get("numTotalTests") != sum(tests.values())
             or report.get("numPassedTests") != sum(tests.values())
@@ -277,7 +274,7 @@ def collect(lane: str) -> None:
     identity = checkout_identity(ROOT)
     tracked = tracked_frontend(ROOT)
     specs = spec_inventory(tracked)
-    expected = selection(lane, specs)
+    shard = runner_shard(lane)
     folder = ROOT / "artifacts/sonar-angular-proof"
     folder.mkdir(parents=True, exist_ok=False)
     if (ROOT / LCOV).exists():
@@ -290,9 +287,11 @@ def collect(lane: str) -> None:
     report = owned_bytes(ROOT, LCOV)
     # Retain exact bytes, even if native validation fails.
     (folder / "lcov.info").write_bytes(report)
-    tests = test_inventory(owned_bytes(folder, "tests.json"), ROOT, set(expected))
+    tests = test_inventory(owned_bytes(folder, "tests.json"), ROOT, specs,
+                           exact=lane == "baseline")
     points = native_lcov(report, ROOT, tracked)
-    receipt = {**identity, "lane": lane, "selection": expected,
+    receipt = {**identity, "lane": lane, "runnerShard": shard,
+               "selection": sorted({key[0] for key in tests}),
                "testSeconds": elapsed, "passedTests": sum(tests.values()),
                "coverageFiles": len(points), "hashes": {
                    name: sha256(owned_bytes(folder, name)) for name in ARTIFACTS}}
@@ -315,16 +314,19 @@ def compare() -> None:
         if folder.is_symlink() or {path.name for path in folder.iterdir()} != {"receipt.json", *ARTIFACTS}:
             raise ValueError("Invalid Angular artifact contents")
         receipt = json.loads(owned_bytes(folder, "receipt.json"))
-        expected = selection(lane, specs)
         if (any(receipt.get(key) != value for key, value in identity.items())
-                or receipt.get("lane") != lane or receipt.get("selection") != expected
+                or receipt.get("lane") != lane
+                or receipt.get("runnerShard") != runner_shard(lane)
                 or receipt.get("hashes") != {name: sha256(owned_bytes(folder, name))
                                               for name in ARTIFACTS}):
             raise ValueError("Angular artifact identity or digest mismatch")
         seconds = receipt.get("testSeconds")
         if type(seconds) not in (int, float) or not 0 < seconds < 2700:
             raise ValueError("Invalid Angular lane duration")
-        tests = test_inventory(owned_bytes(folder, "tests.json"), ROOT, set(expected))
+        tests = test_inventory(owned_bytes(folder, "tests.json"), ROOT, specs,
+                               exact=lane == "baseline")
+        if receipt.get("selection") != sorted({key[0] for key in tests}):
+            raise ValueError("Angular lane test selection receipt differs")
         points = native_lcov(owned_bytes(folder, "lcov.info"), ROOT, tracked)
         if receipt.get("passedTests") != sum(tests.values()) or receipt.get("coverageFiles") != len(points):
             raise ValueError("Angular lane receipt counters differ")

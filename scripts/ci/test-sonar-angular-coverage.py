@@ -28,15 +28,16 @@ class AngularProofTests(unittest.TestCase):
             file.parent.mkdir(parents=True, exist_ok=True)
             file.write_text("fixture\n")
 
-    def test_partitions_are_exact_and_baseline_is_unfiltered(self):
+    def test_runner_shards_keep_all_builder_entry_points(self):
         specs = MODULE.spec_inventory(self.tracked)
-        self.assertEqual(MODULE.selection("collaboration", specs), [self.one])
-        self.assertEqual(MODULE.selection("remaining", specs), [self.two])
-        self.assertEqual(set(MODULE.selection("baseline", specs)), specs)
         baseline = MODULE.command(self.root, "baseline", specs)
-        self.assertFalse(any(item.startswith("--include") for item in baseline))
-        self.assertEqual(MODULE.command(self.root, "collaboration", specs),
-                         baseline + ["--include=" + self.one.removeprefix("frontend/")])
+        self.assertFalse(any(item.startswith(("--include", "--runner-args")) for item in baseline))
+        self.assertEqual(MODULE.command(self.root, "shard-1", specs),
+                         baseline + ["--runner-args=--shard=1/2"])
+        self.assertEqual(MODULE.command(self.root, "shard-2", specs),
+                         baseline + ["--runner-args=--shard=2/2"])
+        with self.assertRaises(ValueError):
+            MODULE.command(self.root, "unknown", specs)
         with self.assertRaises(ValueError):
             MODULE.spec_inventory(self.tracked | {"frontend/out/untracked.spec.ts"})
 
@@ -53,6 +54,10 @@ class AngularProofTests(unittest.TestCase):
         raw = self.report(self.one)
         self.assertEqual(MODULE.test_inventory(raw, self.root, {self.one}),
                          Counter({(self.one, ("Suite",), "Case"): 1}))
+        self.assertEqual(MODULE.test_inventory(raw, self.root, {self.one, self.two}, exact=False),
+                         Counter({(self.one, ("Suite",), "Case"): 1}))
+        with self.assertRaises(ValueError):
+            MODULE.test_inventory(raw, self.root, {self.one, self.two})
         for bad in (self.report(self.two), self.report(self.one, "pending"),
                     raw.replace(b'"numTotalTests": 1', b'"numTotalTests": 2')):
             with self.assertRaises(ValueError):
@@ -83,17 +88,17 @@ class AngularProofTests(unittest.TestCase):
         two = Counter({(self.two, ("Suite",), "Case"): 1})
         a, b = ("DA", 1), ("BRDA", 1, 0, 0)
         baseline = (one + two, {self.source: {a: True, b: True}})
-        shards = {"collaboration": (one, {self.source: {a: True, b: False}}),
-                  "remaining": (two, {self.source: {a: False, b: True}})}
+        shards = {"shard-1": (one, {self.source: {a: True, b: False}}),
+                  "shard-2": (two, {self.source: {a: False, b: True}})}
         result = MODULE.compare_results(baseline, shards)
         self.assertEqual(result["passedTests"], 2)
         self.assertEqual(result["branchVisited"], 1)
         for changed in (
-            {"collaboration": shards["collaboration"]},
-            shards | {"remaining": (one, shards["remaining"][1])},
-            shards | {"remaining": (two + two, shards["remaining"][1])},
-            shards | {"remaining": (two, {self.source: {a: False, b: False}})},
-            shards | {"remaining": (two, {self.source: {a: False, b: True, ("DA", 3): False}})},
+            {"shard-1": shards["shard-1"]},
+            shards | {"shard-2": (one, shards["shard-2"][1])},
+            shards | {"shard-2": (two + two, shards["shard-2"][1])},
+            shards | {"shard-2": (two, {self.source: {a: False, b: False}})},
+            shards | {"shard-2": (two, {self.source: {a: False, b: True, ("DA", 3): False}})},
         ):
             with self.assertRaises(ValueError):
                 MODULE.compare_results(baseline, changed)
@@ -102,7 +107,7 @@ class AngularProofTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[2]
         proof = (root / ".github/workflows/sonar-angular-shard-proof.yml").read_text()
         production = (root / ".github/workflows/sonarcloud-ci.yml").read_text()
-        self.assertIn("lane: [baseline, collaboration, remaining]", proof)
+        self.assertIn("lane: [baseline, shard-1, shard-2]", proof)
         self.assertIn("needs: collect", proof)
         self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", proof)
         self.assertIn("persist-credentials: false", proof)
