@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 
 import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
-import { MessagingMentionCandidate, MessageSendState } from '../messaging.types';
+import { MessagingComposerDraftChange, MessagingComposerSend, MessagingMentionCandidate, MessageSendState } from '../messaging.types';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -15,7 +15,7 @@ import { MessagingMentionCandidate, MessageSendState } from '../messaging.types'
           id="message-draft"
           rows="1"
           data-testid="message-draft"
-          [disabled]="disabled || isSending"
+          [disabled]="(disabled && !retainLocalInput) || isSending"
           [value]="draft"
           (input)="onDraftInput($event)"
           (keydown)="onDraftKeydown($event)"
@@ -90,13 +90,17 @@ export class MessageComposerComponent implements OnChanges {
   readonly i18n = injectMessagingI18n();
   @Input() draft = '';
   @Input() disabled = false;
+  @Input() retainLocalInput = false;
+  @Input() inputBinding: object | null = null;
   @Input() sending = false;
   @Input() sendState: MessageSendState = { status: 'idle' };
   @Input() disabledReason = '';
   @Input() attachmentDisabledLabel = '';
   @Input() mentionCandidates: readonly MessagingMentionCandidate[] = [];
   @Output() readonly draftChange = new EventEmitter<string>();
+  @Output() readonly scopedDraftChange = new EventEmitter<MessagingComposerDraftChange>();
   @Output() readonly send = new EventEmitter<readonly string[]>();
+  @Output() readonly scopedSend = new EventEmitter<MessagingComposerSend>();
 
   private composing = false;
   private selectedMentionUserIds: string[] = [];
@@ -117,6 +121,7 @@ export class MessageComposerComponent implements OnChanges {
     const value = (event.target as HTMLTextAreaElement | null)?.value ?? '';
     this.reconcileSelectedMentions(value);
     this.draftChange.emit(value);
+    this.scopedDraftChange.emit({ value, binding: this.inputBinding });
   }
 
   onCompositionStart(): void {
@@ -134,7 +139,9 @@ export class MessageComposerComponent implements OnChanges {
 
     this.selectedMentionUserIds = [...this.selectedMentionUserIds, candidate.userId];
     const separator = this.draft.length > 0 && !/\s$/u.test(this.draft) ? ' ' : '';
-    this.draftChange.emit(`${this.draft}${separator}@${candidate.displayName} `);
+    const value = `${this.draft}${separator}@${candidate.displayName} `;
+    this.draftChange.emit(value);
+    this.scopedDraftChange.emit({ value, binding: this.inputBinding });
   }
 
   isMentioned(userId: string): boolean {
@@ -184,6 +191,7 @@ export class MessageComposerComponent implements OnChanges {
 
   private emitSend(): void {
     this.send.emit([...this.selectedMentionUserIds]);
+    this.scopedSend.emit({ mentionedUserIds: [...this.selectedMentionUserIds], binding: this.inputBinding });
   }
 
   private canSend(value: string): boolean {
