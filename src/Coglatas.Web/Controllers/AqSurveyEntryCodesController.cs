@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Coglatas.Web.Controllers;
 
+public sealed record AqQrShare(string Title, string SurveyUrl, string PngBase64);
+
 [AqProtectedEndpoint]
 [ApiController]
 [Authorize]
@@ -50,6 +52,27 @@ public sealed class AqSurveyEntryCodesController(AqSurveyManagementService servi
     public async Task<IActionResult> RevokeTarget(Guid targetId, AqChangeCodeRequest request, CancellationToken ct) =>
         Respond(await service.ChangeTargetCodeAsync(targetId, request, rotate: false, ct));
 
+    [HttpGet("survey-campaigns/{campaignId:guid}/qr-share")]
+    [ProducesResponseType<ApiSuccessEnvelope<AqQrShare>>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status409Conflict, "application/json")]
+    [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status413PayloadTooLarge, "application/json")]
+    public async Task<IActionResult> ShareQr(Guid campaignId, [FromQuery] Guid targetId, CancellationToken ct)
+    {
+        if (targetId == Guid.Empty)
+            return Respond(Result<AqQrShare>.Failure(new ApplicationErrorDetail("ValidationFailed", "Select a survey target.")));
+
+        var selected = await service.ListQrEntriesAsync(campaignId, targetId, ct);
+        if (!selected.IsSuccess)
+            return Respond(selected);
+        if (!TryGetOrigin(out var origin))
+            return Respond(Result<AqQrShare>.Failure(new ApplicationErrorDetail("InvalidStateTransition", "A trusted public application origin is required.")));
+
+        var entry = selected.Value!.Single();
+        var url = SurveyUrl(origin, entry.EntryRef);
+        return Ok(ApiEnvelope.Success(HttpContext,
+            new AqQrShare(entry.Title, url, Convert.ToBase64String(AqQrDocuments.Png(url)))));
+    }
+
     [HttpGet("survey-campaigns/{campaignId:guid}/qr-export")]
     [ProducesResponseType<Stream>(StatusCodes.Status200OK, "image/png", "image/svg+xml", "application/pdf")]
     [ProducesResponseType<ApiErrorEnvelope>(StatusCodes.Status409Conflict, "application/json")]
@@ -64,14 +87,17 @@ public sealed class AqSurveyEntryCodesController(AqSurveyManagementService servi
         if (!TryGetOrigin(out var origin))
             return Respond(Result<byte[]>.Failure(new ApplicationErrorDetail("InvalidStateTransition", "A trusted public application origin is required.")));
 
-        var entries = selected.Value!.Select(row => (row.Title, new Uri(origin, "/app/aq/surveys/" + row.EntryRef).AbsoluteUri)).ToArray();
+        var entries = selected.Value!.Select(row => (row.Title, SurveyUrl(origin, row.EntryRef))).ToArray();
         return format switch
         {
-            "png" => File(AqQrDocuments.Png(entries[0].AbsoluteUri), "image/png", "survey-qr.png"),
-            "svg" => File(AqQrDocuments.Svg(entries[0].AbsoluteUri), "image/svg+xml", "survey-qr.svg"),
+            "png" => File(AqQrDocuments.Png(entries[0].Item2), "image/png", "survey-qr.png"),
+            "svg" => File(AqQrDocuments.Svg(entries[0].Item2), "image/svg+xml", "survey-qr.svg"),
             _ => File(AqQrDocuments.Pdf(entries), "application/pdf", "survey-qr.pdf")
         };
     }
+
+    private static string SurveyUrl(Uri origin, string entryRef) =>
+        new Uri(origin, "/app/aq/surveys/" + entryRef).AbsoluteUri;
 
     private bool TryGetOrigin(out Uri origin)
     {
