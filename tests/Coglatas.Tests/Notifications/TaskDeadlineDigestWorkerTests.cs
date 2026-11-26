@@ -41,7 +41,11 @@ public sealed class TaskDeadlineDigestWorkerTests
         Assert.Equal(
             new[] { failedClaim.JobId, succeedingClaim.JobId }.Order(),
             state.GenerationCalls.Select(call => call.JobId).Order());
-        Assert.Equal([failedClaim.JobId], state.FailureCalls.Select(call => call.JobId));
+        Assert.All(state.GenerationCalls, call => Assert.Equal(processingTenantId, call.TenantId));
+        var failure = Assert.Single(state.FailureCalls);
+        Assert.Equal(failedClaim.JobId, failure.JobId);
+        Assert.Equal(processingTenantId, failure.TenantId);
+        Assert.Equal(TaskDeadlineDigestErrorCodes.GenerationTimeout, failure.ErrorCode);
         Assert.Equal([succeedingClaim.JobId], state.SucceededGenerationJobIds);
     }
 
@@ -68,7 +72,9 @@ public sealed class TaskDeadlineDigestWorkerTests
 
         Assert.Equal(cancellation.Token, exception.CancellationToken);
         Assert.True(cancellation.IsCancellationRequested);
-        Assert.Equal([tenantId], state.SchedulerCalls.Select(call => call.TenantId));
+        var scheduled = Assert.Single(state.SchedulerCalls);
+        Assert.Equal(tenantId, scheduled.TenantId);
+        Assert.Equal(new TaskDeadlineDigestWorkerOptions().ToRunSettings(), scheduled.Settings);
         Assert.Empty(state.GenerationCalls);
         Assert.Empty(state.FailureCalls);
         Assert.Empty(state.SucceededGenerationJobIds);
@@ -168,6 +174,7 @@ public sealed class TaskDeadlineDigestWorkerTests
             [(scheduleHeavyTenantId, 500), (scheduleHeavyTenantId, 1)],
             state.UpsertRequests);
         Assert.Equal(101, state.ClaimRequests.Count);
+        Assert.Equal(tenantIds, state.ClaimRequests.Select(request => request.TenantId));
         Assert.All(state.ClaimRequests, request =>
         {
             Assert.Equal(100, request.BatchSize);
@@ -201,6 +208,8 @@ public sealed class TaskDeadlineDigestWorkerTests
         await worker.RunOnceAsync();
 
         Assert.Equal(3, logger.Entries.Count);
+        Assert.Equal([LogLevel.Warning, LogLevel.Warning, LogLevel.Error],
+            logger.Entries.Select(entry => entry.Level));
         Assert.All(logger.Entries, entry => Assert.Null(entry.Exception));
         var errorCodes = logger.Entries
             .SelectMany(entry => entry.Properties)
