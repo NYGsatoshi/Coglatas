@@ -87,11 +87,11 @@ public sealed class AqSurveyEntryCodesController(AqSurveyManagementService servi
         if (!TryGetOrigin(out var origin))
             return Respond(Result<byte[]>.Failure(new ApplicationErrorDetail("InvalidStateTransition", "A trusted public application origin is required.")));
 
-        var entries = selected.Value!.Select(row => (row.Title, SurveyUrl(origin, row.EntryRef))).ToArray();
+        var entries = selected.Value!.Select(row => (row.Title, SurveyUrl: SurveyUrl(origin, row.EntryRef))).ToArray();
         return format switch
         {
-            "png" => File(AqQrDocuments.Png(entries[0].Item2), "image/png", "survey-qr.png"),
-            "svg" => File(AqQrDocuments.Svg(entries[0].Item2), "image/svg+xml", "survey-qr.svg"),
+            "png" => File(AqQrDocuments.Png(entries[0].SurveyUrl), "image/png", "survey-qr.png"),
+            "svg" => File(AqQrDocuments.Svg(entries[0].SurveyUrl), "image/svg+xml", "survey-qr.svg"),
             _ => File(AqQrDocuments.Pdf(entries), "application/pdf", "survey-qr.pdf")
         };
     }
