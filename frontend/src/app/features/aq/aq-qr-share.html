@@ -1,8 +1,9 @@
 <section class="qr-share" aria-labelledby="aq-qr-share-heading">
   <div class="qr-actions">
     <h3 id="aq-qr-share-heading">回答リンクとQRコード</h3>
-    <button type="button" [disabled]="loading()" (click)="refresh()">共有情報を更新</button>
+    <button type="button" [disabled]="loading() || suspended()" (click)="refresh()">共有情報を更新</button>
   </div>
+  @if (suspended()) { <p role="status">管理操作の完了後に共有情報を更新します。</p> }
   @if (loading()) { <p role="status">QRコードを読み込み中…</p> }
   @if (unavailable()) {
     <p role="alert">公開済みの回答リンクを取得できませんでした。発表の公開状態とアクセス権を確認してください。</p>
