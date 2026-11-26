@@ -1,0 +1,49 @@
+<section class="qr-share" aria-labelledby="aq-qr-share-heading">
+  <div class="qr-actions">
+    <h3 id="aq-qr-share-heading">回答リンクとQRコード</h3>
+    <button type="button" [disabled]="loading()" (click)="refresh()">共有情報を更新</button>
+  </div>
+  @if (loading()) { <p role="status">QRコードを読み込み中…</p> }
+  @if (unavailable()) {
+    <p role="alert">公開済みの回答リンクを取得できませんでした。発表の公開状態とアクセス権を確認してください。</p>
+  }
+  @if (share(); as current) {
+    <p class="qr-title">{{ current.title }}</p>
+    <img class="qr-preview" [src]="qrSrc()" alt="アンケート回答ページのQRコード">
+    <label>回答URL
+      <input type="url" readonly [value]="current.surveyUrl" (focus)="$any($event.target).select()">
+    </label>
+    <div class="qr-actions">
+      <button type="button" (click)="copyUrl()">回答URLをコピー</button>
+      <button type="button" (click)="copyQr()">QR画像をコピー</button>
+      <button type="button" (click)="showProjection(projection)">全画面QR表示</button>
+    </div>
+    <dialog #projection class="qr-projection" aria-labelledby="aq-qr-projection-title"
+      (cancel)="$event.preventDefault(); closeProjection(projection)" (close)="closeProjection(projection)">
+      <button type="button" class="qr-close" (click)="closeProjection(projection)">全画面表示を終了</button>
+      <div class="qr-projection-content">
+        <h2 id="aq-qr-projection-title">{{ current.title }}</h2>
+        <img [src]="qrSrc()" alt="投影用アンケートQRコード">
+        <p>QRコードを読み取ってアンケートにご回答ください。</p>
+      </div>
+    </dialog>
+    <fieldset class="qr-poster">
+      <legend>印刷用ポスター（A4・この発表）</legend>
+      <p>発表タイトルとQRコードを配置したPDFを作成します。イベントロゴは任意です。</p>
+      <label>イベントロゴ（PNG/JPEG・2MB以下）
+        <input type="file" accept="image/png,image/jpeg" [disabled]="printing()" (change)="selectLogo($event)">
+      </label>
+      @if (logoLoading()) { <p role="status">ロゴを読み込み中…</p> }
+      @if (logo(); as image) {
+        <img class="qr-logo" [src]="image" alt="選択したイベントロゴ">
+        <button type="button" [disabled]="printing()" (click)="removeLogo()">ロゴを削除</button>
+      }
+      <p class="qr-hint">ロゴはこのブラウザ内のみで処理し、サーバーに保存しません。</p>
+      <button type="button" [disabled]="printing() || logoLoading()" (click)="downloadPoster()">
+        {{ printing() ? 'ポスターを作成中…' : 'A4ポスター PDFを保存' }}
+      </button>
+    </fieldset>
+  }
+  @if (notice()) { <p role="status">{{ notice() }}</p> }
+  @if (error()) { <p role="alert">{{ error() }}</p> }
+</section>
