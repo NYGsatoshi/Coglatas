@@ -13,6 +13,7 @@
     <label>回答URL
       <input type="url" readonly [value]="current.surveyUrl" (focus)="$any($event.target).select()">
     </label>
+    <a [href]="current.surveyUrl" target="_blank" rel="noopener noreferrer">アンケートの公開リンクを開く</a>
     <div class="qr-actions">
       <button type="button" (click)="copyUrl()">回答URLをコピー</button>
       <button type="button" (click)="copyQr()">QR画像をコピー</button>
