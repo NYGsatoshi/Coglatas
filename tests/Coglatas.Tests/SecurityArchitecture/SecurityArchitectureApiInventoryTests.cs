@@ -14,7 +14,7 @@ public sealed class SecurityArchitectureApiInventoryTests
     private static readonly (Type Controller, int EndpointCount)[] AqProtectedControllers =
     [
         (typeof(AqRosterImportController), 2),
-        (typeof(AqSurveyEntryCodesController), 5),
+        (typeof(AqSurveyEntryCodesController), 6),
         (typeof(AqSurveyManagementController), 26),
         (typeof(FeedbackCsvController), 4),
         (typeof(FeedbackInvitationsController), 8),
@@ -169,6 +169,12 @@ public sealed class SecurityArchitectureApiInventoryTests
                     Assert.True(row.GetProperty("authenticatedUserRequired").GetBoolean());
                 });
             }
+            var qrShare = Assert.Single(protectedHttp, row =>
+                row.GetProperty("normalizedPath").GetString() == "/api/v1/core/survey-campaigns/{campaignId}/qr-share" &&
+                row.GetProperty("method").GetString() == "GET");
+            Assert.Equal(typeof(AqSurveyEntryCodesController).FullName, qrShare.GetProperty("controller").GetString());
+            Assert.False(qrShare.GetProperty("allowAnonymous").GetBoolean());
+            Assert.True(qrShare.GetProperty("authenticatedUserRequired").GetBoolean());
             Assert.Equal(ExpectedProtectedHttpEndpointCount, protectedHttp.Length);
             Assert.Equal(28, endpoints.Count(row => row.GetProperty("authorizationRequired").GetBoolean() &&
                 !row.GetProperty("authenticatedUserRequired").GetBoolean()));
