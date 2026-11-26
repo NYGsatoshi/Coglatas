@@ -122,12 +122,22 @@ public sealed class AqOperatorHostedPostgreSqlTests
             var listing = await GetAsync(guest, publicProgramPath);
             Assert.Equal(code, Assert.Single(listing.GetProperty("presentations").EnumerateArray()).GetProperty("surveyEntryRef").GetString());
 
+            var shareRoute = campaignRoute + $"/qr-share?targetId={targetId:D}";
+            var share = await GetAsync(host.Client, shareRoute);
+            Assert.Equal("合成発表", share.GetProperty("title").GetString());
+            Assert.Equal("/app/aq/surveys/" + code, new Uri(share.GetProperty("surveyUrl").GetString()!).AbsolutePath);
+            using (var deniedShare = await guest.GetAsync(shareRoute))
+                Assert.Equal(HttpStatusCode.Unauthorized, deniedShare.StatusCode);
+            using (var missingShare = await host.Client.GetAsync(campaignRoute + $"/qr-share?targetId={Guid.NewGuid():D}"))
+                Assert.Equal(HttpStatusCode.NotFound, missingShare.StatusCode);
             using (var png = await host.Client.GetAsync(campaignRoute + $"/qr-export?format=png&targetId={targetId:D}"))
             {
                 Assert.Equal(HttpStatusCode.OK, png.StatusCode);
                 Assert.Equal("image/png", png.Content.Headers.ContentType?.MediaType);
                 byte[] signature = [137, 80, 78, 71, 13, 10, 26, 10];
-                Assert.Equal(signature, (await png.Content.ReadAsByteArrayAsync()).Take(8));
+                var pngBytes = await png.Content.ReadAsByteArrayAsync();
+                Assert.Equal(signature, pngBytes.Take(8));
+                Assert.Equal(pngBytes, Convert.FromBase64String(share.GetProperty("pngBase64").GetString()!));
             }
             using (var svg = await host.Client.GetAsync(campaignRoute + $"/qr-export?format=svg&targetId={targetId:D}"))
             {
@@ -150,6 +160,9 @@ public sealed class AqOperatorHostedPostgreSqlTests
             });
             var newCode = rotation.GetProperty("entryRef").GetString();
             Assert.NotEqual(code, newCode);
+            var rotatedShare = await GetAsync(host.Client, shareRoute);
+            Assert.Equal("/app/aq/surveys/" + newCode, new Uri(rotatedShare.GetProperty("surveyUrl").GetString()!).AbsolutePath);
+            Assert.NotEqual(share.GetProperty("pngBase64").GetString(), rotatedShare.GetProperty("pngBase64").GetString());
             using (var revoked = await guest.GetAsync("/api/v1/public/surveys/" + code))
                 Assert.Equal(HttpStatusCode.NotFound, revoked.StatusCode);
             var currentForm = await GetAsync(guest, "/api/v1/public/surveys/" + newCode);
@@ -164,6 +177,9 @@ public sealed class AqOperatorHostedPostgreSqlTests
             });
             using (var revoked = await guest.GetAsync("/api/v1/public/surveys/" + newCode))
                 Assert.Equal(HttpStatusCode.NotFound, revoked.StatusCode);
+
+            using (var revokedShare = await host.Client.GetAsync(shareRoute))
+                Assert.Equal(HttpStatusCode.NotFound, revokedShare.StatusCode);
 
             await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
             Assert.Equal(2, await db.Set<SurveyPublicCode>().CountAsync(x => x.SurveyTargetId == targetId && x.RevokedAtUtc.HasValue));
