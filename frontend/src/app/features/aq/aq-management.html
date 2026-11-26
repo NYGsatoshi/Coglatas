@@ -213,7 +213,7 @@
           <button type="button" [disabled]="busy() || !targetPresentation() || !commonVersion()" (click)="createTarget()">発表に割り当てる</button>
         </div>
         <label>発表
-          <select [value]="targetId()" (change)="targetId.set($any($event.target).value)">
+          <select [value]="targetId()" (change)="selectTarget($any($event.target).value)">
             <option value="">選択してください</option>
             @for (target of targets(); track target.id) {
               <option [value]="target.id">{{ presentationTitle(target.presentationId) }}</option>
@@ -228,6 +228,9 @@
             <button type="button" [disabled]="busy()" (click)="addProgramTarget()">回答リンクを発表一覧に追加</button>
             @if (publicEntry()) { <p><a [routerLink]="['/aq/surveys', publicEntry()]">アンケートの公開リンク</a></p> }
           </div>
+        }
+        @if (targetId() && !busy()) {
+          <app-aq-qr-share [campaignId]="campaignId()" [targetId]="targetId()" />
         }
         <div class="aq-actions">
           <button type="button" [disabled]="busy() || !targetId()" (click)="download('png')">QR画像 PNG</button>
