@@ -10,7 +10,7 @@ export interface AqQrShareData {
 
 export function validAqQrShare(value: AqQrShareData): boolean {
   if (typeof value?.title !== 'string' || typeof value.surveyUrl !== 'string' ||
-      typeof value.pngBase64 !== 'string' || value.pngBase64.length > 512 * 1024 ||
+      typeof value.pngBase64 !== 'string' || value.pngBase64.length > 512 * 1024 || value.pngBase64.length % 4 !== 0 ||
       !value.pngBase64.startsWith('iVBORw0KGgo') || !/^[A-Za-z0-9+/]+={0,2}$/u.test(value.pngBase64)) return false;
   try {
     const url = new URL(value.surveyUrl);
