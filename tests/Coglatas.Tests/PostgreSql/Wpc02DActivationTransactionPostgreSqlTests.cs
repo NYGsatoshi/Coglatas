@@ -129,15 +129,17 @@ public sealed class Wpc02DActivationTransactionPostgreSqlTests
             await using var db = new AppDbContext(Options(database), tenant);
             var unitOfWork = new ProjectActivationUnitOfWork(db);
 
+            // Use a real duplicate insert for 23505 and ordinary SQL-string
+            // quoting for PL/pgSQL blocks. Avoid dollar-quote transport ambiguity.
             var cases = new[]
             {
-                (SqlState: "23505", Sql: "DO $ BEGIN RAISE EXCEPTION 'activation conflict' USING ERRCODE = '23505'; END $;",
+                (SqlState: "23505", Sql: "INSERT INTO activation_conflict_probe (id) VALUES (1)",
                     Wrapper: "direct", Expected: "ConcurrentModification"),
-                (SqlState: "40001", Sql: "DO $ BEGIN RAISE EXCEPTION 'activation conflict' USING ERRCODE = '40001'; END $;",
+                (SqlState: "40001", Sql: "DO 'BEGIN RAISE EXCEPTION ''activation conflict'' USING ERRCODE = ''40001''; END;'",
                     Wrapper: "orm", Expected: "ConcurrentModification"),
-                (SqlState: "40P01", Sql: "DO $ BEGIN RAISE EXCEPTION 'activation conflict' USING ERRCODE = '40P01'; END $;",
+                (SqlState: "40P01", Sql: "DO 'BEGIN RAISE EXCEPTION ''activation conflict'' USING ERRCODE = ''40P01''; END;'",
                     Wrapper: "aggregate", Expected: "ConcurrentModification"),
-                (SqlState: "23503", Sql: "DO $ BEGIN RAISE EXCEPTION 'activation dependency' USING ERRCODE = '23503'; END $;",
+                (SqlState: "23503", Sql: "DO 'BEGIN RAISE EXCEPTION ''activation dependency'' USING ERRCODE = ''23503''; END;'",
                     Wrapper: "orm", Expected: "DependencyUnavailable")
             };
 
