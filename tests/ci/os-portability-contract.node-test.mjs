@@ -63,7 +63,7 @@ test('Linux database ownership accepts official tagged and digest-pinned Postgre
 });
 
 test('CI PostgreSQL services use the reviewed immutable PostgreSQL 18.7 image', async () => {
-  const qualifiedImage = 'image: postgres:18.7@sha256:eb63372c1e05c755f55fa30cbd07aecc443676fc6c0fa90b9002d01537841e1a # PostgreSQL 18.7';
+  const qualifiedImage = 'image: postgres:18.7@sha256:c699303802144847d238196173655dbbecf7a96aeca1565f2b02eb671a1f0b6b # PostgreSQL 18.7';
   const paths = [
     '.github/workflows/ci.yml',
     '.github/workflows/main-validation.yml',
