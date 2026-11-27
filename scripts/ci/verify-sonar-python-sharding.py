@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Qualification-only split of the existing Python Sonar control loop."""
+"""Collect and compare native Python Sonar coverage from the canonical control loop."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ".github/workflows/sonarcloud-ci.yml"
+CONTROL_LOOP = "scripts/ci/sonar-python-controls.sh"
 CONFIG = "scripts/ci/sonar-python.coveragerc"
 REQUIREMENTS = "scripts/ci/sonar-coverage-requirements.txt"
 BOOTSTRAP = "scripts/ci/sonar-python-coverage-bootstrap/sitecustomize.py"
@@ -92,7 +93,7 @@ def identity(root: Path) -> dict:
     subprocess.run(["/usr/bin/git", "diff", "--quiet", "HEAD", "--"], cwd=root, check=True)
     return {"sourceSha": sha, "treeSha": git(root, "rev-parse", "HEAD^{tree}").decode().strip(),
             "runId": run, "attempt": attempt, "workspace": str(root),
-            "inputs": {name: sha256(root / name) for name in (WORKFLOW, CONFIG, REQUIREMENTS, BOOTSTRAP)}}
+            "inputs": {name: sha256(root / name) for name in (WORKFLOW, CONTROL_LOOP, CONFIG, REQUIREMENTS, BOOTSTRAP)}}
 
 
 def parse_loop(workflow: str) -> tuple[list[str], str]:
@@ -252,7 +253,7 @@ def require_execution_equivalence(controls: list[str], baseline: dict, shards: d
 
 def collect(lane: str) -> None:
     receipt = identity(ROOT)
-    controls, dispatch = parse_loop((ROOT / WORKFLOW).read_text())
+    controls, dispatch = parse_loop((ROOT / CONTROL_LOOP).read_text())
     tracked = tracked_paths(ROOT)
     if any(name not in tracked or (ROOT / name).is_symlink() for name in controls):
         raise ValueError("Control is not an owned tracked file")
@@ -307,7 +308,7 @@ def collect(lane: str) -> None:
 
 def compare() -> None:
     expected = identity(ROOT)
-    controls, _ = parse_loop((ROOT / WORKFLOW).read_text())
+    controls, _ = parse_loop((ROOT / CONTROL_LOOP).read_text())
     tracked = tracked_paths(ROOT)
     directory = ROOT / "artifacts/sonar-python-shard-proof"
     names = {lane: "sonar-python-shard-proof-" + lane + "-" + expected["attempt"] for lane in LANES}

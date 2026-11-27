@@ -334,20 +334,29 @@ class SonarSourceScopeTests(unittest.TestCase):
         start = workflow.index("      - name: Measure existing CI regression controls without analysis credentials")
         end = workflow.index("\n      - name:", start + 1)
         block = workflow[start:end]
+        self.assertIn('collect --lane "$PROOF_LANE"', block)
         self.assertNotIn("GITHUB_ENV", block)
-        self.assertIn('export SONAR_PYTHON_SOURCE_ROOT="$PWD"', block)
-        self.assertNotIn("export COVERAGE_PROCESS_START", block)
-        self.assertNotIn("export PYTHONPATH", block)
-        self.assertIn('COVERAGE_PROCESS_START="$COVERAGE_RCFILE"', block)
-        self.assertIn('sonar-python-coverage-bootstrap:$PYTHONPATH', block)
-        self.assertLess(block.index('python3 -B -m coverage run "$control"'), block.index("coverage combine"))
-        self.assertIn("test-sonar-python-process-coverage.py", block)
-        self.assertIn("test-workspace-icon-disclosure-policy.py", block)
-        self.assertIn("scripts/ci/test_sec_arch_evidence.py", block)
-        self.assertIn("scripts/ci/test-postgres-log-privacy.py", block)
-        self.assertIn("scripts/ci/test-functional-setup-failure-probe.py", block)
-        self.assertIn("tests/ci/test_security_zap_attribution.py", block)
-        self.assertIn("tests/ci/test_performance_db_ci.py", block)
+        self.assertNotIn("SONAR_TOKEN", block)
+        canonical = (ROOT / "scripts/ci/sonar-python-controls.sh").read_text(encoding="utf-8")
+        collector = (ROOT / "scripts/ci/verify-sonar-python-sharding.py").read_text(encoding="utf-8")
+        self.assertNotIn("GITHUB_ENV", canonical)
+        self.assertNotIn("GITHUB_ENV", collector)
+        self.assertIn('env["SONAR_PYTHON_SOURCE_ROOT"] = str(root)', collector)
+        self.assertIn('env.pop("COVERAGE_PROCESS_START", None)', collector)
+        self.assertNotIn("export COVERAGE_PROCESS_START", canonical)
+        self.assertNotIn("export PYTHONPATH", canonical)
+        self.assertIn('COVERAGE_PROCESS_START="$COVERAGE_RCFILE"', canonical)
+        self.assertIn('sonar-python-coverage-bootstrap:$PYTHONPATH', canonical)
+        self.assertIn('python3 -B -m coverage run "$control"', canonical)
+        self.assertLess(collector.index("subprocess.run(command(control, dispatch)"),
+                        collector.index('native_coverage("combine", env=env)'))
+        for control in (
+            "test-sonar-python-process-coverage.py", "test-workspace-icon-disclosure-policy.py",
+            "scripts/ci/test_sec_arch_evidence.py", "scripts/ci/test-postgres-log-privacy.py",
+            "scripts/ci/test-functional-setup-failure-probe.py",
+            "tests/ci/test_security_zap_attribution.py", "tests/ci/test_performance_db_ci.py",
+        ):
+            self.assertIn(control, canonical)
 
     def test_native_node_mapping_is_complete_before_credentials(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
@@ -549,6 +558,7 @@ class SonarParallelCoverageTests(unittest.TestCase):
         "Python": (
             "artifacts/sonar-python/coverage.xml",
             "artifacts/sonar-gcp/coverage.xml",
+            "artifacts/sonar-python/receipt.json",
         ),
         "JavaScript": (
             "artifacts/sonar-node/lcov.info",
@@ -593,13 +603,22 @@ class SonarParallelCoverageTests(unittest.TestCase):
         self.assertIn("needs: [target, windows-dotnet, python-coverage, javascript-coverage, angular-coverage, dotnet-identity-probe]", scanner)
         self.assertIn("environment: sonarcloud-analysis", scanner)
         self.assertNotIn("if: always()", scanner.split("    steps:", 1)[0])
-        for name in ("windows-dotnet", "python-coverage", "javascript-coverage", "angular-native-lanes", "dotnet-identity-probe"):
+        for name in ("windows-dotnet", "python-native-lanes", "javascript-coverage", "angular-native-lanes", "dotnet-identity-probe"):
             producer = self.job(workflow, name)
             self.assertIn("    needs: target", producer)
             self.assertIn("    permissions:\n      contents: read", producer)
             self.assertNotIn("environment: sonarcloud-analysis", producer)
             self.assertNotIn("secrets.", producer)
             self.assertNotIn("SONAR_TOKEN", producer)
+        python_join = self.job(workflow, "python-coverage")
+        self.assertIn("needs: [target, python-native-lanes]", python_join)
+        self.assertIn("contents: read", python_join)
+        self.assertNotIn("secrets.", python_join)
+        self.assertNotIn("SONAR_TOKEN", python_join)
+        self.assertNotIn("environment: sonarcloud-analysis", python_join)
+        self.assertIn("Require exact native Python coverage equivalence", python_join)
+        self.assertLess(python_join.index("Require exact native Python coverage equivalence"),
+                        python_join.index("Bind Python coverage handoff to exact execution"))
         self.assertEqual(scanner.count("secrets.SONAR_TOKEN"), 2)
         for kind, reports in self.REPORTS.items():
             with self.subTest(kind=kind):
