@@ -185,6 +185,66 @@ public sealed class OutboxDispatcherFailureBoundaryTests
         Assert.Equal(1, fixture.Diagnostics.Snapshot().DispatchSuccessCount);
     }
 
+    [Fact]
+    public async Task DispatcherStopsNormallyWhenHostCancelsAnInFlightClaim()
+    {
+        await using var fixture = new Fixture();
+        using var stopping = new CancellationTokenSource();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        fixture.Repository.ClaimOverride = async token =>
+        {
+            entered.TrySetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, token);
+            throw new InvalidOperationException("Canceled claim unexpectedly resumed.");
+        };
+
+        var execution = fixture.ExecuteAsync(stopping.Token);
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        }
+        finally
+        {
+            stopping.Cancel();
+        }
+        await execution.WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Equal(1, fixture.Repository.ClaimCalls);
+        Assert.Equal(0, fixture.Diagnostics.Snapshot().DispatcherFailureCount);
+        Assert.Empty(fixture.Repository.Failures);
+        fixture.AssertNoDelivery();
+    }
+
+    [Fact]
+    public async Task AlreadyStoppedDispatcherNeverClaimsAnEvent()
+    {
+        await using var fixture = new Fixture();
+        await fixture.ExecuteAsync(new CancellationToken(canceled: true))
+            .WaitAsync(TimeSpan.FromSeconds(30));
+        Assert.Equal(0, fixture.Repository.ClaimCalls);
+        Assert.Equal(0, fixture.Diagnostics.Snapshot().DispatcherFailureCount);
+        fixture.AssertNoDelivery();
+    }
+
+    [Fact]
+    public async Task BatchFailureIsRecordedBeforeCanceledPollingExits()
+    {
+        await using var fixture = new Fixture();
+        using var stopping = new CancellationTokenSource();
+        fixture.Repository.ClaimOverride = _ =>
+        {
+            stopping.Cancel();
+            return Task.FromException<IReadOnlyList<OutboxEvent>>(new IOException("Synthetic claim failure."));
+        };
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            fixture.ExecuteAsync(stopping.Token).WaitAsync(TimeSpan.FromSeconds(30)));
+        Assert.Equal(1, fixture.Repository.ClaimCalls);
+        Assert.Equal(1, fixture.Diagnostics.Snapshot().DispatcherFailureCount);
+        Assert.Empty(fixture.Repository.Failures);
+        fixture.AssertNoDelivery();
+    }
+
     private sealed record Failure(bool Retryable, DateTimeOffset? NextAttempt, string Code, string Summary);
 
     private sealed class Fixture : IAsyncDisposable
@@ -247,6 +307,14 @@ public sealed class OutboxDispatcherFailureBoundaryTests
                 case "acknowledgement": Repository.AcknowledgementException = exception; break;
                 default: throw new ArgumentOutOfRangeException(nameof(stage));
             }
+        }
+
+        public Task ExecuteAsync(CancellationToken token)
+        {
+            Repository.Token = token;
+            var method = typeof(OutboxDispatcher).GetMethod("ExecuteAsync", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?? throw new InvalidOperationException("OutboxDispatcher.ExecuteAsync was not found.");
+            return Assert.IsAssignableFrom<Task>(method.Invoke(_dispatcher, [token]));
         }
 
         public async Task DispatchAsync(CancellationToken token = default)
@@ -322,6 +390,8 @@ public sealed class OutboxDispatcherFailureBoundaryTests
         public ICurrentTenantAccessor Context { get; set; } = null!;
         public List<ICurrentTenantAccessor> Contexts { get; } = [];
         public CancellationToken Token { get; set; }
+        public int ClaimCalls { get; private set; }
+        public Func<CancellationToken, Task<IReadOnlyList<OutboxEvent>>>? ClaimOverride { get; set; }
         public List<Failure> Failures { get; } = [];
         public List<string?> Delivered { get; } = [];
         public List<DateTimeOffset> Releases { get; } = [];
@@ -332,8 +402,11 @@ public sealed class OutboxDispatcherFailureBoundaryTests
             Assert.True(Context.IsPlatformScope); Assert.False(Context.IsAvailable);
             Assert.False(string.IsNullOrWhiteSpace(lockOwner)); Assert.True(batchSize > 0); Assert.True(lockTimeout > TimeSpan.Zero);
             Assert.Equal(Token, cancellationToken);
+            ClaimCalls++;
             _claimedId = item.Id; _claimedTenant = item.TenantId; _claimedToken = item.LockToken;
-            return Task.FromResult<IReadOnlyList<OutboxEvent>>([item]);
+            return ClaimOverride is null
+                ? Task.FromResult<IReadOnlyList<OutboxEvent>>([item])
+                : ClaimOverride(cancellationToken);
         }
         public Task<bool> MarkDeliveredAsync(Guid eventId, Guid lockToken, DateTimeOffset deliveredAt, string? outcomeCode, CancellationToken cancellationToken = default)
         {

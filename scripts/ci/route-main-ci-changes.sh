@@ -63,11 +63,50 @@ if [[ -z "$base_sha" || "$base_sha" == "$zero_sha" || -z "$head_sha" ]] || \
   exit 0
 fi
 
+# PR CI tests the generated merge preview, not the divergent source branch.
+# Compare that exact tested tree against its first parent (the current target).
+# An unavailable, stale or unexpected merge preview may never reduce CI scope.
+case "${CI_DIFF_MODE:-direct}" in
+  direct) ;;
+  pr-merge)
+    merge_sha="${PR_MERGE_SHA:-}"
+    if [[ ! "$base_sha" =~ ^[0-9a-f]{40}$ || ! "$head_sha" =~ ^[0-9a-f]{40}$ ||
+          ! "$merge_sha" =~ ^[0-9a-f]{40}$ ]] ||
+       ! parents="$(git rev-list --parents -n 1 "$merge_sha" -- 2>/dev/null)" ||
+       [[ "$parents" != "$merge_sha $base_sha $head_sha" ]] ||
+       ! checked_out="$(git rev-parse HEAD 2>/dev/null)" ||
+       [[ "$checked_out" != "$merge_sha" ]]; then
+      route_all
+      exit 0
+    fi
+    head_sha="$merge_sha"
+    ;;
+  *)
+    route_all
+    exit 0
+    ;;
+esac
+
+# NUL-separated names prevent quotePath, whitespace and rename ambiguity.
+# The existing classifiers consume one path per line; reject control characters
+# rather than letting an ambiguous path omit a required test or security owner.
 changed_file_list="${RUNNER_TEMP:-/tmp}/ci-changed-files.txt"
-if ! git diff --no-renames --name-only "$base_sha" "$head_sha" > "$changed_file_list"; then
+raw_file_list="$(mktemp "${RUNNER_TEMP:-/tmp}/ci-changed-files.XXXXXX")"
+if ! git diff --no-renames --name-only -z "$base_sha" "$head_sha" -- > "$raw_file_list"; then
+  rm -f -- "$raw_file_list"
   route_all
   exit 0
 fi
+: > "$changed_file_list"
+while IFS= read -r -d '' changed_path; do
+  if [[ -z "$changed_path" || "$changed_path" =~ [[:cntrl:]] ]]; then
+    rm -f -- "$raw_file_list"
+    route_all
+    exit 0
+  fi
+  printf '%s\n' "$changed_path" >> "$changed_file_list"
+done < "$raw_file_list"
+rm -f -- "$raw_file_list"
 
 backend=false
 backend_ef=false
@@ -241,7 +280,7 @@ mark_backend_content_domains() {
 
 changed_lines_for() {
   local path="$1"
-  git diff --unified=0 "$base_sha" "$head_sha" -- "$path" \
+  git --literal-pathspecs diff --unified=0 "$base_sha" "$head_sha" -- "$path" \
     | sed -n '/^[+-][^+-]/s/^[+-]//p'
 }
 
