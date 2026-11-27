@@ -485,6 +485,206 @@ class CoverageTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             MODULE.require_actual_scanner_identity(proof, changed, identity)
 
+    def actual_scanner_fixture(self):
+        """Build isolated native-format fixtures, never CI publication evidence."""
+        folder, sha = self.parallel_fixture()
+        native = MODULE._native_verifier()
+        tree = subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"],
+                                       cwd=self.root, text=True).strip()
+        identity = dict(sourceSha=sha, treeSha=tree, runId="100", attempt="1",
+                        workspace=str(self.root))
+        before = native.assemblies(self.root, folder / "pre-test-rebuild", sha, True)
+        # The test-only physical rebuild changes only its own assembly pair.
+        for ext in ("dll", "pdb"):
+            path = self.root / ("tests/Coglatas.Tests/bin/Release/net11.0/Coglatas.Tests." + ext)
+            path.write_bytes(path.read_bytes() + b" physical caller paths")
+        (folder / "executed-binaries").mkdir()
+        after = native.assemblies(self.root, folder / "executed-binaries", sha, True)
+        self.assertNotEqual(before["assemblies/Coglatas.Tests.dll"],
+                            after["assemblies/Coglatas.Tests.dll"])
+        mapping = (folder / "deterministic-source-roots.original").read_bytes()
+        physical = b"physical mapping fixture"
+        (folder / "physical-test-source-roots.original").write_bytes(physical)
+
+        def report_bytes(hits):
+            document = ET.Element("CoverageSession")
+            module = ET.SubElement(ET.SubElement(document, "Modules"), "Module")
+            ET.SubElement(module, "ModuleName").text = "Fixture"
+            ET.SubElement(ET.SubElement(module, "Files"), "File",
+                          uid="1", fullPath="/_/src/App/Logic.cs")
+            cls = ET.SubElement(ET.SubElement(module, "Classes"), "Class")
+            ET.SubElement(cls, "FullName").text = "Logic"
+            method = ET.SubElement(ET.SubElement(cls, "Methods"), "Method")
+            ET.SubElement(method, "Name").text = "Run()"
+            ET.SubElement(method, "FileRef", uid="1")
+            seq = ET.SubElement(method, "SequencePoints")
+            branches = ET.SubElement(method, "BranchPoints")
+            for index in range(2):
+                ET.SubElement(seq, "SequencePoint", vc=str(hits[index]), fileid="1",
+                              sl="1", el="1", sc=str(index + 1), ec=str(index + 2),
+                              ordinal=str(index), uspid=str(index + 1))
+                ET.SubElement(branches, "BranchPoint", vc=str(hits[index + 2]), fileid="1",
+                              sl="1", offset="0", offsetend=str(index + 2),
+                              path=str(index), ordinal=str(index))
+            return ET.tostring(document, encoding="utf-8")
+
+        def trx_bytes(indices):
+            root = ET.Element("TestRun", xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010")
+            results = ET.SubElement(root, "Results")
+            definitions = ET.SubElement(root, "TestDefinitions")
+            for index in indices:
+                key = str(index + 1)
+                definition = ET.SubElement(definitions, "UnitTest", id=key)
+                ET.SubElement(definition, "TestMethod", className="Fixture" + key,
+                              name="Case", codeBase=str(self.root / MODULE.TEST_ASSEMBLY))
+                # Two actual result rows of the same identity exercise multiplicity.
+                for _ in range(2):
+                    ET.SubElement(results, "UnitTestResult", testId=key,
+                                  testName="Case(1)", outcome="Passed")
+            summary = ET.SubElement(root, "ResultSummary", outcome="Completed")
+            count = str(len(indices) * 2)
+            ET.SubElement(summary, "Counters", total=count, executed=count,
+                          passed=count, failed="0")
+            return ET.tostring(root, encoding="utf-8")
+
+        report = report_bytes((1, 1, 1, 0))
+        trx = trx_bytes(range(4))
+        primary = folder / "993ff674-8ddf-4916-ac9a-b6f614e902a2/coverage.opencover.xml"
+        primary.parent.mkdir()
+        primary.write_bytes(report)
+        (folder / "verified.opencover.xml").write_bytes(report)
+        (folder / "backend-tests.trx").write_bytes(trx)
+        receipt = MODULE.verify_report(folder / "verified.opencover.xml", self.root)
+        receipt.update(sourceSha=sha, treeSha=tree,
+                       scope="DOTNET_COVERAGE_IMPORT_ONLY_NOT_RELEASE_ACCEPTANCE",
+                       collectorReport=primary.relative_to(self.root).as_posix(),
+                       identicalVSTestCopies=0)
+        (folder / "receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
+        (folder / "pre-test-rebuild/outputs.json").write_text(
+            json.dumps(dict(sourceSha=sha, artifacts=before)), encoding="utf-8")
+        (folder / "binary-provenance.json").write_text(json.dumps(dict(
+            sourceSha=sha, runId="100", attempt="1", productionBinariesUnchanged=True,
+            trxSha256=native.digest(trx), sourceMappingSha256=native.digest(mapping),
+            executedArtifacts=after)), encoding="utf-8")
+        proof = dict(sourceSha=sha, treeSha=tree, runId="100", attempt="1",
+                     scope=MODULE.DOTNET_SHARD_SCOPE, scannerCompatibleFixtureXmlCount=2,
+                     passedTests=8, sequencePoints=2, sequenceVisited=2,
+                     branchPoints=2, branchVisited=1,
+                     preRebuildAssemblyDigests=before, executedAssemblyDigests=after,
+                     generatedSourceDigests={"Coglatas.Web": "d" * 64, "Coglatas.Tests": "e" * 64},
+                     deterministicSourceMappingSha256=native.digest(mapping),
+                     physicalSourceMappingSha256=native.digest(physical),
+                     physicalCompilerInputsSha256="f" * 64, lanes={
+                         "baseline": dict(tests=8, reportSha256=native.digest(report),
+                                          trxSha256=native.digest(trx))})
+        scanner = dict(identity, scope="DIAGNOSTIC_ONLY_SCANNER_NATIVE_TESTS_REMAIN_REQUIRED",
+                       byteIdentical=True, mappingIdentical=True, changedAssemblyFiles=[],
+                       scannerAssemblyDigests=before, producerAssemblyDigests=before, generated={})
+        for name, digest in proof["generatedSourceDigests"].items():
+            scanner["generated"][name] = dict(identical=True, scannerSha256=digest,
+                producerSha256=digest, scannerInputs={"scannerTargetsImported": True,
+                    "additionalFileCount": 2, "xmlCount": 2, "knownSonarXmlCounts": {
+                        "sonarlint.xml": 1, "sonarprojectconfig.xml": 1},
+                    "otherXmlCount": 0, "nonXmlCount": 0})
+        (self.root / "artifacts/sonar-scanner-identity-result.json").write_text(
+            json.dumps(scanner), encoding="utf-8")
+        for i, lane in enumerate(MODULE.SHARD_LANES[1:]):
+            target = self.root / ("artifacts/sonar-dotnet-shard-proof/sonar-dotnet-shard-proof-" + lane + "-1")
+            target.mkdir(parents=True)
+            raw, results = report_bytes((int(i % 2 == 0), int(i % 2 == 1), int(i == 0), 0)), trx_bytes([i])
+            (target / "verified.opencover.xml").write_bytes(raw)
+            (target / "backend-tests.trx").write_bytes(results)
+            proof["lanes"][lane] = dict(tests=2, reportSha256=native.digest(raw),
+                                       trxSha256=native.digest(results))
+        (self.root / "artifacts/sonar-dotnet-shard-equivalence.json").write_text(
+            json.dumps(proof), encoding="utf-8")
+        digest = MODULE.stage_shard_handoff(self.root, identity)
+        return folder, primary, identity, proof, digest
+
+    def test_actual_scanner_admission_requires_native_baseline_and_exact_executed_copies(self):
+        import os
+        from unittest import mock
+
+        folder, primary, identity, proof, digest = self.actual_scanner_fixture()
+        output = self.root / "artifacts/sonar-dotnet-scanner-admission.json"
+        env = {"PROOF_SOURCE_SHA": identity["sourceSha"], "GITHUB_RUN_ID": "100",
+               "GITHUB_RUN_ATTEMPT": "1", "GITHUB_WORKSPACE": str(self.root),
+               "EXPECTED_DOTNET_SHARD_DIGEST": digest}
+        with (mock.patch.object(MODULE, "ROOT", self.root),
+              mock.patch.dict(os.environ, env),
+              redirect_stdout(io.StringIO())):
+            MODULE.shard_trial("shard-verify")
+            self.assertFalse(output.exists())
+            MODULE.shard_trial("shard-admit")
+            admitted = json.loads(output.read_bytes())
+            self.assertEqual(admitted["scope"],
+                             "NATIVE_MULTI_OPENCOVER_ADMISSION_NOT_SONAR_MEASURE_EQUIVALENCE")
+            self.assertEqual(admitted["passedTests"], 8)
+            self.assertEqual(admitted["sequenceVisited"], 2)
+            self.assertEqual(admitted["branchVisited"], 1)
+            self.assertEqual(admitted["handoffDigest"], digest)
+            self.assertEqual(admitted["scannerBaselineReportSha256"],
+                             MODULE._native_verifier().digest(primary.read_bytes()))
+            output.unlink()
+
+            for path, message in (
+                (folder / "physical-test-source-roots.original",
+                 "Actual scanner pre/post-rebuild binaries or mappings differ"),
+                (self.root / MODULE.TEST_ASSEMBLY, "Actual scanner executed binary changed"),
+                (primary, "Actual scanner native baseline report differs"),
+            ):
+                with self.subTest(path=path):
+                    original = path.read_bytes()
+                    try:
+                        path.write_bytes(original + b" ")
+                        with self.assertRaisesRegex(ValueError, message):
+                            MODULE.shard_trial("shard-admit")
+                        self.assertFalse(output.exists())
+                    finally:
+                        path.write_bytes(original)
+            with mock.patch.dict(os.environ, {"EXPECTED_DOTNET_SHARD_DIGEST": "0" * 64}):
+                with self.assertRaises(ValueError):
+                    MODULE.shard_trial("shard-admit")
+                self.assertFalse(output.exists())
+            MODULE.shard_trial("shard-admit")
+            self.assertTrue(output.is_file())
+
+    def test_actual_scanner_baseline_rejects_semantic_shard_mismatches(self):
+        import copy
+
+        _, _, identity, proof, _ = self.actual_scanner_fixture()
+        inputs = self.root / MODULE.DOTNET_SHARD_INPUTS
+        # Call the semantic comparator directly to exercise its separate
+        # checks even when the outer handoff digest would reject a mutation.
+        with redirect_stdout(io.StringIO()):
+            MODULE.require_actual_scanner_baseline(self.root, identity, proof)
+            wrong_count = copy.deepcopy(proof)
+            wrong_count["lanes"]["files-db"]["tests"] = 1
+            with self.assertRaisesRegex(ValueError, "Native shard TRX counter differs"):
+                MODULE.require_actual_scanner_baseline(self.root, identity, wrong_count)
+            with self.assertRaisesRegex(ValueError, "Actual scanner baseline comparison counters differ"):
+                MODULE.require_actual_scanner_baseline(
+                    self.root, identity, proof | {"sequenceVisited": 1})
+            trx = inputs / "files-db/backend-tests.trx"
+            original = trx.read_bytes()
+            self.assertIn(b"Fixture1", original)
+            try:
+                trx.write_bytes(original.replace(b"Fixture1", b"Fixture9"))
+                with self.assertRaisesRegex(ValueError, "Shard test identities or multiplicities differ"):
+                    MODULE.require_actual_scanner_baseline(self.root, identity, proof)
+            finally:
+                trx.write_bytes(original)
+            report = inputs / "files-db/verified.opencover.xml"
+            original = report.read_bytes()
+            self.assertIn(b'BranchPoint vc="1"', original)
+            try:
+                report.write_bytes(original.replace(b'BranchPoint vc="1"', b'BranchPoint vc="0"'))
+                with self.assertRaisesRegex(ValueError, "Native source coverage differs"):
+                    MODULE.require_actual_scanner_baseline(self.root, identity, proof)
+            finally:
+                report.write_bytes(original)
+            MODULE.require_actual_scanner_baseline(self.root, identity, proof)
+
     def test_shard_commands_preserve_native_collector_and_unfiltered_baseline(self):
         baseline = MODULE.shard_command("baseline")
         self.assertNotIn("--filter", baseline)

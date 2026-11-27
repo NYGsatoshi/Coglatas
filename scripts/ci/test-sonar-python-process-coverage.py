@@ -287,6 +287,14 @@ class PythonProcessCoverageTests(unittest.TestCase):
         cohort = (ROOT / 'scripts/ci/sonar-python-controls.sh').read_text(encoding='utf-8')
         cohort = cohort.split('for control in \\\n', 1)[1].split('; do', 1)[0]
         markers = {
+            'dotnet-coverage': (
+                'raise ValueError("Actual scanner pre/post-rebuild binaries or mappings differ")',
+                'raise ValueError("Actual scanner executed binary changed")',
+                'raise ValueError("Actual scanner native baseline report differs")',
+                'raise ValueError("Native shard TRX counter differs")',
+                'raise ValueError("Actual scanner baseline comparison counters differ")',
+                'return dict(identity, **result, byteIdentical=True, mappingIdentical=True,',
+            ),
             'python-sharding': (
                 'raise ValueError("Missing or duplicated Python control execution")',
                 'return value["files"]',
