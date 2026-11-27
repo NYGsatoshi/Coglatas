@@ -775,6 +775,16 @@ class SonarParallelCoverageTests(unittest.TestCase):
         self.assertLess(scanner.index("Verify executed tests and production coverage before publication"),
                         scanner.index("shard-admit"))
         self.assertLess(scanner.index("shard-admit"), scanner.index("Publish SonarCloud report"))
+        for name in ("Apply migrations to the isolated coverage database",
+                     "Generate .NET coverage without analysis credentials",
+                     "Verify executed tests and production coverage before publication",
+                     "Require actual scanner baseline and all shard binaries and points to agree"):
+            self.assertIn("- name: " + name + "\n        if: env.SONAR_ANALYSIS_KIND == 'main'", scanner)
+        self.assertIn("- name: Require rebuilt scanner identity and original independent full-baseline equivalence"
+                      "\n        if: env.SONAR_ANALYSIS_KIND == 'pull_request'", scanner)
+        self.assertLess(scanner.index("Restore original production mapping"), scanner.index("shard-admit-rebuilt"))
+        self.assertLess(scanner.index("shard-admit-rebuilt"), scanner.index("Publish SonarCloud report"))
+        self.assertNotIn("sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet-shard-inputs/baseline/", scanner)
         self.assertIn("sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet-shard-inputs/files-db/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/other-db/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/security-aq/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/remaining/verified.opencover.xml", scanner)
         self.assertNotIn("sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet/verified.opencover.xml", scanner)
 

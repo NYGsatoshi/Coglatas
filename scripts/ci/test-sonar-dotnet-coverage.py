@@ -423,7 +423,16 @@ class CoverageTests(unittest.TestCase):
         digest = MODULE.stage_shard_handoff(self.root, identity)
         folder = self.root / MODULE.DOTNET_SHARD_INPUTS
         self.assertEqual(MODULE.verify_shard_handoff(self.root, identity, digest), receipt)
-        self.assertFalse((folder / "baseline").exists())
+        self.assertTrue((folder / "baseline/verified.opencover.xml").is_file())
+        self.assertTrue((folder / "baseline/backend-tests.trx").is_file())
+        baseline = folder / "baseline/verified.opencover.xml"
+        raw = baseline.read_bytes()
+        try:
+            baseline.write_bytes(raw + b" changed")
+            with self.assertRaises(ValueError):
+                MODULE.verify_shard_handoff(self.root, identity, digest)
+        finally:
+            baseline.write_bytes(raw)
         for invalid in ("", "0" * 64):
             with self.assertRaises(ValueError):
                 MODULE.verify_shard_handoff(self.root, identity, invalid)
@@ -588,6 +597,10 @@ class CoverageTests(unittest.TestCase):
                     "otherXmlCount": 0, "nonXmlCount": 0})
         (self.root / "artifacts/sonar-scanner-identity-result.json").write_text(
             json.dumps(scanner), encoding="utf-8")
+        independent = self.root / "artifacts/sonar-dotnet-shard-proof/sonar-dotnet-shard-proof-baseline-1"
+        independent.mkdir(parents=True)
+        (independent / "verified.opencover.xml").write_bytes(report)
+        (independent / "backend-tests.trx").write_bytes(trx)
         for i, lane in enumerate(MODULE.SHARD_LANES[1:]):
             target = self.root / ("artifacts/sonar-dotnet-shard-proof/sonar-dotnet-shard-proof-" + lane + "-1")
             target.mkdir(parents=True)
@@ -684,6 +697,91 @@ class CoverageTests(unittest.TestCase):
             finally:
                 report.write_bytes(original)
             MODULE.require_actual_scanner_baseline(self.root, identity, proof)
+
+    def test_rebuilt_admission_requires_independent_full_baseline_without_scanner_replay(self):
+        import os
+        import shutil
+        from unittest import mock
+
+        folder, primary, identity, proof, digest = self.actual_scanner_fixture()
+        # The scanner has built both assembly sets, but did not execute tests.
+        # Only the independent native baseline and shard archive supplies TRX and OpenCover.
+        shutil.rmtree(primary.parent)
+        shutil.rmtree(folder / "executed-binaries")
+        for name in ("verified.opencover.xml", "backend-tests.trx", "binary-provenance.json",
+                     "receipt.json"):
+            (folder / name).unlink()
+        output = self.root / "artifacts/sonar-dotnet-scanner-admission.json"
+        env = {"PROOF_SOURCE_SHA": identity["sourceSha"], "GITHUB_RUN_ID": "100",
+               "GITHUB_RUN_ATTEMPT": "1", "GITHUB_WORKSPACE": str(self.root),
+               "EXPECTED_DOTNET_SHARD_DIGEST": digest}
+        with (mock.patch.object(MODULE, "ROOT", self.root),
+              mock.patch.dict(os.environ, env),
+              redirect_stdout(io.StringIO())):
+            MODULE.shard_trial("shard-admit-rebuilt")
+            admitted = json.loads(output.read_bytes())
+            self.assertEqual(admitted["scope"],
+                             "NATIVE_MULTI_OPENCOVER_REBUILT_IDENTITY_NOT_SCANNER_TEST_EXECUTION")
+            self.assertFalse(admitted["scannerBaselineExecuted"])
+            self.assertTrue(admitted["independentBaselineCompared"])
+            self.assertEqual(admitted["passedTests"], 8)
+            self.assertEqual(admitted["sequenceVisited"], 2)
+            self.assertEqual(admitted["branchVisited"], 1)
+            self.assertEqual(admitted["scannerRebuiltAssemblyDigests"], proof["executedAssemblyDigests"])
+            self.assertEqual(admitted["independentBaselineReportSha256"],
+                             proof["lanes"]["baseline"]["reportSha256"])
+            output.unlink()
+            inputs = self.root / MODULE.DOTNET_SHARD_INPUTS
+            for path, message in (
+                (folder / "physical-test-source-roots.original",
+                 "Actual scanner original binaries or source mappings differ"),
+                (folder / "deterministic-source-roots.original",
+                 "Actual scanner original binaries or source mappings differ"),
+                (inputs / "baseline/backend-tests.trx",
+                 "Native shard input differs from comparison receipt"),
+                (inputs / "baseline/verified.opencover.xml",
+                 "Native shard input differs from comparison receipt"),
+            ):
+                with self.subTest(path=path):
+                    original = path.read_bytes()
+                    try:
+                        path.write_bytes(original + b" ")
+                        with self.assertRaisesRegex(ValueError, message):
+                            MODULE.shard_trial("shard-admit-rebuilt")
+                        self.assertFalse(output.exists())
+                    finally:
+                        path.write_bytes(original)
+            path = self.root / MODULE.TEST_ASSEMBLY
+            original = path.read_bytes()
+            try:
+                path.write_bytes(original + b" ")
+                with self.assertRaisesRegex(ValueError, "Actual scanner rebuilt binaries differ"):
+                    MODULE.shard_trial("shard-admit-rebuilt")
+                self.assertFalse(output.exists())
+            finally:
+                path.write_bytes(original)
+            path = self.root / "tests/Coglatas.Tests/bin/Release/net11.0/Coglatas.Web.dll"
+            original = path.read_bytes()
+            try:
+                path.write_bytes(original + b" ")
+                with self.assertRaisesRegex(ValueError, "Actual scanner rebuilt project and test copies differ"):
+                    MODULE.shard_trial("shard-admit-rebuilt")
+                self.assertFalse(output.exists())
+            finally:
+                path.write_bytes(original)
+            # The semantic comparator also independently rejects a changed hit
+            # union even when called without the outer transport digest.
+            shard = inputs / "files-db/verified.opencover.xml"
+            original = shard.read_bytes()
+            try:
+                shard.write_bytes(original.replace(b'BranchPoint vc="1"', b'BranchPoint vc="0"'))
+                with self.assertRaisesRegex(ValueError, "Native source coverage differs"):
+                    MODULE.require_actual_scanner_rebuild(self.root, identity, proof)
+                self.assertFalse(output.exists())
+            finally:
+                shard.write_bytes(original)
+            MODULE.shard_trial("shard-admit-rebuilt")
+            self.assertTrue(output.is_file())
 
     def test_shard_commands_preserve_native_collector_and_unfiltered_baseline(self):
         baseline = MODULE.shard_command("baseline")

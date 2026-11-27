@@ -109,6 +109,9 @@ class ScannerIdentityTrialTests(unittest.TestCase):
         self.assertLess(scanner.index("Generate .NET coverage without analysis credentials"),
                         scanner.index("shard-admit"))
         self.assertLess(scanner.index("shard-admit"), scanner.index("Publish SonarCloud report"))
+        self.assertIn("shard-admit-rebuilt", scanner)
+        self.assertIn("if: env.SONAR_ANALYSIS_KIND == 'pull_request'", scanner)
+        self.assertLess(scanner.index("shard-admit-rebuilt"), scanner.index("Publish SonarCloud report"))
         self.assertIn("Verify executed tests and production coverage before publication", scanner)
         self.assertIn("Publish SonarCloud report", scanner)
 
