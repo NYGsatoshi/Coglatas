@@ -282,6 +282,52 @@ class PythonProcessCoverageTests(unittest.TestCase):
                 self.assertIn(matching[0], lines)
             self.assertTrue(measured.arcs(by_path[subject]))
 
+    def test_compiler_and_sharding_proof_controls_report_native_subject_coverage(self):
+        """Measure actual checked-in helpers; synthetic inputs are only regression fixtures."""
+        cohort = (ROOT / 'scripts/ci/sonar-python-controls.sh').read_text(encoding='utf-8')
+        cohort = cohort.split('for control in \\\n', 1)[1].split('; do', 1)[0]
+        markers = {
+            'python-sharding': (
+                'raise ValueError("Missing or duplicated Python control execution")',
+                'return value["files"]',
+                'root.attrib.pop("timestamp", None)',
+            ),
+            'openapi-reproduction': (
+                'raise ValueError("Invalid native build receipt")',
+                'print(json.dumps(receipt, sort_keys=True))',
+            ),
+            'scanner-identity-trial': (
+                'raise ValueError("Diagnostic producer receipt digest differs")',
+                'raise ValueError("Diagnostic producer evidence differs")',
+                'return record',
+            ),
+        }
+        for stem, required in markers.items():
+            with self.subTest(subject=stem), tempfile.TemporaryDirectory() as directory:
+                subject = (ROOT / ('scripts/ci/verify-sonar-' + stem + '.py')).resolve()
+                suite = ROOT / ('scripts/ci/test-sonar-' + stem + '.py')
+                self.assertEqual(cohort.count(suite.relative_to(ROOT).as_posix()), 1)
+                data = Path(directory) / 'coverage'
+                env = self.environment()
+                env['SONAR_PYTHON_SOURCE_ROOT'] = ROOT.as_posix()
+                env['COVERAGE_FILE'] = str(data)
+                option = '--rcfile=' + str(CONFIG)
+                self.run_python(['-m', 'coverage', 'run', option, str(suite)], ROOT, env)
+                self.run_python(['-m', 'coverage', 'combine', option], ROOT, env)
+                measured = coverage.CoverageData(basename=str(data))
+                measured.read()
+                self.assertTrue(measured.has_arcs())
+                by_path = {Path(name).resolve(): name for name in measured.measured_files()}
+                self.assertIn(subject, by_path)
+                self.assertNotIn(suite.resolve(), by_path)
+                lines = set(measured.lines(by_path[subject]) or [])
+                source = subject.read_text(encoding='utf-8').splitlines()
+                for marker in required:
+                    matching = [i for i, line in enumerate(source, 1) if line.strip() == marker]
+                    self.assertEqual(len(matching), 1, marker)
+                    self.assertIn(matching[0], lines, marker)
+                self.assertTrue(measured.arcs(by_path[subject]))
+
     def test_subject_scope_branch_and_parallel_configuration_are_explicit(self):
         with mock.patch.dict(os.environ, {'SONAR_PYTHON_SOURCE_ROOT': ROOT.as_posix()}):
             config = coverage.Coverage(config_file=str(CONFIG))
@@ -290,6 +336,9 @@ class PythonProcessCoverageTests(unittest.TestCase):
         self.assertEqual(set(config.get_option('run:include')), {
             ROOT.as_posix() + '/scripts/ci/verify-sonar-dotnet-coverage.py',
             ROOT.as_posix() + '/scripts/ci/verify-sonar-angular-coverage.py',
+            ROOT.as_posix() + '/scripts/ci/verify-sonar-python-sharding.py',
+            ROOT.as_posix() + '/scripts/ci/verify-sonar-openapi-reproduction.py',
+            ROOT.as_posix() + '/scripts/ci/verify-sonar-scanner-identity-trial.py',
             ROOT.as_posix() + '/scripts/ci/verify-sonar-windows-coverage.py',
             ROOT.as_posix() + '/scripts/ci/required_check_contract.py',
             ROOT.as_posix() + '/scripts/ci/check-publication-readiness.py',

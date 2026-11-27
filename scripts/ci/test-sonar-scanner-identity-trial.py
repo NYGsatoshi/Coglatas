@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import importlib.util
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -43,6 +44,50 @@ class ScannerIdentityTrialTests(unittest.TestCase):
         self.assertEqual(MODULE.compare_digests({"a.dll": "x"}, {"a.dll": "y"}), ["a.dll"])
         with self.assertRaises(ValueError):
             MODULE.compare_digests({"a.dll": "x"}, {"b.dll": "x"})
+
+    def test_producer_receipt_requires_exact_attempt_and_original_native_bytes(self):
+        helper = MODULE.reproduction()
+        verifier = MODULE.native()
+        info = {"sourceSha": "a" * 40, "treeSha": "b" * 40,
+                "runId": "123", "attempt": "1", "workspace": "/fixture"}
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            keys = {"assemblies/" + name + "." + ext
+                    for name in verifier.ASSEMBLIES for ext in ("dll", "pdb")}
+            for name in keys:
+                path = folder / name
+                path.parent.mkdir(exist_ok=True)
+                path.write_bytes(("fixture " + name).encode())
+            (folder / "mapping.original").write_bytes(b"fixture mapping")
+            for name in helper.PROJECTS:
+                project = folder / name
+                project.mkdir()
+                (project / helper.GENERATOR).write_bytes(b"fixture generated source")
+                (project / "inputs.txt").write_text(
+                    "PROBE\n" + helper.FIXTURE_PREFIX + "1.xml\n" +
+                    helper.FIXTURE_PREFIX + "2.xml\n", encoding="utf-8")
+            manifest = helper.manifest(folder)
+            receipt = dict(info, xmlCount=2, hashes=manifest,
+                           assemblies={name: manifest[name] for name in keys})
+            receipt_path = folder / "receipt.json"
+            receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+            digest = helper.digest(receipt_path)
+            self.assertEqual(MODULE.producer_receipt(folder, info, digest), receipt)
+            for invalid in ("", "0" * 64):
+                with self.assertRaises(ValueError):
+                    MODULE.producer_receipt(folder, info, invalid)
+            for key, value in (("sourceSha", "c" * 40), ("runId", "124"), ("attempt", "2")):
+                with self.assertRaisesRegex(ValueError, "Diagnostic producer evidence differs"):
+                    MODULE.producer_receipt(folder, info | {key: value}, digest)
+            path = folder / sorted(keys)[0]
+            original = path.read_bytes()
+            path.write_bytes(original + b"tampered")
+            with self.assertRaisesRegex(ValueError, "Diagnostic producer evidence differs"):
+                MODULE.producer_receipt(folder, info, digest)
+            path.write_bytes(original)
+            (folder / "unexpected.bin").write_bytes(b"fixture")
+            with self.assertRaisesRegex(ValueError, "Diagnostic producer evidence differs"):
+                MODULE.producer_receipt(folder, info, digest)
 
     def test_diagnostic_producer_does_not_supply_scanner_coverage(self):
         workflow = (MODULE.ROOT / ".github/workflows/sonarcloud-ci.yml").read_text()
