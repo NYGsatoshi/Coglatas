@@ -62,7 +62,8 @@ class PythonShardingTests(unittest.TestCase):
     def test_execution_union_requires_exact_control_and_result_inventory(self):
         controls, _ = MODULE.parse_loop(self.canonical())
         baseline = {name: {"kind": "unittest", "tests": 2} for name in controls}
-        baseline[MODULE.MUTATION_CONTROL] = {"kind": "mutation", "cases": ["fixture"]}
+        baseline[MODULE.MUTATION_CONTROL] = {"kind": "mutation", "cases": [
+            {"mutation": "fixture", "expectedExit": 1, "actualExit": 1, "result": "PASS"}]}
         shards = {lane: {name: baseline[name] for name in MODULE.selection(lane, controls)}
                   for lane in MODULE.LANES[1:]}
         result = MODULE.require_execution_equivalence(controls, baseline, shards)
@@ -77,6 +78,52 @@ class PythonShardingTests(unittest.TestCase):
         ):
             with self.assertRaises(ValueError):
                 MODULE.require_execution_equivalence(controls, baseline, changed)
+
+    def test_single_pass_preserves_full_canonical_control_inventory(self):
+        controls, _ = MODULE.parse_loop(self.canonical())
+        baseline = {name: {"kind": "unittest", "tests": 3} for name in controls}
+        baseline[MODULE.MUTATION_CONTROL] = {"kind": "mutation", "cases": [
+            {"mutation": "fixture", "expectedExit": 1, "actualExit": 1, "result": "PASS"}]}
+        shards = {lane: {name: baseline[name] for name in MODULE.selection(lane, controls)}
+                  for lane in MODULE.LANES[1:]}
+        self.assertEqual(MODULE.expected_lanes("full"), MODULE.LANES)
+        self.assertEqual(MODULE.expected_lanes("single-pass"), MODULE.LANES[1:])
+        self.assertEqual(MODULE.require_execution_equivalence(controls, None, shards),
+                         MODULE.require_execution_equivalence(controls, baseline, shards))
+        with self.assertRaises(ValueError):
+            MODULE.expected_lanes("unknown")
+        first = next(name for name in shards["shard-1"] if name != MODULE.MUTATION_CONTROL)
+        for wrong in (
+            {"shard-1": shards["shard-1"]},
+            shards | {"shard-1": {name: row for name, row in shards["shard-1"].items() if name != first}},
+            shards | {"shard-1": shards["shard-1"] | {first: {"kind": "unittest", "tests": 0}}},
+            shards | {"shard-1": shards["shard-1"] | {first: {"kind": "unittest", "tests": True}}},
+            shards | {"shard-1": shards["shard-1"] | {first: {"kind": "mutation", "cases": []}}},
+            shards | {"shard-2": shards["shard-2"] | {first: baseline[first]}},
+        ):
+            with self.assertRaises(ValueError):
+                MODULE.require_execution_equivalence(controls, None, wrong)
+        mutation_lane = next(lane for lane in MODULE.LANES[1:]
+                             if MODULE.MUTATION_CONTROL in shards[lane])
+        for cases in ([], [{"mutation": "x", "expectedExit": 1, "actualExit": 0, "result": "PASS"}],
+                      [baseline[MODULE.MUTATION_CONTROL]["cases"][0]] * 2):
+            with self.assertRaises(ValueError):
+                MODULE.require_execution_equivalence(
+                    controls, None, shards | {mutation_lane: shards[mutation_lane] |
+                        {MODULE.MUTATION_CONTROL: {"kind": "mutation", "cases": cases}}})
+
+    def test_native_union_keeps_all_original_line_and_arc_identities(self):
+        first = {"a.py": (frozenset({1, 2}), frozenset({(1, 2)}))}
+        second = {"a.py": (frozenset({2, 3}), frozenset({(2, 3)})),
+                  "b.py": (frozenset({4}), frozenset({(4, -1)}))}
+        combined = MODULE.native_union({"shard-1": first, "shard-2": second})
+        self.assertEqual(combined, {
+            "a.py": (frozenset({1, 2, 3}), frozenset({(1, 2), (2, 3)})),
+            "b.py": second["b.py"]})
+        for wrong in ({"shard-1": first}, {"shard-1": first, "shard-2": {}},
+                      {"shard-1": first, "shard-2": second, "baseline": first}):
+            with self.assertRaises(ValueError):
+                MODULE.native_union(wrong)
 
     def test_manifest_rejects_missing_empty_and_linked_native_bytes(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -144,11 +191,16 @@ class PythonShardingTests(unittest.TestCase):
             self.assertNotIn("secrets.", job)
             self.assertNotIn("SONAR_TOKEN", job)
             self.assertNotIn("environment: sonarcloud-analysis", job)
-        self.assertIn("lane: [baseline, shard-1, shard-2]", lanes)
+        self.assertIn("analysis_kind == 'pull_request'", lanes)
+        self.assertIn('["shard-1","shard-2"]', lanes)
+        self.assertIn('["baseline","shard-1","shard-2"]', lanes)
+        self.assertIn("analysis_kind == 'pull_request' && 'single-pass' || 'full'", join)
+        self.assertIn('compare --mode "$PROOF_MODE"', join)
+        self.assertIn("Prove PR single-pass output matches the full independent baseline", workflow)
         self.assertIn("needs: [target, python-native-lanes]", join)
         self.assertIn('collect --lane "$PROOF_LANE"', lanes)
         self.assertIn("verify-sonar-python-sharding.py compare", join)
-        self.assertLess(join.index("Require exact native Python coverage equivalence"),
+        self.assertLess(join.index("Require complete native Python coverage admission"),
                         join.index("Stage native coverage.py combined evidence"))
         self.assertLess(join.index("Stage native coverage.py combined evidence"),
                         join.index("Bind Python coverage handoff to exact execution"))
