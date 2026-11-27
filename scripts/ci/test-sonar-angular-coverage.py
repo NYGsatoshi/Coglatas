@@ -114,7 +114,7 @@ class AngularProofTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 MODULE.compare_results(baseline, changed)
 
-    def test_original_production_workflow_does_not_admit_angular_proof(self):
+    def test_production_admission_preserves_credential_free_native_proof(self):
         root = Path(__file__).resolve().parents[2]
         proof = (root / ".github/workflows/sonar-angular-shard-proof.yml").read_text()
         production = (root / ".github/workflows/sonarcloud-ci.yml").read_text()
@@ -124,7 +124,23 @@ class AngularProofTests(unittest.TestCase):
         self.assertIn("persist-credentials: false", proof)
         self.assertNotIn("secrets.", proof)
         self.assertNotIn("SONAR_TOKEN", proof)
-        self.assertNotIn("verify-sonar-angular-coverage.py", production)
+        lanes = production.split("  angular-native-lanes:\n", 1)[1].split("\n  angular-coverage:\n", 1)[0]
+        admission = production.split("  angular-coverage:\n", 1)[1].split("\n  sonarcloud:\n", 1)[0]
+        scanner = production.split("  sonarcloud:\n", 1)[1]
+        self.assertIn("needs: target", lanes)
+        self.assertIn("lane: [baseline, shard-1, shard-2]", lanes)
+        self.assertIn("needs: [target, angular-native-lanes]", admission)
+        self.assertIn("verify-sonar-angular-coverage.py compare", admission)
+        self.assertIn("Verify Angular coverage handoff before scanner credentials", scanner)
+        self.assertLess(scanner.index("Verify Angular coverage handoff before scanner credentials"),
+                        scanner.index("Begin pinned SonarCloud analysis"))
+        for job in (lanes, admission):
+            self.assertIn("contents: read", job)
+            self.assertNotIn("secrets.", job)
+            self.assertNotIn("SONAR_TOKEN", job)
+        self.assertIn("artifacts/sonar-angular-inputs/shard-1/lcov.info,"
+                      "artifacts/sonar-angular-inputs/shard-2/lcov.info,", scanner)
+        self.assertNotIn("sonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info", scanner)
 
 
 if __name__ == "__main__":
