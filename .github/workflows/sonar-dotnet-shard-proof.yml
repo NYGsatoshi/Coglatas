@@ -18,6 +18,8 @@ on:
       - "scripts/ci/*sonar-openapi-reproduction.py"
       - "scripts/ci/*sonar-scanner-identity-trial.py"
       - "scripts/ci/test-sonarcloud-routing.py"
+      - "tests/Coglatas.Tests/Realtime/OutboxDispatcherFailureBoundaryTests.cs"
+      - "tests/Coglatas.Tests/PostgreSql/Wpc02CCanonicalProjectCreatePostgreSqlTests.cs"
 
 permissions:
   contents: read
