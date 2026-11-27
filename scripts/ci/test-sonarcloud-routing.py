@@ -590,10 +590,10 @@ class SonarParallelCoverageTests(unittest.TestCase):
     def test_parallel_producers_are_required_and_credential_free(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
         scanner = self.job(workflow, "sonarcloud")
-        self.assertIn("needs: [target, windows-dotnet, python-coverage, javascript-coverage, angular-coverage]", scanner)
+        self.assertIn("needs: [target, windows-dotnet, python-coverage, javascript-coverage, angular-coverage, dotnet-identity-probe]", scanner)
         self.assertIn("environment: sonarcloud-analysis", scanner)
         self.assertNotIn("if: always()", scanner.split("    steps:", 1)[0])
-        for name in ("windows-dotnet", "python-coverage", "javascript-coverage", "angular-native-lanes"):
+        for name in ("windows-dotnet", "python-coverage", "javascript-coverage", "angular-native-lanes", "dotnet-identity-probe"):
             producer = self.job(workflow, name)
             self.assertIn("    needs: target", producer)
             self.assertIn("    permissions:\n      contents: read", producer)

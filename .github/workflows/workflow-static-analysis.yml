@@ -14,6 +14,8 @@ on:
       - "scripts/ci/*sonar-dotnet-coverage.py"
       - "scripts/ci/*sonar-angular-coverage.py"
       - "scripts/ci/*sonar-python-sharding.py"
+      - "scripts/ci/*sonar-openapi-reproduction.py"
+      - "scripts/ci/*sonar-scanner-identity-trial.py"
       - "scripts/ci/sonar-coverage-requirements.txt"
   push:
     branches: ["main"]
@@ -27,6 +29,8 @@ on:
       - "scripts/ci/*sonar-dotnet-coverage.py"
       - "scripts/ci/*sonar-angular-coverage.py"
       - "scripts/ci/*sonar-python-sharding.py"
+      - "scripts/ci/*sonar-openapi-reproduction.py"
+      - "scripts/ci/*sonar-scanner-identity-trial.py"
       - "scripts/ci/sonar-coverage-requirements.txt"
 
 concurrency:
@@ -109,6 +113,12 @@ jobs:
 
       - name: Test Sonar Python sharding evidence validation
         run: python3 -B scripts/ci/test-sonar-python-sharding.py
+
+      - name: Test Sonar OpenAPI generator evidence validation
+        run: python3 -B scripts/ci/test-sonar-openapi-reproduction.py
+
+      - name: Test same-SHA scanner identity trial
+        run: python3 -B scripts/ci/test-sonar-scanner-identity-trial.py
 
       - name: Test Sonar Angular coverage evidence validation
         run: python3 -B scripts/ci/test-sonar-angular-coverage.py
