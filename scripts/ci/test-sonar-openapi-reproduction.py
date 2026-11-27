@@ -26,11 +26,23 @@ class ReproductionTests(unittest.TestCase):
                 MODULE.write_fixture(Path(root) / "fixture", 3)
 
     def test_blank_line_is_not_equivalence_or_arbitrary_normalization(self):
-        original = b"cache\n            return cache;\n"
-        self.assertTrue(MODULE.blank_line_delta(original, b"cache\n\n            return cache;\n"))
-        self.assertFalse(MODULE.blank_line_delta(original, original))
-        self.assertFalse(MODULE.blank_line_delta(original, b"xcache\n            return cache;\n"))
-        self.assertFalse(MODULE.blank_line_delta(original, b"cache\n\n\n            return cache;\n"))
+        for eol in (b"\r\n", b"\n"):
+            with self.subTest(eol=eol):
+                prefix = b"            var cache = new Dictionary<string, XmlComment>();" + eol
+                suffix = eol + eol + b"            return cache;" + eol
+                original = prefix + suffix
+                self.assertTrue(MODULE.blank_line_delta(original, prefix + b"\n" + suffix))
+                self.assertFalse(MODULE.blank_line_delta(original, original))
+                self.assertFalse(MODULE.blank_line_delta(original, b"x" + original))
+                self.assertFalse(MODULE.blank_line_delta(original, prefix + b"\n\n" + suffix))
+                self.assertFalse(MODULE.blank_line_delta(original, original + b"\n"))
+                if eol == b"\r\n":
+                    wrong_boundary = prefix + eol + eol + b"\n" + b"            return cache;" + eol
+                    self.assertFalse(MODULE.blank_line_delta(original, wrong_boundary))
+
+    def test_changed_cache_layout_does_not_silently_match(self):
+        with self.assertRaises(ValueError):
+            MODULE.blank_line_delta(b"other\r\n", b"other\r\n\n")
 
     def test_input_inventory_rejects_wrong_fixture_names(self):
         with tempfile.TemporaryDirectory() as root:

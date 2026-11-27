@@ -140,16 +140,20 @@ def fixture_count(path: Path) -> int:
 
 
 def blank_line_delta(before: bytes, after: bytes) -> bool:
-    """Historical diagnostic: exactly one extra newline at the cache return.
+    """Match exactly the historical LF inserted after cache initialization.
 
-    This predicate never normalizes, edits or admits a DLL/PDB for publication.
+    The generator template uses CRLF while joining XML emissions with LF.
+    This predicate compares the original bytes, never normalizes generated
+    source or admits different DLL/PDB bytes for publication.
     """
     if len(after) != len(before) + 1:
         return False
-    marker = b"            return cache;"
-    if before.count(marker) != 1:
-        raise ValueError("Unexpected generated cache layout")
-    pos = before.index(marker)
+    markers = list(re.finditer(
+        rb"(?m)^            var cache = new Dictionary<string, XmlComment>\(\);\r?\n",
+        before))
+    if len(markers) != 1:
+        raise ValueError("Unexpected generated cache initialization layout")
+    pos = markers[0].end()
     return after == before[:pos] + b"\n" + before[pos:]
 
 
@@ -189,12 +193,12 @@ def compare() -> None:
             files[project] = {"beforeSha256": hashlib.sha256(before).hexdigest(),
                               "afterSha256": hashlib.sha256(after).hexdigest(),
                               "byteDelta": len(after) - len(before),
-                              "oneBlankLineAtCacheReturn": blank_line_delta(before, after)}
+                              "oneLfAtCacheInitializationBoundary": blank_line_delta(before, after)}
         result[str(count)] = {"changedAssemblyFiles": changed, "generated": files,
                               "mappingUnchanged": baseline["hashes"]["mapping.original"]
                               == current["hashes"]["mapping.original"]}
     reproduced = [count for count, row in result.items()
-                  if row["mappingUnchanged"] and all(v["oneBlankLineAtCacheReturn"]
+                  if row["mappingUnchanged"] and all(v["oneLfAtCacheInitializationBoundary"]
                                                      for v in row["generated"].values())
                   and "assemblies/Coglatas.Web.dll" in row["changedAssemblyFiles"]
                   and "assemblies/Coglatas.Web.pdb" in row["changedAssemblyFiles"]]
