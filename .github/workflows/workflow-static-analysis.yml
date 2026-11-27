@@ -8,6 +8,8 @@ on:
       - ".github/workflows/**"
       - ".github/actions/**"
       - "scripts/ci/test-sonarcloud-routing.py"
+      - "scripts/ci/test-sonar-python-process-coverage.py"
+      - "scripts/ci/sonar-python.coveragerc"
       - "scripts/ci/test-workflow-tool-https.py"
       - "scripts/ci/*sonar-dotnet-coverage.py"
       - "scripts/ci/*sonar-angular-coverage.py"
@@ -18,6 +20,8 @@ on:
       - ".github/workflows/**"
       - ".github/actions/**"
       - "scripts/ci/test-sonarcloud-routing.py"
+      - "scripts/ci/test-sonar-python-process-coverage.py"
+      - "scripts/ci/sonar-python.coveragerc"
       - "scripts/ci/test-workflow-tool-https.py"
       - "scripts/ci/*sonar-dotnet-coverage.py"
       - "scripts/ci/*sonar-angular-coverage.py"
@@ -106,6 +110,20 @@ jobs:
 
       - name: Test workflow tool HTTPS transport
         run: python3 -B scripts/ci/test-workflow-tool-https.py
+
+      - name: Install checksum-pinned Python coverage for native evidence regression
+        run: >-
+          python3 -m pip install --disable-pip-version-check --no-deps --require-hashes
+          --target "$RUNNER_TEMP/sonar-coverage-tools"
+          -r scripts/ci/sonar-coverage-requirements.txt
+
+      - name: Verify real native Angular proof coverage
+        env:
+          PYTHONPATH: ${{ runner.temp }}/sonar-coverage-tools
+          COVERAGE_CORE: pytrace
+        run: >-
+          python3 -B scripts/ci/test-sonar-python-process-coverage.py
+          PythonProcessCoverageTests.test_angular_proof_controls_report_native_subject_coverage
 
       - name: Install checksum-pinned actionlint
         shell: bash
