@@ -3,8 +3,16 @@ import { fileURLToPath } from 'node:url';
 
 const isCi = process.env['CI'] === 'true' || process.env['GITHUB_ACTIONS'] === 'true';
 
+// Only the credential-free Sonar sharding qualification sets this variable.
+const proofShard = process.env['COGLATAS_SONAR_ANGULAR_PROOF_SHARD'];
+if (proofShard !== undefined &&
+    (!isCi || (proofShard !== '1/2' && proofShard !== '2/2'))) {
+  throw new Error('Invalid Angular coverage qualification shard');
+}
+
 export default defineConfig({
   test: {
+    ...(proofShard === undefined ? {} : { shard: proofShard }),
     server: {
       deps: {
         // Syncfusion's Angular wrappers publish CommonJS interop through
