@@ -13,6 +13,7 @@ on:
       - "scripts/ci/test-workflow-tool-https.py"
       - "scripts/ci/*sonar-dotnet-coverage.py"
       - "scripts/ci/*sonar-angular-coverage.py"
+      - "scripts/ci/*sonar-python-sharding.py"
       - "scripts/ci/sonar-coverage-requirements.txt"
   push:
     branches: ["main"]
@@ -25,6 +26,7 @@ on:
       - "scripts/ci/test-workflow-tool-https.py"
       - "scripts/ci/*sonar-dotnet-coverage.py"
       - "scripts/ci/*sonar-angular-coverage.py"
+      - "scripts/ci/*sonar-python-sharding.py"
       - "scripts/ci/sonar-coverage-requirements.txt"
 
 concurrency:
@@ -104,6 +106,9 @@ jobs:
 
       - name: Test Sonar .NET coverage evidence validation
         run: python3 scripts/ci/test-sonar-dotnet-coverage.py
+
+      - name: Test Sonar Python sharding evidence validation
+        run: python3 -B scripts/ci/test-sonar-python-sharding.py
 
       - name: Test Sonar Angular coverage evidence validation
         run: python3 -B scripts/ci/test-sonar-angular-coverage.py
