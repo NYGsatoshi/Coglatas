@@ -616,8 +616,9 @@ class SonarParallelCoverageTests(unittest.TestCase):
         self.assertNotIn("secrets.", python_join)
         self.assertNotIn("SONAR_TOKEN", python_join)
         self.assertNotIn("environment: sonarcloud-analysis", python_join)
-        self.assertIn("Require exact native Python coverage equivalence", python_join)
-        self.assertLess(python_join.index("Require exact native Python coverage equivalence"),
+        self.assertIn("Require complete native Python coverage admission", python_join)
+        self.assertIn("analysis_kind == 'pull_request' && 'single-pass' || 'full'", python_join)
+        self.assertLess(python_join.index("Require complete native Python coverage admission"),
                         python_join.index("Bind Python coverage handoff to exact execution"))
         self.assertEqual(scanner.count("secrets.SONAR_TOKEN"), 2)
         for kind, reports in self.REPORTS.items():

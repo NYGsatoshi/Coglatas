@@ -2,13 +2,15 @@ name: Sonar Python sharding qualification
 
 on:
   pull_request:
-    branches: ["ci/sonar-coverage-*"]
+    branches: ["main", "ci/sonar-coverage-*"]
     paths:
       - ".github/workflows/sonar-python-shard-proof.yml"
       - "scripts/ci/*sonar-python-sharding.py"
       - ".github/workflows/sonarcloud-ci.yml"
       - "scripts/ci/sonar-python.coveragerc"
       - "scripts/ci/sonar-python-controls.sh"
+      - "scripts/ci/sonar-coverage-requirements.txt"
+      - "scripts/ci/sonar-python-coverage-bootstrap/**"
 
 permissions:
   contents: read
@@ -20,7 +22,10 @@ concurrency:
 jobs:
   collect:
     name: Python native coverage proof / ${{ matrix.lane }}
-    if: github.repository == 'NYGsatoshi/Coglatas' && github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'ci/sonar-coverage-python-sharding-')
+    if: >-
+      github.repository == 'NYGsatoshi/Coglatas' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (github.base_ref == 'main' || startsWith(github.head_ref, 'ci/sonar-coverage-python-sharding-'))
     strategy:
       fail-fast: false
       matrix:
@@ -101,6 +106,51 @@ jobs:
           PYTHONPATH: ${{ runner.temp }}/sonar-coverage-tools
           COVERAGE_CORE: pytrace
         run: python3 -B scripts/ci/verify-sonar-python-sharding.py compare
+
+      - name: Prove PR single-pass output matches the full independent baseline
+        env:
+          PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+          PYTHONPATH: ${{ runner.temp }}/sonar-coverage-tools
+          COVERAGE_CORE: pytrace
+        run: |
+          set -euo pipefail
+          mv -- artifacts/sonar-python-shard-equivalence "$RUNNER_TEMP/sonar-python-full-comparison"
+          mv -- "artifacts/sonar-python-shard-proof/sonar-python-shard-proof-baseline-$GITHUB_RUN_ATTEMPT" "$RUNNER_TEMP/sonar-python-baseline"
+          python3 -B scripts/ci/verify-sonar-python-sharding.py compare --mode single-pass
+          python3 -B - <<'PY'
+          import importlib.util, json, os
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location("proof", "scripts/ci/verify-sonar-python-sharding.py")
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          full = Path(os.environ["RUNNER_TEMP"]) / "sonar-python-full-comparison"
+          fast = Path("artifacts/sonar-python-shard-equivalence")
+          old = json.loads((full / "receipt.json").read_bytes())
+          new = json.loads((fast / "receipt.json").read_bytes())
+          keys = ("sourceSha", "treeSha", "runId", "attempt", "inputs", "controls",
+                  "unittestCases", "mutationCases", "measuredFiles", "executedLines", "executedArcs")
+          if not old["baselineCompared"] or new["baselineCompared"] or any(old[k] != new[k] for k in keys):
+              raise ValueError("Single-pass admission counters differ from full proof")
+          tracked = module.tracked_paths(module.ROOT)
+          if module.native_points(full / "coverage.native.data", module.ROOT, tracked) != module.native_points(fast / "coverage.native.data", module.ROOT, tracked):
+              raise ValueError("Single-pass native SQLite points differ")
+          if module.native_json(full / "coverage.native.json") != module.native_json(fast / "coverage.native.json"):
+              raise ValueError("Single-pass native JSON differs")
+          if module.native_xml(full / "coverage.xml") != module.native_xml(fast / "coverage.xml"):
+              raise ValueError("Single-pass native XML differs")
+          print("PR single-pass output equals independently qualified full native baseline")
+          PY
+          mv -- artifacts/sonar-python-shard-equivalence artifacts/sonar-python-single-pass
+          mv -- "$RUNNER_TEMP/sonar-python-full-comparison" artifacts/sonar-python-shard-equivalence
+          mv -- "$RUNNER_TEMP/sonar-python-baseline" "artifacts/sonar-python-shard-proof/sonar-python-shard-proof-baseline-$GITHUB_RUN_ATTEMPT"
+
+      - name: Retain qualified single-pass output
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-python-single-pass-${{ github.run_attempt }}
+          path: artifacts/sonar-python-single-pass/
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Retain comparison receipt and original coverage.py outputs
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

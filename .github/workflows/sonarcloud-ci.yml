@@ -201,7 +201,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lane: [baseline, shard-1, shard-2]
+        # PR: execute the entire canonical inventory once, in disjoint lanes.
+        # Main retains the independent full-baseline equivalence experiment.
+        lane: ${{ fromJSON(needs.target.outputs.analysis_kind == 'pull_request' && '["shard-1","shard-2"]' || '["baseline","shard-1","shard-2"]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
@@ -280,12 +282,13 @@ jobs:
           pattern: sonar-python-shard-proof-*-${{ github.run_attempt }}
           path: artifacts/sonar-python-shard-proof
 
-      - name: Require exact native Python coverage equivalence
+      - name: Require complete native Python coverage admission
         env:
           PROOF_SOURCE_SHA: ${{ github.sha }}
           PYTHONPATH: ${{ runner.temp }}/sonar-coverage-tools
           COVERAGE_CORE: pytrace
-        run: python3 -B scripts/ci/verify-sonar-python-sharding.py compare
+          PROOF_MODE: ${{ needs.target.outputs.analysis_kind == 'pull_request' && 'single-pass' || 'full' }}
+        run: python3 -B scripts/ci/verify-sonar-python-sharding.py compare --mode "$PROOF_MODE"
 
       - name: Stage native coverage.py combined evidence without report rewriting
         shell: bash
@@ -301,7 +304,7 @@ jobs:
             cp -- "$source" "$target"
             cmp -- "$source" "$target"
           done
-          # The full baseline remains in its own original lane archive.
+          # Retain every native shard; Main's independent baseline has its own archive.
           for lane in shard-1 shard-2; do
             source="artifacts/sonar-python-shard-proof/sonar-python-shard-proof-$lane-${GITHUB_RUN_ATTEMPT}/native-shards"
             target="artifacts/sonar-python/native-shards/$lane"
