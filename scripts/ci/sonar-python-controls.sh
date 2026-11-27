@@ -8,6 +8,9 @@ set -euo pipefail
             tests/ci/test_synthetic_logical_recovery_ci.py \
             scripts/ci/test-sonar-dotnet-coverage.py \
             scripts/ci/test-sonar-angular-coverage.py \
+            scripts/ci/test-sonar-python-sharding.py \
+            scripts/ci/test-sonar-openapi-reproduction.py \
+            scripts/ci/test-sonar-scanner-identity-trial.py \
             scripts/ci/test-sonar-windows-coverage.py \
             scripts/ci/test-required-pr-checks.py \
             scripts/ci/test-publication-readiness.py \

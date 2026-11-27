@@ -96,6 +96,38 @@ class PythonShardingTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 MODULE.file_manifest(folder)
 
+    def test_native_report_validation_never_normalizes_coverage_points(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            json_path = root / "coverage.native.json"
+            xml_path = root / "coverage.xml"
+            file_data = {"scripts/ci/fixture.py": {
+                "executed_lines": [1], "missing_lines": [2],
+                "executed_branches": [[1, 2]], "missing_branches": [[1, 3]],
+            }}
+            payload = {"meta": {"branch_coverage": True, "version": "7.17.0"},
+                       "files": file_data}
+            json_path.write_text(json.dumps(payload), encoding="utf-8")
+            self.assertEqual(MODULE.native_json(json_path), file_data)
+            for invalid in (payload | {"files": {}},
+                            payload | {"meta": {"branch_coverage": False, "version": "7.17.0"}},
+                            payload | {"meta": {"branch_coverage": True, "version": "7.0"}}):
+                json_path.write_text(json.dumps(invalid), encoding="utf-8")
+                with self.assertRaises(ValueError):
+                    MODULE.native_json(json_path)
+            xml = ('<coverage timestamp="1"><packages><package><classes>'
+                   '<class filename="fixture.py"><lines><line number="1" hits="1"/>'
+                   '</lines></class></classes></package></packages></coverage>')
+            xml_path.write_text(xml, encoding="utf-8")
+            baseline = MODULE.native_xml(xml_path)
+            xml_path.write_text(xml.replace('timestamp="1"', 'timestamp="2"'), encoding="utf-8")
+            self.assertEqual(MODULE.native_xml(xml_path), baseline)
+            xml_path.write_text(xml.replace('hits="1"', 'hits="0"'), encoding="utf-8")
+            self.assertNotEqual(MODULE.native_xml(xml_path), baseline)
+            xml_path.write_text("<coverage/>", encoding="utf-8")
+            with self.assertRaises(ValueError):
+                MODULE.native_xml(xml_path)
+
     def test_production_admission_preserves_the_credential_free_proof(self):
         workflow = (MODULE.ROOT / ".github/workflows/sonar-python-shard-proof.yml").read_text()
         self.assertIn("lane: [baseline, shard-1, shard-2]", workflow)

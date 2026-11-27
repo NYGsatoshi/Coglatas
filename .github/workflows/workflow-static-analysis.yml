@@ -145,6 +145,14 @@ jobs:
           python3 -B scripts/ci/test-sonar-python-process-coverage.py
           PythonProcessCoverageTests.test_angular_proof_controls_report_native_subject_coverage
 
+      - name: Verify native compiler and sharding proof coverage
+        env:
+          PYTHONPATH: ${{ runner.temp }}/sonar-coverage-tools
+          COVERAGE_CORE: pytrace
+        run: >-
+          python3 -B scripts/ci/test-sonar-python-process-coverage.py
+          PythonProcessCoverageTests.test_compiler_and_sharding_proof_controls_report_native_subject_coverage
+
       - name: Install checksum-pinned actionlint
         shell: bash
         run: |
