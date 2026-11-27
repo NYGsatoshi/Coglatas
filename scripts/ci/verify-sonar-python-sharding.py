@@ -22,6 +22,7 @@ CONFIG = "scripts/ci/sonar-python.coveragerc"
 REQUIREMENTS = "scripts/ci/sonar-coverage-requirements.txt"
 BOOTSTRAP = "scripts/ci/sonar-python-coverage-bootstrap/sitecustomize.py"
 LANES = ("baseline", "shard-1", "shard-2")
+MODES = ("full", "single-pass")
 MUTATION_CONTROL = "scripts/ci/test_av_mig_production_cli.py"
 MUTATION_REPORT = "artifacts/av-mig/production-cli-mutations.json"
 NATIVE_REPORTS = ("coverage.native.data", "coverage.native.json", "coverage.xml")
@@ -233,8 +234,8 @@ def native_xml(path: Path) -> bytes:
     return ET.tostring(root, encoding="utf-8")
 
 
-def require_execution_equivalence(controls: list[str], baseline: dict, shards: dict) -> dict:
-    if set(shards) != set(LANES[1:]) or set(baseline) != set(controls):
+def require_complete_execution(controls: list[str], shards: dict) -> dict:
+    if set(shards) != set(LANES[1:]):
         raise ValueError("Incomplete canonical control inventory")
     union = {}
     for lane in LANES[1:]:
@@ -242,13 +243,56 @@ def require_execution_equivalence(controls: list[str], baseline: dict, shards: d
         if set(current) != set(selection(lane, controls)) or set(union).intersection(current):
             raise ValueError("Missing or duplicated Python control execution")
         union.update(current)
-    if union != baseline:
-        raise ValueError("Python execution summaries or mutation identities differ")
+    if set(union) != set(controls):
+        raise ValueError("Incomplete canonical control inventory")
+    for control, row in union.items():
+        if control == MUTATION_CONTROL:
+            if (not isinstance(row, dict) or row.get("kind") != "mutation"
+                    or not isinstance(row.get("cases"), list) or not row["cases"]
+                    or any(not isinstance(case, dict) or not isinstance(case.get("mutation"), str)
+                           or not case["mutation"] or type(case.get("expectedExit")) is not int
+                           or type(case.get("actualExit")) is not int
+                           or case["actualExit"] != case["expectedExit"]
+                           or case.get("result") != "PASS" for case in row["cases"])
+                    or len({case["mutation"] for case in row["cases"]}) != len(row["cases"])):
+                raise ValueError("Invalid canonical mutation execution inventory")
+        elif (not isinstance(row, dict) or row.get("kind") != "unittest"
+              or type(row.get("tests")) is not int or row["tests"] <= 0):
+            raise ValueError("Invalid canonical unittest execution inventory")
+    return union
+
+
+def require_execution_equivalence(controls: list[str], baseline: dict | None, shards: dict) -> dict:
+    union = require_complete_execution(controls, shards)
+    if baseline is not None:
+        if set(baseline) != set(controls):
+            raise ValueError("Incomplete canonical control inventory")
+        if union != baseline:
+            raise ValueError("Python execution summaries or mutation identities differ")
     tests = sum(row["tests"] for row in union.values() if row["kind"] == "unittest")
     mutations = sum(len(row["cases"]) for row in union.values() if row["kind"] == "mutation")
     if tests <= 0 or mutations <= 0:
         raise ValueError("No actual unittest or CLI mutation results")
     return {"controls": len(union), "unittestCases": tests, "mutationCases": mutations}
+
+
+def expected_lanes(mode: str) -> tuple[str, ...]:
+    if mode not in MODES:
+        raise ValueError("Unknown native Python admission mode")
+    return LANES if mode == "full" else LANES[1:]
+
+
+def native_union(points: dict) -> dict:
+    if set(points) != set(LANES[1:]) or not all(points.values()):
+        raise ValueError("Incomplete native Python shard data")
+    union = {}
+    for lane in LANES[1:]:
+        for source, (lines, arcs) in points[lane].items():
+            old_lines, old_arcs = union.get(source, (frozenset(), frozenset()))
+            union[source] = (old_lines | lines, old_arcs | arcs)
+    if not union:
+        raise ValueError("Empty native Python shard union")
+    return union
 
 
 def collect(lane: str) -> None:
@@ -306,16 +350,17 @@ def collect(lane: str) -> None:
                       "controls": len(execution), "timings": timings}, sort_keys=True))
 
 
-def compare() -> None:
+def compare(mode: str = "full") -> None:
+    lanes = expected_lanes(mode)
     expected = identity(ROOT)
     controls, _ = parse_loop((ROOT / CONTROL_LOOP).read_text())
     tracked = tracked_paths(ROOT)
     directory = ROOT / "artifacts/sonar-python-shard-proof"
-    names = {lane: "sonar-python-shard-proof-" + lane + "-" + expected["attempt"] for lane in LANES}
+    names = {lane: "sonar-python-shard-proof-" + lane + "-" + expected["attempt"] for lane in lanes}
     if {path.name for path in directory.iterdir()} != set(names.values()):
         raise ValueError("Missing, stale or unexpected Python lane artifact")
     folders, receipts, points = {}, {}, {}
-    for lane in LANES:
+    for lane in lanes:
         folder = directory / names[lane]
         if folder.is_symlink():
             raise ValueError("Linked Python artifact")
@@ -341,7 +386,8 @@ def compare() -> None:
         native_xml(folder / NATIVE_REPORTS[2])
         receipts[lane], folders[lane] = receipt, folder
 
-    result = require_execution_equivalence(controls, receipts["baseline"]["execution"],
+    baseline = receipts["baseline"]["execution"] if mode == "full" else None
+    result = require_execution_equivalence(controls, baseline,
                                           {lane: receipts[lane]["execution"] for lane in LANES[1:]})
     output = ROOT / "artifacts/sonar-python-shard-equivalence"
     output.mkdir(parents=True, exist_ok=False)
@@ -353,17 +399,24 @@ def compare() -> None:
     native_coverage("combine", env=env)
     reports(output, env)
     merged = native_points(data, ROOT, tracked)
-    if merged != points["baseline"]:
-        raise ValueError("Combined Python native line/arc inventory differs from baseline")
-    if native_json(output / NATIVE_REPORTS[1]) != native_json(folders["baseline"] / NATIVE_REPORTS[1]):
-        raise ValueError("Combined native Python JSON point/branch evidence differs")
-    if native_xml(output / NATIVE_REPORTS[2]) != native_xml(folders["baseline"] / NATIVE_REPORTS[2]):
-        raise ValueError("Combined native Python XML differs outside timestamp")
-    result.update(expected, scope="PYTHON_NATIVE_SHARD_EQUIVALENCE_ONLY_NOT_SONARCLOUD",
+    if merged != native_union({lane: points[lane] for lane in LANES[1:]}):
+        raise ValueError("Combined native Python data differs from original shard union")
+    combined_json = native_json(output / NATIVE_REPORTS[1])
+    combined_xml = native_xml(output / NATIVE_REPORTS[2])
+    if mode == "full":
+        if merged != points["baseline"]:
+            raise ValueError("Combined Python native line/arc inventory differs from baseline")
+        if combined_json != native_json(folders["baseline"] / NATIVE_REPORTS[1]):
+            raise ValueError("Combined native Python JSON point/branch evidence differs")
+        if combined_xml != native_xml(folders["baseline"] / NATIVE_REPORTS[2]):
+            raise ValueError("Combined native Python XML differs outside timestamp")
+    scope = ("PYTHON_NATIVE_SHARD_EQUIVALENCE_ONLY_NOT_SONARCLOUD" if mode == "full"
+             else "PYTHON_NATIVE_COMPLETE_PARTITION_NOT_BASELINE_COMPARISON")
+    result.update(expected, scope=scope, mode=mode, baselineCompared=mode == "full",
                   measuredFiles=len(merged), executedLines=sum(len(row[0]) for row in merged.values()),
                   executedArcs=sum(len(row[1]) for row in merged.values()),
                   lanes={lane: {key: receipts[lane][key] for key in ("controlSeconds", "combineReportSeconds", "timings")}
-                         for lane in LANES}, hashes={name: sha256(output / name) for name in NATIVE_REPORTS})
+                         for lane in lanes}, hashes={name: sha256(output / name) for name in NATIVE_REPORTS})
     (output / "receipt.json").write_text(json.dumps(result, sort_keys=True, indent=2) + "\n")
     print(json.dumps(result, sort_keys=True))
 
@@ -373,12 +426,13 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command", required=True)
     collect_parser = sub.add_parser("collect")
     collect_parser.add_argument("--lane", choices=LANES, required=True)
-    sub.add_parser("compare")
+    compare_parser = sub.add_parser("compare")
+    compare_parser.add_argument("--mode", choices=MODES, default="full")
     args = parser.parse_args()
     if args.command == "collect":
         collect(args.lane)
     else:
-        compare()
+        compare(args.mode)
 
 
 if __name__ == "__main__":
