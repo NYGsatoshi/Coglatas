@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/sonar-python-shard-proof.yml"
       - "scripts/ci/*sonar-python-sharding.py"
+      - "scripts/ci/test-sonar-python-process-coverage.py"
       - ".github/workflows/sonarcloud-ci.yml"
       - "scripts/ci/sonar-python.coveragerc"
       - "scripts/ci/sonar-python-controls.sh"

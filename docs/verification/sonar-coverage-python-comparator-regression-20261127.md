@@ -1,0 +1,7 @@
+# Native Python collector/comparator regression
+
+Actual native coverage from authenticated run [45987179541](https://github.com/NYGsatoshi/Coglatas/actions/runs/45987179541) was downloaded and its [archive](https://github.com/NYGsatoshi/Coglatas/actions/runs/45987179541/artifacts/15192536709) SHA-256 independently checked against provider metadata (`a34a49678397c917984b67abba27fc73b80185c05cd9a5daf7f2006f0f4da13c`). In that exact report the tracked Python sharding helper had 112/258 executed statements and 41/104 covered branches (42.27% combined native coverage). Most of the actual collection/comparison path was unmeasured because the helper runs outside its own production control collection.
+
+Add isolated temporary Git fixtures that actually run the checksum-pinned coverage.py and the existing collector/dispatch/comparator, with a real two-control baseline and complementary lanes, native process data, JSON/XML and a real fixture CLI exit receipt. Reuse genuine complementary-shard bytes in negative controls to test native data, JSON and XML disagreement independently from manifest validation. Reject stale inventory/receipt/digests, invalid timing, unowned source and mutation-ledger mismatch. The existing native helper regression now measures the actual success/rejection statements of the checked-in comparator.
+
+No production source scope, canonical control inventory, baseline, token route, or quality threshold changes. Fixtures are regression inputs, not production publication evidence. Native proof and ordinary/static CI must pass at the new head.
