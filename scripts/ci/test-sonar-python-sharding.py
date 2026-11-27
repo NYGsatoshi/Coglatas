@@ -15,7 +15,7 @@ spec.loader.exec_module(MODULE)
 
 class PythonShardingTests(unittest.TestCase):
     def canonical(self):
-        return (MODULE.ROOT / MODULE.WORKFLOW).read_text()
+        return (MODULE.ROOT / MODULE.CONTROL_LOOP).read_text()
 
     def test_partition_is_complete_and_uses_original_dispatch(self):
         controls, dispatch = MODULE.parse_loop(self.canonical())
@@ -96,14 +96,34 @@ class PythonShardingTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 MODULE.file_manifest(folder)
 
-    def test_workflow_is_qualification_only(self):
+    def test_production_admission_preserves_the_credential_free_proof(self):
         workflow = (MODULE.ROOT / ".github/workflows/sonar-python-shard-proof.yml").read_text()
         self.assertIn("lane: [baseline, shard-1, shard-2]", workflow)
         self.assertIn("needs: collect", workflow)
         self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", workflow)
         self.assertNotIn("secrets.", workflow)
         self.assertNotIn("SONAR_TOKEN", workflow)
-        self.assertNotIn("verify-sonar-python-sharding.py", self.canonical())
+        production = (MODULE.ROOT / MODULE.WORKFLOW).read_text()
+        lanes = production.split("  python-native-lanes:\n", 1)[1].split("\n  python-coverage:\n", 1)[0]
+        join = production.split("  python-coverage:\n", 1)[1].split("\n  javascript-coverage:\n", 1)[0]
+        scanner = production.split("  sonarcloud:\n", 1)[1]
+        for job in (lanes, join):
+            self.assertIn("contents: read", job)
+            self.assertNotIn("secrets.", job)
+            self.assertNotIn("SONAR_TOKEN", job)
+            self.assertNotIn("environment: sonarcloud-analysis", job)
+        self.assertIn("lane: [baseline, shard-1, shard-2]", lanes)
+        self.assertIn("needs: [target, python-native-lanes]", join)
+        self.assertIn('collect --lane "$PROOF_LANE"', lanes)
+        self.assertIn("verify-sonar-python-sharding.py compare", join)
+        self.assertLess(join.index("Require exact native Python coverage equivalence"),
+                        join.index("Stage native coverage.py combined evidence"))
+        self.assertLess(join.index("Stage native coverage.py combined evidence"),
+                        join.index("Bind Python coverage handoff to exact execution"))
+        self.assertIn("artifacts/sonar-python/receipt.json", scanner)
+        self.assertIn("artifacts/sonar-python/coverage.xml,artifacts/sonar-gcp/coverage.xml", scanner)
+        self.assertNotIn("          for control in ", production)
+        self.assertEqual(self.canonical().count("          for control in "), 1)
 
 
 if __name__ == "__main__":

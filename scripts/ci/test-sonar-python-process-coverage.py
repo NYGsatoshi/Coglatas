@@ -106,7 +106,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
         self.assertEqual(len(expected), len(set(expected)))
         self.assertEqual(len(aggregate), len(set(aggregate)))
         self.assertEqual(sorted(expected), sorted(aggregate))
-        workflow = (ROOT / '.github/workflows/sonarcloud-ci.yml').read_text(encoding='utf-8')
+        workflow = (ROOT / 'scripts/ci/sonar-python-controls.sh').read_text(encoding='utf-8')
         loop = workflow.split('for control in \\\n', 1)[1].split('; do', 1)[0]
         for name in nested:
             self.assertNotIn('scripts/ci/' + name + '.py', loop)
@@ -114,7 +114,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
             self.assertEqual(loop.count('scripts/ci/' + name + '.py'), 1)
 
     def test_existing_final_and_producer_binding_suites_are_complete_and_selected_once(self):
-        workflow = (ROOT / '.github/workflows/sonarcloud-ci.yml').read_text(encoding='utf-8')
+        workflow = (ROOT / 'scripts/ci/sonar-python-controls.sh').read_text(encoding='utf-8')
         loop = workflow.split('for control in \\\n', 1)[1].split('; do', 1)[0]
         paths = [line.strip().removesuffix('\\').strip() for line in loop.splitlines() if line.strip()]
         self.assertEqual(len(paths), len(set(paths)))
@@ -147,7 +147,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
                 self.assertEqual(sorted(selected), sorted(expected))
 
     def test_existing_local_and_suspension_suites_are_complete_and_selected_once(self):
-        workflow = (ROOT / '.github/workflows/sonarcloud-ci.yml').read_text(encoding='utf-8')
+        workflow = (ROOT / 'scripts/ci/sonar-python-controls.sh').read_text(encoding='utf-8')
         loop = workflow.split('for control in \\\n', 1)[1].split('; do', 1)[0]
         loader = unittest.TestLoader()
 
@@ -179,7 +179,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
                 self.assertEqual(sorted(selected), sorted(expected))
 
     def test_local_suite_without_main_runs_all_cases_through_the_selected_producer_command(self):
-        workflow = (ROOT / '.github/workflows/sonarcloud-ci.yml').read_text(encoding='utf-8')
+        workflow = (ROOT / 'scripts/ci/sonar-python-controls.sh').read_text(encoding='utf-8')
         dispatch = workflow.split('; do\n', 1)[1].split('\n          done', 1)[0]
         discovery = dispatch.split('if [[ "$control" == "tests/ci/test_performance_local.py" ]]; then\n', 1)[1].split('            fi', 1)[0]
         self.assertEqual(discovery.count('python3 '), 1)
@@ -211,7 +211,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
     def test_exact_realtime_candidate_source_uses_native_executed_coverage(self):
         tracked = (ROOT / 'scripts/security/sec17_realtime_finding_candidate.py').resolve()
         subject = (ROOT / 'tests/ci/test_sec17_realtime_finding_candidate.py').resolve()
-        workflow = (ROOT / '.github/workflows/sonarcloud-ci.yml').read_text(encoding='utf-8')
+        workflow = (ROOT / 'scripts/ci/sonar-python-controls.sh').read_text(encoding='utf-8')
         controls = workflow.split('for control in \\\n', 1)[1].split('; do', 1)[0]
         self.assertEqual(controls.count('tests/ci/test_sec17_realtime_finding_candidate.py'), 1)
         with tempfile.TemporaryDirectory() as directory:
@@ -240,7 +240,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
 
     def test_logical_main_push_admission_is_measured_by_existing_python_cohort(self):
         """The native logical suite must be selected; no coverage exclusion or bypass."""
-        workflow = (ROOT / '.github/workflows/sonarcloud-ci.yml').read_text(encoding='utf-8')
+        workflow = (ROOT / 'scripts/ci/sonar-python-controls.sh').read_text(encoding='utf-8')
         cohort = workflow.split('for control in \\\n', 1)[1].split('; do', 1)[0]
         self.assertEqual(cohort.count('tests/ci/test_synthetic_logical_recovery_ci.py'), 1)
         self.assertIn('python3 -B -m coverage run "$control"', workflow)
@@ -256,7 +256,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
         """Use the real repository configuration and regression suite, not a copied subject."""
         subject = (ROOT / 'scripts/ci/verify-sonar-angular-coverage.py').resolve()
         suite = ROOT / 'scripts/ci/test-sonar-angular-coverage.py'
-        workflow = (ROOT / '.github/workflows/sonarcloud-ci.yml').read_text(encoding='utf-8')
+        workflow = (ROOT / 'scripts/ci/sonar-python-controls.sh').read_text(encoding='utf-8')
         cohort = workflow.split('for control in \\\n', 1)[1].split('; do', 1)[0]
         self.assertEqual(cohort.count('scripts/ci/test-sonar-angular-coverage.py'), 1)
         with tempfile.TemporaryDirectory() as directory:
@@ -655,7 +655,7 @@ class ExistingDatabaseCoverageDiscoveryTests(unittest.TestCase):
     )
 
     def test_existing_database_suites_have_complete_unique_discovery_and_one_selection(self):
-        workflow = (ROOT / '.github/workflows/sonarcloud-ci.yml').read_text(encoding='utf-8')
+        workflow = (ROOT / 'scripts/ci/sonar-python-controls.sh').read_text(encoding='utf-8')
         loop = workflow.split('for control in \\\n', 1)[1].split('; do', 1)[0]
         loader = unittest.TestLoader()
 
@@ -693,7 +693,7 @@ class ExistingDatabaseCoverageDiscoveryTests(unittest.TestCase):
                 self.assertEqual(sorted(selected), sorted(declared))
 
     def test_selected_database_dispatch_executes_all_cases_without_main_or_test_body_coverage(self):
-        workflow = (ROOT / '.github/workflows/sonarcloud-ci.yml').read_text(encoding='utf-8')
+        workflow = (ROOT / 'scripts/ci/sonar-python-controls.sh').read_text(encoding='utf-8')
         dispatch = workflow.split('; do\n', 1)[1].split('\n          done', 1)[0]
         discovery = dispatch.split('case "$control" in\n', 1)[1].split('            esac', 1)[0]
         self.assertEqual(discovery.count('python3 '), 1)

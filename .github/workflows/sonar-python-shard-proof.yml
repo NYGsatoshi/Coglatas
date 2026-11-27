@@ -8,6 +8,7 @@ on:
       - "scripts/ci/*sonar-python-sharding.py"
       - ".github/workflows/sonarcloud-ci.yml"
       - "scripts/ci/sonar-python.coveragerc"
+      - "scripts/ci/sonar-python-controls.sh"
 
 permissions:
   contents: read
