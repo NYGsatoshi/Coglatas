@@ -391,6 +391,100 @@ class CoverageTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             MODULE.scanner_compatible_fixture(self.root, folder, identity, before, mapping)
 
+    def shard_trial_fixture(self):
+        native = MODULE._native_verifier()
+        identity = {"sourceSha": "a" * 40, "treeSha": "b" * 40,
+                    "runId": "100", "attempt": "1", "workspace": str(self.root)}
+        hashes = {"assemblies/" + name + "." + ext: "c" * 64
+                  for name in native.ASSEMBLIES for ext in ("dll", "pdb")}
+        receipt = dict(sourceSha=identity["sourceSha"], treeSha=identity["treeSha"],
+                       runId="100", attempt="1", scope=MODULE.DOTNET_SHARD_SCOPE,
+                       scannerCompatibleFixtureXmlCount=2, passedTests=8,
+                       sequencePoints=4, sequenceVisited=3, branchPoints=4, branchVisited=2,
+                       preRebuildAssemblyDigests=hashes, executedAssemblyDigests=hashes,
+                       generatedSourceDigests={"Coglatas.Web": "d" * 64, "Coglatas.Tests": "e" * 64},
+                       deterministicSourceMappingSha256="f" * 64,
+                       physicalSourceMappingSha256="f" * 64,
+                       physicalCompilerInputsSha256="f" * 64, lanes={})
+        for lane in MODULE.SHARD_LANES:
+            path = self.root / ("artifacts/sonar-dotnet-shard-proof/sonar-dotnet-shard-proof-" + lane + "-1")
+            path.mkdir(parents=True)
+            report, trx = ("native report fixture " + lane).encode(), ("TRX fixture " + lane).encode()
+            (path / "verified.opencover.xml").write_bytes(report)
+            (path / "backend-tests.trx").write_bytes(trx)
+            receipt["lanes"][lane] = dict(tests=8 if lane == "baseline" else 2,
+                                          reportSha256=native.digest(report), trxSha256=native.digest(trx))
+        (self.root / "artifacts/sonar-dotnet-shard-equivalence.json").write_text(
+            json.dumps(receipt), encoding="utf-8")
+        return identity, receipt
+
+    def test_trial_handoff_binds_exact_original_shard_reports_and_trx(self):
+        identity, receipt = self.shard_trial_fixture()
+        digest = MODULE.stage_shard_handoff(self.root, identity)
+        folder = self.root / MODULE.DOTNET_SHARD_INPUTS
+        self.assertEqual(MODULE.verify_shard_handoff(self.root, identity, digest), receipt)
+        self.assertFalse((folder / "baseline").exists())
+        for invalid in ("", "0" * 64):
+            with self.assertRaises(ValueError):
+                MODULE.verify_shard_handoff(self.root, identity, invalid)
+        for key in ("sourceSha", "treeSha", "runId", "attempt", "workspace"):
+            with self.assertRaises(ValueError):
+                MODULE.verify_shard_handoff(self.root, identity | {key: "other"}, digest)
+        path = folder / "files-db/verified.opencover.xml"
+        original = path.read_bytes()
+        for invalid in (b"", original + b"tampered"):
+            path.write_bytes(invalid)
+            with self.assertRaises(ValueError):
+                MODULE.verify_shard_handoff(self.root, identity, digest)
+        path.unlink()
+        with self.assertRaises(ValueError):
+            MODULE.verify_shard_handoff(self.root, identity, digest)
+        other = self.root / "substitution"
+        other.write_bytes(original)
+        path.symlink_to(other)
+        with self.assertRaises(ValueError):
+            MODULE.verify_shard_handoff(self.root, identity, digest)
+        path.unlink()
+        path.write_bytes(original)
+        extra = folder / "unexpected"
+        extra.mkdir()
+        with self.assertRaises(ValueError):
+            MODULE.verify_shard_handoff(self.root, identity, digest)
+        extra.rmdir()
+        MODULE.verify_shard_handoff(self.root, identity, digest)
+
+    def test_actual_scanner_identity_must_match_the_proof_not_only_itself(self):
+        import copy
+
+        identity, proof = self.shard_trial_fixture()
+        scanner = dict(identity, scope="DIAGNOSTIC_ONLY_SCANNER_NATIVE_TESTS_REMAIN_REQUIRED",
+                       byteIdentical=True, mappingIdentical=True, changedAssemblyFiles=[],
+                       scannerAssemblyDigests=proof["preRebuildAssemblyDigests"].copy(),
+                       producerAssemblyDigests=proof["preRebuildAssemblyDigests"].copy(),
+                       generated={})
+        for name, digest in proof["generatedSourceDigests"].items():
+            scanner["generated"][name] = dict(
+                identical=True, scannerSha256=digest, producerSha256=digest,
+                scannerInputs={"scannerTargetsImported": True, "additionalFileCount": 2,
+                               "xmlCount": 2, "knownSonarXmlCounts": {
+                                   "sonarlint.xml": 1, "sonarprojectconfig.xml": 1},
+                               "otherXmlCount": 0, "nonXmlCount": 0})
+        MODULE.require_actual_scanner_identity(proof, scanner, identity)
+        for key, invalid in (("byteIdentical", False), ("mappingIdentical", False),
+                             ("runId", "101"), ("changedAssemblyFiles", ["a.dll"]),
+                             ("scannerAssemblyDigests", {}), ("producerAssemblyDigests", {}),
+                             ("generated", {})):
+            with self.assertRaises(ValueError):
+                MODULE.require_actual_scanner_identity(proof, scanner | {key: invalid}, identity)
+        changed = copy.deepcopy(scanner)
+        changed["generated"]["Coglatas.Web"]["scannerSha256"] = "0" * 64
+        with self.assertRaises(ValueError):
+            MODULE.require_actual_scanner_identity(proof, changed, identity)
+        changed = copy.deepcopy(scanner)
+        changed["generated"]["Coglatas.Tests"]["scannerInputs"]["otherXmlCount"] = 1
+        with self.assertRaises(ValueError):
+            MODULE.require_actual_scanner_identity(proof, changed, identity)
+
     def test_shard_commands_preserve_native_collector_and_unfiltered_baseline(self):
         baseline = MODULE.shard_command("baseline")
         self.assertNotIn("--filter", baseline)

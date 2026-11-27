@@ -105,7 +105,10 @@ class ScannerIdentityTrialTests(unittest.TestCase):
         self.assertLess(scanner.index("Compare actual scanner build"),
                         scanner.index("Generate .NET coverage without analysis credentials"))
         self.assertIn("dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj", scanner)
-        self.assertIn("sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet/verified.opencover.xml", scanner)
+        self.assertIn("sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet-shard-inputs/files-db/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/other-db/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/security-aq/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/remaining/verified.opencover.xml", scanner)
+        self.assertLess(scanner.index("Generate .NET coverage without analysis credentials"),
+                        scanner.index("shard-admit"))
+        self.assertLess(scanner.index("shard-admit"), scanner.index("Publish SonarCloud report"))
         self.assertIn("Verify executed tests and production coverage before publication", scanner)
         self.assertIn("Publish SonarCloud report", scanner)
 
