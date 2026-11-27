@@ -1,6 +1,15 @@
 name: Sonar .NET sharding qualification
 
 on:
+  workflow_call:
+    inputs:
+      source_sha:
+        required: true
+        type: string
+    outputs:
+      digest:
+        description: Exact-attempt native OpenCover handoff digest
+        value: ${{ jobs.compare.outputs.digest }}
   pull_request:
     branches: ["ci/sonar-coverage-*"]
     paths:
@@ -14,7 +23,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: sonar-dotnet-shard-proof-${{ github.event.pull_request.number }}
+  group: sonar-dotnet-shard-proof-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -22,7 +31,12 @@ jobs:
     name: Native coverage proof / ${{ matrix.lane }}
     permissions:
       contents: read
-    if: github.repository == 'NYGsatoshi/Coglatas' && github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'ci/sonar-coverage-sharding-')
+    if: >-
+      github.repository == 'NYGsatoshi/Coglatas' &&
+      ((github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        startsWith(github.head_ref, 'ci/sonar-coverage-sharding-')) ||
+       (github.event_name == 'push' && inputs.source_sha == github.sha))
     strategy:
       fail-fast: false
       matrix:
@@ -55,14 +69,14 @@ jobs:
       POSTGRES_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=coglatas_ci;Username=coglatas_ci;Password=coglatas_ci_password
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
       DOTNET_NOLOGO: "1"
-      PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+      PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || inputs.source_sha }}
       PROOF_LANE: ${{ matrix.lane }}
 
     steps:
       - name: Checkout exact trusted repository revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || inputs.source_sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -223,6 +237,8 @@ jobs:
   compare:
     name: Require exact test and source coverage equivalence
     needs: collect
+    outputs:
+      digest: ${{ steps.handoff.outputs.digest }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -231,7 +247,7 @@ jobs:
       - name: Checkout exact candidate revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || inputs.source_sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -243,8 +259,22 @@ jobs:
 
       - name: Compare full native test inventory and source point coverage
         env:
-          PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+          PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || inputs.source_sha }}
         run: python3 -B scripts/ci/verify-sonar-dotnet-coverage.py shard-compare
+
+      - name: Stage exact native shard reports and bind handoff
+        id: handoff
+        env:
+          PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || inputs.source_sha }}
+        run: python3 -B scripts/ci/verify-sonar-dotnet-coverage.py shard-stage
+
+      - name: Retain staged native shard handoff
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-dotnet-shard-handoff-${{ github.run_attempt }}
+          path: artifacts/sonar-dotnet-shard-inputs/
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Retain comparison receipt
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

@@ -910,6 +910,16 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  dotnet-shard-coverage:
+    name: Scanner-compatible native Ubuntu shard qualification without analysis credentials
+    needs: target
+    if: needs.target.outputs.should_scan == 'true' && github.repository == 'NYGsatoshi/Coglatas'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/sonar-dotnet-shard-proof.yml
+    with:
+      source_sha: ${{ github.sha }}
+
   dotnet-identity-probe:
     name: Diagnostic scanner-compatible .NET build without analysis credentials
     needs: target
@@ -984,7 +994,7 @@ jobs:
     name: SonarQube Cloud / .NET and multi-language analysis
     permissions:
       contents: read
-    needs: [target, windows-dotnet, python-coverage, javascript-coverage, angular-coverage, dotnet-identity-probe]
+    needs: [target, windows-dotnet, python-coverage, javascript-coverage, angular-coverage, dotnet-shard-coverage, dotnet-identity-probe]
     if: needs.target.outputs.should_scan == 'true' && github.repository == 'NYGsatoshi/Coglatas'
     environment: sonarcloud-analysis
     runs-on: ubuntu-24.04
@@ -1176,6 +1186,18 @@ jobs:
           EXPECTED_RECEIPT_DIGEST: ${{ needs.dotnet-identity-probe.outputs.digest }}
         run: python3 -B scripts/ci/verify-sonar-scanner-identity-trial.py prepare
 
+      - name: Download exact-attempt native Ubuntu shard handoff
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sonar-dotnet-shard-handoff-${{ github.run_attempt }}
+          path: artifacts/sonar-dotnet-shard-inputs
+
+      - name: Verify native Ubuntu shard handoff before scanner credentials
+        env:
+          PROOF_SOURCE_SHA: ${{ github.sha }}
+          EXPECTED_DOTNET_SHARD_DIGEST: ${{ needs.dotnet-shard-coverage.outputs.digest }}
+        run: python3 -B scripts/ci/verify-sonar-dotnet-coverage.py shard-verify
+
       - name: Begin pinned SonarCloud analysis
         shell: bash
         env:
@@ -1213,7 +1235,7 @@ jobs:
             /d:sonar.host.url=https://sonarcloud.io
             /d:sonar.scanner.scanAll=true
             "/d:sonar.javascript.lcov.reportPaths=artifacts/sonar-angular-inputs/shard-1/lcov.info,artifacts/sonar-angular-inputs/shard-2/lcov.info,artifacts/sonar-node/lcov.info,artifacts/sonar-pilot-helper/lcov.info,artifacts/sonar-operational/c8/lcov.info"
-            /d:sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet/verified.opencover.xml
+            /d:sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet-shard-inputs/files-db/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/other-db/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/security-aq/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/remaining/verified.opencover.xml
             /d:sonar.cs.cobertura.reportsPaths=artifacts/sonar-windows/verified.cobertura.xml
             "/d:sonar.python.coverage.reportPaths=artifacts/sonar-python/coverage.xml,artifacts/sonar-gcp/coverage.xml"
             "${scope_args[@]}"
@@ -1364,6 +1386,20 @@ jobs:
             artifacts/sonar-dotnet/binary-provenance.json
             artifacts/sonar-dotnet/pre-test-rebuild/
             artifacts/sonar-dotnet/executed-binaries/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Require actual scanner baseline and all shard binaries and points to agree
+        env:
+          PROOF_SOURCE_SHA: ${{ github.sha }}
+          EXPECTED_DOTNET_SHARD_DIGEST: ${{ needs.dotnet-shard-coverage.outputs.digest }}
+        run: python3 -B scripts/ci/verify-sonar-dotnet-coverage.py shard-admit
+
+      - name: Retain actual scanner native admission receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-dotnet-scanner-admission-${{ github.run_attempt }}
+          path: artifacts/sonar-dotnet-scanner-admission.json
           if-no-files-found: error
           retention-days: 7
 

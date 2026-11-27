@@ -600,10 +600,10 @@ class SonarParallelCoverageTests(unittest.TestCase):
     def test_parallel_producers_are_required_and_credential_free(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
         scanner = self.job(workflow, "sonarcloud")
-        self.assertIn("needs: [target, windows-dotnet, python-coverage, javascript-coverage, angular-coverage, dotnet-identity-probe]", scanner)
+        self.assertIn("needs: [target, windows-dotnet, python-coverage, javascript-coverage, angular-coverage, dotnet-shard-coverage, dotnet-identity-probe]", scanner)
         self.assertIn("environment: sonarcloud-analysis", scanner)
         self.assertNotIn("if: always()", scanner.split("    steps:", 1)[0])
-        for name in ("windows-dotnet", "python-native-lanes", "javascript-coverage", "angular-native-lanes", "dotnet-identity-probe"):
+        for name in ("windows-dotnet", "python-native-lanes", "javascript-coverage", "angular-native-lanes", "dotnet-shard-coverage", "dotnet-identity-probe"):
             producer = self.job(workflow, name)
             self.assertIn("    needs: target", producer)
             self.assertIn("    permissions:\n      contents: read", producer)
@@ -736,7 +736,7 @@ class SonarParallelCoverageTests(unittest.TestCase):
                 self.assertEqual(invoke(verify, accepted).returncode, 0)
 
 
-    def test_sharding_is_credential_free_qualification_not_publication(self):
+    def test_sharding_uses_one_credential_free_proof_and_actual_scanner_baseline(self):
         proof = (ROOT / ".github/workflows/sonar-dotnet-shard-proof.yml").read_text()
         production = WORKFLOW.read_text()
         self.assertIn('branches: ["ci/sonar-coverage-*"]', proof)
@@ -760,6 +760,22 @@ class SonarParallelCoverageTests(unittest.TestCase):
         self.assertNotIn("sonarcloud-analysis", proof)
         self.assertNotIn("shard-run", production)
         self.assertNotIn("shard-compare", production)
+        self.assertIn("workflow_call:", proof)
+        self.assertIn("shard-stage", proof)
+        self.assertIn("jobs.compare.outputs.digest", proof)
+        caller = self.job(production, "dotnet-shard-coverage")
+        scanner = self.job(production, "sonarcloud")
+        self.assertIn("uses: ./.github/workflows/sonar-dotnet-shard-proof.yml", caller)
+        self.assertIn("source_sha: ${{ github.sha }}", caller)
+        self.assertIn("needs.target.outputs.should_scan == 'true'", caller)
+        self.assertNotIn("secrets", caller)
+        self.assertIn("needs.dotnet-shard-coverage.outputs.digest", scanner)
+        self.assertLess(scanner.index("shard-verify"), scanner.index("Begin pinned SonarCloud analysis"))
+        self.assertLess(scanner.index("Verify executed tests and production coverage before publication"),
+                        scanner.index("shard-admit"))
+        self.assertLess(scanner.index("shard-admit"), scanner.index("Publish SonarCloud report"))
+        self.assertIn("sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet-shard-inputs/files-db/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/other-db/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/security-aq/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/remaining/verified.opencover.xml", scanner)
+        self.assertNotIn("sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet/verified.opencover.xml", scanner)
 
 
 if __name__ == "__main__":

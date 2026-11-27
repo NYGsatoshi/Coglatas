@@ -1,0 +1,9 @@
+# Phase 8b: guarded real multi-OpenCover ingestion trial
+
+Stack on #2292. Its exact-head native proof 45978369838 qualified all five scanner-compatible lanes (4,644 tests, 381,764 sequence and 27,168 branch points), and authenticated run 45978232119 confirmed real scanner pre-rebuild byte identity. Neither proves Sonar per-file measures or actual scanner post-rebuild identity.
+
+Reuse the one credential-free five-lane proof as a same-run local reusable workflow; do not duplicate its compiler, database or test commands. The existing trusted target router gates the caller and the reusable workflow checks repository, event and exact SHA. No inherited secrets. The comparison job copies the four original OpenCover reports and TRXs unchanged, binds the exact inventory and receipt bytes to its output digest, and retains every original lane archive. The scanner independently checks this digest before credentials.
+
+The scanner still performs its existing full native test and exact binary provenance collection. Before publication, compare actual pre-rebuild compiler identity, all pre/post-rebuild DLL/PDB bytes, live executed copies, both source mappings, original native baseline report, exact TRX multiplicities, and tracked sequence/branch hit-state union against the four independent shards. Reject any mismatch; no silent fallback. Import only the four original OpenCover files; Windows, Angular, Python and Node inputs remain unchanged. The full independent and actual scanner baselines remain mandatory in this initial experiment, so expect increased runner usage, not an immediate speedup.
+
+Require exact-head ordinary/static and standalone proof CI, then isolated authenticated staging after #2290/#2291 trials and #2292 land. Actual Sonar import and per-file measure equivalence remain unqualified until observed. No Main merge, report rewriting, threshold/exclusion changes, cross-run evidence or credential-policy expansion.

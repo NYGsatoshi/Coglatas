@@ -552,6 +552,247 @@ def compare_shard_proof() -> None:
     print(json.dumps(result, sort_keys=True))
 
 
+DOTNET_SHARD_INPUTS = "artifacts/sonar-dotnet-shard-inputs"
+DOTNET_SHARD_SCOPE = "NATIVE_SHARD_EQUIVALENCE_ONLY_NOT_SONARCLOUD_OR_RELEASE"
+DOTNET_METRICS = ("passedTests", "sequencePoints", "sequenceVisited",
+                  "branchPoints", "branchVisited")
+
+
+def shard_trial_identity(root: Path) -> dict:
+    import os
+
+    sha, run, attempt = (os.environ[key] for key in
+                         ("PROOF_SOURCE_SHA", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT"))
+    if (not re.fullmatch(r"[a-f0-9]{40}", sha)
+            or not all(re.fullmatch(r"[1-9][0-9]*", value) for value in (run, attempt))
+            or os.environ["GITHUB_WORKSPACE"] != str(root)):
+        raise ValueError("Invalid native shard handoff execution")
+    tree, _ = _native_verifier().git_reader(root, Path("/usr/bin/git"), sha)
+    subprocess.run(["/usr/bin/git", "diff", "--quiet", "HEAD", "--"], cwd=root, check=True)
+    return dict(sourceSha=sha, treeSha=tree, runId=run, attempt=attempt, workspace=str(root))
+
+
+def validate_shard_trial_receipt(record: dict, identity: dict) -> None:
+    native = _native_verifier()
+    if (any(record.get(key) != identity[key] for key in
+            ("sourceSha", "treeSha", "runId", "attempt"))
+            or record.get("scope") != DOTNET_SHARD_SCOPE
+            or record.get("scannerCompatibleFixtureXmlCount") != 2):
+        raise ValueError("Native shard comparison identity differs")
+    expected_keys = {"assemblies/" + name + "." + ext
+                     for name in native.ASSEMBLIES for ext in ("dll", "pdb")}
+
+    def digest(value):
+        return isinstance(value, str) and re.fullmatch(r"[a-f0-9]{64}", value) is not None
+
+    for key in ("preRebuildAssemblyDigests", "executedAssemblyDigests"):
+        values = record.get(key)
+        if not isinstance(values, dict) or set(values) != expected_keys or not all(
+                digest(value) for value in values.values()):
+            raise ValueError("Invalid native shard binary inventory")
+    for key in expected_keys:
+        if key not in {"assemblies/Coglatas.Tests.dll", "assemblies/Coglatas.Tests.pdb"} and (
+                record["preRebuildAssemblyDigests"][key] != record["executedAssemblyDigests"][key]):
+            raise ValueError("Production shard binaries changed")
+    generated = record.get("generatedSourceDigests")
+    if (not isinstance(generated, dict) or set(generated) != {"Coglatas.Web", "Coglatas.Tests"}
+            or not all(digest(value) for value in generated.values())
+            or not all(digest(record.get(key)) for key in (
+                "deterministicSourceMappingSha256", "physicalSourceMappingSha256",
+                "physicalCompilerInputsSha256"))):
+        raise ValueError("Invalid native shard compiler evidence")
+    lanes = record.get("lanes")
+    if (not isinstance(lanes, dict) or set(lanes) != set(SHARD_LANES)
+            or any(not isinstance(row, dict) or type(row.get("tests")) is not int
+                   or row["tests"] <= 0 or not digest(row.get("reportSha256"))
+                   or not digest(row.get("trxSha256")) for row in lanes.values())):
+        raise ValueError("Invalid native shard execution inventory")
+    if (any(type(record.get(key)) is not int or record[key] <= 0 for key in DOTNET_METRICS)
+            or record["sequenceVisited"] > record["sequencePoints"]
+            or record["branchVisited"] > record["branchPoints"]
+            or record["passedTests"] != lanes["baseline"]["tests"]
+            or record["passedTests"] != sum(lanes[lane]["tests"] for lane in SHARD_LANES[1:])):
+        raise ValueError("Invalid native shard comparison counters")
+
+
+def shard_handoff_digest(root: Path, folder: Path, identity: dict) -> tuple[dict, str]:
+    native = _native_verifier()
+    relative = folder.relative_to(root).as_posix()
+    if folder.is_symlink():
+        raise ValueError("Linked native shard handoff")
+    expected_files = {"receipt.json"} | {
+        lane + "/" + name for lane in SHARD_LANES[1:]
+        for name in ("verified.opencover.xml", "backend-tests.trx")}
+    actual_files = set()
+    actual_dirs = set()
+    for path in folder.rglob("*"):
+        if path.is_symlink():
+            raise ValueError("Linked native shard input")
+        if path.is_file():
+            actual_files.add(path.relative_to(folder).as_posix())
+        elif path.is_dir():
+            actual_dirs.add(path.relative_to(folder).as_posix())
+        else:
+            raise ValueError("Unexpected native shard input type")
+    if actual_files != expected_files or actual_dirs != set(SHARD_LANES[1:]):
+        raise ValueError("Unexpected native shard handoff inventory")
+    receipt = json.loads(native.owned_bytes(root, relative + "/receipt.json"))
+    validate_shard_trial_receipt(receipt, identity)
+    hashes = {}
+    for name in sorted(expected_files):
+        raw = native.owned_bytes(root, relative + "/" + name)
+        if not raw:
+            raise ValueError("Empty native shard input")
+        hashes[name] = native.digest(raw)
+        if name != "receipt.json":
+            lane, kind = name.split("/")
+            key = "reportSha256" if kind == "verified.opencover.xml" else "trxSha256"
+            if hashes[name] != receipt["lanes"][lane][key]:
+                raise ValueError("Native shard input differs from comparison receipt")
+    # This is a digest of exact original bytes and execution identity, not a
+    # synthetic coverage report. A job output independently binds it.
+    binding = json.dumps({"identity": identity, "hashes": hashes},
+                         sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return receipt, native.digest(binding)
+
+
+def stage_shard_handoff(root: Path, identity: dict) -> str:
+    native = _native_verifier()
+    raw = native.owned_bytes(root, "artifacts/sonar-dotnet-shard-equivalence.json")
+    receipt = json.loads(raw)
+    validate_shard_trial_receipt(receipt, identity)
+    folder = root / DOTNET_SHARD_INPUTS
+    folder.mkdir(parents=True, exist_ok=False)
+    (folder / "receipt.json").write_bytes(raw)
+    for lane in SHARD_LANES[1:]:
+        prefix = ("artifacts/sonar-dotnet-shard-proof/sonar-dotnet-shard-proof-"
+                  + lane + "-" + identity["attempt"])
+        destination = folder / lane
+        destination.mkdir()
+        for name in ("verified.opencover.xml", "backend-tests.trx"):
+            (destination / name).write_bytes(native.owned_bytes(root, prefix + "/" + name))
+    _, digest = shard_handoff_digest(root, folder, identity)
+    return digest
+
+
+def verify_shard_handoff(root: Path, identity: dict, expected_digest: str) -> dict:
+    if not re.fullmatch(r"[a-f0-9]{64}", expected_digest):
+        raise ValueError("Missing independent native shard handoff digest")
+    receipt, digest = shard_handoff_digest(root, root / DOTNET_SHARD_INPUTS, identity)
+    if digest != expected_digest:
+        raise ValueError("Native shard handoff digest differs")
+    return receipt
+
+
+def require_actual_scanner_identity(proof: dict, scanner: dict, identity: dict) -> None:
+    if (any(scanner.get(key) != value for key, value in identity.items())
+            or scanner.get("scope") != "DIAGNOSTIC_ONLY_SCANNER_NATIVE_TESTS_REMAIN_REQUIRED"
+            or scanner.get("byteIdentical") is not True
+            or scanner.get("mappingIdentical") is not True
+            or scanner.get("changedAssemblyFiles") != []
+            or scanner.get("scannerAssemblyDigests") != proof["preRebuildAssemblyDigests"]
+            or scanner.get("producerAssemblyDigests") != proof["preRebuildAssemblyDigests"]):
+        raise ValueError("Actual scanner initial build differs from qualified shards")
+    generated = scanner.get("generated")
+    if not isinstance(generated, dict) or set(generated) != set(proof["generatedSourceDigests"]):
+        raise ValueError("Actual scanner generated source inventory differs")
+    expected_inputs = {"scannerTargetsImported": True, "additionalFileCount": 2,
+                       "xmlCount": 2, "knownSonarXmlCounts": {
+                           "sonarlint.xml": 1, "sonarprojectconfig.xml": 1},
+                       "otherXmlCount": 0, "nonXmlCount": 0}
+    for name, digest in proof["generatedSourceDigests"].items():
+        row = generated[name]
+        if (row.get("identical") is not True or row.get("scannerSha256") != digest
+                or row.get("producerSha256") != digest or row.get("scannerInputs") != expected_inputs):
+            raise ValueError("Actual scanner compiler input or generated bytes differ")
+
+
+def require_actual_scanner_baseline(root: Path, identity: dict, proof: dict) -> dict:
+    native = _native_verifier()
+    folder = root / "artifacts/sonar-dotnet"
+    sha, run, attempt = (identity[key] for key in ("sourceSha", "runId", "attempt"))
+
+    def read(name):
+        return native.owned_bytes(root, "artifacts/sonar-dotnet/" + name)
+
+    scanner = json.loads(native.owned_bytes(root, "artifacts/sonar-scanner-identity-result.json"))
+    require_actual_scanner_identity(proof, scanner, identity)
+    verify_parallel_handoff(root, folder, sha, run, attempt, compare_build=True)
+    before = native.assemblies(root, folder / "pre-test-rebuild", sha, False)
+    after = native.assemblies(root, folder / "executed-binaries", sha, False)
+    if (before != json.loads(read("pre-test-rebuild/outputs.json"))["artifacts"]
+            or after != json.loads(read("binary-provenance.json"))["executedArtifacts"]
+            or before != proof["preRebuildAssemblyDigests"]
+            or after != proof["executedAssemblyDigests"]
+            or native.digest(read("deterministic-source-roots.original"))
+            != proof["deterministicSourceMappingSha256"]
+            or native.digest(read("physical-test-source-roots.original"))
+            != proof["physicalSourceMappingSha256"]):
+        raise ValueError("Actual scanner pre/post-rebuild binaries or mappings differ")
+    # Also bind live project and executed copies, including the test assembly.
+    for name, project in native.ASSEMBLIES.items():
+        for ext in ("dll", "pdb"):
+            relative = "bin/Release/net11.0/" + name + "." + ext
+            data = native.owned_bytes(root, project + "/" + relative)
+            copied = native.owned_bytes(root, "tests/Coglatas.Tests/" + relative)
+            if data != copied or native.digest(data) != after["assemblies/" + name + "." + ext]:
+                raise ValueError("Actual scanner executed binary changed")
+    original, copies = select_collector_report(folder)
+    raw = read(original.relative_to(folder).as_posix())
+    receipt = json.loads(read("receipt.json"))
+    if (raw != read("verified.opencover.xml")
+            or receipt.get("identicalVSTestCopies") != copies
+            or receipt.get("collectorReport") != "artifacts/sonar-dotnet/" +
+            original.relative_to(folder).as_posix()):
+        raise ValueError("Actual scanner native baseline report differs")
+    tracked = {value.decode("utf-8") for value in subprocess.check_output(
+        ["/usr/bin/git", "ls-files", "-z", "--", "src", "tools"], cwd=root).split(b"\0")
+        if value.endswith(b".cs")}
+    baseline_tests = trx_identities(read("backend-tests.trx"), root)
+    baseline_points = native_source_points(raw, root, tracked)
+    shards = {}
+    for lane in SHARD_LANES[1:]:
+        prefix = DOTNET_SHARD_INPUTS + "/" + lane + "/"
+        trx = native.owned_bytes(root, prefix + "backend-tests.trx")
+        report = native.owned_bytes(root, prefix + "verified.opencover.xml")
+        tests = trx_identities(trx, root)
+        if sum(tests.values()) != proof["lanes"][lane]["tests"]:
+            raise ValueError("Native shard TRX counter differs")
+        shards[lane] = (tests, native_source_points(report, root, tracked))
+    result = require_shard_equivalence(baseline_tests, baseline_points, shards)
+    if any(result[key] != proof[key] for key in DOTNET_METRICS):
+        raise ValueError("Actual scanner baseline comparison counters differ")
+    return dict(identity, **result, byteIdentical=True, mappingIdentical=True,
+                scannerBaselineReportSha256=native.digest(raw),
+                scope="NATIVE_MULTI_OPENCOVER_ADMISSION_NOT_SONAR_MEASURE_EQUIVALENCE")
+
+
+def shard_trial(command: str) -> None:
+    import os
+
+    identity = shard_trial_identity(ROOT)
+    if command == "shard-stage":
+        digest = stage_shard_handoff(ROOT, identity)
+        with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as stream:
+            stream.write("digest=" + digest + "\n")
+        return
+    expected = os.environ["EXPECTED_DOTNET_SHARD_DIGEST"]
+    proof = verify_shard_handoff(ROOT, identity, expected)
+    if command == "shard-admit":
+        result = require_actual_scanner_baseline(ROOT, identity, proof)
+        # Recheck the independently bound original inputs immediately before
+        # granting publication; never rewrite a report or admit a fallback.
+        verify_shard_handoff(ROOT, identity, expected)
+        result["handoffDigest"] = expected
+        path = ROOT / "artifacts/sonar-dotnet-scanner-admission.json"
+        with path.open("x", encoding="utf-8") as stream:
+            json.dump(result, stream, sort_keys=True, indent=2)
+            stream.write("\n")
+        print(json.dumps(result, sort_keys=True))
+    else:
+        print("Exact native Ubuntu shard handoff verified before scanner credentials")
+
+
 def cli() -> None:
     import argparse
     import sys
@@ -564,11 +805,15 @@ def cli() -> None:
     run = commands.add_parser("shard-run")
     run.add_argument("--lane", required=True, choices=SHARD_LANES)
     commands.add_parser("shard-compare")
+    for name in ("shard-stage", "shard-verify", "shard-admit"):
+        commands.add_parser(name)
     args = parser.parse_args()
     if args.command == "shard-run":
         run_shard_proof(args.lane)
-    else:
+    elif args.command == "shard-compare":
         compare_shard_proof()
+    else:
+        shard_trial(args.command)
 
 
 if __name__ == "__main__":
