@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 spec = importlib.util.spec_from_file_location(
     "angular_proof", Path(__file__).with_name("verify-sonar-angular-coverage.py"))
@@ -114,7 +115,79 @@ class AngularProofTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 MODULE.compare_results(baseline, changed)
 
-    def test_original_production_workflow_does_not_admit_angular_proof(self):
+    def test_owned_evidence_bytes_reject_missing_empty_and_traversal(self):
+        self.assertEqual(MODULE.owned_bytes(self.root, self.source), b"fixture\n")
+        (self.root / "empty").touch()
+        for name in ("", ".", "../outside", "/absolute", "frontend//src/app/example.ts",
+                     "frontend/./src/app/example.ts", "frontend\\src", "missing", "empty"):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                MODULE.owned_bytes(self.root, name)
+
+    def test_compare_admission_checks_exact_receipts_and_native_bytes(self):
+        # Temporary fixtures exercise the real on-disk admission and comparison
+        # logic. They are never treated as hosted Angular execution evidence.
+        identity = {"sourceSha": "a" * 40, "treeSha": "b" * 40,
+                    "runId": "123", "attempt": "1", "workspace": str(self.root),
+                    "inputs": {"fixture": "c" * 64}}
+        parent = self.root / "artifacts/sonar-angular-shard-proof"
+        selections = {"baseline": [self.one, self.two],
+                      "shard-1": [self.one], "shard-2": [self.two]}
+        for lane, selected in selections.items():
+            folder = parent / ("sonar-angular-shard-proof-" + lane + "-1")
+            folder.mkdir(parents=True)
+            suites = [json.loads(self.report(name))["testResults"][0] for name in selected]
+            raw = json.dumps({"success": True, "numFailedTests": 0,
+                              "numPassedTests": len(suites), "numTotalTests": len(suites),
+                              "testResults": suites}).encode()
+            (folder / "tests.json").write_bytes(raw)
+            (folder / "lcov.info").write_bytes(self.native())
+            receipt = {**identity, "lane": lane, "runnerShard": MODULE.runner_shard(lane),
+                       "selection": sorted(selected), "testSeconds": 1,
+                       "passedTests": len(suites), "coverageFiles": 1,
+                       "hashes": {name: MODULE.sha256((folder / name).read_bytes())
+                                  for name in MODULE.ARTIFACTS}}
+            (folder / "receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
+        target = parent / "sonar-angular-shard-proof-shard-1-1"
+        receipt_path = target / "receipt.json"
+        original = receipt_path.read_bytes()
+        output = self.root / "artifacts/sonar-angular-shard-equivalence.json"
+        with (mock.patch.object(MODULE, "ROOT", self.root),
+              mock.patch.object(MODULE, "checkout_identity", return_value=identity),
+              mock.patch.object(MODULE, "tracked_frontend", return_value=self.tracked)):
+            MODULE.compare()
+            result = json.loads(output.read_bytes())
+            self.assertEqual(result["passedTests"], 2)
+            self.assertEqual(result["specFiles"], 2)
+            self.assertEqual(result["linePoints"], 2)
+            self.assertEqual(result["branchPoints"], 2)
+            self.assertEqual(result["sourceSha"], identity["sourceSha"])
+            self.assertEqual(result["scope"],
+                             "ANGULAR_NATIVE_LINE_BRANCH_EQUIVALENCE_ONLY_NOT_SONARCLOUD")
+            output.unlink()
+            for key, value in (("runId", "124"), ("attempt", "2"), ("lane", "baseline"),
+                               ("runnerShard", "2/2"), ("testSeconds", 0),
+                               ("selection", [self.two]), ("passedTests", 2),
+                               ("coverageFiles", 2), ("hashes", {})):
+                with self.subTest(key=key):
+                    changed = json.loads(original)
+                    changed[key] = value
+                    receipt_path.write_text(json.dumps(changed), encoding="utf-8")
+                    with self.assertRaises(ValueError):
+                        MODULE.compare()
+                    self.assertFalse(output.exists())
+                    receipt_path.write_bytes(original)
+            report = target / "lcov.info"
+            raw = report.read_bytes()
+            report.write_bytes(raw + b"\n")
+            with self.assertRaisesRegex(ValueError, "identity or digest mismatch"):
+                MODULE.compare()
+            report.write_bytes(raw)
+            (parent / "unexpected").mkdir()
+            with self.assertRaisesRegex(ValueError, "Missing, stale or unexpected"):
+                MODULE.compare()
+            self.assertFalse(output.exists())
+
+    def test_production_admission_preserves_credential_free_native_proof(self):
         root = Path(__file__).resolve().parents[2]
         proof = (root / ".github/workflows/sonar-angular-shard-proof.yml").read_text()
         production = (root / ".github/workflows/sonarcloud-ci.yml").read_text()
@@ -124,7 +197,23 @@ class AngularProofTests(unittest.TestCase):
         self.assertIn("persist-credentials: false", proof)
         self.assertNotIn("secrets.", proof)
         self.assertNotIn("SONAR_TOKEN", proof)
-        self.assertNotIn("verify-sonar-angular-coverage.py", production)
+        lanes = production.split("  angular-native-lanes:\n", 1)[1].split("\n  angular-coverage:\n", 1)[0]
+        admission = production.split("  angular-coverage:\n", 1)[1].split("\n  sonarcloud:\n", 1)[0]
+        scanner = production.split("  sonarcloud:\n", 1)[1]
+        self.assertIn("needs: target", lanes)
+        self.assertIn("lane: [baseline, shard-1, shard-2]", lanes)
+        self.assertIn("needs: [target, angular-native-lanes]", admission)
+        self.assertIn("verify-sonar-angular-coverage.py compare", admission)
+        self.assertIn("Verify Angular coverage handoff before scanner credentials", scanner)
+        self.assertLess(scanner.index("Verify Angular coverage handoff before scanner credentials"),
+                        scanner.index("Begin pinned SonarCloud analysis"))
+        for job in (lanes, admission):
+            self.assertIn("contents: read", job)
+            self.assertNotIn("secrets.", job)
+            self.assertNotIn("SONAR_TOKEN", job)
+        self.assertIn("artifacts/sonar-angular-inputs/shard-1/lcov.info,"
+                      "artifacts/sonar-angular-inputs/shard-2/lcov.info,", scanner)
+        self.assertNotIn("sonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info", scanner)
 
 
 if __name__ == "__main__":
