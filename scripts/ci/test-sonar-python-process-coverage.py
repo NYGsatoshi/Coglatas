@@ -478,7 +478,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
                 'raise ValueError("Combined native Python JSON point/branch evidence differs")',
                 'raise ValueError("Combined native Python XML differs outside timestamp")',
                 'raise ValueError("Native Python data references unowned source: " + name)',
-                'result.update(expected, scope="PYTHON_NATIVE_SHARD_EQUIVALENCE_ONLY_NOT_SONARCLOUD",',
+                'result.update(expected, scope=scope, mode=mode, baselineCompared=mode == "full",',
             ),
             'openapi-reproduction': (
                 'raise ValueError("Invalid native build receipt")',
