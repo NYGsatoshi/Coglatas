@@ -1,0 +1,17 @@
+# Phase 7a: reproduce scanner-dependent OpenAPI source generation
+
+The independently compiled Ubuntu native reports failed the exact Web DLL identity gate in [run 45904072401](https://github.com/NYGsatoshi/Coglatas/actions/runs/45904072401/job/140204032453). Same-build native Ubuntu collection was restored; no weakening of the gate.
+
+## Observed artifact evidence
+
+Compared two actual, downloaded native evidence ZIPs, verified original archive and every retained pre-rebuild DLL/PDB digest:
+- [Scanner-owned build](https://github.com/NYGsatoshi/Coglatas/actions/runs/45913402906), source d02cc9f4bf6a6a0f9d04f3a1c4a1f1aab373838f, artifact 15162002197, SHA-256 ada4c7e733db0070e1a52dbbb55f411d56f431f8e17fc1405a0a8646a6775793.
+- [Credential-free baseline](https://github.com/NYGsatoshi/Coglatas/actions/runs/45910832752), source 82a1853d817692cfaaa534644ad87f1b8e0a484a, artifact 15160399082, SHA-256 d74dc46d3375188b709c8f60fb0f918ffacf04ca79a3c1a66a50eabebf4da083.
+
+These are distinct commit SHAs but the identical tested tree beb435bd1742f4e0e0c5282de10cf1896d804495. They are NOT interchangeable coverage inputs. Portable PDB documents, embedded generated source and method-debug rows were inspected without modifying the original bytes. All assembly DLL sizes and document counts matched. Domain, Application, Infrastructure, UI.Core and SecurityArchitecture changed only the generated AssemblyInfo document checksum; their method-debug rows matched. Web and Tests each had one further changed document: OpenApiXmlCommentSupport.generated.cs. Their compiler-options blobs matched, as did the original Coverlet source mapping. Each had 19 changed method-debug rows. Extracted Web generated source was 30,276 vs 30,275 bytes; Tests 30,582 vs 30,581. The embedded generated code differs by exactly one LF immediately before the cache return (Web SHA-256 6c70b66ad4e12526a025fb0c1224709da9315b57a624ba937d333954977b0304 vs b48161b21e19b4e2d8fe7808067bec73e692c5f3455f20596546425fa5389e78). AssemblyInfo versions contain their respective actual commit SHAs, as expected.
+
+## Hypothesis and experiment
+
+ASP.NET Core OpenAPI XML source generation consumes AdditionalTextsProvider entries ending in .xml and joins per-file emissions (upstream source: https://github.com/dotnet/aspnetcore/blob/main/src/OpenApi/gen/XmlCommentGenerator.cs). Sonar analyzers use additional XML configuration (https://github.com/SonarSource/sonar-dotnet). An additional non-doc XML input may introduce an empty generated line without changing the document semantics. This remains a hypothesis for the pinned scanner build, not an established root cause.
+
+Run three fresh deterministic builds of one identical candidate SHA, with 0, 1, or 2 benign synthetic non-doc XML files added only to Web and Tests via a temporary MSBuild target. Keep SDK/restore/compiler flags and output paths identical across lanes, enable generated file emission in all three for inspection. Record only AdditionalFiles basenames, original generated source, exact DLL/PDB bytes and SHA-256s, source mapping and execution identity. Compare observed byte delta and the historical one-blank-line pattern. A diagnostic result can be negative; a positive pattern does not prove real scanner byte equality. No Sonar credentials, no actual Sonar settings or analysis state, no cross-run coverage reuse, no production source or authenticated workflow changes. Any future correction requires a real same-SHA scanner-versus-producer byte-equality trial.
