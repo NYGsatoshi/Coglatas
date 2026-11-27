@@ -332,6 +332,65 @@ class CoverageTests(unittest.TestCase):
         MODULE.verify_parallel_handoff(self.root, folder, sha, "100", "1", compare_build=True)
 
 
+    def test_scanner_compatible_fixture_binds_prebuild_and_fresh_physical_inputs(self):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "scanner_trial_test", SCRIPT.with_name("verify-sonar-scanner-identity-trial.py"))
+        trial = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(trial)
+        reproduction = trial.reproduction()
+        native = trial.native()
+        folder = self.root / "artifacts/sonar-dotnet"
+        archive = folder / "compiler-identity"
+        archive.mkdir(parents=True)
+        identity = {"sourceSha": "a" * 40, "treeSha": "b" * 40,
+                    "runId": "100", "attempt": "1", "workspace": str(self.root)}
+        keys = {"assemblies/" + name + "." + ext
+                for name in native.ASSEMBLIES for ext in ("dll", "pdb")}
+        for name in keys:
+            path = archive / name
+            path.parent.mkdir(exist_ok=True)
+            path.write_bytes(("fixture " + name).encode())
+        mapping = b"original deterministic mapping"
+        (archive / "mapping.original").write_bytes(mapping)
+        inventory = ("PROBE\n" + reproduction.FIXTURE_PREFIX + "1.xml\n" +
+                     reproduction.FIXTURE_PREFIX + "2.xml\n")
+        for name in reproduction.PROJECTS:
+            target = archive / name
+            target.mkdir()
+            (target / reproduction.GENERATOR).write_bytes(b"fixture generated source")
+            (target / "inputs.txt").write_text(inventory, encoding="utf-8")
+        hashes = reproduction.manifest(archive)
+        before = {name: hashes[name] for name in keys}
+        receipt = dict(identity, xmlCount=2, hashes=hashes, assemblies=before)
+        (archive / "receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
+        physical = folder / "physical-compiler-inputs.txt"
+        physical.write_text(inventory, encoding="utf-8")
+        physical_map = folder / "physical-test-source-roots.original"
+        physical_map.write_bytes(b"physical mapping")
+        result = MODULE.scanner_compatible_fixture(self.root, folder, identity, before, mapping)
+        self.assertEqual(result["fixtureXmlCount"], 2)
+        self.assertEqual(result["physicalCompilerInputsSha256"], native.digest(physical.read_bytes()))
+        for invalid in (
+            identity | {"attempt": "2"},
+            identity | {"sourceSha": "c" * 40},
+        ):
+            with self.assertRaises(ValueError):
+                MODULE.scanner_compatible_fixture(self.root, folder, invalid, before, mapping)
+        with self.assertRaises(ValueError):
+            MODULE.scanner_compatible_fixture(self.root, folder, identity, before, b"changed mapping")
+        with self.assertRaises(ValueError):
+            MODULE.scanner_compatible_fixture(self.root, folder, identity, before | {next(iter(keys)): "0" * 64}, mapping)
+        original = physical.read_bytes()
+        physical.write_text("PROBE\n" + reproduction.FIXTURE_PREFIX + "1.xml\n", encoding="utf-8")
+        with self.assertRaises(ValueError):
+            MODULE.scanner_compatible_fixture(self.root, folder, identity, before, mapping)
+        physical.write_bytes(original)
+        physical_map.write_bytes(b"")
+        with self.assertRaises(ValueError):
+            MODULE.scanner_compatible_fixture(self.root, folder, identity, before, mapping)
+
     def test_shard_commands_preserve_native_collector_and_unfiltered_baseline(self):
         baseline = MODULE.shard_command("baseline")
         self.assertNotIn("--filter", baseline)

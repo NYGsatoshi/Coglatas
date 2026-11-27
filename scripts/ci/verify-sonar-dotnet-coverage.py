@@ -239,6 +239,51 @@ def shard_command(lane: str) -> list[str]:
     return command
 
 
+def scanner_compatible_fixture(root: Path, folder: Path, expected: dict,
+                               before: dict, mapping: bytes) -> dict:
+    """Bind the proven two-XML fixture to actual pre-rebuild and physical-build evidence.
+
+    This is still a credential-free qualification; actual scanner comparison
+    must be performed on each future authenticated ingestion run.
+    """
+    import importlib.util
+
+    native = _native_verifier()
+    spec = importlib.util.spec_from_file_location(
+        "scanner_trial", Path(__file__).with_name("verify-sonar-scanner-identity-trial.py"))
+    if spec is None or spec.loader is None:
+        raise ValueError("Scanner compiler identity verifier is unavailable")
+    trial = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(trial)
+    relative = folder.relative_to(root).as_posix()
+    archive = folder / "compiler-identity"
+    receipt = native.owned_bytes(root, relative + "/compiler-identity/receipt.json")
+    digest = native.digest(receipt)
+    compiler = trial.producer_receipt(archive, expected, digest)
+    if (compiler["assemblies"] != before
+            or compiler["hashes"]["mapping.original"] != native.digest(mapping)
+            or native.owned_bytes(root, relative + "/compiler-identity/mapping.original") != mapping):
+        raise ValueError("Scanner-compatible compiler evidence differs from measured initial build")
+    physical = native.owned_bytes(root, relative + "/physical-compiler-inputs.txt")
+    source_mapping = native.owned_bytes(root, relative + "/physical-test-source-roots.original")
+    reproduction = trial.reproduction()
+    # The fixture target records basenames only. Require a fresh, exact two-XML
+    # observation from the test-only rebuild rather than accepting the earlier
+    # deterministic build's observation.
+    if (reproduction.fixture_count(folder / "physical-compiler-inputs.txt") != 2
+            or not source_mapping):
+        raise ValueError("Physical test rebuild compiler fixture or mapping differs")
+    return {
+        "fixtureXmlCount": 2,
+        "compilerReceiptSha256": digest,
+        "physicalCompilerInputsSha256": native.digest(physical),
+        "physicalSourceMappingSha256": native.digest(source_mapping),
+        "generatedSourceDigests": {
+            name: compiler["hashes"][name + "/" + reproduction.GENERATOR]
+            for name in reproduction.PROJECTS},
+    }
+
+
 def run_shard_proof(lane: str) -> None:
     import os
     import time
@@ -256,11 +301,18 @@ def run_shard_proof(lane: str) -> None:
     receipt = folder / "shard-lane.json"
     if receipt.exists() or (folder / "backend-tests.trx").exists():
         raise ValueError("Proof must start without prior execution evidence")
+    identity = {"sourceSha": sha, "treeSha": tree, "runId": run,
+                "attempt": attempt, "workspace": str(ROOT)}
+    before = json.loads((folder / "pre-test-rebuild/outputs.json").read_bytes())
+    mapping = native.owned_bytes(folder, "deterministic-source-roots.original")
+    fixture = scanner_compatible_fixture(ROOT, folder, identity, before["artifacts"], mapping)
     start = time.monotonic()
     subprocess.run(shard_command(lane), cwd=ROOT, check=True)
-    value = {"lane": lane, "filter": shard_filter(lane), "sourceSha": sha,
-             "treeSha": tree, "runId": run, "attempt": attempt,
-             "workspace": str(ROOT), "testSeconds": round(time.monotonic() - start, 3)}
+    elapsed = round(time.monotonic() - start, 3)
+    if scanner_compatible_fixture(ROOT, folder, identity, before["artifacts"], mapping) != fixture:
+        raise ValueError("Compiler evidence changed during native coverage")
+    value = {**identity, "lane": lane, "filter": shard_filter(lane),
+             "testSeconds": elapsed, "compilerFixture": fixture}
     with receipt.open("x", encoding="utf-8") as stream:
         json.dump(value, stream, indent=2, sort_keys=True)
         stream.write("\n")
@@ -459,7 +511,17 @@ def compare_shard_proof() -> None:
         actual_after = native.assemblies(ROOT, folder / "executed-binaries", sha, False)
         if actual_before != before["artifacts"] or actual_after != executed["executedArtifacts"]:
             raise ValueError("Retained native binaries differ from receipts")
-        identity = (actual_before, actual_after, read("deterministic-source-roots.original"))
+        mapping = read("deterministic-source-roots.original")
+        fixture = scanner_compatible_fixture(
+            ROOT, folder,
+            {key: expected[key] for key in ("sourceSha", "treeSha", "runId", "attempt", "workspace")},
+            actual_before, mapping)
+        if receipt.get("compilerFixture") != fixture:
+            raise ValueError("Compiler fixture differs from native execution receipt")
+        identity = (actual_before, actual_after, mapping,
+                    fixture["physicalSourceMappingSha256"],
+                    fixture["physicalCompilerInputsSha256"],
+                    fixture["generatedSourceDigests"])
         if baseline_binaries is None:
             baseline_binaries = identity
         elif identity != baseline_binaries:
@@ -469,11 +531,19 @@ def compare_shard_proof() -> None:
         inventories[lane] = (tests, points)
         lane_receipts[lane] = {"tests": sum(tests.values()), "testSeconds": elapsed,
                                "reportSha256": native.digest(raw),
-                               "trxSha256": native.digest(read("backend-tests.trx"))}
+                               "trxSha256": native.digest(read("backend-tests.trx")),
+                               "compilerFixture": fixture}
     baseline_tests, baseline_points = inventories.pop("baseline")
     result = require_shard_equivalence(baseline_tests, baseline_points, inventories)
     result.update(sourceSha=sha, treeSha=tree, runId=run, attempt=attempt,
                   scope="NATIVE_SHARD_EQUIVALENCE_ONLY_NOT_SONARCLOUD_OR_RELEASE",
+                  scannerCompatibleFixtureXmlCount=2,
+                  preRebuildAssemblyDigests=baseline_binaries[0],
+                  executedAssemblyDigests=baseline_binaries[1],
+                  deterministicSourceMappingSha256=native.digest(baseline_binaries[2]),
+                  physicalSourceMappingSha256=baseline_binaries[3],
+                  physicalCompilerInputsSha256=baseline_binaries[4],
+                  generatedSourceDigests=baseline_binaries[5],
                   lanes=lane_receipts)
     output = ROOT / "artifacts/sonar-dotnet-shard-equivalence.json"
     with output.open("x", encoding="utf-8") as stream:
