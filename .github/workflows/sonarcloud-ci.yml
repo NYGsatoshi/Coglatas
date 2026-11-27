@@ -1235,7 +1235,7 @@ jobs:
             /d:sonar.host.url=https://sonarcloud.io
             /d:sonar.scanner.scanAll=true
             "/d:sonar.javascript.lcov.reportPaths=artifacts/sonar-angular-inputs/shard-1/lcov.info,artifacts/sonar-angular-inputs/shard-2/lcov.info,artifacts/sonar-node/lcov.info,artifacts/sonar-pilot-helper/lcov.info,artifacts/sonar-operational/c8/lcov.info"
-            /d:sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet-shard-inputs/files-db/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/other-db/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/security-aq/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/remaining/verified.opencover.xml
+            "/d:sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet-shard-inputs/files-db/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/other-db/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/security-aq/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/remaining/verified.opencover.xml"
             /d:sonar.cs.cobertura.reportsPaths=artifacts/sonar-windows/verified.cobertura.xml
             "/d:sonar.python.coverage.reportPaths=artifacts/sonar-python/coverage.xml,artifacts/sonar-gcp/coverage.xml"
             "${scope_args[@]}"
