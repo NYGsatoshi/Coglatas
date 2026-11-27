@@ -252,6 +252,36 @@ class PythonProcessCoverageTests(unittest.TestCase):
                                                pattern='test_synthetic_logical_recovery_ci.py')
         self.assertGreater(cases.countTestCases(), 10)
 
+    def test_angular_proof_controls_report_native_subject_coverage(self):
+        """Use the real repository configuration and regression suite, not a copied subject."""
+        subject = (ROOT / 'scripts/ci/verify-sonar-angular-coverage.py').resolve()
+        suite = ROOT / 'scripts/ci/test-sonar-angular-coverage.py'
+        workflow = (ROOT / '.github/workflows/sonarcloud-ci.yml').read_text(encoding='utf-8')
+        cohort = workflow.split('for control in \\\n', 1)[1].split('; do', 1)[0]
+        self.assertEqual(cohort.count('scripts/ci/test-sonar-angular-coverage.py'), 1)
+        with tempfile.TemporaryDirectory() as directory:
+            data = Path(directory) / 'coverage'
+            env = self.environment()
+            env['SONAR_PYTHON_SOURCE_ROOT'] = ROOT.as_posix()
+            env['COVERAGE_FILE'] = str(data)
+            option = '--rcfile=' + str(CONFIG)
+            self.run_python(['-m', 'coverage', 'run', option, str(suite)], ROOT, env)
+            self.run_python(['-m', 'coverage', 'combine', option], ROOT, env)
+            measured = coverage.CoverageData(basename=str(data))
+            measured.read()
+            self.assertTrue(measured.has_arcs())
+            by_path = {Path(name).resolve(): name for name in measured.measured_files()}
+            self.assertIn(subject, by_path)
+            self.assertNotIn(suite.resolve(), by_path)
+            lines = set(measured.lines(by_path[subject]) or [])
+            source = subject.read_text(encoding='utf-8').splitlines()
+            for marker in ('raise ValueError("Angular artifact identity or digest mismatch")',
+                           'result = compare_results(inventories.pop("baseline"), inventories)'):
+                matching = [i for i, line in enumerate(source, 1) if line.strip() == marker]
+                self.assertEqual(len(matching), 1)
+                self.assertIn(matching[0], lines)
+            self.assertTrue(measured.arcs(by_path[subject]))
+
     def test_subject_scope_branch_and_parallel_configuration_are_explicit(self):
         with mock.patch.dict(os.environ, {'SONAR_PYTHON_SOURCE_ROOT': ROOT.as_posix()}):
             config = coverage.Coverage(config_file=str(CONFIG))
@@ -259,6 +289,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
         self.assertTrue(config.get_option('run:parallel'))
         self.assertEqual(set(config.get_option('run:include')), {
             ROOT.as_posix() + '/scripts/ci/verify-sonar-dotnet-coverage.py',
+            ROOT.as_posix() + '/scripts/ci/verify-sonar-angular-coverage.py',
             ROOT.as_posix() + '/scripts/ci/verify-sonar-windows-coverage.py',
             ROOT.as_posix() + '/scripts/ci/required_check_contract.py',
             ROOT.as_posix() + '/scripts/ci/check-publication-readiness.py',

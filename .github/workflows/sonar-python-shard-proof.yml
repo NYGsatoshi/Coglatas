@@ -1,0 +1,110 @@
+name: Sonar Python sharding qualification
+
+on:
+  pull_request:
+    branches: ["ci/sonar-coverage-*"]
+    paths:
+      - ".github/workflows/sonar-python-shard-proof.yml"
+      - "scripts/ci/*sonar-python-sharding.py"
+      - ".github/workflows/sonarcloud-ci.yml"
+      - "scripts/ci/sonar-python.coveragerc"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sonar-python-shard-proof-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  collect:
+    name: Python native coverage proof / ${{ matrix.lane }}
+    if: github.repository == 'NYGsatoshi/Coglatas' && github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'ci/sonar-coverage-python-sharding-')
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [baseline, shard-1, shard-2]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact candidate revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up repository-pinned .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Install checksum-pinned Python coverage tool
+        run: >-
+          python3 -m pip install --disable-pip-version-check --no-deps --require-hashes
+          --target "$RUNNER_TEMP/sonar-coverage-tools"
+          -r scripts/ci/sonar-coverage-requirements.txt
+
+      - name: Test native Python sharding evidence controls
+        run: python3 -B scripts/ci/test-sonar-python-sharding.py
+
+      - name: Collect existing Python controls and native process coverage
+        env:
+          PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+          PYTHONPATH: ${{ runner.temp }}/sonar-coverage-tools
+          COVERAGE_CORE: pytrace
+          PROOF_LANE: ${{ matrix.lane }}
+        run: python3 -B scripts/ci/verify-sonar-python-sharding.py collect --lane "$PROOF_LANE"
+
+      - name: Retain original process shards and native lane reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-python-shard-proof-${{ matrix.lane }}-${{ github.run_attempt }}
+          path: artifacts/sonar-python-shard-lane/
+          if-no-files-found: error
+          retention-days: 7
+
+  compare:
+    name: Require native Python execution and coverage equivalence
+    needs: collect
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact candidate revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install checksum-pinned Python coverage tool
+        run: >-
+          python3 -m pip install --disable-pip-version-check --no-deps --require-hashes
+          --target "$RUNNER_TEMP/sonar-coverage-tools"
+          -r scripts/ci/sonar-coverage-requirements.txt
+
+      - name: Download exact-attempt Python lane evidence
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: sonar-python-shard-proof-*-${{ github.run_attempt }}
+          path: artifacts/sonar-python-shard-proof
+
+      - name: Combine native data and compare full baseline
+        env:
+          PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+          PYTHONPATH: ${{ runner.temp }}/sonar-coverage-tools
+          COVERAGE_CORE: pytrace
+        run: python3 -B scripts/ci/verify-sonar-python-sharding.py compare
+
+      - name: Retain comparison receipt and original coverage.py outputs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-python-shard-equivalence-${{ github.run_attempt }}
+          path: artifacts/sonar-python-shard-equivalence/
+          if-no-files-found: error
+          retention-days: 7

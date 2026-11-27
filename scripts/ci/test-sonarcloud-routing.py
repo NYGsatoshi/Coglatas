@@ -556,7 +556,9 @@ class SonarParallelCoverageTests(unittest.TestCase):
             "artifacts/sonar-operational/c8/lcov.info",
         ),
         "Angular": (
-            "frontend/coverage/frontend/lcov.info",
+            "artifacts/sonar-angular-inputs/shard-1/lcov.info",
+            "artifacts/sonar-angular-inputs/shard-2/lcov.info",
+            "artifacts/sonar-angular-inputs/receipt.json",
         ),
     }
 
@@ -591,7 +593,7 @@ class SonarParallelCoverageTests(unittest.TestCase):
         self.assertIn("needs: [target, windows-dotnet, python-coverage, javascript-coverage, angular-coverage, dotnet-identity-probe]", scanner)
         self.assertIn("environment: sonarcloud-analysis", scanner)
         self.assertNotIn("if: always()", scanner.split("    steps:", 1)[0])
-        for name in ("windows-dotnet", "python-coverage", "javascript-coverage", "angular-coverage"):
+        for name in ("windows-dotnet", "python-coverage", "javascript-coverage", "angular-native-lanes", "dotnet-identity-probe"):
             producer = self.job(workflow, name)
             self.assertIn("    needs: target", producer)
             self.assertIn("    permissions:\n      contents: read", producer)
@@ -618,7 +620,23 @@ class SonarParallelCoverageTests(unittest.TestCase):
         node = self.job(workflow, "javascript-coverage")
         angular = self.job(workflow, "angular-coverage")
         self.assertNotIn("npm --prefix frontend run test:coverage", node)
-        self.assertEqual(angular.count("npm --prefix frontend run test:coverage"), 1)
+        lanes = self.job(workflow, "angular-native-lanes")
+        self.assertIn("lane: [baseline, shard-1, shard-2]", lanes)
+        self.assertIn('collect --lane "$PROOF_LANE"', lanes)
+        self.assertIn("needs: [target, angular-native-lanes]", angular)
+        self.assertIn("contents: read", angular)
+        self.assertNotIn("secrets.", angular)
+        self.assertNotIn("SONAR_TOKEN", angular)
+        self.assertNotIn("environment: sonarcloud-analysis", angular)
+        self.assertIn("verify-sonar-angular-coverage.py compare", angular)
+        self.assertLess(angular.index("Require exact native Angular coverage equivalence"),
+                        angular.index("Stage only the two original native shard reports"))
+        self.assertLess(angular.index("Stage only the two original native shard reports"),
+                        angular.index("Bind Angular coverage handoff to exact execution"))
+        self.assertIn('cmp -- "$source" "$target"', angular)
+        self.assertIn("sonar-angular-shard-proof-*-${{ github.run_attempt }}", angular)
+        self.assertIn("sonar.javascript.lcov.reportPaths=artifacts/sonar-angular-inputs/shard-1/lcov.info,artifacts/sonar-angular-inputs/shard-2/lcov.info,", scanner)
+        self.assertNotIn("sonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info", scanner)
         self.assertNotIn("Measure existing operational contract controls", angular)
         self.assertIn("Measure existing operational contract controls", node)
         self.assertIn("Measure existing Pilot helpers", node)
@@ -626,7 +644,7 @@ class SonarParallelCoverageTests(unittest.TestCase):
         self.assertIn("          path: artifacts\n", scanner.split(
             "- name: Download JavaScript scanner inputs from this attempt", 1
         )[1].split("- name: Verify JavaScript coverage handoff", 1)[0])
-        self.assertIn("          path: frontend/coverage/frontend\n", scanner.split(
+        self.assertIn("          path: artifacts/sonar-angular-inputs\n", scanner.split(
             "- name: Download Angular scanner inputs from this attempt", 1
         )[1].split("- name: Verify Angular coverage handoff", 1)[0])
         self.assertNotIn("npm --prefix frontend run test:coverage", scanner)
