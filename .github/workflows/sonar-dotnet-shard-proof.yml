@@ -6,6 +6,8 @@ on:
     paths:
       - ".github/workflows/sonar-dotnet-shard-proof.yml"
       - "scripts/ci/*sonar-dotnet-coverage.py"
+      - "scripts/ci/*sonar-openapi-reproduction.py"
+      - "scripts/ci/*sonar-scanner-identity-trial.py"
       - "scripts/ci/test-sonarcloud-routing.py"
 
 permissions:
@@ -94,8 +96,15 @@ jobs:
       - name: Install existing reporter dependencies without analysis credentials
         run: bash scripts/ci/npm-ci-retry.sh .
 
-      - name: Build fresh deterministic Ubuntu coverage binaries
-        run: dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m -p:ContinuousIntegrationBuild=true -p:DeterministicSourcePaths=true
+      - name: Build scanner-compatible deterministic Ubuntu coverage binaries
+        env:
+          PROOF_XML_COUNT: "2"
+        run: |
+          set -euo pipefail
+          python3 -B scripts/ci/verify-sonar-scanner-identity-trial.py collect
+          mkdir -p artifacts/sonar-dotnet
+          test ! -e artifacts/sonar-dotnet/compiler-identity
+          mv -- artifacts/sonar-openapi-reproduction artifacts/sonar-dotnet/compiler-identity
 
       - name: Retain original deterministic production source mapping
         run: |
@@ -118,6 +127,14 @@ jobs:
           (folder / 'outputs.json').write_text(json.dumps(record, indent=2) + '\n', encoding='utf-8')
           PY
 
+      - name: Remove earlier compiler input observation before physical rebuild
+        run: |
+          set -euo pipefail
+          source=tests/Coglatas.Tests/obj/Release/net11.0/sonar-openapi-additional-files.txt
+          test -s "$source"
+          test ! -L "$source"
+          rm -- "$source"
+
       - name: Preserve physical caller source paths in the test assembly
         # Recorders hash the actual caller source; production binaries retain
         # their deterministic paths and are not rebuilt by this project build.
@@ -126,6 +143,16 @@ jobs:
           --configuration Release --no-restore --no-incremental --no-dependencies
           --disable-build-servers -m:1
           -p:ContinuousIntegrationBuild=false -p:DeterministicSourcePaths=false
+          -p:CustomAfterMicrosoftCommonTargets="$RUNNER_TEMP/sonar-openapi-fixture/probe.targets"
+
+      - name: Retain actual physical test rebuild compiler input inventory
+        run: |
+          set -euo pipefail
+          source=tests/Coglatas.Tests/obj/Release/net11.0/sonar-openapi-additional-files.txt
+          test -s "$source"
+          test ! -L "$source"
+          cp -- "$source" artifacts/sonar-dotnet/physical-compiler-inputs.txt
+          cmp -- "$source" artifacts/sonar-dotnet/physical-compiler-inputs.txt
 
       - name: Restore original production mapping for native instrumentation
         # The test-only build regenerates reference maps with physical paths.

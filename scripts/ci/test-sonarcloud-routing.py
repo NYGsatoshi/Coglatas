@@ -744,6 +744,14 @@ class SonarParallelCoverageTests(unittest.TestCase):
         self.assertIn("fail-fast: false", proof)
         self.assertIn("needs: collect", proof)
         self.assertIn("shard-compare", proof)
+        self.assertIn('PROOF_XML_COUNT: "2"', proof)
+        self.assertIn("verify-sonar-scanner-identity-trial.py collect", proof)
+        self.assertIn('CustomAfterMicrosoftCommonTargets="$RUNNER_TEMP/sonar-openapi-fixture/probe.targets"', proof)
+        self.assertIn("physical-compiler-inputs.txt", proof)
+        self.assertLess(proof.index("Remove earlier compiler input observation"),
+                        proof.index("Preserve physical caller source paths"))
+        self.assertLess(proof.index("Retain actual physical test rebuild compiler input inventory"),
+                        proof.index("Generate native baseline or shard coverage"))
         self.assertIn('shard-run --lane "$PROOF_LANE"', proof)
         self.assertIn("Verify executed tests and production coverage before publication", proof)
         self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", proof)
