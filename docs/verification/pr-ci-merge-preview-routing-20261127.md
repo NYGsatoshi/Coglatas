@@ -1,0 +1,5 @@
+# PR CI exact merge-preview routing
+
+The normal PR workflow checks out GitHub's merge preview, but the router used the two divergent branch tip trees. Target-only changes can therefore spuriously route unrelated work. Bind the PR event base SHA, head SHA, actual merge SHA and checked-out HEAD. Require the exact two-parent merge identity; compare the tested tree against its base parent. Missing/stale/ambiguous preview or path data routes every existing lane. Non-PR callers retain their existing direct diff semantics.
+
+Preserve all existing test/functional/security classifiers, full shared-input fallbacks, required-check topology and no-renames semantics. Use NUL-delimited Git filenames and literal pathspecs for content diffs. Add actual Git regression fixtures for target-only changes, invalid/reversed/stale previews, Unicode and ambiguous paths. No Sonar exclusions, tests, thresholds, credentials or Main branch changes. The Sonar PR analyzer retains its native incremental behavior and repository-wide semantic scope.
