@@ -199,6 +199,129 @@ public sealed class SyntheticSimulationDebugTests
         Assert.False(view.StepSyntheticSimulation(snapshot));
     }
 
+    [Theory]
+    [InlineData("step", false, false)]
+    [InlineData("continue", false, false)]
+    [InlineData("step-over", false, false)]
+    [InlineData("step", false, true)]
+    [InlineData("step", true, true)]
+    public async Task CancelledCommandPublicationWithdrawsItsDebugSession(string command, bool failPublication, bool failWithdrawal)
+    {
+        var fixture = await SyntheticSimulationTests.Ready();
+        using var view = fixture.View;
+        Assert.True(view.LoadSyntheticScopedSources());
+        Assert.True(view.BeginSyntheticSimulationDebug(Guid.Parse(Id(1014))));
+        var basis = Assert.IsType<SimulationDebugSnapshot>(view.SimulationDebug);
+        var compiler = view.Result;
+        using var cancellation = new CancellationTokenSource();
+        Action cancel = cancellation.Cancel;
+        var token = cancellation.Token;
+        var publicationFailure = new ObjectDisposedException("publication observer");
+        var withdrawalFailure = new InvalidOperationException("withdrawal observer");
+        SimulationDebugSnapshot? published = null;
+        var withdrawals = 0;
+        System.ComponentModel.PropertyChangedEventHandler observer = (sender, _) =>
+        {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (published is null && subject.SimulationDebug is { } snapshot && !ReferenceEquals(snapshot, basis))
+            {
+                published = snapshot;
+                cancel();
+                if (failPublication) throw publicationFailure;
+            }
+            else if (published is not null && subject.SimulationDebug is null && failWithdrawal)
+            {
+                throw withdrawalFailure;
+            }
+        };
+        System.ComponentModel.PropertyChangedEventHandler laterObserver = (sender, _) =>
+        {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (published is not null && subject.SimulationDebug is null) withdrawals++;
+        };
+        view.PropertyChanged += observer;
+        view.PropertyChanged += laterObserver;
+        Exception? error;
+        try { error = CaptureDebugCommandError(view, command, basis, token); }
+        finally
+        {
+            view.PropertyChanged -= observer;
+            view.PropertyChanged -= laterObserver;
+        }
+
+        Assert.NotNull(published);
+        Assert.NotEmpty(published.Events);
+        Assert.Empty(basis.Events);
+        Assert.Null(view.SimulationDebug);
+        Assert.Null(view.SimulationRun);
+        Assert.Empty(view.SimulationDebugControlReason);
+        Assert.False(view.StepSyntheticSimulation(published));
+        Assert.Same(compiler, view.Result);
+        Assert.Equal(1, withdrawals);
+        if (failPublication) Assert.Same(publicationFailure, error);
+        else
+        {
+            var cancelled = Assert.IsType<OperationCanceledException>(error);
+            Assert.Equal(token, cancelled.CancellationToken);
+            Assert.Same(failWithdrawal ? withdrawalFailure : null, cancelled.InnerException);
+        }
+    }
+
+    [Fact]
+    public async Task CancelledCommandPublicationKeepsAReentrantReplacementRun()
+    {
+        var fixture = await SyntheticSimulationTests.Ready();
+        using var view = fixture.View;
+        Assert.True(view.LoadSyntheticScopedSources());
+        Assert.True(view.BeginSyntheticSimulationDebug(Guid.Parse(Id(1015))));
+        var basis = Assert.IsType<SimulationDebugSnapshot>(view.SimulationDebug);
+        using var cancellation = new CancellationTokenSource();
+        Action cancel = cancellation.Cancel;
+        var token = cancellation.Token;
+        ProjectSimulationRun? replacement = null;
+        var replacing = false;
+        System.ComponentModel.PropertyChangedEventHandler observer = (sender, _) =>
+        {
+            var subject = Assert.IsType<SyntheticWorkbenchViewModel>(sender);
+            if (replacing || subject.SimulationDebug is not { } snapshot || ReferenceEquals(snapshot, basis)) return;
+            replacing = true;
+            cancel();
+            Assert.True(subject.RunSyntheticSimulation(Guid.Parse(Id(1016)), 100));
+            replacement = subject.SimulationRun;
+        };
+        view.PropertyChanged += observer;
+        Exception? error;
+        try { error = CaptureDebugCommandError(view, "step", basis, token); }
+        finally { view.PropertyChanged -= observer; }
+
+        var cancelled = Assert.IsType<OperationCanceledException>(error);
+        Assert.Equal(token, cancelled.CancellationToken);
+        Assert.NotNull(replacement);
+        Assert.Same(replacement, view.SimulationRun);
+        Assert.Equal(CompilerExecutionState.Completed, replacement.Execution);
+        Assert.Null(view.SimulationDebug);
+    }
+
+    private static Exception? CaptureDebugCommandError(SyntheticWorkbenchViewModel view, string command, SimulationDebugSnapshot basis,
+        CancellationToken token)
+    {
+        try
+        {
+            _ = command switch
+            {
+                "step" => view.StepSyntheticSimulation(basis, token),
+                "continue" => view.ContinueSyntheticSimulation(basis, token),
+                "step-over" => view.StepOverSyntheticSimulation(basis, Pending(basis), token),
+                _ => throw new ArgumentOutOfRangeException(nameof(command))
+            };
+            return null;
+        }
+        catch (Exception error)
+        {
+            return error;
+        }
+    }
+
     private static Exception? CaptureDebugStartError(SyntheticWorkbenchViewModel view, Guid runId, CancellationToken token)
     {
         try
