@@ -30,7 +30,9 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { map } from 'rxjs';
 import { AuthSessionFacade } from '../../core/auth/auth-session.facade';
 import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
 import { I18nService, TranslationKey } from '../../core/i18n/i18n.service';
@@ -42,12 +44,13 @@ import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
 import { BoundReference, Diagnostic, HistoryRevisionView, InspectedSymbol, PreparedDraftRename, PreparedDraftRevert, ReferenceCompletion, RequirementTaskSuggestions, SemanticChange, SourceRecord, assessLocalEvidence, contextRevision } from './projectide.contracts';
 import { ProjectIdePreviewAdapter } from './projectide-preview.adapter';
+import { ProjectIdeRuntimeRecordingsComponent } from './projectide-runtime-recordings.component';
 import { ProjectIdeWorkbenchStore } from './projectide-workbench.store';
 
 @Component({
   selector: 'app-projectide-workbench',
   standalone: true,
-  imports: [RouterLink, JsonPipe],
+  imports: [RouterLink, JsonPipe, ProjectIdeRuntimeRecordingsComponent],
   providers: [ProjectIdeWorkbenchStore, ProjectIdePreviewAdapter],
   templateUrl: './projectide-workbench.component.html',
   styleUrl: './projectide-workbench.component.scss',
@@ -131,6 +134,7 @@ export class ProjectIdeWorkbenchComponent {
 
   readonly store = inject(ProjectIdeWorkbenchStore);
   readonly flags = inject(FrontendFeatureFlagsService);
+  readonly runtimeProjectId = toSignal(inject(ActivatedRoute).queryParamMap.pipe(map(params => params.get('runtimeProjectId'))), { initialValue: null });
   readonly i18n = inject(I18nService);
   private readonly auth = inject(AuthSessionFacade);
   private readonly workspace = inject(ActiveWorkspaceFacade);
@@ -163,7 +167,7 @@ export class ProjectIdeWorkbenchComponent {
   readonly tabs = ['overview', 'source', 'problems', 'inspector', 'diff', 'history', 'tests', 'scenario'] as const;
   readonly canRead = computed(
     () =>
-      this.flags.projectIdePreviewEnabled() &&
+      this.runtimeProjectId() === null && this.flags.projectIdePreviewEnabled() &&
       this.auth.isAuthenticated() &&
       this.auth.currentTenant()?.isAvailable === true &&
       this.auth.session().capabilities.includes('projects:view'),
