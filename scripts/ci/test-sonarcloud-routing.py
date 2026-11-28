@@ -658,7 +658,16 @@ class SonarParallelCoverageTests(unittest.TestCase):
         self.assertLess(angular.index("Stage only the selected original native Angular reports"),
                         angular.index("Bind Angular coverage handoff to exact execution"))
         self.assertIn('cmp -- "$source" "$target"', angular)
-        self.assertIn("sonar-angular-shard-proof-*-${{ github.run_attempt }}", angular)
+        single = angular.split("- name: Download original Angular baseline into its exact lane directory", 1)[1].split("- name:", 1)[0]
+        full = angular.split("- name: Download original Angular baseline and shards from this attempt", 1)[1].split("- name:", 1)[0]
+        self.assertIn("if: needs.target.outputs.analysis_kind == 'pull_request'", single)
+        self.assertIn("if: needs.target.outputs.analysis_kind == 'main'", full)
+        self.assertIn("pattern: sonar-angular-shard-proof-*-${{ github.run_attempt }}", single)
+        self.assertIn("pattern: sonar-angular-shard-proof-*-${{ github.run_attempt }}", full)
+        self.assertIn("path: artifacts/sonar-angular-shard-proof/sonar-angular-shard-proof-baseline-${{ github.run_attempt }}", single)
+        self.assertIn("path: artifacts/sonar-angular-shard-proof\n", full)
+        self.assertIn("merge-multiple: false", single)
+        self.assertIn("merge-multiple: false", full)
         self.assertIn("analysis_kind == 'pull_request' && 'baseline-only' || 'full'", angular)
         self.assertIn("angular_reports=artifacts/sonar-angular-inputs/shard-1/lcov.info,artifacts/sonar-angular-inputs/shard-2/lcov.info", scanner)
         self.assertIn("angular_reports=artifacts/sonar-angular-inputs/baseline/lcov.info", scanner)
