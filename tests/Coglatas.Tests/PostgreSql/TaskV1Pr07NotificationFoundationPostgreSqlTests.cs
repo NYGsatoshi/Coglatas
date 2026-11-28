@@ -296,20 +296,34 @@ public sealed class TaskV1Pr07NotificationFoundationPostgreSqlTests
             await PostgreSqlMigrationTestDatabase.MigrateAsync(database);
             var graph = await SeedFoundationGraphAsync(database);
 
+            var barrier = new InitialPreferenceReadBarrier();
             var firstTenant = new CurrentTenantService();
             firstTenant.SetTenant(graph.TenantA.Id, graph.TenantA.Slug);
             await using var firstContext = CreateTenantContext(database, graph.TenantA);
-            var first = CreatePreferenceService(firstContext, firstTenant, graph.UserA.Id);
+            var firstRepository = new SynchronizedPreferenceRepository(
+                new TaskNotificationPreferenceRepository(firstContext, firstTenant), barrier);
+            var first = CreatePreferenceService(firstContext, firstTenant, graph.UserA.Id, firstRepository);
 
             var secondTenant = new CurrentTenantService();
             secondTenant.SetTenant(graph.TenantA.Id, graph.TenantA.Slug);
             await using var secondContext = CreateTenantContext(database, graph.TenantA);
-            var second = CreatePreferenceService(secondContext, secondTenant, graph.UserA.Id);
+            var secondRepository = new SynchronizedPreferenceRepository(
+                new TaskNotificationPreferenceRepository(secondContext, secondTenant), barrier);
+            var second = CreatePreferenceService(secondContext, secondTenant, graph.UserA.Id, secondRepository);
 
             var outcomes = await Task.WhenAll(
                 first.UpdateAsync(graph.WorkspaceA.Id, new UpdateTaskNotificationPreferenceRequest("00:00", 1)),
                 second.UpdateAsync(graph.WorkspaceA.Id, new UpdateTaskNotificationPreferenceRequest("23:45", 1)));
 
+            Assert.Equal(2, barrier.Arrivals);
+            Assert.Equal(1L, firstRepository.InitialVersion);
+            Assert.Equal(1L, secondRepository.InitialVersion);
+            Assert.Equal(1, firstRepository.UpdateAttempts);
+            Assert.Equal(1, secondRepository.UpdateAttempts);
+            Assert.Single(new[] { firstRepository.UpdateSucceeded, secondRepository.UpdateSucceeded }, value => value is true);
+            Assert.Single(new[] { firstRepository.UpdateSucceeded, secondRepository.UpdateSucceeded }, value => value is false);
+            Assert.Equal(2, firstRepository.Reads);
+            Assert.Equal(2, secondRepository.Reads);
             Assert.Single(outcomes, result => result.IsSuccess);
             var loser = Assert.Single(outcomes, result => !result.IsSuccess);
             Assert.Equal(TaskNotificationPreferenceService.VersionConflictCode, loser.ErrorDetail?.Code);
@@ -504,13 +518,14 @@ public sealed class TaskV1Pr07NotificationFoundationPostgreSqlTests
     private static TaskNotificationPreferenceService CreatePreferenceService(
         AppDbContext context,
         CurrentTenantService tenant,
-        Guid userId) =>
+        Guid userId,
+        ITaskNotificationPreferenceRepository? repository = null) =>
         new(
             new TestCurrentUser(userId),
             tenant,
             FixedClock.Instance,
             UtcTimeZoneResolver.Instance,
-            new TaskNotificationPreferenceRepository(context, tenant));
+            repository ?? new TaskNotificationPreferenceRepository(context, tenant));
 
     private sealed record FoundationGraph(
         Tenant TenantA,
@@ -541,6 +556,62 @@ public sealed class TaskV1Pr07NotificationFoundationPostgreSqlTests
     {
         public static readonly FixedClock Instance = new();
         public DateTimeOffset UtcNow => new(2026, 8, 1, 0, 0, 0, TimeSpan.Zero);
+    }
+
+    private sealed class InitialPreferenceReadBarrier
+    {
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _arrivals;
+
+        public int Arrivals => Volatile.Read(ref _arrivals);
+
+        public async Task ArriveAsync(CancellationToken cancellationToken)
+        {
+            var arrivals = Interlocked.Increment(ref _arrivals);
+            Assert.InRange(arrivals, 1, 2);
+            if (arrivals == 2)
+                _release.TrySetResult();
+            await _release.Task.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
+        }
+    }
+
+    // Only coordinate the first completed real PostgreSQL read. Forward every
+    // call and its result unchanged, including the losing update and re-read.
+    private sealed class SynchronizedPreferenceRepository(
+        ITaskNotificationPreferenceRepository inner,
+        InitialPreferenceReadBarrier barrier) : ITaskNotificationPreferenceRepository
+    {
+        public int Reads { get; private set; }
+        public long? InitialVersion { get; private set; }
+        public int UpdateAttempts { get; private set; }
+        public bool? UpdateSucceeded { get; private set; }
+
+        public async Task<TaskNotificationPreferenceContext?> GetAccessibleAsync(
+            Guid workspaceId, Guid userId, CancellationToken cancellationToken = default)
+        {
+            var result = await inner.GetAccessibleAsync(workspaceId, userId, cancellationToken);
+            Reads++;
+            if (Reads == 1)
+            {
+                Assert.NotNull(result);
+                Assert.Equal(1L, result.Version);
+                InitialVersion = result.Version;
+                await barrier.ArriveAsync(cancellationToken);
+            }
+            return result;
+        }
+
+        public async Task<bool> TryUpdateAsync(
+            Guid workspaceId, Guid userId, long expectedVersion,
+            TimeOnly? deadlineDigestLocalTime, DateTimeOffset updatedAt,
+            CancellationToken cancellationToken = default)
+        {
+            UpdateAttempts++;
+            var result = await inner.TryUpdateAsync(
+                workspaceId, userId, expectedVersion, deadlineDigestLocalTime, updatedAt, cancellationToken);
+            UpdateSucceeded = result;
+            return result;
+        }
     }
 
     private sealed class InitialLogicalLookupBarrier(int expectedArrivals) : DbCommandInterceptor

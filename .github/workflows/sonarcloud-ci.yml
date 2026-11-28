@@ -957,81 +957,11 @@ jobs:
     with:
       source_sha: ${{ github.sha }}
 
-  dotnet-identity-probe:
-    name: Diagnostic scanner-compatible .NET build without analysis credentials
-    needs: target
-    if: needs.target.outputs.should_scan == 'true' && github.repository == 'NYGsatoshi/Coglatas'
-    permissions:
-      contents: read
-    outputs:
-      digest: ${{ steps.bind.outputs.digest }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    env:
-      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
-      DOTNET_NOLOGO: "1"
-      PROOF_SOURCE_SHA: ${{ github.sha }}
-      PROOF_XML_COUNT: "2"
-    steps:
-      - name: Checkout exact candidate revision
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Set up repository-pinned .NET SDK
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
-
-      - name: Restore the solution without analysis credentials
-        run: dotnet restore Coglatas.slnx --verbosity minimal
-
-      - name: Restore repository-pinned EF tooling
-        run: dotnet tool restore
-
-      - name: Set up repository frontend Node version
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: "26"
-
-      - name: Install pinned frontend package manager
-        run: npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
-
-      - name: Install frontend dependencies
-        run: bash scripts/ci/npm-ci-retry.sh frontend
-
-      - name: Install reporter dependencies
-        run: bash scripts/ci/npm-ci-retry.sh .
-
-      - name: Test native reproduction controls
-        run: python3 -B scripts/ci/test-sonar-openapi-reproduction.py
-
-      - name: Test same-SHA scanner identity trial controls
-        run: python3 -B scripts/ci/test-sonar-scanner-identity-trial.py
-
-      - name: Build and capture deterministic output and generated source
-        run: python3 -B scripts/ci/verify-sonar-scanner-identity-trial.py collect
-
-      - name: Bind diagnostic compiler evidence to the exact attempt
-        id: bind
-        run: python3 -B scripts/ci/verify-sonar-scanner-identity-trial.py bind
-
-      - name: Retain exact diagnostic build evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: sonar-openapi-native-identity-${{ github.run_attempt }}
-          path: artifacts/sonar-openapi-reproduction/
-          if-no-files-found: error
-          retention-days: 7
-
-
   sonarcloud:
     name: SonarQube Cloud / .NET and multi-language analysis
     permissions:
       contents: read
-    needs: [target, windows-dotnet, python-coverage, javascript-coverage, angular-coverage, dotnet-shard-coverage, dotnet-identity-probe]
+    needs: [target, windows-dotnet, python-coverage, javascript-coverage, angular-coverage, dotnet-shard-coverage]
     if: needs.target.outputs.should_scan == 'true' && github.repository == 'NYGsatoshi/Coglatas'
     environment: sonarcloud-analysis
     runs-on: ubuntu-24.04
@@ -1223,29 +1153,30 @@ jobs:
             exit 1
           }
 
-      - name: Download same-attempt diagnostic compiler evidence
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: sonar-openapi-native-identity-${{ github.run_attempt }}
-          path: artifacts/sonar-openapi-reproduction
-
-      - name: Verify diagnostic bytes and prepare read-only compiler input observer
-        env:
-          PROOF_SOURCE_SHA: ${{ github.sha }}
-          EXPECTED_RECEIPT_DIGEST: ${{ needs.dotnet-identity-probe.outputs.digest }}
-        run: python3 -B scripts/ci/verify-sonar-scanner-identity-trial.py prepare
-
       - name: Download exact-attempt native Ubuntu shard handoff
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: sonar-dotnet-shard-handoff-${{ github.run_attempt }}
           path: artifacts/sonar-dotnet-shard-inputs
 
-      - name: Verify native Ubuntu shard handoff before scanner credentials
+      - name: Download same-attempt diagnostic compiler evidence
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sonar-openapi-native-identity-${{ github.run_attempt }}
+          path: artifacts/sonar-openapi-reproduction
+
+      - name: Verify native Ubuntu shard and compiler handoffs before scanner credentials
         env:
           PROOF_SOURCE_SHA: ${{ github.sha }}
           EXPECTED_DOTNET_SHARD_DIGEST: ${{ needs.dotnet-shard-coverage.outputs.digest }}
-        run: python3 -B scripts/ci/verify-sonar-dotnet-coverage.py shard-verify
+          EXPECTED_RECEIPT_DIGEST: ${{ needs.dotnet-shard-coverage.outputs.compiler_digest }}
+        run: python3 -B scripts/ci/verify-sonar-dotnet-coverage.py shard-verify-compiler
+
+      - name: Verify diagnostic bytes and prepare read-only compiler input observer
+        env:
+          PROOF_SOURCE_SHA: ${{ github.sha }}
+          EXPECTED_RECEIPT_DIGEST: ${{ needs.dotnet-shard-coverage.outputs.compiler_digest }}
+        run: python3 -B scripts/ci/verify-sonar-scanner-identity-trial.py prepare
 
       - name: Begin pinned SonarCloud analysis
         shell: bash
@@ -1323,7 +1254,7 @@ jobs:
       - name: Compare actual scanner build with credential-free diagnostic build
         env:
           PROOF_SOURCE_SHA: ${{ github.sha }}
-          EXPECTED_RECEIPT_DIGEST: ${{ needs.dotnet-identity-probe.outputs.digest }}
+          EXPECTED_RECEIPT_DIGEST: ${{ needs.dotnet-shard-coverage.outputs.compiler_digest }}
         run: python3 -B scripts/ci/verify-sonar-scanner-identity-trial.py compare
 
       - name: Retain only sanitized scanner identity receipt
