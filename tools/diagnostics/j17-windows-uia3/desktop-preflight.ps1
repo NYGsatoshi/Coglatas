@@ -11,6 +11,7 @@ $manifest = @{
 }
 $manifest | ConvertTo-Json | Set-Content -Encoding utf8 (Join-Path $EvidenceDirectory 'source.json')
 $ready = $false
+$preflightErrorType = $null
 try {
     if ($IsWindows) {
         Add-Type -Path (Join-Path $PSScriptRoot 'NativeDesktop.cs')
@@ -18,15 +19,17 @@ try {
         $desktop | ConvertTo-Json | Set-Content -Encoding utf8 (Join-Path $EvidenceDirectory 'desktop.json')
         $ready = $desktop.Available
     }
-} catch { $ready = $false }
+} catch { $preflightErrorType = $_.Exception.GetType().Name }
 if (-not $ready) {
+    $qualification = if ($null -ne $preflightErrorType) { 'FAIL' } else { 'NOT_RUN' }
+    $reason = if ($null -ne $preflightErrorType) { 'DesktopProbeError' } elseif (-not $IsWindows) { 'WindowsRequired' } else { 'InteractiveDesktopUnavailable' }
     @{
-        scope = 'ISOLATED_SYNTHETIC_WINDOWS_UIA3_POC'; qualification = 'NOT_RUN'
-        reason = 'InteractiveDesktopUnavailable'; actualWindowsUiAutomation = 'NOT_RUN'
+        scope = 'ISOLATED_SYNTHETIC_WINDOWS_UIA3_POC'; qualification = $qualification
+        reason = $reason; errorType = $preflightErrorType; actualWindowsUiAutomation = 'NOT_RUN'
         imeComposition = 'NOT_RUN'; screenReaderAcceptance = 'NOT_RUN'; productClientAcceptance = 'BLOCKED'
         release = 'NO_GO'; cleanupSucceeded = $true
     } | ConvertTo-Json | Set-Content -Encoding utf8 (Join-Path $EvidenceDirectory 'receipt.json')
-    Write-Output 'NOT_RUN: an unlocked interactive Windows input desktop was not established.'
-    exit 3
+    Write-Output "$qualification`: an unlocked interactive Windows input desktop was not established ($reason)."
+    if ($qualification -ceq 'FAIL') { exit 1 } else { exit 3 }
 }
 Write-Output 'Interactive input desktop established; actual UI automation remains unexecuted.'
