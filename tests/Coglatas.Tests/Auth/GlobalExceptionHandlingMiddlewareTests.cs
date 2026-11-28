@@ -3,6 +3,7 @@ using Coglatas.Web.Controllers;
 using Coglatas.Web.Middleware;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Coglatas.Tests.Auth;
@@ -124,6 +125,84 @@ public sealed class GlobalExceptionHandlingMiddlewareTests
             Assert.Equal("aq-transport-trace", root.GetProperty("traceId").GetString());
             Assert.False(root.TryGetProperty("error", out _));
         }
+    }
+
+    [Theory]
+    [InlineData("io", true)]
+    [InlineData("argument", true)]
+    [InlineData("format", true)]
+    [InlineData("invalid-operation", true)]
+    [InlineData("null-reference", true)]
+    [InlineData("unsupported", true)]
+    [InlineData("cancellation", true)]
+    [InlineData("other", true)]
+    [InlineData("other", false)]
+    [Trait("Feature", "AQ")]
+    public async Task SurveyUnexpectedFailuresLogOnlyFixedCategoryAndKeepRedacted500(
+        string category, bool protectedRoute)
+    {
+        const string privateDetail = "synthetic-private-detail";
+        Exception error = category switch
+        {
+            "io" => new IOException(privateDetail),
+            "argument" => new ArgumentException(privateDetail),
+            "format" => new FormatException(privateDetail),
+            "invalid-operation" => new InvalidOperationException(privateDetail),
+            "null-reference" => new NullReferenceException(privateDetail),
+            "unsupported" => new NotSupportedException(privateDetail),
+            "cancellation" => new OperationCanceledException(privateDetail),
+            "other" => new Exception(privateDetail),
+            _ => throw new ArgumentOutOfRangeException(nameof(category))
+        };
+        var logger = new SurveyFailureLogger();
+        var middleware = new GlobalExceptionHandlingMiddleware(_ => throw error, logger);
+        var context = new DefaultHttpContext
+        {
+            TraceIdentifier = "synthetic-aq-trace",
+            Response = { Body = new MemoryStream() },
+            Request =
+            {
+                Method = HttpMethods.Post,
+                Path = protectedRoute
+                    ? "/api/v1/core/events/00000000-0000-0000-0000-000000000001/presentations/import-preview"
+                    : "/api/v1/public/surveys/synthetic-private-entry/submissions"
+            }
+        };
+        if (protectedRoute)
+        {
+            context.SetEndpoint(new Endpoint(
+                _ => Task.CompletedTask,
+                new EndpointMetadataCollection(typeof(AqRosterImportController).GetCustomAttributes(inherit: true)),
+                "AQ roster import"));
+        }
+
+        await middleware.InvokeAsync(context);
+
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Error, entry.Level);
+        Assert.Null(entry.Error);
+        Assert.Equal($"Unhandled survey failure. Category: {category}. TraceId: synthetic-aq-trace", entry.Message);
+        context.Response.Body.Position = 0;
+        using var payload = await JsonDocument.ParseAsync(context.Response.Body);
+        var root = payload.RootElement;
+        Assert.Equal(StatusCodes.Status500InternalServerError, context.Response.StatusCode);
+        Assert.Equal(500, root.GetProperty("status").GetInt32());
+        Assert.Equal("synthetic-aq-trace", root.GetProperty("requestId").GetString());
+        Assert.Equal("UnexpectedServerError", root.GetProperty("error").GetProperty("code").GetString());
+        Assert.Equal("An unexpected server error occurred.", root.GetProperty("error").GetProperty("message").GetString());
+        Assert.DoesNotContain(privateDetail, root.GetRawText(), StringComparison.Ordinal);
+        Assert.DoesNotContain("synthetic-private-entry", root.GetRawText(), StringComparison.Ordinal);
+        Assert.DoesNotContain("FailureCategory", root.GetRawText(), StringComparison.Ordinal);
+    }
+
+    private sealed class SurveyFailureLogger : ILogger<GlobalExceptionHandlingMiddleware>
+    {
+        public List<(LogLevel Level, string Message, Exception? Error)> Entries { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state,
+            Exception? exception, Func<TState, Exception?, string> formatter) =>
+            Entries.Add((logLevel, formatter(state, exception), exception));
     }
 
     [Fact]

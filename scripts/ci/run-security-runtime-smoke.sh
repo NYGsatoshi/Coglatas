@@ -215,6 +215,12 @@ require_scanner_state() {
 dump_failure_state() {
   echo "Security runtime failed; dumping redacted Compose state." >&2
   "${compose[@]}" ps 2>&1 | security_scan_redact_stream >&2 || true
+  # The error can precede the last 200 lines during a long scan. Only emit
+  # fixed-category counts from the isolated app log, not the full log itself.
+  if ! "${compose[@]}" logs --no-color --no-log-prefix app 2>/dev/null |
+    security_scan_summarize_aq_failure_categories >&2; then
+    echo "AQ failure category summary unavailable." >&2
+  fi
   # Bound verbose SQL diagnostics; scanner failures and exit codes remain intact.
   "${compose[@]}" logs --no-color --tail 200 postgres migrate app 2>&1 | security_scan_redact_stream >&2 || true
   if [[ -f artifacts/security/zap/preflight-stage.txt ]]; then

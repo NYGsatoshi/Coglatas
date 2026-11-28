@@ -203,6 +203,27 @@ sys.stdout.write(text)
 '
 }
 
+# Supplemental failure diagnosis for the isolated synthetic runtime only.
+# Stream the log without retaining it; emit a closed vocabulary and counts,
+# never a matched line, identifier, exception detail or arbitrary category.
+security_scan_summarize_aq_failure_categories() {
+  python3 -c '
+import re
+import sys
+
+categories = ("io", "argument", "format", "invalid-operation", "null-reference",
+              "unsupported", "cancellation", "other")
+counts = dict.fromkeys(categories, 0)
+pattern = re.compile(r"^\s*Unhandled survey failure\. Category: ([a-z-]+)\. TraceId: [A-Za-z0-9:.-]{1,128}\s*$")
+for line in sys.stdin:
+    match = pattern.fullmatch(line)
+    if match is not None and match.group(1) in counts:
+        counts[match.group(1)] += 1
+for category in categories:
+    print(f"AQ_FAILURE_CATEGORY {category}={counts[category]}")
+'
+}
+
 security_scan_init() {
   local target=${1:-}
   local state_parent http_parent child_name

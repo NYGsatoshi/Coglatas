@@ -54,7 +54,10 @@ public sealed class GlobalExceptionHandlingMiddleware(
                 AqPublicRoutes.IsProtectedSurvey(context);
             if (surveyRequest)
             {
-                logger.LogError("Unhandled survey failure. TraceId: {TraceId}", context.TraceIdentifier);
+                // Fixed diagnostic category only: never log the exception object,
+                // message, stack, type name, form content or request body for AQ.
+                logger.LogError("Unhandled survey failure. Category: {FailureCategory}. TraceId: {TraceId}",
+                    SurveyFailureCategory(exception), context.TraceIdentifier);
             }
             else
             {
@@ -106,6 +109,18 @@ public sealed class GlobalExceptionHandlingMiddleware(
             }
         }
     }
+
+    private static string SurveyFailureCategory(Exception exception) => exception switch
+    {
+        IOException => "io",
+        ArgumentException => "argument",
+        FormatException => "format",
+        InvalidOperationException => "invalid-operation",
+        NullReferenceException => "null-reference",
+        NotSupportedException => "unsupported",
+        OperationCanceledException => "cancellation",
+        _ => "other"
+    };
 
     private static Task WriteClientRequestErrorAsync(HttpContext context, int statusCode)
     {

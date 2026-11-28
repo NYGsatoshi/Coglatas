@@ -72,6 +72,32 @@ for secret in scanner-password-value secret-cookie csrf-secret authorization-sec
 done
 [[ "$redacted" == *'"safe":"kept"'* ]] || fail "redactor removed unrelated log content"
 
+categories="$(
+  security_scan_summarize_aq_failure_categories <<'LOG'
+fail: Coglatas.Web.Middleware.GlobalExceptionHandlingMiddleware[0]
+      Unhandled survey failure. Category: io. TraceId: synthetic-trace-1
+      Unhandled survey failure. Category: io. TraceId: synthetic-trace-2
+      Unhandled survey failure. Category: argument. TraceId: synthetic-trace-3
+      Unhandled survey failure. Category: unexpected-private. TraceId: synthetic-trace-4
+      Unhandled survey failure. Category: other. TraceId: synthetic trace private
+Unrelated message synthetic-private-detail
+LOG
+)"
+expected_categories="$(cat <<'EXPECTED'
+AQ_FAILURE_CATEGORY io=2
+AQ_FAILURE_CATEGORY argument=1
+AQ_FAILURE_CATEGORY format=0
+AQ_FAILURE_CATEGORY invalid-operation=0
+AQ_FAILURE_CATEGORY null-reference=0
+AQ_FAILURE_CATEGORY unsupported=0
+AQ_FAILURE_CATEGORY cancellation=0
+AQ_FAILURE_CATEGORY other=0
+EXPECTED
+)"
+[[ "$categories" == "$expected_categories" ]] || fail "AQ diagnostic summary did not preserve fixed category counts"
+[[ "$categories" != *synthetic-trace* && "$categories" != *private* ]] ||
+  fail "AQ diagnostic summary retained request or unknown category data"
+
 for role in alpha-owner alpha-member alpha-restricted beta-owner; do
   tenant="$(security_scan_role_tenant "$role")"
   email="$(security_scan_role_email "$role")"
