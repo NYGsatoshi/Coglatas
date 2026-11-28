@@ -1,5 +1,27 @@
 # Known Issues
 
+## ProjectIDE prospective CI cancellation candidate
+
+The J12 candidate reuses the already integrated Security [#2034](https://github.com/NYGsatoshi/Coglatas/pull/2034)
+consumer scheduling and bounded resource cleanup. The three long consumers run
+only while their workflow is not cancelled; failed producers still fail their
+first admission command. Short required-check aggregates retain `always()`, and
+cancelled, skipped, incomplete or failed required evidence remains non-passing.
+Existing test selections, assertions, retries and job deadlines are unchanged.
+
+The cleanup helper retains approved blob `6d5d6f6bee890cd80c50f273ee5e8cd1b1c45df5`.
+It checks run/attempt/job, exact resource identity, labels, network endpoints and
+credential subtree ownership before cleanup. Shared caches and unrelated resources
+remain outside its authority. The current frontend step identity and Files
+first-attempt evidence collection remain intact.
+
+This candidate needs its own current-source hosted qualification and review.
+[#1974](https://github.com/NYGsatoshi/Coglatas/issues/1974) remains open for its
+actual acceptance conditions, including historical cleanup causality and
+independent provider revocation evidence. D12-R is consumed; no additional hosted
+cancellation exercise or cancellation API action is authorized by this candidate.
+The existing diagnostic PRs remain NO-MERGE.
+
 ## Student Council pilot: Main qualification failure retained
 
 Normal merge #1294 produced Main `3816908c6a1bae3cb79128af9f9dd3c6633cf50f`.
