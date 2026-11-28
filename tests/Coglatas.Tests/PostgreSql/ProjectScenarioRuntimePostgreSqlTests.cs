@@ -9,6 +9,7 @@ using Coglatas.Infrastructure.Audit;
 using Coglatas.Infrastructure.Persistence;
 using Coglatas.Tests.ProjectIde;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Npgsql;
 using static Coglatas.Tests.ProjectIde.CompilerContractFixtures;
 
@@ -147,6 +148,57 @@ public sealed class ProjectScenarioRuntimePostgreSqlTests
 
     [PostgreSqlFact]
     [Trait("Category", "PostgreSQLIntegration")]
+    public Task SessionRevocationAfterFlushRollsBackTheScenarioAndAllowsAnAuthorizedRetry() =>
+        VerifyPostFlushRefusalAsync(revokeSession: true);
+
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public Task OperationDenialAfterFlushRollsBackTheScenarioAndAllowsAnAuthorizedRetry() =>
+        VerifyPostFlushRefusalAsync(revokeSession: false);
+
+    private static Task VerifyPostFlushRefusalAsync(bool revokeSession) => WithScenarioDatabase(async fixture =>
+    {
+        var input = Basis(fixture.Tenant.Id);
+        fixture.Policy.ExactBasis = ProjectScenarioSource.Capture(input);
+        var model = ProjectSemanticBinder.Bind(input);
+        var afterFlush = new AfterScenarioFlush(async () =>
+        {
+            if (revokeSession)
+            {
+                fixture.Session.RevokedAt = Now;
+                await fixture.Writer.SaveChangesAsync();
+            }
+            else
+            {
+                fixture.Policy.DeniedOperation = ProjectScenarioOperations.Save;
+            }
+        });
+        await using var db = fixture.OpenContext(afterFlush);
+        var runtime = fixture.Runtime(db);
+        var change = Override(input, "20");
+
+        Assert.Null(await runtime.SaveAsync(model, input.InputDigest, [change], "post-flush-request", default));
+        Assert.True(afterFlush.Observed);
+        Assert.False(db.ChangeTracker.HasChanges());
+        Assert.Empty(await fixture.Writer.IdempotencyRecords.AsNoTracking().ToListAsync());
+        Assert.Empty(await fixture.Writer.AuditLogs.AsNoTracking().ToListAsync());
+        Assert.Equal(0, await fixture.Writer.Database.SqlQueryRaw<long>(
+            "SELECT COUNT(*) AS \"Value\" FROM projectide_development.projectide_scenarios").SingleAsync());
+
+        fixture.Session.RevokedAt = null;
+        fixture.Policy.DeniedOperation = null;
+        await fixture.Writer.SaveChangesAsync();
+        var saved = Assert.IsType<ProjectScenarioSummary>(await runtime.SaveAsync(
+            model, input.InputDigest, [change], "post-flush-request", default));
+        Assert.Equal(saved, await runtime.SaveAsync(model, input.InputDigest, [change], "post-flush-request", default));
+        Assert.Single(await fixture.Writer.IdempotencyRecords.AsNoTracking().ToListAsync());
+        Assert.Single(await fixture.Writer.AuditLogs.AsNoTracking().ToListAsync());
+        Assert.Equal(1, await fixture.Writer.Database.SqlQueryRaw<long>(
+            "SELECT COUNT(*) AS \"Value\" FROM projectide_development.projectide_scenarios").SingleAsync());
+    });
+
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
     public Task ConcurrentExactRetriesConvergeOnOneSavedVersion() => WithScenarioDatabase(async fixture =>
     {
         var input = Basis(fixture.Tenant.Id);
@@ -223,7 +275,15 @@ public sealed class ProjectScenarioRuntimePostgreSqlTests
         public Tenant Tenant { get; } = tenant;
         public Session Session { get; } = session;
         public ScenarioPolicy Policy { get; } = new();
-        public AppDbContext OpenContext() => PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection);
+        public AppDbContext OpenContext(SaveChangesInterceptor? interceptor = null)
+        {
+            if (interceptor is null)
+                return PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection);
+            var tenantScope = new CurrentTenantService();
+            tenantScope.SetPlatformScope();
+            return new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(connection)
+                .AddInterceptors(interceptor).Options, tenantScope);
+        }
         public ProjectScenarioRuntime Runtime(AppDbContext db)
         {
             var currentTenant = new CurrentTenantService();
@@ -234,6 +294,22 @@ public sealed class ProjectScenarioRuntimePostgreSqlTests
                 new ProjectIdeViewerContextReader(viewer, currentTenant, new SessionRepository(db), new TenantRepository(db), clock), Policy);
             return new(access, new ProjectScenarioStore(db), new EfCreateIdempotencyCoordinator(db),
                 new DbAuditLogger(db, clock, viewer, currentTenant), clock);
+        }
+    }
+
+    private sealed class AfterScenarioFlush(Func<Task> afterFlush) : SaveChangesInterceptor
+    {
+        public bool Observed { get; private set; }
+
+        public override async ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result,
+            CancellationToken cancellationToken = default)
+        {
+            if (!Observed && eventData.Context?.ChangeTracker.Entries<AuditLog>().Any() == true)
+            {
+                Observed = true;
+                await afterFlush();
+            }
+            return result;
         }
     }
 
