@@ -85,6 +85,7 @@ public sealed class DbAuditLogger(AppDbContext dbContext, IClock clock, ICurrent
                     "ProjectMemberAdded" or
                     "ProjectMemberUpdated" or
                     "ProjectMemberRemoved" or
+                    "ProjectDraftRenamed" or
                     "ProjectExecutionScopeChanged" or
                     "TaskExecutionScopeOverrideSet" or
                     "TaskExecutionScopeOverrideCleared" or
