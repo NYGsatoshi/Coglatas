@@ -27,6 +27,7 @@ on:
       - "tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalREventTests.cs"
       - "tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalRTests.cs"
       - "tests/Coglatas.Tests/Aq/AqOperatorHostedPostgreSqlTests.cs"
+      - "tests/Coglatas.Tests/Aq/AqPublicSurveyHostedPostgreSqlTests.cs"
 
 permissions:
   contents: read
