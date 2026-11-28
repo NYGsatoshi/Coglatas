@@ -237,6 +237,68 @@ public sealed class AqOperatorHostedPostgreSqlTests
             Assert.Equal(1, await db.Set<PresentationParticipant>().CountAsync(x => x.PresentationId == presentationId));
         });
 
+    [PostgreSqlFact]
+    public Task RosterPreviewRejectsMalformedMultipartWithoutWritingAndRetainsValidImport() =>
+        AqPostgreSqlScenario.WithHostedEventAsync(async (database, host, project, activity) =>
+        {
+            var eventRoute = $"/api/v1/core/events/{activity.Id:D}";
+            var previewRoute = eventRoute + "/presentations/import-preview";
+            await GrantOperatorAsync(database, host, project);
+            await host.LoginAsync();
+            var created = await CreatePresentationAsync(host.Client, eventRoute, activity, "Synthetic transport regression");
+            var presentationId = created.GetProperty("presentation").GetProperty("id").GetGuid();
+            var participants = $"/api/v1/core/presentations/{presentationId:D}/participants";
+            var before = await GetAsync(host.Client, participants);
+            var version = before.GetProperty("versionNo").GetInt64();
+            Assert.Empty(before.GetProperty("assignments").EnumerateArray());
+
+            var csv = $"presentationId,role,personRef,pendingRosterRef\n{presentationId:D},reviewer,{host.Actor.Id:D},\n";
+            var valid = await PreviewAsync(host.Client, eventRoute, csv);
+            Assert.Empty(valid.GetProperty("diagnostics").EnumerateArray());
+            Assert.Single(valid.GetProperty("proposedAssignments").EnumerateArray());
+
+            // Bounded synthetic protocol fixtures, not the original scanner
+            // request. Exercise the real HTTP/model-binding boundary with the
+            // same authenticated cookie, CSRF, size limits and controller.
+            const string bodyBoundary = "synthetic-roster-body";
+            var complete = "--" + bodyBoundary + "\r\n" +
+                "Content-Disposition: form-data; name=\"file\"; filename=\"roster.csv\"\r\n" +
+                "Content-Type: text/csv\r\n\r\n" + csv + "\r\n";
+            var cases = new[]
+            {
+                (Body: complete + "--" + bodyBoundary + "--\r\n", Boundary: "synthetic-roster-other"),
+                (Body: complete, Boundary: bodyBoundary),
+                (Body: "--" + bodyBoundary + "\r\nContent-Disposition: form-data; name=\"note\"\r\n\r\n" +
+                    "synthetic field\r\n--" + bodyBoundary + "--\r\n", Boundary: bodyBoundary)
+            };
+            foreach (var item in cases)
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Post, previewRoute);
+                request.Content = new ByteArrayContent(Encoding.UTF8.GetBytes(item.Body));
+                request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("multipart/form-data");
+                request.Content.Headers.ContentType.Parameters.Add(
+                    new System.Net.Http.Headers.NameValueHeaderValue("boundary", item.Boundary));
+                request.Headers.Add(SecurityOptions.CsrfHeaderName, await ReadCsrfAsync(host.Client));
+                using var response = await host.Client.SendAsync(request);
+                Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+                var unchanged = await GetAsync(host.Client, participants);
+                Assert.Equal(version, unchanged.GetProperty("versionNo").GetInt64());
+                Assert.Empty(unchanged.GetProperty("assignments").EnumerateArray());
+            }
+
+            var restored = await PreviewAsync(host.Client, eventRoute, csv);
+            Assert.Empty(restored.GetProperty("diagnostics").EnumerateArray());
+            var assignment = Assert.Single(restored.GetProperty("proposedAssignments").EnumerateArray());
+            Assert.Equal(presentationId, assignment.GetProperty("presentationId").GetGuid());
+            Assert.Equal(host.Actor.Id, assignment.GetProperty("personRef").GetGuid());
+            Assert.Equal("reviewer", assignment.GetProperty("role").GetString());
+            var final = await GetAsync(host.Client, participants);
+            Assert.Equal(version, final.GetProperty("versionNo").GetInt64());
+            Assert.Empty(final.GetProperty("assignments").EnumerateArray());
+            await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+            Assert.Equal(0, await db.Set<PresentationParticipant>().CountAsync(x => x.PresentationId == presentationId));
+        });
+
     private static async Task<JsonElement> PreviewAsync(HttpClient client, string eventRoute, string csv)
     {
         using var multipart = new MultipartFormDataContent();
