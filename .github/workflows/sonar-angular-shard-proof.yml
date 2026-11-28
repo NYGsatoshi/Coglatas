@@ -116,11 +116,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # Exercise the same one-match pattern extraction semantics as the
+      # production baseline-only route, not the named-download shortcut.
       - name: Download original full native Angular execution
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: sonar-angular-shard-proof-baseline-${{ github.run_attempt }}
+          pattern: sonar-angular-shard-proof-baseline-${{ github.run_attempt }}
           path: artifacts/sonar-angular-shard-proof/sonar-angular-shard-proof-baseline-${{ github.run_attempt }}
+          merge-multiple: false
 
       - name: Download exact full equivalence receipt
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
