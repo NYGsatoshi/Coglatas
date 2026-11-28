@@ -17,8 +17,9 @@ Tenant and actor identity come from the shared persisted viewer reader. A
 development host must supply an operation authorization implementation for the
 exact Source and protected premises. The store requires distinct recording and
 reading operations and rechecks before commit and disclosure. A known run ID or
-digest grants no permission. The application composition root has no registration
-or route for this store.
+digest grants no permission. Both paths make their final tenant lifecycle check
+under a PostgreSQL shared row lock held through transaction commit. The
+application composition root has no registration or route for this store.
 
 The Project and Tenant foreign key binds every recording to the same Project
 scope. Rows are write-once. A retry by the same actor succeeds idempotently only

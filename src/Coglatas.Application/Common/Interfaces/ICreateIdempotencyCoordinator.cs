@@ -34,4 +34,14 @@ public interface ICreateIdempotencyCoordinator
         Func<Guid, CancellationToken, Task<T?>> loadCommittedResource,
         CancellationToken cancellationToken = default)
         where T : class;
+
+    /// <summary>Validates after the staged writes are flushed and before the relational transaction commits.</summary>
+    Task<IdempotentCreateResult<T>> ExecuteWithCommitCheckAsync<T>(
+        CreateIdempotencyContext context,
+        Func<CancellationToken, Task<T>> stageCreation,
+        Func<Guid, CancellationToken, Task<T?>> loadCommittedResource,
+        Func<CancellationToken, Task> validateBeforeCommit,
+        CancellationToken cancellationToken = default)
+        where T : class =>
+        Task.FromResult(new IdempotentCreateResult<T>(IdempotentCreateDisposition.ReplayUnavailable, null));
 }
