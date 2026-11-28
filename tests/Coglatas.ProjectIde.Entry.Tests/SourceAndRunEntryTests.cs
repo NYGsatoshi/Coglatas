@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Coglatas.Domain.ProjectIde;
@@ -11,9 +10,9 @@ public sealed class SourceAndRunEntryTests
 {
     private const string Candidate = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string TestSource = "namespace Synthetic.Tests;\npublic sealed class EntryTests\n{\n    public void RejectForeignInput() { Assert.False(false); }\n}\n";
+    // Git's hash-object result for the exact UTF-8 fixture above.
+    private const string Blob = "8f33565417a4546ce425ad50e97bac388420f19c";
     private static readonly byte[] Bytes = Encoding.UTF8.GetBytes(TestSource);
-    private static readonly string Blob = Convert.ToHexStringLower(SHA1.HashData(
-        Encoding.UTF8.GetBytes("blob " + Bytes.Length + "\0").Concat(Bytes).ToArray()));
     private static SpecVerifier Verifier() => new("Synthetic.Entry", "1", SpecVerificationClass.ContractTest,
         new(Candidate, "synthetic/EntryTests.cs", null, SpecDigest.Bytes(Bytes)), "Synthetic.Tests.EntryTests.RejectForeignInput", ["Synthetic.Execution"]);
     private static SpecRequirement Requirement() => new("SPEC-AUTH-SYNTHETIC-001", [new(1, SpecStatus.Active,

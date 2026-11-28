@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import tempfile
 import xml.etree.ElementTree as ET
 
 
@@ -27,12 +28,53 @@ def git(cwd: Path, *arguments: str) -> str:
 
 
 def sha(value: str) -> str:
-    if not re.fullmatch(r"[0-9a-f]{40}", value):
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{40}", value):
         raise ValueError("An exact lowercase commit SHA is required")
     return value
 
 
+def scratch_path(path: Path, repository: Path) -> Path:
+    """Confine writable evidence and detached worktrees to the host's scratch space."""
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        runner_temp = os.environ.get("RUNNER_TEMP")
+        if not runner_temp or not Path(runner_temp).is_absolute():
+            raise ValueError("Hosted verification requires an absolute runner scratch root")
+        root = Path(runner_temp).resolve(strict=True)
+    else:
+        root = Path(tempfile.gettempdir()).resolve(strict=True)
+    candidate = path.resolve()
+    checkout = repository.resolve()
+    if (not root.is_dir() or root == Path(root.anchor) or candidate == root or
+            not candidate.is_relative_to(root) or candidate.is_relative_to(checkout) or
+            checkout.is_relative_to(candidate)):
+        raise ValueError("Worktree and evidence paths must be below scratch and outside the checkout")
+    return candidate
+
+
+def composition_paths(repository: Path, target: Path, evidence: Path) -> tuple[Path, Path]:
+    target = scratch_path(target, repository)
+    evidence = scratch_path(evidence, repository)
+    if target.exists() or evidence.exists():
+        raise ValueError("Fresh worktree and evidence paths are required")
+    if evidence.is_relative_to(target) or target.is_relative_to(evidence):
+        raise ValueError("Worktree and evidence paths must be separate")
+    return target, evidence
+
+
+def verification_paths(target: Path, receipt: Path) -> tuple[Path, Path]:
+    repository = Path(__file__).resolve().parents[2]
+    target = target.resolve(strict=True)
+    if target != repository:
+        target = scratch_path(target, repository)
+    receipt = scratch_path(receipt, repository)
+    evidence = scratch_path(receipt.parent, repository)
+    if evidence.is_relative_to(target) or target.is_relative_to(evidence):
+        raise ValueError("Worktree and evidence paths must be separate")
+    return target, receipt
+
+
 def changes(repository: Path, base: str, head: str, allowed: tuple[str, ...]) -> list[str]:
+    base, head = sha(base), sha(head)
     git(repository, "merge-base", "--is-ancestor", base, head)
     commits = git(repository, "rev-list", "--reverse", "--topo-order", f"{base}..{head}").splitlines()
     for commit in commits:
@@ -45,34 +87,35 @@ def changes(repository: Path, base: str, head: str, allowed: tuple[str, ...]) ->
 
 
 def compose(repository: Path, target: Path, receipt_path: Path, candidates: Path, test_head: str) -> dict:
+    target, evidence = composition_paths(repository, target, receipt_path.parent)
+    receipt_path = evidence / receipt_path.name
     pins = json.loads(candidates.read_text(encoding="utf-8"))
     if pins.get("schemaVersion") != 1:
         raise ValueError("Unsupported candidate manifest schema")
     for key in ("productBase", "productC", "productD", "productE", "testBase"):
         sha(pins[key])
-    sha(test_head)
-    if target.exists():
-        raise ValueError("The isolated target must be a new directory; existing work is never removed")
+    test_head = sha(test_head)
     product_paths = ("src/Coglatas.Domain/ProjectIde/", "docs/verification/")
     product_changes = changes(repository, pins["productBase"], pins["productC"], product_paths)
     product_changes += changes(repository, pins["productBase"], pins["productD"], product_paths)
     product_changes += changes(repository, pins["productBase"], pins["productE"], product_paths)
     test_changes = changes(repository, pins["testBase"], test_head,
                            ("tests/", ".github/workflows/projectide-slice2-isolated.yml"))
-    git(repository, "worktree", "add", "--detach", str(target), pins["productBase"])
+    git(repository, "worktree", "add", "--detach", "--", str(target), sha(pins["productBase"]))
     for commit in product_changes:
-        git(target, "cherry-pick", commit)
+        git(target, "cherry-pick", "--", sha(commit))
     product_head = git(target, "rev-parse", "HEAD")
     product_tree = git(target, "rev-parse", "HEAD^{tree}")
     for commit in test_changes:
-        git(target, "cherry-pick", commit)
+        git(target, "cherry-pick", "--", sha(commit))
     receipt = {**pins, "testHead": test_head, "productChanges": product_changes, "testChanges": test_changes,
                "productHead": product_head, "productTree": product_tree,
                "combinedCommit": git(target, "rev-parse", "HEAD"),
                "combinedTree": git(target, "rev-parse", "HEAD^{tree}"),
                "verification": {"build": "NotRun", "projectIde": "NotRun", "architecture": "NotRun"}}
-    receipt_path.parent.mkdir(parents=True, exist_ok=True)
-    receipt_path.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+    evidence.mkdir(mode=0o700, parents=True)
+    with receipt_path.open("x", encoding="utf-8") as output:
+        output.write(json.dumps(receipt, indent=2) + "\n")
     return receipt
 
 
@@ -98,6 +141,7 @@ def counters(path: Path, *, expected_total: int) -> dict[str, int]:
 
 
 def verify(target: Path, receipt_path: Path, receipt: dict) -> None:
+    target, receipt_path = verification_paths(target, receipt_path)
     artifacts = receipt_path.parent
     try:
         receipt["verification"]["build"] = "Failed"

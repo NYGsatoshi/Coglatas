@@ -7,7 +7,7 @@ from pathlib import Path
 import subprocess
 
 from projectide_core_isolated import verify
-from projectide_slice2_isolated import git, sha
+from projectide_slice2_isolated import git, scratch_path, sha
 
 
 def main() -> None:
@@ -18,7 +18,7 @@ def main() -> None:
     args = parser.parse_args()
     base, head = sha(args.base), sha(args.head)
     root = Path(__file__).resolve().parents[2]
-    receipt = args.receipt.resolve()
+    receipt = scratch_path(args.receipt, root)
     if receipt.parent.exists():
         raise ValueError("A fresh evidence directory is required")
     if git(root, "rev-parse", "HEAD") != head or git(root, "status", "--porcelain"):
@@ -59,7 +59,7 @@ def main() -> None:
         "testPaths": sorted(paths),
         "verification": {"build": "NotRun", "projectIde": "NotRun", "architecture": "NotRun"},
     }
-    receipt.parent.mkdir(parents=True)
+    receipt.parent.mkdir(mode=0o700, parents=True)
     verify(root, receipt, value, Path(__file__).with_name("projectide_integration_inventory.json"))
     print(json.dumps(value["verification"], indent=2))
 
