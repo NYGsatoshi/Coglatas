@@ -20,7 +20,8 @@ public sealed class ProjectTestJobStore(AppDbContext db) : IProjectTestJobStore
         CancellationToken cancellationToken)
     {
         if (!CanAccess(job.Key) || job.State != ProjectTestJobState.Pending || job.Result is not null ||
-            job.TerminalAtUtc is not null || !BindingMatchesKey(job.Key, job.Binding))
+            job.TerminalAtUtc is not null || job.RetainedResultState != ProjectTestRetainedResultState.Unavailable ||
+            !BindingMatchesKey(job.Key, job.Binding))
             return null;
 
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -34,7 +35,8 @@ public sealed class ProjectTestJobStore(AppDbContext db) : IProjectTestJobStore
             """, cancellationToken);
 
         var saved = await ReadAsync(key, forUpdate: true, cancellationToken);
-        if (saved is null || saved.Binding != job.Binding || !await reauthorize(cancellationToken) || !CanAccess(key))
+        if (saved is null || saved.RetainedResultState == ProjectTestRetainedResultState.Mismatch ||
+            saved.Binding != job.Binding || !await reauthorize(cancellationToken) || !CanAccess(key))
             return null;
 
         await transaction.CommitAsync(cancellationToken);
@@ -49,12 +51,16 @@ public sealed class ProjectTestJobStore(AppDbContext db) : IProjectTestJobStore
             terminal.Binding != pending.Binding || terminal.CreatedAtUtc != pending.CreatedAtUtc ||
             terminal.TerminalAtUtc is not { } terminalAt || terminalAt < pending.CreatedAtUtc ||
             terminal.State is not (ProjectTestJobState.Completed or ProjectTestJobState.Cancelled) ||
-            (terminal.State == ProjectTestJobState.Completed) != (terminal.Result is not null))
+            (terminal.State == ProjectTestJobState.Completed) != (terminal.Result is not null) ||
+            (terminal.State == ProjectTestJobState.Completed
+                ? terminal.RetainedResult is null || !terminal.RetainedResult.Matches(terminal.Binding, terminal.Result!)
+                : terminal.RetainedResultState != ProjectTestRetainedResultState.Unavailable))
             return null;
 
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var saved = await ReadAsync(key, forUpdate: true, cancellationToken);
-        if (saved is null || saved.Binding != pending.Binding || saved.CreatedAtUtc != pending.CreatedAtUtc ||
+        if (saved is null || saved.RetainedResultState == ProjectTestRetainedResultState.Mismatch ||
+            saved.Binding != pending.Binding || saved.CreatedAtUtc != pending.CreatedAtUtc ||
             !await reauthorize(cancellationToken) || !CanAccess(key))
             return null;
 
@@ -62,9 +68,10 @@ public sealed class ProjectTestJobStore(AppDbContext db) : IProjectTestJobStore
             return saved;
 
         var result = terminal.Result is null ? null : JsonSerializer.Serialize(terminal.Result, JsonOptions);
+        var resultBody = terminal.RetainedResult?.RecoverCanonicalBytes();
         var changed = await db.Database.ExecuteSqlInterpolatedAsync($"""
             UPDATE projectide_development.project_ide_test_jobs
-            SET state = {(int)terminal.State}, terminal_at = {terminalAt}, result = CAST({result} AS jsonb)
+            SET state = {(int)terminal.State}, terminal_at = {terminalAt}, result = CAST({result} AS jsonb), result_body = {resultBody}
             WHERE tenant_id = {key.Branch.TenantId.Value} AND project_id = {key.Branch.ProjectId.Value}
                 AND branch_id = {key.Branch.BranchId.Value} AND job_id = {key.JobId} AND state = 0
             """, cancellationToken);
@@ -72,7 +79,8 @@ public sealed class ProjectTestJobStore(AppDbContext db) : IProjectTestJobStore
             return null;
 
         var persisted = await ReadAsync(key, forUpdate: false, cancellationToken);
-        if (persisted is null || !await reauthorize(cancellationToken) || !CanAccess(key))
+        if (persisted is null || persisted.RetainedResultState == ProjectTestRetainedResultState.Mismatch ||
+            !await reauthorize(cancellationToken) || !CanAccess(key))
             return null;
 
         await transaction.CommitAsync(cancellationToken);
@@ -86,7 +94,7 @@ public sealed class ProjectTestJobStore(AppDbContext db) : IProjectTestJobStore
 
         FormattableString command = $"""
             SELECT binding::text AS "Binding", state AS "State", created_at AS "CreatedAtUtc",
-                terminal_at AS "TerminalAtUtc", result::text AS "Result"
+                terminal_at AS "TerminalAtUtc", result::text AS "Result", result_body AS "ResultBody"
             FROM projectide_development.project_ide_test_jobs
             WHERE tenant_id = {key.Branch.TenantId.Value} AND project_id = {key.Branch.ProjectId.Value}
                 AND branch_id = {key.Branch.BranchId.Value} AND job_id = {key.JobId}
@@ -110,7 +118,8 @@ public sealed class ProjectTestJobStore(AppDbContext db) : IProjectTestJobStore
             if ((state == ProjectTestJobState.Completed) != (result is not null))
                 return null;
 
-            return new(key, binding, state, row.CreatedAtUtc, row.TerminalAtUtc, result);
+            var retained = ProjectTestRetainedResult.ReadStored(row.ResultBody, binding, result);
+            return new(key, binding, state, row.CreatedAtUtc, row.TerminalAtUtc, result, retained);
         }
         catch (JsonException)
         {
@@ -127,5 +136,5 @@ public sealed class ProjectTestJobStore(AppDbContext db) : IProjectTestJobStore
         source.BranchId == key.Branch.BranchId.Value;
 
     private sealed record ProjectTestJobRow(string Binding, int State, DateTimeOffset CreatedAtUtc,
-        DateTimeOffset? TerminalAtUtc, string? Result);
+        DateTimeOffset? TerminalAtUtc, string? Result, byte[]? ResultBody);
 }
