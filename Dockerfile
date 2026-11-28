@@ -44,7 +44,7 @@ RUN --mount=type=secret,id=syncfusion_license,required=true \
     ! grep -R -F -q -- "$SYNCFUSION_LICENSE" dist || { echo "Syncfusion license material was found in frontend build output." >&2; exit 1; }; \
     unset SYNCFUSION_LICENSE
 
-FROM mcr.microsoft.com/dotnet/sdk:11.0.100@sha256:65f3c7c6a25a239ab3e6719f2896147e7b68242ff2d8818dd70498bde6ef8bea AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0.100@sha256:2794448a07118a6eaf00f29ab5d2bf44928517ce5ff86505a63a69230374f599 AS build
 WORKDIR /src
 
 COPY Coglatas.slnx ./
@@ -69,7 +69,7 @@ RUN --mount=type=cache,id=coglatas-docker-nuget,target=/root/.nuget/packages,sha
     dotnet restore src/Coglatas.Web/Coglatas.Web.csproj --locked-mode --force && \
     dotnet publish src/Coglatas.Web/Coglatas.Web.csproj -c Release -o /app/publish --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:11.0.0@sha256:bc0d6653979efba491ab3d6f589d691f96c309c3c3ef81325efa6978e7b7f242 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:11.0.0@sha256:ca396ece3f2a2e62c7a03f1d7d710b8bc7e8c9dea5597d091178d9f5bfca13f0 AS runtime
 WORKDIR /app
 # The pinned .NET 11 runtime uses Ubuntu 26.04 (resolute), whose libapt ABI is 7.0.
 # Keep a fail-closed APT security floor; do not silently skip the library upgrade.
