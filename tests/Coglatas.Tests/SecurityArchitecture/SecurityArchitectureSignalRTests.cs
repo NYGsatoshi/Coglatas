@@ -321,12 +321,27 @@ public sealed class SecurityArchitectureSignalRTests
             var routes = SecurityArchitectureSignalREventTests.CatalogueRoutes()
                 .Where(item => item.EventType != "Security.AuthorizationStateChanged.v1").ToArray();
             Assert.Equal(16, routes.Length);
-            foreach (var route in routes)
+            async Task AssertInitialDeliveryAsync(SecurityArchitectureSignalREventTests.EventRoute route)
             {
                 var initial = await SecurityArchitectureSignalREventTests.EnqueueAsync(database, scope,
                     SecurityCiFixtureSeed.TenantAMemberUserId, route.EventType, targetOverride: route.Override);
                 await member.WaitEventAsync(initial);
                 await app.WaitDeliveredAsync(initial);
+            }
+
+            // Only pre-invalidation positive controls share a bounded batch.
+            // Preserve a serial announcement batch and await every positive
+            // delivery before mutating session state. All later deny, HTTP,
+            // reconnect and receipt controls retain their original ordering.
+            foreach (var batch in routes.Chunk(4))
+            {
+                if (batch.Any(route => route.EventType == "Announcements.AnnouncementChanged.v1"))
+                {
+                    foreach (var route in batch)
+                        await AssertInitialDeliveryAsync(route);
+                }
+                else
+                    await Task.WhenAll(batch.Select(AssertInitialDeliveryAsync));
             }
             await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
             {
