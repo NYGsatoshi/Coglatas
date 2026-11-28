@@ -187,6 +187,37 @@ class AngularProofTests(unittest.TestCase):
                 MODULE.compare()
             self.assertFalse(output.exists())
 
+            (parent / "unexpected").rmdir()
+            with self.assertRaisesRegex(ValueError, "Missing, stale or unexpected"):
+                MODULE.compare("baseline-only")
+            for lane in ("shard-1", "shard-2"):
+                (parent / ("sonar-angular-shard-proof-" + lane + "-1")).rename(self.root / lane)
+            MODULE.compare("baseline-only")
+            canonical = json.loads(output.read_bytes())
+            self.assertEqual(canonical["mode"], "baseline-only")
+            self.assertFalse(canonical["baselineCompared"])
+            self.assertEqual(canonical["scope"], "ANGULAR_NATIVE_UNSHARDED_BASELINE_ONLY_NOT_SONARCLOUD")
+            self.assertEqual(set(canonical["lanes"]), {"baseline"})
+            for key in ("passedTests", "specFiles", "coverageFiles", "linePoints",
+                        "lineVisited", "branchPoints", "branchVisited"):
+                self.assertEqual(canonical[key], result[key])
+            output.unlink()
+            with self.assertRaisesRegex(ValueError, "Missing, stale or unexpected"):
+                MODULE.compare()
+            with self.assertRaisesRegex(ValueError, "Unknown Angular admission mode"):
+                MODULE.compare("unknown")
+            baseline = parent / "sonar-angular-shard-proof-baseline-1"
+            receipt_file = baseline / "receipt.json"
+            receipt = json.loads(receipt_file.read_bytes())
+            (baseline / "tests.json").write_bytes(self.report(self.one))
+            receipt["hashes"]["tests.json"] = MODULE.sha256((baseline / "tests.json").read_bytes())
+            receipt["selection"] = [self.one]
+            receipt["passedTests"] = 1
+            receipt_file.write_text(json.dumps(receipt), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "test file set differs"):
+                MODULE.compare("baseline-only")
+            self.assertFalse(output.exists())
+
     def test_production_admission_preserves_credential_free_native_proof(self):
         root = Path(__file__).resolve().parents[2]
         proof = (root / ".github/workflows/sonar-angular-shard-proof.yml").read_text()
@@ -201,9 +232,10 @@ class AngularProofTests(unittest.TestCase):
         admission = production.split("  angular-coverage:\n", 1)[1].split("\n  sonarcloud:\n", 1)[0]
         scanner = production.split("  sonarcloud:\n", 1)[1]
         self.assertIn("needs: target", lanes)
-        self.assertIn("lane: [baseline, shard-1, shard-2]", lanes)
+        self.assertIn("lane: ${{ fromJSON(needs.target.outputs.analysis_kind == 'pull_request' && '[\"baseline\"]' || '[\"baseline\",\"shard-1\",\"shard-2\"]') }}", lanes)
         self.assertIn("needs: [target, angular-native-lanes]", admission)
-        self.assertIn("verify-sonar-angular-coverage.py compare", admission)
+        self.assertIn('verify-sonar-angular-coverage.py compare --mode "$PROOF_MODE"', admission)
+        self.assertIn("analysis_kind == 'pull_request' && 'baseline-only' || 'full'", admission)
         self.assertIn("Verify Angular coverage handoff before scanner credentials", scanner)
         self.assertLess(scanner.index("Verify Angular coverage handoff before scanner credentials"),
                         scanner.index("Begin pinned SonarCloud analysis"))
@@ -212,7 +244,9 @@ class AngularProofTests(unittest.TestCase):
             self.assertNotIn("secrets.", job)
             self.assertNotIn("SONAR_TOKEN", job)
         self.assertIn("artifacts/sonar-angular-inputs/shard-1/lcov.info,"
-                      "artifacts/sonar-angular-inputs/shard-2/lcov.info,", scanner)
+                      "artifacts/sonar-angular-inputs/shard-2/lcov.info", scanner)
+        self.assertIn("artifacts/sonar-angular-inputs/baseline/lcov.info", scanner)
+        self.assertIn("sonar.javascript.lcov.reportPaths=$angular_reports,", scanner)
         self.assertNotIn("sonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info", scanner)
 
 

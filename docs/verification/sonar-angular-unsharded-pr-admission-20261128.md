@@ -1,0 +1,5 @@
+# Canonical single-execution Angular PR admission
+
+Trusted PRs previously execute the full Angular suite and two complementary shards. Retain the original full unfiltered command once and publish its original LCOV bytes. Preserve all tracked spec files, all-passed native counters, no-skips checks, owned source and LCOV structure; no new filtering, scope exclusions, thresholds or credential routes. PR receipt explicitly records baselineCompared=false. Main and dedicated proof retain all three native executions and exact test identities, multiplicities and native point hit states. The additional credential-free proof independently admits the original full native artifact and checks its receipt and digest against the exact full comparison. Mode-specific handoff binds original bytes to source, run, attempt, workspace and trusted analysis kind and rejects unexpected evidence.
+
+Two fewer production Angular jobs on trusted PRs; no claim of overall speedup before actual trusted staging analysis. Stacked on phase 9b because both modify the production scanner workflow and routing regression. No Main merge.
