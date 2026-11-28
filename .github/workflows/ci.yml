@@ -59,6 +59,9 @@ jobs:
       - name: Test required-check topology parser
         run: python3 scripts/ci/test-required-pr-checks.py
 
+      - name: Test bounded PR cancellation resource cleanup
+        run: python3 -B scripts/ci/test-pr-ci-resource-cleanup.py
+
       - name: Test SEC-ARCH execution evidence false-green controls
         run: python3 -B scripts/ci/test_sec_arch_evidence.py
 
@@ -394,7 +397,8 @@ jobs:
 
   build-test:
     name: build-test
-    if: ${{ always() }}
+    # Reject failed producers below while allowing cancelled workflows to stop.
+    if: ${{ !cancelled() }}
     needs: dotnet-build
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -434,7 +438,9 @@ jobs:
 
     steps:
       - name: Require successful build producer
+        shell: bash
         env:
+          BASH_ENV: /dev/null
           PRODUCER_RESULT: ${{ needs.dotnet-build.result }}
         run: test "$PRODUCER_RESULT" = success
 
@@ -770,14 +776,17 @@ jobs:
 
   frontend-test:
     name: frontend-test
-    if: ${{ always() }}
+    # Job-level always() keeps the browser consumer alive after cancellation.
+    if: ${{ !cancelled() }}
     needs: frontend-build
     runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     steps:
       - name: Require successful frontend producer
+        shell: bash
         env:
+          BASH_ENV: /dev/null
           PRODUCER_RESULT: ${{ needs.frontend-build.result }}
         run: test "$PRODUCER_RESULT" = success
 
@@ -881,6 +890,11 @@ jobs:
           COGLATAS_FILES_ATTEMPT_REPORT: ${{ github.base_ref == 'projectide/integration-20261031' && '1' || '0' }}
         run: bash scripts/ci/run-frontend-parallel.sh
 
+      - name: Finalize owned frontend resources after the test process exits
+        if: always() && needs.frontend-build.outputs.frontend_playwright == 'true' && steps.run-frontend-checks.outcome != '' && steps.run-frontend-checks.outcome != 'skipped'
+        timeout-minutes: 2
+        run: bash scripts/ci/cleanup-pr-ci-resources.sh frontend-test
+
       - name: Upload browser artifacts on failure
         if: failure() && needs.frontend-build.outputs.frontend_playwright == 'true'
         continue-on-error: true
@@ -947,7 +961,8 @@ jobs:
 
   security-scan:
     name: security-scan
-    if: ${{ always() }}
+    # Producer refusal remains mandatory; cancellation may end this consumer.
+    if: ${{ !cancelled() }}
     needs: dotnet-build
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -961,7 +976,9 @@ jobs:
 
     steps:
       - name: Require successful build producer
+        shell: bash
         env:
+          BASH_ENV: /dev/null
           PRODUCER_RESULT: ${{ needs.dotnet-build.result }}
         run: test "$PRODUCER_RESULT" = success
 
@@ -1155,11 +1172,19 @@ jobs:
           printf 'COGLATAS_SECURITY_RUNTIME_IMAGE=%s\n' "$image" >> "$GITHUB_ENV"
 
       - name: Run isolated security runtime lanes in parallel
+        id: security-runtime-lanes
         if: github.event_name != 'pull_request' || needs.dotnet-build.outputs.security_compose == 'true'
         shell: bash
         env:
           SYNCFUSION_LICENSE: compose-config-validation-placeholder
         run: bash scripts/ci/run-security-runtime-parallel.sh
+
+      - name: Finalize owned security resources after the scanner processes exit
+        if: always() && steps.security-runtime-lanes.outcome != '' && steps.security-runtime-lanes.outcome != 'skipped'
+        timeout-minutes: 2
+        env:
+          COGLATAS_SECURITY_RUNTIME_FAILED: ${{ steps.security-runtime-lanes.outcome != 'success' && 'true' || 'false' }}
+        run: bash scripts/ci/cleanup-pr-ci-resources.sh security-scan
 
       - name: Scan repository filesystem with Trivy
         if: github.event_name != 'pull_request' || needs.dotnet-build.outputs.security_image == 'true'
