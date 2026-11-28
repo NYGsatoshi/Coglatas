@@ -30,9 +30,9 @@ class PythonProcessCoverageTests(unittest.TestCase):
         env['PYTHONPATH'] = str(BOOTSTRAP) + os.pathsep + str(Path(coverage.__file__).resolve().parent.parent)
         return env
 
-    def run_python(self, args, cwd, env):
+    def run_python(self, args, cwd, env, *, timeout=15):
         result = subprocess.run([sys.executable, '-B', *args], cwd=cwd, env=env,
-                                capture_output=True, text=True, encoding='utf-8', timeout=15)
+                                capture_output=True, text=True, encoding='utf-8', timeout=timeout)
         self.assertEqual(result.returncode, 0, 'Synthetic coverage control process failed.')
         return result
 
@@ -282,6 +282,177 @@ class PythonProcessCoverageTests(unittest.TestCase):
                 self.assertIn(matching[0], lines)
             self.assertTrue(measured.arcs(by_path[subject]))
 
+    def test_real_native_python_shard_collection_and_comparison(self):
+        """Exercise the actual collector/comparator with real pinned native reports."""
+        import contextlib
+        import io
+        import json
+        import shutil
+
+        subject_path = ROOT / 'scripts/ci/verify-sonar-python-sharding.py'
+        spec = importlib.util.spec_from_file_location('native_shard_fixture', subject_path)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        self.assertEqual(coverage.__version__, '7.17.0')
+        tool = Path(coverage.__file__).resolve().parent.parent
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory).resolve()
+            root = work / 'checkout'
+            root.mkdir()
+            control = 'scripts/ci/test-native-mini.py'
+            fixture_subject = 'scripts/ci/fixture_subject.py'
+
+            def write(relative, value):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(value, encoding='utf-8')
+                return path
+
+            # These are isolated test fixtures, never the production cohort or
+            # any production handoff. Native coverage.py executes the source.
+            write(fixture_subject,
+                  'def choose(flag):\n    if flag:\n        return 1\n    return 0\n')
+            write(control,
+                  'import unittest\nfrom fixture_subject import choose\n'
+                  'class Fixture(unittest.TestCase):\n'
+                  '    def test_false(self):\n        self.assertEqual(choose(False), 0)\n'
+                  'if __name__ == "__main__":\n    unittest.main()\n')
+            write(module.MUTATION_CONTROL,
+                  'import json, subprocess, sys\nfrom pathlib import Path\n'
+                  'from fixture_subject import choose\n'
+                  'assert choose(True) == 1\n'
+                  'result = subprocess.run([sys.executable, "-B", "-c", '
+                  '"from fixture_subject import choose; raise SystemExit(0 if choose(True) == 1 else 1)"], '
+                  'cwd=Path(__file__).parent, check=False)\n'
+                  'report = Path("artifacts/av-mig/production-cli-mutations.json")\n'
+                  'report.parent.mkdir(parents=True, exist_ok=True)\n'
+                  'report.write_text(json.dumps([{"mutation": "fixture-true", '
+                  '"expectedExit": 0, "actualExit": result.returncode, '
+                  '"result": "PASS" if result.returncode == 0 else "FAIL"}]))\n'
+                  'raise SystemExit(result.returncode)\n')
+            write(module.CONFIG, '[run]\nbranch = True\nparallel = True\ninclude =\n    '
+                  + (root / fixture_subject).as_posix() + '\n')
+            for relative in (module.WORKFLOW, module.REQUIREMENTS, module.BOOTSTRAP):
+                write(relative, (ROOT / relative).read_text(encoding='utf-8'))
+            canonical = (ROOT / module.CONTROL_LOOP).read_text(encoding='utf-8')
+            _, separator, body = canonical.partition('; do\n')
+            self.assertEqual(separator, '; do\n')
+            write(module.CONTROL_LOOP, '          for control in \\\n'
+                  + '            ' + control + ' \\\n'
+                  + '            ' + module.MUTATION_CONTROL + separator + body)
+            for args in (['init', '--quiet'], ['add', '.'],
+                         ['-c', 'user.name=Coverage fixture', '-c',
+                          'user.email=coverage@example.test', '-c',
+                          'commit.gpgsign=false', 'commit', '--quiet', '-m', 'Native coverage fixture']):
+                subprocess.run(['/usr/bin/git', *args], cwd=root, check=True, capture_output=True)
+            sha = subprocess.check_output(['/usr/bin/git', 'rev-parse', 'HEAD'],
+                                          cwd=root, text=True).strip()
+            env = {'PROOF_SOURCE_SHA': sha, 'GITHUB_RUN_ID': '100',
+                   'GITHUB_RUN_ATTEMPT': '1', 'GITHUB_WORKSPACE': str(root)}
+            archives = root / 'artifacts/sonar-python-shard-proof'
+            archives.mkdir(parents=True)
+            output = root / 'artifacts/sonar-python-shard-equivalence'
+            with (mock.patch.object(module, 'ROOT', root),
+                  mock.patch.object(module, 'SECOND_GROUP', {control}),
+                  mock.patch.dict(os.environ, env),
+                  contextlib.redirect_stdout(io.StringIO())):
+                for lane in module.LANES:
+                    runner = work / lane
+                    runner.mkdir()
+                    (runner / 'sonar-coverage-tools').symlink_to(tool, target_is_directory=True)
+                    with mock.patch.dict(os.environ, {'RUNNER_TEMP': str(runner)}):
+                        module.collect(lane)
+                    shutil.move(str(root / 'artifacts/sonar-python-shard-lane'),
+                                str(archives / ('sonar-python-shard-proof-' + lane + '-1')))
+                    (root / module.MUTATION_REPORT).unlink(missing_ok=True)
+                with mock.patch.dict(os.environ, {'RUNNER_TEMP': str(work / 'baseline')}):
+                    module.compare()
+                    result = json.loads((output / 'receipt.json').read_bytes())
+                    self.assertEqual(result['sourceSha'], sha)
+                    self.assertEqual(result['controls'], 2)
+                    self.assertEqual(result['unittestCases'], 1)
+                    self.assertEqual(result['mutationCases'], 1)
+                    self.assertEqual(result['measuredFiles'], 1)
+                    self.assertGreater(result['executedArcs'], 0)
+                    self.assertEqual(set(module.native_points(
+                        output / module.NATIVE_REPORTS[0], root, {fixture_subject})),
+                        {fixture_subject})
+                    with self.assertRaisesRegex(ValueError, 'unowned source'):
+                        module.native_points(output / module.NATIVE_REPORTS[0], root, set())
+                    shutil.rmtree(output)
+                    baseline = archives / 'sonar-python-shard-proof-baseline-1'
+                    shard = archives / 'sonar-python-shard-proof-shard-1-1'
+                    receipt_path = baseline / 'receipt.json'
+                    original_receipt = receipt_path.read_bytes()
+
+                    def rejected(message):
+                        try:
+                            with self.assertRaisesRegex(ValueError, message):
+                                module.compare()
+                            self.assertFalse((output / 'receipt.json').exists())
+                        finally:
+                            if output.exists():
+                                shutil.rmtree(output)
+
+                    extra = archives / 'unexpected-attempt'
+                    extra.mkdir()
+                    try:
+                        rejected('Missing, stale or unexpected Python lane artifact')
+                    finally:
+                        extra.rmdir()
+                    for key, value, message in (
+                        ('attempt', '2', 'Native Python artifact receipt or digest differs'),
+                        ('controlSeconds', 0, 'Invalid native control timing'),
+                        ('hashes', {}, 'Native Python artifact receipt or digest differs'),
+                    ):
+                        changed = json.loads(original_receipt)
+                        changed[key] = value
+                        try:
+                            receipt_path.write_text(json.dumps(changed), encoding='utf-8')
+                            rejected(message)
+                        finally:
+                            receipt_path.write_bytes(original_receipt)
+                    # Re-bind real native bytes from a complementary shard to
+                    # exercise semantic checks independently of manifest checks.
+                    for name, message in (
+                        (module.NATIVE_REPORTS[0],
+                         'Combined Python native line/arc inventory differs from baseline'),
+                        (module.NATIVE_REPORTS[1],
+                         'Combined native Python JSON point/branch evidence differs'),
+                        (module.NATIVE_REPORTS[2],
+                         'Combined native Python XML differs outside timestamp'),
+                    ):
+                        target = baseline / name
+                        original = target.read_bytes()
+                        replacement = (shard / name).read_bytes()
+                        self.assertNotEqual(original, replacement)
+                        try:
+                            target.write_bytes(replacement)
+                            changed = json.loads(original_receipt)
+                            changed['hashes'] = module.file_manifest(baseline)
+                            receipt_path.write_text(json.dumps(changed), encoding='utf-8')
+                            rejected(message)
+                        finally:
+                            target.write_bytes(original)
+                            receipt_path.write_bytes(original_receipt)
+                    ledger = baseline / 'production-cli-mutations.json'
+                    original_ledger = ledger.read_bytes()
+                    changed = json.loads(original_ledger)
+                    changed[0]['mutation'] = 'different-fixture'
+                    try:
+                        ledger.write_text(json.dumps(changed), encoding='utf-8')
+                        receipt = json.loads(original_receipt)
+                        receipt['hashes'] = module.file_manifest(baseline)
+                        receipt_path.write_text(json.dumps(receipt), encoding='utf-8')
+                        rejected('Native mutation receipt differs from original ledger')
+                    finally:
+                        ledger.write_bytes(original_ledger)
+                        receipt_path.write_bytes(original_receipt)
+                    module.compare()
+                    self.assertTrue((output / 'receipt.json').is_file())
+
     def test_compiler_and_sharding_proof_controls_report_native_subject_coverage(self):
         """Measure actual checked-in helpers; synthetic inputs are only regression fixtures."""
         cohort = (ROOT / 'scripts/ci/sonar-python-controls.sh').read_text(encoding='utf-8')
@@ -299,6 +470,15 @@ class PythonProcessCoverageTests(unittest.TestCase):
                 'raise ValueError("Missing or duplicated Python control execution")',
                 'return value["files"]',
                 'root.attrib.pop("timestamp", None)',
+                'raise ValueError("Missing, stale or unexpected Python lane artifact")',
+                'raise ValueError("Native Python artifact receipt or digest differs")',
+                'raise ValueError("Invalid native control timing")',
+                'raise ValueError("Native mutation receipt differs from original ledger")',
+                'raise ValueError("Combined Python native line/arc inventory differs from baseline")',
+                'raise ValueError("Combined native Python JSON point/branch evidence differs")',
+                'raise ValueError("Combined native Python XML differs outside timestamp")',
+                'raise ValueError("Native Python data references unowned source: " + name)',
+                'result.update(expected, scope=scope, mode=mode, baselineCompared=mode == "full",',
             ),
             'openapi-reproduction': (
                 'raise ValueError("Invalid native build receipt")',
@@ -321,6 +501,10 @@ class PythonProcessCoverageTests(unittest.TestCase):
                 env['COVERAGE_FILE'] = str(data)
                 option = '--rcfile=' + str(CONFIG)
                 self.run_python(['-m', 'coverage', 'run', option, str(suite)], ROOT, env)
+                if stem == 'python-sharding':
+                    self.run_python(['-m', 'coverage', 'run', option, str(Path(__file__).resolve()),
+                                     'PythonProcessCoverageTests.test_real_native_python_shard_collection_and_comparison'],
+                                    ROOT, env, timeout=120)
                 self.run_python(['-m', 'coverage', 'combine', option], ROOT, env)
                 measured = coverage.CoverageData(basename=str(data))
                 measured.read()
