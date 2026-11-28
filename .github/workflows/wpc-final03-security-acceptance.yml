@@ -46,7 +46,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:18-alpine
+        image: postgres:19-alpine
         env:
           POSTGRES_DB: coglatas_wpc_final03
           POSTGRES_USER: coglatas_wpc_final03
