@@ -25,6 +25,7 @@ on:
       - "tests/Coglatas.Tests/PostgreSql/Wpc02CCanonicalProjectCreatePostgreSqlTests.cs"
       - "tests/Coglatas.Tests/PostgreSql/TaskV1Pr07NotificationFoundationPostgreSqlTests.cs"
       - "tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalREventTests.cs"
+      - "tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalRTests.cs"
       - "tests/Coglatas.Tests/Aq/AqOperatorHostedPostgreSqlTests.cs"
 
 permissions:
