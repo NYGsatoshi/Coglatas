@@ -1,0 +1,7 @@
+# Scanner diagnostic regression fixture mutation ownership
+
+The actual [SonarCloud run 46105990481](https://github.com/NYGsatoshi/Coglatas/actions/runs/46105990481) published successfully and met the new-code Coverage condition, but [alert 4847](https://github.com/NYGsatoshi/Coglatas/security/code-scanning/4847) flagged path injection in the new test helper (previous line 215, dictionary keys used as paths). It is a test-only private temporary fixture; no observed production exploit or untrusted receipt-derived file target is established.
+
+Eliminate the general path-keyed file mutation interface. Open only four explicit test-owned fixture paths in the newly created temporary checkout, use already-open binary streams in the mutation helper, truncate/flush and restore exact original bytes, and assert restoration. Use the explicitly known inventory fixture path for the independent invalid-inventory test. Preserve generated-source, mapping, changed-assembly, malformed-inventory and final original-receipt assertions. No source report rewriting, production verifier change, new exclusion, NOSONAR, threshold relaxation or alert disposition.
+
+The two pre-existing low findings 4845 and 4846 concern the standard VSTest TRX XML namespace identifier; do not alter its value or suppress them. An actual fresh SonarCloud check is required to determine the new high finding's disposition; no official Quality Gate success is claimed before publication.
