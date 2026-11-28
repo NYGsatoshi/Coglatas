@@ -83,7 +83,20 @@ fail: Coglatas.Web.Middleware.GlobalExceptionHandlingMiddleware[0]
 Unrelated message synthetic-private-detail
 LOG
 )"
-expected_categories=
+expected_categories="$(cat <<'EXPECTED'
+AQ_FAILURE_CATEGORY io=2
+AQ_FAILURE_CATEGORY argument=1
+AQ_FAILURE_CATEGORY format=0
+AQ_FAILURE_CATEGORY invalid-operation=0
+AQ_FAILURE_CATEGORY null-reference=0
+AQ_FAILURE_CATEGORY unsupported=0
+AQ_FAILURE_CATEGORY cancellation=0
+AQ_FAILURE_CATEGORY other=0
+EXPECTED
+)"
+[[ "$categories" == "$expected_categories" ]] || fail "AQ diagnostic summary did not preserve fixed category counts"
+[[ "$categories" != *synthetic-trace* && "$categories" != *private* ]] ||
+  fail "AQ diagnostic summary retained request or unknown category data"
 
 for role in alpha-owner alpha-member alpha-restricted beta-owner; do
   tenant="$(security_scan_role_tenant "$role")"
