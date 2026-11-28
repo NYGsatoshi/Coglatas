@@ -31,7 +31,6 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_NOLOGO: '1'
       DOTNET_CLI_UI_LANGUAGE: en-US
-      NUGET_PACKAGES: ${{ runner.temp }}/j17-packages
       EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
       - name: Check out exact same-repository diagnostic head
@@ -54,6 +53,8 @@ jobs:
           global-json-file: tools/diagnostics/j17-windows-uia3/global.json
       - name: Restore frozen isolated graphs and verify signatures and licenses
         shell: pwsh
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/j17-packages
         run: |
           $probe = './tools/diagnostics/j17-windows-uia3'
           foreach ($project in @('windows-host/WindowsHost.csproj', 'windows-uia/WindowsUiProbe.csproj')) {
@@ -63,6 +64,8 @@ jobs:
           & "$probe/verify-packages.ps1" -EvidenceDirectory "$env:RUNNER_TEMP/j17-evidence/public" -PackageRoot $env:NUGET_PACKAGES
       - name: Build only the synthetic host and automation harness
         shell: pwsh
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/j17-packages
         run: |
           foreach ($project in @('windows-host/WindowsHost.csproj', 'windows-uia/WindowsUiProbe.csproj')) {
             dotnet build "./tools/diagnostics/j17-windows-uia3/$project" --no-restore -c Release --warnaserror -m:1 -p:UseSharedCompilation=false
