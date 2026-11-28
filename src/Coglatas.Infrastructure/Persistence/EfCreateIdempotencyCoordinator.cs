@@ -3,6 +3,7 @@ using System.Text;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Coglatas.Infrastructure.Persistence;
 
@@ -10,11 +11,34 @@ public sealed class EfCreateIdempotencyCoordinator(
     AppDbContext dbContext,
     ITaskExecutionScopeRepository? taskExecutionScopes = null) : ICreateIdempotencyCoordinator
 {
-    public async Task<IdempotentCreateResult<T>> ExecuteAsync<T>(
+    public Task<IdempotentCreateResult<T>> ExecuteAsync<T>(
         CreateIdempotencyContext context,
         Func<CancellationToken, Task<T>> stageCreation,
         Func<Guid, CancellationToken, Task<T?>> loadCommittedResource,
         CancellationToken cancellationToken = default)
+        where T : class =>
+        ExecuteCoreAsync(context, stageCreation, loadCommittedResource, null, cancellationToken);
+
+    public Task<IdempotentCreateResult<T>> ExecuteWithCommitCheckAsync<T>(
+        CreateIdempotencyContext context,
+        Func<CancellationToken, Task<T>> stageCreation,
+        Func<Guid, CancellationToken, Task<T?>> loadCommittedResource,
+        Func<CancellationToken, Task> validateBeforeCommit,
+        CancellationToken cancellationToken = default)
+        where T : class
+    {
+        ArgumentNullException.ThrowIfNull(validateBeforeCommit);
+        return dbContext.Database.IsRelational()
+            ? ExecuteCoreAsync(context, stageCreation, loadCommittedResource, validateBeforeCommit, cancellationToken)
+            : Task.FromResult(new IdempotentCreateResult<T>(IdempotentCreateDisposition.ReplayUnavailable, null));
+    }
+
+    private async Task<IdempotentCreateResult<T>> ExecuteCoreAsync<T>(
+        CreateIdempotencyContext context,
+        Func<CancellationToken, Task<T>> stageCreation,
+        Func<Guid, CancellationToken, Task<T?>> loadCommittedResource,
+        Func<CancellationToken, Task>? validateBeforeCommit,
+        CancellationToken cancellationToken)
         where T : class
     {
         ArgumentNullException.ThrowIfNull(stageCreation);
@@ -47,9 +71,7 @@ public sealed class EfCreateIdempotencyCoordinator(
         }
         catch (DbUpdateException exception)
         {
-            await transaction.RollbackAsync(cancellationToken);
-            dbContext.ChangeTracker.Clear();
-            taskExecutionScopes?.ClearPendingSourcePolicyDocuments();
+            await RollbackAndClearAsync(transaction);
 
             var winner = await FindAsync(context, keyHash, cancellationToken);
             if (winner is null)
@@ -61,6 +83,11 @@ public sealed class EfCreateIdempotencyCoordinator(
 
             return await ReconcileAsync(winner, context, loadCommittedResource, cancellationToken);
         }
+        catch
+        {
+            await RollbackAndClearAsync(transaction);
+            throw;
+        }
 
         try
         {
@@ -70,15 +97,31 @@ public sealed class EfCreateIdempotencyCoordinator(
             {
                 await taskExecutionScopes.FlushPendingSourcePolicyDocumentsAsync(cancellationToken);
             }
+            if (validateBeforeCommit is not null)
+            {
+                await validateBeforeCommit(cancellationToken);
+            }
             await transaction.CommitAsync(cancellationToken);
             return new IdempotentCreateResult<T>(IdempotentCreateDisposition.Created, value);
         }
         catch
         {
-            await transaction.RollbackAsync(cancellationToken);
+            await RollbackAndClearAsync(transaction);
+            throw;
+        }
+    }
+
+    private async Task RollbackAndClearAsync(IDbContextTransaction transaction)
+    {
+        try
+        {
+            // Cancellation of the caller must not interrupt the owned transaction's cleanup.
+            await transaction.RollbackAsync(CancellationToken.None);
+        }
+        finally
+        {
             dbContext.ChangeTracker.Clear();
             taskExecutionScopes?.ClearPendingSourcePolicyDocuments();
-            throw;
         }
     }
 
