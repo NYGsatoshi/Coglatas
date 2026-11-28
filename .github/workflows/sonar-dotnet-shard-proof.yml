@@ -23,6 +23,7 @@ on:
       - "scripts/ci/test-sonarcloud-routing.py"
       - "tests/Coglatas.Tests/Realtime/OutboxDispatcherFailureBoundaryTests.cs"
       - "tests/Coglatas.Tests/PostgreSql/Wpc02CCanonicalProjectCreatePostgreSqlTests.cs"
+      - "tests/Coglatas.Tests/PostgreSql/TaskV1Pr07NotificationFoundationPostgreSqlTests.cs"
       - "tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalREventTests.cs"
       - "tests/Coglatas.Tests/Aq/AqOperatorHostedPostgreSqlTests.cs"
 
