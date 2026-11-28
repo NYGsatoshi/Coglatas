@@ -1,5 +1,10 @@
 # AI Context
 
+[Development Compiler recording evidence](verification/projectide-runtime-compiler-recording-evidence.md)
+adds scoped immutable receipt storage using persisted viewer revalidation. The
+development host supplies operation policy for the exact Source. This work adds
+no HTTP route, production registration or evidence-retention policy.
+
 [Private semantic-index lookup reuse](verification/projectide-semantic-index-lookup-reuse.md)
 retains only exact positional tables after fresh full-index construction. Public
 rows, metadata, input/coverage facts and query ownership stay current. Bounds,
@@ -436,8 +441,11 @@ independent Security qualification and broader #1030 acceptance remain separate.
 
 The [local Draft Rename preparation](verification/projectide-draft-rename.md)
 adds a checked immutable display-name change plan, a synthetic Windows local
-application flow and a Core-prepared Angular before/after fixture pair. Runtime
-save/authorization and wider #1030 acceptance remain separate requirements.
+application flow and a Core-prepared Angular before/after fixture pair. The
+[development Runtime candidate](verification/projectide-draft-rename-runtime.md)
+uses the same plan with server revalidation and a PostgreSQL transaction.
+Operational authorization, scoped event routing and client integration require
+separate acceptance under #1930.
 
 An opt-in [incremental declaration decoder](verification/projectide-incremental-declarations.md)
 can reuse bounded immutable shapes while rebuilding bindings and validation for
