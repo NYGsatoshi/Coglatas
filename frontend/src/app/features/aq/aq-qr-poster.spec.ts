@@ -54,7 +54,7 @@ describe('AQ poster browser boundary and rendering', () => {
     fillRect: vi.fn(),
     drawImage: vi.fn(),
     fillText: vi.fn(),
-    measureText: vi.fn((value: string) => ({ width: Array.from(value).length *
+    measureText: vi.fn((value: string): { width: number } => ({ width: Array.from(value).length *
       Number(context.font.match(/(\d+)px/u)?.[1] ?? 40) })),
     getImageData: vi.fn(),
   };
@@ -169,7 +169,7 @@ describe('AQ poster browser boundary and rendering', () => {
     expect(image).not.toBeNull();
     const start = image!.index + image![0].length;
     const compressed = bytes.slice(start, start + Number(image![1]));
-    const stream = new ReadableStream<Uint8Array>({
+    const stream = new ReadableStream<Uint8Array<ArrayBuffer>>({
       start(controller) { controller.enqueue(compressed); controller.close(); },
     });
     const rgb = new Uint8Array(await new Response(stream.pipeThrough(new DecompressionStream('deflate'))).arrayBuffer());

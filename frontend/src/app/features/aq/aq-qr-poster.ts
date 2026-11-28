@@ -167,7 +167,7 @@ export async function aqCreatePoster(title: string, qrSrc: string, logoSrc: stri
     rgb[j + 1] = rgba[i + 1];
     rgb[j + 2] = rgba[i + 2];
   }
-  const input = new ReadableStream<Uint8Array>({
+  const input = new ReadableStream<Uint8Array<ArrayBuffer>>({
     start(controller) {
       controller.enqueue(rgb);
       controller.close();

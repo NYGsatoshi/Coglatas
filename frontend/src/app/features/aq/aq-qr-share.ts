@@ -1,6 +1,14 @@
-import { Component, computed, effect, inject, input, signal } from '@angular/core';
+import { Component, InjectionToken, computed, effect, inject, input, signal } from '@angular/core';
 import { AqApi, aqSegment } from './aq-api';
 import { aqCreatePoster, aqPngBlob, aqReadLogo } from './aq-qr-poster';
+
+export const AQ_QR_ARTIFACTS = new InjectionToken<{
+  readLogo: typeof aqReadLogo;
+  createPoster: typeof aqCreatePoster;
+}>('AQ QR local artifacts', {
+  providedIn: 'root',
+  factory: () => ({ readLogo: aqReadLogo, createPoster: aqCreatePoster }),
+});
 
 export interface AqQrShareData {
   title: string;
@@ -33,6 +41,7 @@ export class AqQrShare {
   readonly targetId = input.required<string>();
   readonly suspended = input(false);
   private readonly api = inject(AqApi);
+  private readonly artifacts = inject(AQ_QR_ARTIFACTS);
   private readonly refreshVersion = signal(0);
   protected readonly share = signal<AqQrShareData | null>(null);
   protected readonly qrSrc = computed(() => this.share() ? 'data:image/png;base64,' + this.share()!.pngBase64 : '');
@@ -157,7 +166,7 @@ export class AqQrShare {
     this.logo.set('');
     this.logoLoading.set(true);
     try {
-      const logo = await aqReadLogo(file);
+      const logo = await this.artifacts.readLogo(file);
       if (generation === this.logoGeneration) this.logo.set(logo);
     } catch {
       if (generation === this.logoGeneration) this.error.set('ロゴを読み込めませんでした。2MB以下、4096×4096px以下のPNGまたはJPEGを選択してください。');
@@ -181,7 +190,7 @@ export class AqQrShare {
     this.clearMessages();
     this.printing.set(true);
     try {
-      const pdf = await aqCreatePoster(share.title, this.qrSrc(), this.logo());
+      const pdf = await this.artifacts.createPoster(share.title, this.qrSrc(), this.logo());
       if (generation !== this.generation || logoGeneration !== this.logoGeneration) return;
       const url = URL.createObjectURL(pdf);
       const link = document.createElement('a');

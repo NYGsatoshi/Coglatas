@@ -124,6 +124,15 @@ public sealed class AqOperatorHostedPostgreSqlTests
 
             var shareRoute = campaignRoute + $"/qr-share?targetId={targetId:D}";
             var share = await GetAsync(host.Client, shareRoute);
+            using (var cache = await host.Client.GetAsync(shareRoute))
+            {
+                Assert.Equal(HttpStatusCode.OK, cache.StatusCode);
+                Assert.True(cache.Headers.CacheControl?.NoStore);
+            }
+            using (var invalidTarget = await host.Client.GetAsync(campaignRoute + $"/qr-share?targetId={Guid.Empty:D}"))
+                Assert.Equal(HttpStatusCode.BadRequest, invalidTarget.StatusCode);
+            using (var unknownCampaign = await host.Client.GetAsync(core + $"/survey-campaigns/{Guid.NewGuid():D}/qr-share?targetId={targetId:D}"))
+                Assert.Equal(HttpStatusCode.NotFound, unknownCampaign.StatusCode);
             Assert.Equal("合成発表", share.GetProperty("title").GetString());
             Assert.Equal("/app/aq/surveys/" + code, new Uri(share.GetProperty("surveyUrl").GetString()!).AbsolutePath);
             using (var deniedShare = await guest.GetAsync(shareRoute))
