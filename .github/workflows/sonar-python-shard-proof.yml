@@ -27,7 +27,8 @@ jobs:
     if: >-
       github.repository == 'NYGsatoshi/Coglatas' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
-      (github.base_ref == 'main' || startsWith(github.head_ref, 'ci/sonar-coverage-python-sharding-'))
+      (github.base_ref == 'main' || startsWith(github.head_ref, 'ci/sonar-coverage-python-sharding-') ||
+        startsWith(github.head_ref, 'ci/sonar-coverage-sharding-compiler-handoff-'))
     strategy:
       fail-fast: false
       matrix:

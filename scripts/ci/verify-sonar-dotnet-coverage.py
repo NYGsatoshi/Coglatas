@@ -685,6 +685,69 @@ def verify_shard_handoff(root: Path, identity: dict, expected_digest: str) -> di
     return receipt
 
 
+def require_compiler_handoff(root: Path, folder: Path, identity: dict, proof: dict) -> str:
+    """Validate the original compiler packet against the independently bound full proof."""
+    import importlib.util
+
+    native = _native_verifier()
+    fixture = proof["lanes"]["baseline"].get("compilerFixture")
+    if not isinstance(fixture, dict):
+        raise ValueError("Missing qualified baseline compiler fixture")
+    expected = fixture.get("compilerReceiptSha256")
+    if not isinstance(expected, str) or not re.fullmatch(r"[a-f0-9]{64}", expected):
+        raise ValueError("Missing qualified baseline compiler digest")
+    relative = folder.relative_to(root).as_posix()
+    receipt = native.owned_bytes(root, relative + "/receipt.json")
+    if native.digest(receipt) != expected:
+        raise ValueError("Compiler receipt differs from qualified baseline")
+    spec = importlib.util.spec_from_file_location(
+        "scanner_trial", Path(__file__).with_name("verify-sonar-scanner-identity-trial.py"))
+    if spec is None or spec.loader is None:
+        raise ValueError("Scanner compiler handoff verifier is unavailable")
+    trial = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(trial)
+    reproduction = trial.reproduction()
+    record = trial.producer_receipt(folder, identity, expected)
+    if (record["assemblies"] != proof["preRebuildAssemblyDigests"]
+            or record["hashes"]["mapping.original"] != proof["deterministicSourceMappingSha256"]
+            or any(record["hashes"][name + "/" + reproduction.GENERATOR] != digest
+                   for name, digest in proof["generatedSourceDigests"].items())):
+        raise ValueError("Compiler handoff differs from qualified binary or mapping evidence")
+    expected_files = {"receipt.json", "mapping.original"} | {
+        "assemblies/" + name + "." + ext
+        for name in native.ASSEMBLIES for ext in ("dll", "pdb")} | {
+        name + "/" + filename for name in reproduction.PROJECTS
+        for filename in (reproduction.GENERATOR, "inputs.txt")}
+    actual_files, actual_dirs = set(), set()
+    for path in folder.rglob("*"):
+        if path.is_symlink():
+            raise ValueError("Linked compiler handoff evidence")
+        if path.is_file():
+            actual_files.add(path.relative_to(folder).as_posix())
+        elif path.is_dir():
+            actual_dirs.add(path.relative_to(folder).as_posix())
+        else:
+            raise ValueError("Unexpected compiler handoff type")
+    if actual_files != expected_files or actual_dirs != {"assemblies", *reproduction.PROJECTS}:
+        raise ValueError("Unexpected compiler handoff inventory")
+    return expected
+
+
+def stage_compiler_handoff(root: Path, identity: dict, proof: dict) -> str:
+    import shutil
+
+    source = (root / "artifacts/sonar-dotnet-shard-proof" /
+              ("sonar-dotnet-shard-proof-baseline-" + identity["attempt"]) / "compiler-identity")
+    target = root / "artifacts/sonar-openapi-reproduction"
+    expected = require_compiler_handoff(root, source, identity, proof)
+    # Copy only the fully validated, fixed baseline packet. No build, report
+    # transformation, mutable cache or alternate lane can supply this packet.
+    shutil.copytree(source, target, symlinks=True)
+    if require_compiler_handoff(root, target, identity, proof) != expected:
+        raise ValueError("Staged compiler handoff differs")
+    return expected
+
+
 def require_actual_scanner_identity(proof: dict, scanner: dict, identity: dict) -> None:
     if (any(scanner.get(key) != value for key, value in identity.items())
             or scanner.get("scope") != "DIAGNOSTIC_ONLY_SCANNER_NATIVE_TESTS_REMAIN_REQUIRED"
@@ -841,6 +904,18 @@ def shard_trial(command: str) -> None:
         return
     expected = os.environ["EXPECTED_DOTNET_SHARD_DIGEST"]
     proof = verify_shard_handoff(ROOT, identity, expected)
+    if command == "shard-stage-compiler":
+        compiler_digest = stage_compiler_handoff(ROOT, identity, proof)
+        with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as stream:
+            stream.write("digest=" + compiler_digest + "\n")
+        return
+    if command == "shard-verify-compiler":
+        actual = require_compiler_handoff(ROOT, ROOT / "artifacts/sonar-openapi-reproduction",
+                                          identity, proof)
+        if actual != os.environ["EXPECTED_RECEIPT_DIGEST"]:
+            raise ValueError("Compiler handoff output digest differs")
+        print("Qualified native shard and original compiler handoffs verified before scanner credentials")
+        return
     if command in {"shard-admit", "shard-admit-rebuilt"}:
         result = (require_actual_scanner_baseline(ROOT, identity, proof) if command == "shard-admit"
                   else require_actual_scanner_rebuild(ROOT, identity, proof))
@@ -869,7 +944,8 @@ def cli() -> None:
     run = commands.add_parser("shard-run")
     run.add_argument("--lane", required=True, choices=SHARD_LANES)
     commands.add_parser("shard-compare")
-    for name in ("shard-stage", "shard-verify", "shard-admit", "shard-admit-rebuilt"):
+    for name in ("shard-stage", "shard-stage-compiler", "shard-verify", "shard-verify-compiler",
+                 "shard-admit", "shard-admit-rebuilt"):
         commands.add_parser(name)
     args = parser.parse_args()
     if args.command == "shard-run":

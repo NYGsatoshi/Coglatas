@@ -10,6 +10,9 @@ on:
       digest:
         description: Exact-attempt native OpenCover handoff digest
         value: ${{ jobs.compare.outputs.digest }}
+      compiler_digest:
+        description: Qualified baseline native compiler receipt digest
+        value: ${{ jobs.compare.outputs.compiler_digest }}
   pull_request:
     branches: ["ci/sonar-coverage-*"]
     paths:
@@ -243,6 +246,7 @@ jobs:
     needs: collect
     outputs:
       digest: ${{ steps.handoff.outputs.digest }}
+      compiler_digest: ${{ steps.compiler.outputs.digest }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -271,6 +275,27 @@ jobs:
         env:
           PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || inputs.source_sha }}
         run: python3 -B scripts/ci/verify-sonar-dotnet-coverage.py shard-stage
+
+      - name: Test native reproduction controls
+        run: python3 -B scripts/ci/test-sonar-openapi-reproduction.py
+
+      - name: Test same-SHA scanner identity trial controls
+        run: python3 -B scripts/ci/test-sonar-scanner-identity-trial.py
+
+      - name: Stage exact qualified baseline compiler evidence
+        id: compiler
+        env:
+          PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || inputs.source_sha }}
+          EXPECTED_DOTNET_SHARD_DIGEST: ${{ steps.handoff.outputs.digest }}
+        run: python3 -B scripts/ci/verify-sonar-dotnet-coverage.py shard-stage-compiler
+
+      - name: Retain exact diagnostic build evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-openapi-native-identity-${{ github.run_attempt }}
+          path: artifacts/sonar-openapi-reproduction/
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Retain staged native shard handoff
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
