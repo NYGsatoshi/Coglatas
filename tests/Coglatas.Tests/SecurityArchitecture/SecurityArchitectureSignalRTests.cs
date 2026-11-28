@@ -321,13 +321,7 @@ public sealed class SecurityArchitectureSignalRTests
             var routes = SecurityArchitectureSignalREventTests.CatalogueRoutes()
                 .Where(item => item.EventType != "Security.AuthorizationStateChanged.v1").ToArray();
             Assert.Equal(16, routes.Length);
-            foreach (var route in routes)
-            {
-                var initial = await SecurityArchitectureSignalREventTests.EnqueueAsync(database, scope,
-                    SecurityCiFixtureSeed.TenantAMemberUserId, route.EventType, targetOverride: route.Override);
-                await member.WaitEventAsync(initial);
-                await app.WaitDeliveredAsync(initial);
-            }
+            await AssertInitialDeliveriesAsync(database, scope, app, member, routes);
             await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
             {
                 var sessions = await db.Sessions.Where(s => s.UserId == SecurityCiFixtureSeed.TenantAMemberUserId).ToListAsync();
@@ -376,6 +370,40 @@ public sealed class SecurityArchitectureSignalRTests
             }
             await controls.SaveAsync();
         });
+    }
+
+    private static async Task AssertInitialDeliveriesAsync(
+        string database, Scope scope, SecurityArchitectureSignalRFixture app,
+        RealtimeSocket member, IReadOnlyList<SecurityArchitectureSignalREventTests.EventRoute> routes)
+    {
+        // The caller owns and disposes the fixture and socket only after this
+        // awaited helper completes. No disposable local is captured by a closure.
+        // Preserve the serial announcement batch and the pre-invalidation fence.
+        foreach (var batch in routes.Chunk(4))
+        {
+            if (batch.Any(route => route.EventType == "Announcements.AnnouncementChanged.v1"))
+            {
+                foreach (var route in batch)
+                    await AssertInitialDeliveryAsync(database, scope, app, member, route);
+            }
+            else
+            {
+                var pending = new Task[batch.Length];
+                for (var index = 0; index < batch.Length; index++)
+                    pending[index] = AssertInitialDeliveryAsync(database, scope, app, member, batch[index]);
+                await Task.WhenAll(pending);
+            }
+        }
+    }
+
+    private static async Task AssertInitialDeliveryAsync(
+        string database, Scope scope, SecurityArchitectureSignalRFixture app,
+        RealtimeSocket member, SecurityArchitectureSignalREventTests.EventRoute route)
+    {
+        var initial = await SecurityArchitectureSignalREventTests.EnqueueAsync(database, scope,
+            SecurityCiFixtureSeed.TenantAMemberUserId, route.EventType, targetOverride: route.Override);
+        await member.WaitEventAsync(initial);
+        await app.WaitDeliveredAsync(initial);
     }
 
     [PostgreSqlFact]
