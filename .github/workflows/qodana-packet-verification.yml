@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 120
     services:
       postgres:
-        image: postgres:18-alpine
+        image: postgres:19-alpine
         env:
           POSTGRES_DB: coglatas_ci
           POSTGRES_USER: coglatas_ci
