@@ -163,7 +163,7 @@ public sealed class ProjectIdeInspectionRuntime(ProjectIdeOperationAccess access
         Task<bool> Allowed(CancellationToken token) => IsAllowedAsync(viewer, operation, key.Recording, token);
         var capture = await captures.ReadAsync(key, Allowed, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
-        return capture?.Key == key && access.CaptureViewer() == viewer ? capture.View : null;
+        return capture is not null && capture.Key == key && access.CaptureViewer() == viewer ? capture.View : null;
     }
 
     private async Task<ProjectIdeViewerContext?> AdmitAsync(ProjectIdeInspectionReference reference, SecurityOperationRef operation,
