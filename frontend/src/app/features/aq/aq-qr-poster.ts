@@ -16,22 +16,33 @@ export function aqReadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
+function readFile(blob: Blob, mode: 'bytes'): Promise<ArrayBuffer>;
+function readFile(blob: Blob, mode: 'url'): Promise<string>;
+function readFile(blob: Blob, mode: 'bytes' | 'url'): Promise<ArrayBuffer | string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (reader.result === null) reject(new Error('Invalid logo'));
+      else resolve(reader.result);
+    };
+    reader.onerror = () => reject(new Error('Logo read failed'));
+    reader.onabort = () => reject(new Error('Logo read aborted'));
+    if (mode === 'bytes') reader.readAsArrayBuffer(blob);
+    else reader.readAsDataURL(blob);
+  });
+}
+
 export async function aqReadLogo(file: File): Promise<string> {
   if (file.size > 2 * 1024 * 1024 || !['image/png', 'image/jpeg'].includes(file.type)) {
     throw new Error('Invalid logo format or size');
   }
-  const header = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+  const header = new Uint8Array(await readFile(file.slice(0, 8), 'bytes'));
   const png = [137, 80, 78, 71, 13, 10, 26, 10].every((byte, index) => header[index] === byte);
   const jpeg = header[0] === 255 && header[1] === 216 && header[2] === 255;
   if ((file.type === 'image/png' && !png) || (file.type === 'image/jpeg' && !jpeg)) {
     throw new Error('Invalid logo signature');
   }
-  const url = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Invalid logo'));
-    reader.onerror = () => reject(new Error('Logo read failed'));
-    reader.readAsDataURL(file);
-  });
+  const url = await readFile(file, 'url');
   const image = await aqReadImage(url);
   if (!image.naturalWidth || !image.naturalHeight || image.naturalWidth > 4096 || image.naturalHeight > 4096) {
     throw new Error('Logo dimensions exceed limits');
@@ -106,7 +117,7 @@ function titleLines(context: CanvasRenderingContext2D, title: string, maxWidth: 
 
 export async function aqCreatePoster(title: string, qrSrc: string, logoSrc: string): Promise<Blob> {
   const [qr, logo] = await Promise.all([aqReadImage(qrSrc), logoSrc ? aqReadImage(logoSrc) : Promise.resolve(null)]);
-  if (!qr.naturalWidth || qr.naturalWidth !== qr.naturalHeight) throw new Error('Invalid QR image');
+  if (!qr.naturalWidth || qr.naturalWidth !== qr.naturalHeight || qr.naturalWidth > 1150) throw new Error('Invalid QR image');
   const canvas = document.createElement('canvas');
   canvas.width = AQ_POSTER_WIDTH;
   canvas.height = AQ_POSTER_HEIGHT;
@@ -140,7 +151,7 @@ export async function aqCreatePoster(title: string, qrSrc: string, logoSrc: stri
     lines[4] = last + '…';
   }
   lines.forEach((line, index) => context.fillText(line, center, 520 + (index - (lines.length - 1) / 2) * fontSize * 1.2));
-  const qrSize = Math.min(1150, qr.naturalWidth * Math.max(1, Math.floor(1150 / qr.naturalWidth)));
+  const qrSize = qr.naturalWidth * Math.floor(1150 / qr.naturalWidth);
   context.imageSmoothingEnabled = false;
   context.drawImage(qr, Math.floor(center - qrSize / 2), 800, qrSize, qrSize);
   context.font = 'bold 58px sans-serif';
@@ -156,7 +167,12 @@ export async function aqCreatePoster(title: string, qrSrc: string, logoSrc: stri
     rgb[j + 1] = rgba[i + 1];
     rgb[j + 2] = rgba[i + 2];
   }
-  const compressed = new Uint8Array(await new Response(new Blob([rgb]).stream()
-    .pipeThrough(new CompressionStream('deflate'))).arrayBuffer());
+  const input = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(rgb);
+      controller.close();
+    },
+  });
+  const compressed = new Uint8Array(await new Response(input.pipeThrough(new CompressionStream('deflate'))).arrayBuffer());
   return new Blob([aqPosterPdfBytes(compressed, canvas.width, canvas.height)], { type: 'application/pdf' });
 }
