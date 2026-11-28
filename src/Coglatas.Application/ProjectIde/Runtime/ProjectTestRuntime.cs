@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.ProjectIde.Core;
 using Coglatas.Domain.ProjectIde;
@@ -23,8 +24,12 @@ public sealed record ProjectTestJobBinding(Guid RequestedByUserId, SecuritySourc
     string SourceDigest, string ExecutionInputDigest, string EvaluatorIdentityDigest);
 
 public sealed record ProjectTestJob(ProjectTestJobKey Key, ProjectTestJobBinding Binding, ProjectTestJobState State,
-    DateTimeOffset CreatedAtUtc, DateTimeOffset? TerminalAtUtc = null, ProjectTestResultSummary? Result = null)
+    DateTimeOffset CreatedAtUtc, DateTimeOffset? TerminalAtUtc = null, ProjectTestResultSummary? Result = null,
+    [property: JsonIgnore] ProjectTestRetainedResult? RetainedResult = null)
 {
+    [JsonIgnore]
+    public ProjectTestRetainedResultState RetainedResultState => RetainedResult?.State ?? ProjectTestRetainedResultState.Unavailable;
+
     public ProjectTestJobView ToView(bool includeResult = false) =>
         new(Key.JobId, State, CreatedAtUtc, TerminalAtUtc, includeResult ? Result : null);
 }
@@ -89,7 +94,8 @@ public sealed class ProjectTestRuntime(ProjectIdeOperationAccess access, IProjec
 
         var existing = await jobs.FindAsync(job.Key, cancellationToken);
         if (existing is not null)
-            return existing.Binding == job.Binding && await Allowed(cancellationToken) ? existing.ToView() : null;
+            return existing.Binding == job.Binding && existing.RetainedResultState != ProjectTestRetainedResultState.Mismatch &&
+                   await Allowed(cancellationToken) ? existing.ToView() : null;
 
         if (await ResolvePlanAsync(viewer, job, cancellationToken) is null || !await Allowed(cancellationToken))
             return null;
@@ -118,7 +124,11 @@ public sealed class ProjectTestRuntime(ProjectIdeOperationAccess access, IProjec
         cancellationToken.ThrowIfCancellationRequested();
         var summary = new ProjectTestResultSummary(run.Execution, run.Coverage, run.Verdict, run.Freshness,
             run.EvidenceKind, run.DiscoveredTests, run.ExecutedAssertions, plan.Digest.Value, run.Digest.Value);
-        var completed = job with { State = ProjectTestJobState.Completed, TerminalAtUtc = clock.UtcNow.ToUniversalTime(), Result = summary };
+        var completed = job with
+        {
+            State = ProjectTestJobState.Completed, TerminalAtUtc = clock.UtcNow.ToUniversalTime(), Result = summary,
+            RetainedResult = ProjectTestRetainedResult.Capture(run)
+        };
         var written = await jobs.TransitionAsync(job, completed, Allowed, cancellationToken);
         return written is not null && await Allowed(cancellationToken) ? written.ToView() : null;
     }
@@ -173,7 +183,8 @@ public sealed class ProjectTestRuntime(ProjectIdeOperationAccess access, IProjec
             return null;
 
         var job = await jobs.FindAsync(key, cancellationToken);
-        return job is not null && await IsAllowedAsync(viewer, operation, job, cancellationToken) ? (viewer, job) : null;
+        return job is not null && job.RetainedResultState != ProjectTestRetainedResultState.Mismatch &&
+               await IsAllowedAsync(viewer, operation, job, cancellationToken) ? (viewer, job) : null;
     }
 
     private Task<bool> IsAllowedAsync(ProjectIdeViewerContext viewer, SecurityOperationRef operation,

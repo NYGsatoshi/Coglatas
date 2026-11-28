@@ -14,7 +14,7 @@ using Npgsql;
 namespace Coglatas.Tests.PostgreSql;
 
 [Trait("Category", "PostgreSQLIntegration")]
-public sealed class ProjectTestRuntimePostgreSqlTests
+public sealed partial class ProjectTestRuntimePostgreSqlTests
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 26, 0, 0, 0, TimeSpan.Zero);
 
@@ -42,14 +42,19 @@ public sealed class ProjectTestRuntimePostgreSqlTests
 
             ProjectTestJobView finished;
             await using (var second = fixture.Open())
+            await using (var competing = fixture.Open())
             {
-                finished = Assert.IsType<ProjectTestJobView>(await fixture.Runtime(second).ExecuteAsync(fixture.Key));
+                var outcomes = await Task.WhenAll(fixture.Runtime(second).ExecuteAsync(fixture.Key),
+                    fixture.Runtime(competing).ExecuteAsync(fixture.Key));
+                finished = Assert.IsType<ProjectTestJobView>(outcomes[0]);
+                Assert.Equal(finished, outcomes[1]);
                 Assert.Equal(ProjectTestJobState.Completed, finished.State);
                 Assert.Null(finished.Result);
             }
 
             await using (var third = fixture.Open())
             {
+                fixture.Inputs.BeforeResolve = _ => throw new InvalidOperationException("A terminal retry must not rerun the original input.");
                 var runtime = fixture.Runtime(third);
                 Assert.Equal(finished, await runtime.ExecuteAsync(fixture.Key));
                 Assert.Null(await runtime.ExportAsync(fixture.Key));
@@ -61,6 +66,10 @@ public sealed class ProjectTestRuntimePostgreSqlTests
                 Assert.Equal(CompilerCoverage.Complete, result.Coverage);
                 Assert.Equal(CompilerExecutionState.Completed, result.Execution);
                 Assert.Equal(1, result.ExecutedAssertions);
+                var durable = Assert.IsType<ProjectTestJob>(await new ProjectTestJobStore(third).FindAsync(fixture.Key, default));
+                Assert.Equal(ProjectTestRetainedResultState.Available, durable.RetainedResultState);
+                Assert.Equal(fixture.Evaluate().Data.ToCanonicalBytes(), durable.RetainedResult!.RecoverCanonicalBytes());
+                Assert.Equal(result.ResultDigest, durable.RetainedResult.Digest!.Value);
 
                 fixture.Policy.Allowed.Add(ProjectTestRuntime.ExportOperation);
                 var export = Assert.IsType<SourceJson>(await runtime.ExportAsync(fixture.Key));
@@ -68,6 +77,7 @@ public sealed class ProjectTestRuntimePostgreSqlTests
                 Assert.Equal(request.ExecutionInputDigest.Value, export.Value.GetProperty("executionInputDigest").GetString());
                 Assert.DoesNotContain("Input contract", export.CanonicalText, StringComparison.Ordinal);
                 Assert.DoesNotContain("example.check", export.CanonicalText, StringComparison.Ordinal);
+                Assert.DoesNotContain("coglatas.project-test-run/1", export.CanonicalText, StringComparison.Ordinal);
 
                 var foreignBranch = new BranchRef(fixture.Key.Branch.TenantId, fixture.Key.Branch.ProjectId, BranchId.New());
                 Assert.Null(await runtime.FindAsync(new(foreignBranch, fixture.Key.JobId)));
@@ -110,6 +120,9 @@ public sealed class ProjectTestRuntimePostgreSqlTests
             Assert.Equal(cancelled, observed);
             Assert.Null(observed.Result);
             Assert.Null(await runtime.ExportAsync(fixture.Key, bound.Token));
+            var retained = Assert.IsType<ProjectTestJob>(await new ProjectTestJobStore(consumer).FindAsync(fixture.Key, bound.Token));
+            Assert.Equal(ProjectTestRetainedResultState.Unavailable, retained.RetainedResultState);
+            Assert.Null(retained.RetainedResult!.RecoverCanonicalBytes());
         });
 
     [PostgreSqlFact]
@@ -191,6 +204,14 @@ public sealed class ProjectTestRuntimePostgreSqlTests
         public StartProjectTestJob Request => request;
         public ProjectTestJobKey Key => new(request.Context.Branch, request.JobId);
         public FixturePolicy Policy { get; } = new();
+        public Func<CancellationToken, Task>? BeforeResultCommit { get; set; }
+
+        public ProjectTestRun Evaluate()
+        {
+            var requestInput = inputs.Request.Input.Materialize();
+            return ProjectTestPlan.Compile(ProjectSemanticBinder.Bind(requestInput, inputs.Request.Snapshots), evaluator)
+                .Execute(requestInput.InputDigest);
+        }
 
         public AppDbContext Open() => new(
             new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(database).Options, tenant);
@@ -200,7 +221,8 @@ public sealed class ProjectTestRuntimePostgreSqlTests
             var clock = new FixedClock();
             var contexts = new ProjectIdeViewerContextReader(viewer, tenant, new SessionRepository(db),
                 new TenantRepository(db), clock);
-            return new(new ProjectIdeOperationAccess(contexts, Policy), inputs, new ProjectTestJobStore(db), clock, evaluator);
+            return new(new ProjectIdeOperationAccess(contexts, Policy), inputs,
+                new ResultCommitHookStore(new ProjectTestJobStore(db), () => BeforeResultCommit), clock, evaluator);
         }
     }
 
@@ -215,6 +237,7 @@ public sealed class ProjectTestRuntimePostgreSqlTests
 
     private sealed class InputSource(CompilerHostRequest input) : IProjectTestInputSource
     {
+        public CompilerHostRequest Request => input;
         public Func<CancellationToken, Task>? BeforeResolve { get; set; }
 
         public async Task<CompilerHostRequest?> ResolveAsync(ProjectIdeViewerContext viewer, ProjectTestJobBinding binding,
@@ -223,6 +246,28 @@ public sealed class ProjectTestRuntimePostgreSqlTests
             if (BeforeResolve is { } beforeResolve)
                 await beforeResolve(cancellationToken);
             return input;
+        }
+    }
+
+    private sealed class ResultCommitHookStore(ProjectTestJobStore store, Func<Func<CancellationToken, Task>?> beforeCommit)
+        : IProjectTestJobStore
+    {
+        public Task<ProjectTestJob?> FindAsync(ProjectTestJobKey key, CancellationToken cancellationToken) =>
+            store.FindAsync(key, cancellationToken);
+
+        public Task<ProjectTestJob?> CreateAsync(ProjectTestJob job, Func<CancellationToken, Task<bool>> reauthorize,
+            CancellationToken cancellationToken) => store.CreateAsync(job, reauthorize, cancellationToken);
+
+        public Task<ProjectTestJob?> TransitionAsync(ProjectTestJob pending, ProjectTestJob terminal,
+            Func<CancellationToken, Task<bool>> reauthorize, CancellationToken cancellationToken)
+        {
+            var checks = 0;
+            return store.TransitionAsync(pending, terminal, async token =>
+            {
+                if (++checks == 2 && beforeCommit() is { } before)
+                    await before(token);
+                return await reauthorize(token);
+            }, cancellationToken);
         }
     }
 

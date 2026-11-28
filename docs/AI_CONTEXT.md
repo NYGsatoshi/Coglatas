@@ -1,5 +1,11 @@
 # AI Context
 
+[Development Project Test original-result durability](verification/projectide-project-test-result-durability.md)
+retains the actual local run bytes with the winning job completion, preserving
+legacy original-body unavailability and separate mismatch refusal. Runtime
+views/export remain summary-only; qualification and all formal evidence,
+Trust, client and operational gates remain separate.
+
 [Development Compiler recording evidence](verification/projectide-runtime-compiler-recording-evidence.md)
 adds scoped immutable receipt storage using persisted viewer revalidation. The
 development host supplies operation policy for the exact Source. This work adds
