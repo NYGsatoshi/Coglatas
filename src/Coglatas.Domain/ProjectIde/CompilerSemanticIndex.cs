@@ -118,7 +118,7 @@ public sealed class CompilerSemanticIndex
                     {
                         name = declaration.DisplayName;
                         if (symbol.PortId is { } port && declaration is TaskPlanDeclaration task)
-                            type = task.Ports.Single(item => item.PortId == port).Type.Data;
+                            type = task.GetPort(port).Type.Data;
                     }
                     symbols.Add(new(symbol, type, name, false));
                 }
