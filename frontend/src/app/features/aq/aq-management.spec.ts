@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 import { AqApi, SurveyField } from './aq-api';
 import { AqManagement } from './aq-management';
 
@@ -12,6 +12,8 @@ describe('AqManagement workspace navigation', () => {
       options: [{ optionKey: 'a', label: 'Option A' }, { optionKey: 'b', label: 'Option B' }] },
   ];
   const command = vi.fn();
+  let shareCode = 'a';
+  const surveyUrl = () => 'https://example.test/app/aq/surveys/' + shareCode.repeat(64);
   const read = vi.fn((path: string) => {
     switch (path) {
       case 'events/event/feedback-settings':
@@ -19,6 +21,15 @@ describe('AqManagement workspace navigation', () => {
           nameMode: 'anonymous', publicFields: [], programTargets: [], programPublished: false,
           receptionStopped: false, resultsStopped: false, accountBindingAllowed: false, timeZone: 'Asia/Tokyo',
         } });
+      case 'events/event/presentations':
+        return of({ items: [{ presentation: { id: 'presentation', title: '発表 A' }, versionNo: 1 }] });
+      case 'events/event/survey-campaigns':
+        return of({ items: [{ id: 'campaign', formDefinitionId: 'form', enabled: true, published: true, versionNo: 1 }] });
+      case 'survey-campaigns/campaign/targets':
+        return of({ items: [{ id: 'target', presentationId: 'presentation', versionNo: 1, settings: { enabled: true, resultsStopped: false } }] });
+      case 'survey-campaigns/campaign/qr-share':
+        return of({ title: '発表 A', surveyUrl: surveyUrl(),
+          pngBase64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aW5kAAAAASUVORK5CYII=' });
       case 'forms':
         return of({ items: [{ id: 'form', title: 'Form', versionNo: 1 }] });
       case 'forms/form/versions':
@@ -31,7 +42,8 @@ describe('AqManagement workspace navigation', () => {
   });
 
   beforeEach(() => {
-    command.mockClear();
+    command.mockReset();
+    shareCode = 'a';
     read.mockClear();
     TestBed.configureTestingModule({
       providers: [
@@ -79,4 +91,44 @@ describe('AqManagement workspace navigation', () => {
     expect(fields.map(field => field.fieldKey)).toEqual(['first', 'second']);
     expect(command).not.toHaveBeenCalled();
   });
+  it('shares only the selected survey target and replaces the old QR after a successful rotation', async () => {
+    const harness = await RouterTestingHarness.create('/manage/event');
+    const root = harness.routeNativeElement as HTMLElement;
+    const distribution = () => root.querySelector('#aq-management-distribution')!.closest('section')!;
+    const findButton = (text: string) => Array.from(distribution().querySelectorAll('button'))
+      .find(button => button.textContent?.includes(text))!;
+    function choose(value: string): void {
+      const control = Array.from(distribution().querySelectorAll('select'))
+        .find(select => Array.from(select.options).some(option => option.value === value))!;
+      control.value = value;
+      control.dispatchEvent(new Event('change'));
+      harness.detectChanges();
+    }
+    expect(root.querySelector('app-aq-qr-share')).toBeNull();
+    choose('campaign');
+    expect(findButton('QR画像 PNG').disabled).toBe(true);
+    expect(root.querySelector('app-aq-qr-share')).toBeNull();
+    choose('target');
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+    expect(findButton('QR画像 PNG').disabled).toBe(false);
+    expect(root.querySelector<HTMLInputElement>('app-aq-qr-share input[type=url]')?.value).toBe(surveyUrl());
+    expect(read).toHaveBeenCalledWith('survey-campaigns/campaign/qr-share', { targetId: 'target' });
+
+    const rotation = new Subject<unknown>();
+    command.mockReturnValueOnce(rotation);
+    findButton('回答リンクを発行または更新').click();
+    harness.detectChanges();
+    expect(command).toHaveBeenCalledWith('POST', 'survey-targets/target/public-code/rotate', { expectedVersionNo: 1 });
+    expect(findButton('QR画像 PNG').disabled).toBe(true);
+    expect(root.querySelector('app-aq-qr-share input[type=url]')).toBeNull();
+    shareCode = 'b';
+    rotation.next({ entryRef: 'b'.repeat(64) });
+    rotation.complete();
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+    expect(root.querySelector<HTMLInputElement>('app-aq-qr-share input[type=url]')?.value).toBe(surveyUrl());
+    expect(root.querySelector<HTMLInputElement>('app-aq-qr-share input[type=url]')?.value).not.toBe('https://example.test/app/aq/surveys/' + 'a'.repeat(64));
+  });
+
 });

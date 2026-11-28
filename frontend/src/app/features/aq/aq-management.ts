@@ -1,11 +1,12 @@
 import { DatePipe } from '@angular/common';
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, distinctUntilChanged, forkJoin, map, Observable, of } from 'rxjs';
 import { AqApi, ManageableEventCandidate, Page, SurveyField, aqSegment } from './aq-api';
 import { createCryptographicUuid } from '../../core/security/client-id';
 import { AQ_WORKSPACE_COPY } from './aq-workspace-copy';
+import { AqQrShare } from './aq-qr-share';
 
 interface EventSettings {
   nameMode: 'anonymous' | 'optionalName' | 'requiredName';
@@ -41,7 +42,7 @@ interface Preview {
 }
 
 @Component({
-  imports: [RouterLink],
+  imports: [RouterLink, AqQrShare],
   styleUrl: './aq-page.css',
   templateUrl: './aq-management.html',
 })
@@ -58,6 +59,7 @@ export class AqManagement {
   protected readonly programCode = signal('');
   protected readonly campaignId = signal('');
   protected readonly targetId = signal('');
+  protected readonly selectedTarget = computed(() => this.targets().find(target => target.id === this.targetId()));
   protected readonly busy = signal(false);
   protected readonly failed = signal(false);
   protected readonly outcome = signal('');
@@ -81,7 +83,6 @@ export class AqManagement {
   protected readonly questionRequired = signal(false);
   protected readonly versionReason = signal('');
   protected readonly timeZone = signal(Intl.DateTimeFormat().resolvedOptions().timeZone);
-  protected readonly publicEntry = signal('');
   protected readonly invitesEnabled = signal(false);
   protected readonly decisionDays = signal('7');
   protected readonly durationDays = signal('30');
@@ -102,7 +103,6 @@ export class AqManagement {
       this.formId.set('');
       this.versions.set([]);
       this.fields.set([]);
-      this.publicEntry.set('');
       this.preview.set(null);
       this.programCode.set('');
       this.campaignId.set('');
@@ -258,12 +258,15 @@ export class AqManagement {
   protected selectCampaign(id: string): void {
     this.campaignId.set(id);
     this.targetId.set('');
-    this.publicEntry.set('');
     this.targetPresentation.set('');
     this.commonVersion.set('');
     const campaign = this.campaigns().find(item => item.id === id);
     if (campaign) this.selectForm(campaign.formDefinitionId);
     this.reloadTargets(id);
+  }
+
+  protected selectTarget(id: string): void {
+    this.targetId.set(id);
   }
 
   private reloadTargets(id: string): void {
@@ -286,7 +289,7 @@ export class AqManagement {
   protected download(format: 'pdf' | 'png' | 'svg'): void {
     const campaign = this.campaignId();
     const targetId = this.targetId();
-    if (!campaign || (format !== 'pdf' && !targetId)) return;
+    if (!campaign || (format !== 'pdf' && !this.selectedTarget())) return;
     const params = format === 'pdf' ? { format } : { format, targetId };
     this.act(this.api.download('survey-campaigns/' + aqSegment(campaign) + '/qr-export', params),
       'QR資料を保存しました。', blob => {
@@ -489,9 +492,9 @@ export class AqManagement {
   protected rotateTarget(): void {
     const target = this.targets().find(item => item.id === this.targetId());
     if (!target) return;
-    this.act(this.api.command<{ entryRef: string }>('POST', 'survey-targets/' + aqSegment(target.id) + '/public-code/rotate', {
+    this.act(this.api.command('POST', 'survey-targets/' + aqSegment(target.id) + '/public-code/rotate', {
       expectedVersionNo: target.versionNo,
-    }), '回答リンクを発行しました。', result => this.publicEntry.set(result.entryRef));
+    }), '回答リンクを発行しました。');
   }
 
   protected addProgramTarget(): void {

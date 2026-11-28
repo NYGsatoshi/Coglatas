@@ -184,7 +184,7 @@
     <section class="aq-management-section" aria-labelledby="aq-management-distribution">
       <h2 id="aq-management-distribution" #distributionHeading tabindex="-1">{{ copy.distribution }}</h2>
       <label>アンケート
-        <select [value]="campaignId()" (change)="selectCampaign($any($event.target).value)">
+        <select [disabled]="busy()" [value]="campaignId()" (change)="selectCampaign($any($event.target).value)">
           <option value="">選択してください</option>
           @for (campaign of campaigns(); track campaign.id; let i = $index) {
             <option [value]="campaign.id">アンケート {{ i + 1 }} · {{ campaign.published ? '公開中' : '未公開' }}</option>
@@ -213,25 +213,27 @@
           <button type="button" [disabled]="busy() || !targetPresentation() || !commonVersion()" (click)="createTarget()">発表に割り当てる</button>
         </div>
         <label>発表
-          <select [value]="targetId()" (change)="targetId.set($any($event.target).value)">
+          <select [disabled]="busy()" [value]="targetId()" (change)="selectTarget($any($event.target).value)">
             <option value="">選択してください</option>
             @for (target of targets(); track target.id) {
               <option [value]="target.id">{{ presentationTitle(target.presentationId) }}</option>
             }
           </select>
         </label>
-        @if (targetId()) {
+        @if (selectedTarget()) {
           <div class="aq-panel aq-grid">
             <p>追加設問を使わない場合は、空の版を公開してください。</p>
             <button type="button" [disabled]="busy()" (click)="editQuestions('target'); focusSection(questionsHeading)">この発表の追加設問を編集</button>
             <button type="button" [disabled]="busy()" (click)="rotateTarget()">回答リンクを発行または更新</button>
             <button type="button" [disabled]="busy()" (click)="addProgramTarget()">回答リンクを発表一覧に追加</button>
-            @if (publicEntry()) { <p><a [routerLink]="['/aq/surveys', publicEntry()]">アンケートの公開リンク</a></p> }
           </div>
         }
+        @if (selectedTarget()) {
+          <app-aq-qr-share [campaignId]="campaignId()" [targetId]="targetId()" [suspended]="busy()" />
+        }
         <div class="aq-actions">
-          <button type="button" [disabled]="busy() || !targetId()" (click)="download('png')">QR画像 PNG</button>
-          <button type="button" [disabled]="busy() || !targetId()" (click)="download('svg')">QR画像 SVG</button>
+          <button type="button" [disabled]="busy() || !selectedTarget()" (click)="download('png')">QR画像 PNG</button>
+          <button type="button" [disabled]="busy() || !selectedTarget()" (click)="download('svg')">QR画像 SVG</button>
           <button type="button" [disabled]="busy()" (click)="download('pdf')">印刷用PDF</button>
         </div>
       }

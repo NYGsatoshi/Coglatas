@@ -35,7 +35,7 @@ public sealed class AqManagementOpenApiTests
         var root = document.RootElement;
         var paths = root.GetProperty("paths");
         var operations = paths.EnumerateObject().SelectMany(path => path.Value.EnumerateObject()).ToArray();
-        Assert.Equal(33, operations.Length);
+        Assert.Equal(34, operations.Length);
         foreach (var operation in operations)
         {
             var responses = operation.Value.GetProperty("responses");
@@ -62,6 +62,12 @@ public sealed class AqManagementOpenApiTests
         var rotate = paths.GetProperty("/api/v1/core/events/{eventId}/program-code/rotate")
             .GetProperty("post").GetProperty("responses");
         Assert.True(EnvelopeData(root, rotate, "200").TryGetProperty("entryRef", out _));
+        var share = paths.GetProperty("/api/v1/core/survey-campaigns/{campaignId}/qr-share")
+            .GetProperty("get").GetProperty("responses");
+        var shareData = EnvelopeData(root, share, "200");
+        Assert.True(shareData.TryGetProperty("title", out _));
+        Assert.True(shareData.TryGetProperty("surveyUrl", out _));
+        Assert.True(shareData.TryGetProperty("pngBase64", out _));
         var qr = paths.GetProperty("/api/v1/core/survey-campaigns/{campaignId}/qr-export")
             .GetProperty("get").GetProperty("responses");
         var media = qr.GetProperty("200").GetProperty("content");

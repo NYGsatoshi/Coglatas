@@ -1,0 +1,44 @@
+:host { display: block; min-inline-size: 0; }
+.qr-share {
+  display: grid;
+  gap: .8rem;
+  padding: 1rem;
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: .75rem;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.qr-share h3, .qr-share p { margin: 0; }
+.qr-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; }
+.qr-actions h3 { flex: 1 1 12rem; }
+.qr-title { font-weight: 650; }
+.qr-preview { display: block; width: min(100%, 18rem); height: auto; background: white; image-rendering: pixelated; }
+.qr-share input { display: block; box-sizing: border-box; width: 100%; min-width: 0; font: inherit; padding: .5rem; }
+.qr-share button { min-height: 2.75rem; padding: .4rem .8rem; font: inherit; border-radius: .4rem; }
+.qr-share button:not(:disabled) { cursor: pointer; }
+.qr-share :focus-visible { outline: 2px solid var(--coglatas-color-focus); outline-offset: 3px; }
+.qr-share [role=alert] { color: var(--coglatas-color-danger); overflow-wrap: anywhere; }
+.qr-poster { display: grid; gap: .7rem; min-width: 0; border: 1px solid var(--coglatas-color-border-default); border-radius: .5rem; }
+.qr-logo { max-width: min(100%, 16rem); max-height: 7rem; object-fit: contain; background: white; }
+.qr-hint { color: var(--coglatas-color-text-secondary); font-size: .9rem; }
+.qr-projection {
+  box-sizing: border-box;
+  border: 0;
+  padding: 1rem;
+  margin: 0;
+  inset: 0;
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  background: #fff;
+  color: #111;
+  overflow: auto;
+}
+.qr-projection[open] { display: flex; flex-direction: column; }
+.qr-close { align-self: end; flex: none; }
+.qr-projection-content { flex: 1; min-height: 0; display: grid; place-items: center; align-content: center; gap: .75rem; text-align: center; }
+.qr-projection-content h2 { margin: 0; font-size: clamp(1.25rem, 4vw, 2.5rem); max-width: 90vw; overflow-wrap: anywhere; }
+.qr-projection-content img { width: min(75vw, 58dvh); height: auto; image-rendering: pixelated; }
+.qr-projection-content p { font-size: clamp(1rem, 2.5vw, 1.6rem); }
+.qr-projection::backdrop { background: #fff; }
