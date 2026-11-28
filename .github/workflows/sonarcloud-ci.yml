@@ -1325,9 +1325,11 @@ jobs:
           cmp artifacts/sonar-dotnet/deterministic-source-roots.original "$mapping"
 
       - name: Apply migrations to the isolated coverage database
+        if: env.SONAR_ANALYSIS_KIND == 'main'
         run: dotnet ef database update --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web --configuration Release --no-build
 
       - name: Generate .NET coverage without analysis credentials
+        if: env.SONAR_ANALYSIS_KIND == 'main'
         run: >-
           dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj
           --configuration Release --no-build --no-restore --disable-build-servers -m:1
@@ -1336,7 +1338,7 @@ jobs:
           --results-directory artifacts/sonar-dotnet
 
       - name: Record actual collector report layout
-        if: always()
+        if: always() && env.SONAR_ANALYSIS_KIND == 'main'
         shell: bash
         run: |
           if [[ -d artifacts/sonar-dotnet ]]; then
@@ -1344,6 +1346,7 @@ jobs:
           fi
 
       - name: Verify executed tests and production coverage before publication
+        if: env.SONAR_ANALYSIS_KIND == 'main'
         run: |
           set -euo pipefail
           cmp artifacts/sonar-dotnet/deterministic-source-roots.original \
@@ -1376,7 +1379,7 @@ jobs:
           PY
 
       - name: Retain .NET coverage and source receipt
-        if: always()
+        if: always() && env.SONAR_ANALYSIS_KIND == 'main'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: sonar-dotnet-coverage
@@ -1393,10 +1396,29 @@ jobs:
           retention-days: 7
 
       - name: Require actual scanner baseline and all shard binaries and points to agree
+        if: env.SONAR_ANALYSIS_KIND == 'main'
         env:
           PROOF_SOURCE_SHA: ${{ github.sha }}
           EXPECTED_DOTNET_SHARD_DIGEST: ${{ needs.dotnet-shard-coverage.outputs.digest }}
         run: python3 -B scripts/ci/verify-sonar-dotnet-coverage.py shard-admit
+
+      - name: Require rebuilt scanner identity and original independent full-baseline equivalence
+        if: env.SONAR_ANALYSIS_KIND == 'pull_request'
+        env:
+          PROOF_SOURCE_SHA: ${{ github.sha }}
+          EXPECTED_DOTNET_SHARD_DIGEST: ${{ needs.dotnet-shard-coverage.outputs.digest }}
+        run: python3 -B scripts/ci/verify-sonar-dotnet-coverage.py shard-admit-rebuilt
+
+      - name: Retain actual scanner rebuild and mapping evidence
+        if: always() && env.SONAR_ANALYSIS_KIND == 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-dotnet-scanner-rebuild-evidence
+          path: |
+            artifacts/sonar-dotnet/*-source-roots.original
+            artifacts/sonar-dotnet/pre-test-rebuild/
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Retain actual scanner native admission receipt
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
