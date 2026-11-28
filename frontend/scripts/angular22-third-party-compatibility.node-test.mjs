@@ -32,7 +32,7 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
 
 // Node's test runner owns completion and reports callback failures.
 
-test('keeps Angular 22.3 chokidar 6 peer isolated from webpack watcher 5', () => {
+void test('keeps Angular 22.3 chokidar 6 peer isolated from webpack watcher 5', () => {
   assert.equal(packageJson.overrides['@angular-devkit/core'], '22.3.0');
   const rootDevKit = frontendPackageLock.packages['node_modules/@angular-devkit/core'];
   assert.equal(rootDevKit?.version, '22.3.0');
