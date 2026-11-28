@@ -1,0 +1,14 @@
+{
+  "sourceBundleSha256": "d33447b896dd29db58a2af2d80b779f98b5d2ad02a5ccad6f7d8db187ead45a0",
+  "status": "ISOLATED_INVESTIGATION_ONLY_NO_PRODUCT_ADOPTION",
+  "originalFiles": {
+    "windows-host/WindowsHost.csproj": "b6eba17b1ff70bde4ab5528866fa4b3885847ff0656aa8562fffed261e729fdb",
+    "windows-host/Program.cs": "3c6166901e8f0ac6dfc3482cbbe256bb50e637f4c962873de732ab4540e98e44",
+    "windows-host/packages.lock.json": "50dbb6bf5c4965650c6f7966619c7fd06125c27a5ccb55928de18ed745e0744c",
+    "windows-host/dependency-inventory.json": "d9a071404cac612306b5c33d34e11463f3c2f36de5963f91b81e7eb8ff54c8b4",
+    "windows-uia/WindowsUiProbe.csproj": "07b312fd719280b6f23897a1bf152b3767b8234d7eab3545a6fe4e9c7c0542a9",
+    "windows-uia/Program.cs": "f298095a4f7d94c691fdc4cdde4485ceac8df09c6f3280cb3a761c03810b8891",
+    "windows-uia/packages.lock.json": "9cb8e5dc6057720e656b8ddcf31822028ea6d34423a2f13ac8d24935aa1a2889",
+    "windows-uia/dependency-inventory.json": "580aaf0ed9e22850271802a7c950403a1ddcf4ed8dfc4104a7b82d0f4b457745"
+  }
+}
