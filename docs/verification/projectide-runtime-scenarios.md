@@ -44,3 +44,8 @@ The development type is explicitly composed with its operation policy and
 PostgreSQL fixture. Live registration, production access, export, rebase,
 retention and deletion policies, and Web or Native acceptance require their
 applicable authority and transports. See [#1951](https://github.com/NYGsatoshi/Coglatas/issues/1951).
+
+The shared paired Entry prerequisite also selects Runtime-only source changes
+for exact Windows/Ubuntu solution builds and retained pure regression inventories.
+Its `PURE_CORE_ONLY` receipt is separate from PostgreSQL Runtime verification,
+actual Native UI acceptance and operational authority.
