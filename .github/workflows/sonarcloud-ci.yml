@@ -794,7 +794,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lane: [baseline, shard-1, shard-2]
+        # PR executes the original unfiltered baseline exactly once.
+        # Main retains the independent baseline and complementary shards.
+        lane: ${{ fromJSON(needs.target.outputs.analysis_kind == 'pull_request' && '["baseline"]' || '["baseline","shard-1","shard-2"]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
@@ -841,7 +843,7 @@ jobs:
 
 
   angular-coverage:
-    name: Verify Angular baseline and shard equivalence without analysis credentials
+    name: Verify native Angular coverage admission without analysis credentials
     permissions:
       contents: read
     needs: [target, angular-native-lanes]
@@ -864,17 +866,25 @@ jobs:
           pattern: sonar-angular-shard-proof-*-${{ github.run_attempt }}
           path: artifacts/sonar-angular-shard-proof
 
-      - name: Require exact native Angular coverage equivalence
+      - name: Require complete native Angular coverage admission
         env:
           PROOF_SOURCE_SHA: ${{ github.sha }}
-        run: python3 -B scripts/ci/verify-sonar-angular-coverage.py compare
+          PROOF_MODE: ${{ needs.target.outputs.analysis_kind == 'pull_request' && 'baseline-only' || 'full' }}
+        run: python3 -B scripts/ci/verify-sonar-angular-coverage.py compare --mode "$PROOF_MODE"
 
-      - name: Stage only the two original native shard reports for scanner ingestion
+      - name: Stage only the selected original native Angular reports for scanner ingestion
         shell: bash
+        env:
+          SONAR_ANALYSIS_KIND: ${{ needs.target.outputs.analysis_kind }}
         run: |
           set -euo pipefail
+          case "$SONAR_ANALYSIS_KIND" in
+            pull_request) lanes=(baseline) ;;
+            main) lanes=(shard-1 shard-2) ;;
+            *) exit 1 ;;
+          esac
           test ! -e artifacts/sonar-angular-inputs
-          for lane in shard-1 shard-2; do
+          for lane in "${lanes[@]}"; do
             source="artifacts/sonar-angular-shard-proof/sonar-angular-shard-proof-$lane-${GITHUB_RUN_ATTEMPT}/lcov.info"
             target="artifacts/sonar-angular-inputs/$lane/lcov.info"
             mkdir -p "$(dirname "$target")"
@@ -887,17 +897,31 @@ jobs:
       - name: Bind Angular coverage handoff to exact execution
         id: handoff
         shell: bash
+        env:
+          SONAR_ANALYSIS_KIND: ${{ needs.target.outputs.analysis_kind }}
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          for report in artifacts/sonar-angular-inputs/shard-1/lcov.info artifacts/sonar-angular-inputs/shard-2/lcov.info artifacts/sonar-angular-inputs/receipt.json; do
+          case "$SONAR_ANALYSIS_KIND" in
+            pull_request) reports=(artifacts/sonar-angular-inputs/baseline/lcov.info) ;;
+            main) reports=(artifacts/sonar-angular-inputs/shard-1/lcov.info artifacts/sonar-angular-inputs/shard-2/lcov.info) ;;
+            *) exit 1 ;;
+          esac
+          reports+=(artifacts/sonar-angular-inputs/receipt.json)
+          test -d artifacts/sonar-angular-inputs
+          test ! -L artifacts/sonar-angular-inputs
+          for report in "${reports[@]}"; do
             test -s "$report"
             test ! -L "$report"
+            test ! -L "$(dirname "$report")"
           done
+          actual="$(find artifacts/sonar-angular-inputs ! -type d -print | LC_ALL=C sort)"
+          expected="$(printf '%s\n' "${reports[@]}" | LC_ALL=C sort)"
+          test "$actual" = "$expected"
           digest="$(
             {
-              printf '%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_WORKSPACE"
-              sha256sum -- artifacts/sonar-angular-inputs/shard-1/lcov.info artifacts/sonar-angular-inputs/shard-2/lcov.info artifacts/sonar-angular-inputs/receipt.json
+              printf '%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_WORKSPACE" "$SONAR_ANALYSIS_KIND"
+              sha256sum -- "${reports[@]}"
             } | sha256sum | cut -d ' ' -f1
           )"
           printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
@@ -906,10 +930,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: sonar-angular-handoff-${{ github.run_attempt }}
-          path: |
-            artifacts/sonar-angular-inputs/shard-1/lcov.info
-            artifacts/sonar-angular-inputs/shard-2/lcov.info
-            artifacts/sonar-angular-inputs/receipt.json
+          path: artifacts/sonar-angular-inputs/
           if-no-files-found: error
           retention-days: 7
 
@@ -1162,14 +1183,26 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          for report in artifacts/sonar-angular-inputs/shard-1/lcov.info artifacts/sonar-angular-inputs/shard-2/lcov.info artifacts/sonar-angular-inputs/receipt.json; do
+          case "$SONAR_ANALYSIS_KIND" in
+            pull_request) reports=(artifacts/sonar-angular-inputs/baseline/lcov.info) ;;
+            main) reports=(artifacts/sonar-angular-inputs/shard-1/lcov.info artifacts/sonar-angular-inputs/shard-2/lcov.info) ;;
+            *) exit 1 ;;
+          esac
+          reports+=(artifacts/sonar-angular-inputs/receipt.json)
+          test -d artifacts/sonar-angular-inputs
+          test ! -L artifacts/sonar-angular-inputs
+          for report in "${reports[@]}"; do
             test -s "$report"
             test ! -L "$report"
+            test ! -L "$(dirname "$report")"
           done
+          actual="$(find artifacts/sonar-angular-inputs ! -type d -print | LC_ALL=C sort)"
+          expected="$(printf '%s\n' "${reports[@]}" | LC_ALL=C sort)"
+          test "$actual" = "$expected"
           digest="$(
             {
-              printf '%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_WORKSPACE"
-              sha256sum -- artifacts/sonar-angular-inputs/shard-1/lcov.info artifacts/sonar-angular-inputs/shard-2/lcov.info artifacts/sonar-angular-inputs/receipt.json
+              printf '%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_WORKSPACE" "$SONAR_ANALYSIS_KIND"
+              sha256sum -- "${reports[@]}"
             } | sha256sum | cut -d ' ' -f1
           )"
           [[ "$EXPECTED_DIGEST" =~ ^[0-9a-f]{64}$ && "$digest" == "$EXPECTED_DIGEST" ]] || {
@@ -1231,13 +1264,18 @@ jobs:
             exit 1
           fi
 
+          case "$SONAR_ANALYSIS_KIND" in
+            pull_request) angular_reports=artifacts/sonar-angular-inputs/baseline/lcov.info ;;
+            main) angular_reports=artifacts/sonar-angular-inputs/shard-1/lcov.info,artifacts/sonar-angular-inputs/shard-2/lcov.info ;;
+            *) exit 1 ;;
+          esac
           scanner_args=(
             begin
             "/k:$SONAR_PROJECT_KEY"
             "/o:$SONAR_ORGANIZATION"
             /d:sonar.host.url=https://sonarcloud.io
             /d:sonar.scanner.scanAll=true
-            "/d:sonar.javascript.lcov.reportPaths=artifacts/sonar-angular-inputs/shard-1/lcov.info,artifacts/sonar-angular-inputs/shard-2/lcov.info,artifacts/sonar-node/lcov.info,artifacts/sonar-pilot-helper/lcov.info,artifacts/sonar-operational/c8/lcov.info"
+            "/d:sonar.javascript.lcov.reportPaths=$angular_reports,artifacts/sonar-node/lcov.info,artifacts/sonar-pilot-helper/lcov.info,artifacts/sonar-operational/c8/lcov.info"
             "/d:sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet-shard-inputs/files-db/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/other-db/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/security-aq/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/remaining/verified.opencover.xml"
             /d:sonar.cs.cobertura.reportsPaths=artifacts/sonar-windows/verified.cobertura.xml
             "/d:sonar.python.coverage.reportPaths=artifacts/sonar-python/coverage.xml,artifacts/sonar-gcp/coverage.xml"

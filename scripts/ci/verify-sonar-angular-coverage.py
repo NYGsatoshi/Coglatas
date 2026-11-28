@@ -269,7 +269,11 @@ def compare_results(baseline, shards) -> dict:
         print(json.dumps({"changedHitExamples": examples}, sort_keys=True))
         raise ValueError(f"Angular LCOV differs: {missing} missing, {extra} extra, "
                          f"{different} changed hit states")
-    result = {"passedTests": sum(tests.values()), "specFiles": len(seen_files),
+    return summarize_results(tests, union)
+
+
+def summarize_results(tests: Counter, union: dict) -> dict:
+    result = {"passedTests": sum(tests.values()), "specFiles": len({key[0] for key in tests}),
               "coverageFiles": len(union)}
     for tag, label in (("DA", "line"), ("BRDA", "branch")):
         hits = [value for points in union.values() for key, value in points.items() if key[0] == tag]
@@ -310,17 +314,20 @@ def collect(lane: str) -> None:
     print(json.dumps({key: receipt[key] for key in ("lane", "testSeconds", "passedTests", "coverageFiles")}))
 
 
-def compare() -> None:
+def compare(mode: str = "full") -> None:
+    if mode not in ("full", "baseline-only"):
+        raise ValueError("Unknown Angular admission mode")
+    selected_lanes = LANES if mode == "full" else ("baseline",)
     identity = checkout_identity(ROOT)
     tracked = tracked_frontend(ROOT)
     specs = spec_inventory(tracked)
     directory = ROOT / "artifacts/sonar-angular-shard-proof"
     names = {lane: "sonar-angular-shard-proof-" + lane + "-" + identity["attempt"]
-             for lane in LANES}
-    if {path.name for path in directory.iterdir()} != set(names.values()):
+             for lane in selected_lanes}
+    if directory.is_symlink() or {path.name for path in directory.iterdir()} != set(names.values()):
         raise ValueError("Missing, stale or unexpected Angular artifact")
     inventories, timings = {}, {}
-    for lane in LANES:
+    for lane in selected_lanes:
         folder = directory / names[lane]
         if folder.is_symlink() or {path.name for path in folder.iterdir()} != {"receipt.json", *ARTIFACTS}:
             raise ValueError("Invalid Angular artifact contents")
@@ -344,8 +351,15 @@ def compare() -> None:
         inventories[lane] = (tests, points)
         timings[lane] = {"testSeconds": seconds, "passedTests": sum(tests.values()),
                          "hashes": receipt["hashes"]}
-    result = compare_results(inventories.pop("baseline"), inventories)
-    result.update(identity, scope="ANGULAR_NATIVE_LINE_BRANCH_EQUIVALENCE_ONLY_NOT_SONARCLOUD",
+    if mode == "full":
+        result = compare_results(inventories.pop("baseline"), inventories)
+        scope = "ANGULAR_NATIVE_LINE_BRANCH_EQUIVALENCE_ONLY_NOT_SONARCLOUD"
+    else:
+        # Every tracked spec was executed by the original unsharded command.
+        # This receipt is admission evidence, not an independent comparison.
+        result = summarize_results(*inventories["baseline"])
+        scope = "ANGULAR_NATIVE_UNSHARDED_BASELINE_ONLY_NOT_SONARCLOUD"
+    result.update(identity, scope=scope, mode=mode, baselineCompared=mode == "full",
                   lanes=timings)
     output = ROOT / "artifacts/sonar-angular-shard-equivalence.json"
     with output.open("x", encoding="utf-8") as stream:
@@ -359,12 +373,13 @@ def main() -> None:
     commands = parser.add_subparsers(dest="command", required=True)
     collect_args = commands.add_parser("collect")
     collect_args.add_argument("--lane", choices=LANES, required=True)
-    commands.add_parser("compare")
+    compare_args = commands.add_parser("compare")
+    compare_args.add_argument("--mode", choices=("full", "baseline-only"), default="full")
     args = parser.parse_args()
     if args.command == "collect":
         collect(args.lane)
     else:
-        compare()
+        compare(args.mode)
 
 
 if __name__ == "__main__":
