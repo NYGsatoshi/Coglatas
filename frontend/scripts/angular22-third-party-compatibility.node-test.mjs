@@ -11,9 +11,9 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
     // This major update is explicitly part of the coordinated .NET 11 migration PR.
     '@microsoft/signalr': '11.0.0',
     '@syncfusion/ej2-angular-gantt': '34.2.8',
-    '@syncfusion/ej2-angular-grids': '35.1.42',
-    '@syncfusion/ej2-angular-inputs': '35.1.43',
-    '@syncfusion/ej2-angular-popups': '35.1.42',
+    '@syncfusion/ej2-angular-grids': '35.2.12',
+    '@syncfusion/ej2-angular-inputs': '35.2.12',
+    '@syncfusion/ej2-angular-popups': '35.2.12',
     'ag-grid-angular': '36.3.0',
     'ag-grid-community': '36.3.0',
     rxjs: '7.8.2',
@@ -114,18 +114,20 @@ void test('retains one explicitly qualified jsdom version across both Angular wo
   assert.equal(coglatasPackageLock.packages[''].devDependencies.jsdom, siblingRange);
 });
 
-void test('denies unreviewed nested Syncfusion 35.1.41 installers with a package-wide fallback', () => {
+void test('denies unreviewed nested Syncfusion 35.2.12 installers with a package-wide fallback', () => {
   for (const dependent of ['@syncfusion/ej2-angular-grids', '@syncfusion/ej2-angular-inputs']) {
     const nested = frontendPackageLock.packages[`node_modules/${dependent}/node_modules/@syncfusion/ej2-angular-base`];
-    assert.equal(nested?.version, '35.1.41', `${dependent} must pin the newly proposed base version`);
+    assert.equal(nested?.version, '35.2.12', `${dependent} must pin the newly proposed base version`);
     assert.equal(nested?.hasInstallScript, true, `${dependent} base script must remain observable`);
   }
   assert.equal(packageJson.allowScripts['@syncfusion/ej2-angular-base'], false,
     'unreviewed Syncfusion base lifecycle scripts must not execute');
   assert.equal(packageJson.allowScripts['@syncfusion/ej2-angular-base@34.2.8'], true,
     'the existing reviewed v34 script must remain explicitly version-approved');
+  assert.equal(Object.hasOwn(packageJson.allowScripts, '@syncfusion/ej2-angular-base@35.2.12'), false,
+    'updated v35 version must not gain independent exact-version approval');
   assert.equal(Object.hasOwn(packageJson.allowScripts, '@syncfusion/ej2-angular-base@35.1.41'), false,
-    'new v35 versions must not gain an independent exact-version approval');
+    'previous v35 version must not stay explicitly approved');
   assert.equal(Object.hasOwn(packageJson.allowScripts, '@syncfusion/ej2-angular-base@35.1.37'), false,
     'stale base version must not stay approved');
   assert.equal(Object.hasOwn(packageJson.allowScripts, '@syncfusion/ej2-angular-base@35.1.39'), false,
@@ -151,11 +153,11 @@ void test('pins the qualified Angular 22 CDK and sibling CLI/DevKit package inte
   }
 });
 
-void test('denies the Popups nested Syncfusion 35.1.41 base install script', () => {
+void test('denies the Popups nested Syncfusion 35.2.12 base install script', () => {
   const node = frontendPackageLock.packages[
     'node_modules/@syncfusion/ej2-angular-popups/node_modules/@syncfusion/ej2-angular-base'
   ];
-  assert.equal(node?.version, '35.1.41');
+  assert.equal(node?.version, '35.2.12');
   assert.equal(node?.hasInstallScript, true);
   assert.equal(packageJson.allowScripts['@syncfusion/ej2-angular-base'], false);
 });

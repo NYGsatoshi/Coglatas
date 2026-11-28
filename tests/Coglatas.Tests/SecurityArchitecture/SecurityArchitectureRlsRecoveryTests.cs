@@ -139,34 +139,42 @@ public sealed class SecurityArchitectureRlsRecoveryTests
 
     private static async Task ScenarioAsync(Func<string, string, IReadOnlyList<string>, Snapshot, Task> scenario)
     {
+        await VerifyRecoveryAsync(scenario, historicalForms: true);
+        await VerifyRecoveryAsync(scenario, historicalForms: false);
+    }
+
+    private static async Task VerifyRecoveryAsync(
+        Func<string, string, IReadOnlyList<string>, Snapshot, Task> scenario, bool historicalForms)
+    {
         var root = PostgreSqlTestEnvironment.RequireConnectionString();
         var role = "sec_arch_recovery_" + Guid.NewGuid().ToString("N");
         try
         {
-            await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(root, async database =>
+            async Task VerifyAsync(string database)
             {
-                await SecurityArchitectureRlsRowFixtures.SeedAsync(database, Guid.NewGuid());
-                await SecurityArchitectureRlsRowFixtures.SeedAsync(database, Guid.NewGuid());
-                var tables = await PostgreSqlMigrationTestDatabase.QueryAsync(database, """
-                    SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-                    WHERE n.nspname='public' AND c.relkind IN ('r','p') AND
-                    (EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attname='TenantId' AND NOT a.attisdropped)
-                     OR c.relname IN ('file_selection_snapshot_items','coglatas_ui_canonical_change_journal'))
-                    ORDER BY c.relname COLLATE "C"
-                    """, reader => reader.GetString(0));
-                Assert.Equal(105, tables.Count);
+                await SecurityArchitectureRlsRowFixtures.SeedAsync(database, Guid.NewGuid(), historicalForms: historicalForms);
+                await SecurityArchitectureRlsRowFixtures.SeedAsync(database, Guid.NewGuid(), historicalForms: historicalForms);
+                var catalogue = await SecurityArchitectureRlsRelationCatalogue.AssertMigratedAsync(database);
+                var tables = SecurityArchitectureRlsRelationCatalogue.ExistingActiveDraftPolicyTables(catalogue);
+                Assert.Equal(historicalForms ? 105 : 102, tables.Count);
                 Assert.DoesNotContain("users", tables);
                 Assert.DoesNotContain("sessions", tables);
                 Assert.DoesNotContain("tenants", tables);
                 var baseline = await CaptureAsync(database, role);
-                Assert.Equal(114, baseline.Tables.Count);
+                Assert.Equal(catalogue.Relations.Where(relation => relation.Kind == "r").Select(relation => relation.Name),
+                    baseline.Tables.Select(table => table.Name));
                 Assert.All(baseline.Tables.Where(table => tables.Contains(table.Name, StringComparer.Ordinal)), table => Assert.True(table.RowCount > 0));
                 Assert.Equal(0L, await PostgreSqlMigrationTestDatabase.ScalarAsync<long>(database, """
                     SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
                     WHERE n.nspname='public' AND (c.relrowsecurity OR c.relforcerowsecurity)
                     """));
                 await scenario(database, role, tables, baseline);
-            });
+            }
+
+            if (historicalForms)
+                await SecurityArchitectureRlsRelationCatalogue.WithHistoricalDatabaseAsync(root, VerifyAsync);
+            else
+                await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(root, VerifyAsync);
         }
         finally { await PostgreSqlMigrationTestDatabase.ExecuteAsync(root, "DROP ROLE IF EXISTS " + Quote(role)); }
     }
@@ -262,13 +270,16 @@ public sealed class SecurityArchitectureRlsRecoveryTests
         Directory.CreateDirectory(directory);
         await using var assembly = File.OpenRead(typeof(SecurityArchitectureRlsRecoveryTests).Assembly.Location);
         var assemblyDigest = Convert.ToHexString(await SHA256.HashDataAsync(assembly)).ToLowerInvariant();
+        var catalogue = await SecurityArchitectureRlsRelationCatalogue.AssertMigratedAsync(database);
         var candidate = Environment.GetEnvironmentVariable("COGLATAS_SEC_ARCH_CANDIDATE_SHA");
         if (candidate is null || candidate.Length != 40 || candidate.Any(character => !Uri.IsHexDigit(character))) candidate = null;
-        await using var output = new FileStream(Path.Combine(directory, "draft-rls-recovery-" + name + ".json"), FileMode.CreateNew,
+        var suffix = catalogue.Version == SecurityArchitectureRlsRelationCatalogue.HistoricalVersion ? "" : "-" + catalogue.Version;
+        await using var output = new FileStream(Path.Combine(directory, "draft-rls-recovery-" + name + suffix + ".json"), FileMode.CreateNew,
             FileAccess.Write, FileShare.None, 4096, useAsync: true);
         await JsonSerializer.SerializeAsync(output, new
         {
             schemaVersion = 1, approval = "DRAFT", ownerApproval = (string?)null, candidateSha = candidate,
+            relationCatalogue = new { catalogue.Version, catalogue.LatestMigration },
             testAssemblyDigest = assemblyDigest, executedAtUtc = DateTimeOffset.UtcNow,
             postgresVersion = await PostgreSqlMigrationTestDatabase.ScalarAsync<string>(database, "SHOW server_version"),
             fixture = "ISOLATED_MIGRATED_SYNTHETIC_ROWS", testRole = role, tableCount = baseline.Tables.Count,

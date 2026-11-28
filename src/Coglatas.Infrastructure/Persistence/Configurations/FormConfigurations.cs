@@ -8,7 +8,7 @@ public sealed class InternalFormConfiguration : IEntityTypeConfiguration<Interna
 {
     public void Configure(EntityTypeBuilder<InternalForm> builder)
     {
-        builder.ToTable("internal_forms");
+        builder.ToTable("internal_forms", table => table.ExcludeFromMigrations());
         builder.ConfigureSoftDeletableEntity();
 
         builder.Property(form => form.Title).HasMaxLength(240).IsRequired();
@@ -78,10 +78,11 @@ public sealed class FormResponseConfiguration : IEntityTypeConfiguration<FormRes
 {
     public void Configure(EntityTypeBuilder<FormResponse> builder)
     {
-        builder.ToTable("form_responses");
+        builder.ToTable("form_responses", table => table.ExcludeFromMigrations());
         builder.ConfigureAuditableEntity();
 
         builder.Property(response => response.SubmittedAt).IsRequired();
+        builder.Property(response => response.MaskRespondent).HasDefaultValue(false).ValueGeneratedOnAdd();
 
         builder.HasIndex(response => response.FormId);
         builder.HasIndex(response => response.RespondentUserId);
@@ -106,7 +107,7 @@ public sealed class FormAnswerConfiguration : IEntityTypeConfiguration<FormAnswe
 {
     public void Configure(EntityTypeBuilder<FormAnswer> builder)
     {
-        builder.ToTable("form_answers");
+        builder.ToTable("form_answers", table => table.ExcludeFromMigrations());
         builder.ConfigureAuditableEntity();
 
         builder.Property(answer => answer.AnswerText).HasMaxLength(4000);

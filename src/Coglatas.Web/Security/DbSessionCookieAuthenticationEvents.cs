@@ -76,7 +76,10 @@ public sealed class DbSessionCookieAuthenticationEvents(
             return true;
         }
 
-        return !path.StartsWithSegments("/api/auth") &&
+        // The public code establishes the target tenant; the public survey
+        // store checks membership against that tenant before any identity use.
+        return !AqPublicRoutes.IsPublicSurvey(path) &&
+               !path.StartsWithSegments("/api/auth") &&
                !path.StartsWithSegments("/api/security") &&
                !path.StartsWithSegments("/api/platform") &&
                !path.StartsWithSegments("/api/tenants/my") &&

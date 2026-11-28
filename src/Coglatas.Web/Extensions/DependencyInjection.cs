@@ -12,6 +12,7 @@ using Coglatas.Web.OpenApi;
 using Coglatas.Web.Security;
 using Coglatas.Web.Services;
 using Coglatas.Web.Models;
+using Coglatas.Web.SurveyFeedback;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Authorization;
@@ -52,10 +53,15 @@ public static class DependencyInjection
             options.MultipartBodyLengthLimit = security.MaxMultipartBodySizeBytes;
         });
         services.AddAntiforgery(options => HttpSecurityPolicy.ConfigureAntiforgery(options, security));
+        services.AddAqRequestLogPrivacy();
+        services.AddAqPublicSurveys();
         services.AddHostedService<StartupConfigurationValidator>();
         services.AddHostedService<HttpSecurityConfigurationValidator>();
         services.AddHostedService<AuditPackageExportWorker>();
         services.AddHttpContextAccessor();
+        services.AddSurveyFeedback();
+        services.AddFeedbackCsv();
+        services.AddAqSurveyManagement();
         services.AddScoped<ICurrentUser, CurrentUserService>();
         services.AddScoped<DbSessionCookieAuthenticationEvents>();
         services.AddSingleton<IAuthorizationMiddlewareResultHandler, WpcAuthorizationMiddlewareResultHandler>();
@@ -76,6 +82,8 @@ public static class DependencyInjection
         {
             options.AddSchemaTransformer<SecurityOpenApiSchemaTransformer>();
             options.AddOperationTransformer<SecurityOpenApiOperationTransformer>();
+            options.AddOperationTransformer<AqPublicOpenApiOperationTransformer>();
+            options.AddOperationTransformer<AqProtectedIdempotencyOpenApiOperationTransformer>();
         });
 
         services.AddControllers(options =>
@@ -90,6 +98,16 @@ public static class DependencyInjection
                 options.InvalidModelStateResponseFactory = context =>
                 {
                     var path = context.HttpContext.Request.Path.Value;
+                    if (context.HttpContext.Request.Path.StartsWithSegments("/api/v1/core"))
+                    {
+                        var malformedJson = IsMalformedJson(context.ModelState);
+                        return new BadRequestObjectResult(ApiEnvelope.Error(
+                            context.HttpContext,
+                            StatusCodes.Status400BadRequest,
+                            malformedJson ? "MalformedJson" : "ValidationFailed",
+                            "The request body or parameters are invalid."));
+                    }
+
                     if (IsSearchPath(path))
                     {
                         // Query conversion errors can otherwise echo raw Guid,
@@ -127,10 +145,7 @@ public static class DependencyInjection
                                 "Authentication is required."));
                         }
 
-                        var malformedJson = context.ModelState.Any(entry =>
-                            string.Equals(entry.Key, "$", StringComparison.Ordinal) &&
-                            entry.Value?.Errors.Any(error =>
-                                !error.ErrorMessage.Contains("could not be converted", StringComparison.OrdinalIgnoreCase)) == true);
+                        var malformedJson = IsMalformedJson(context.ModelState);
                         var unsupportedMediaType = context.ModelState.Values
                             .SelectMany(value => value.Errors)
                             .Any(error => string.Equals(
@@ -270,6 +285,11 @@ public static class DependencyInjection
 
         return sanitized;
     }
+
+    private static bool IsMalformedJson(ModelStateDictionary modelState) =>
+        modelState.Any(entry => string.Equals(entry.Key, "$", StringComparison.Ordinal) &&
+            entry.Value?.Errors.Any(error =>
+                !error.ErrorMessage.Contains("could not be converted", StringComparison.OrdinalIgnoreCase)) == true);
 
     private static bool IsWpcCreatePath(string? path, string method) =>
         HttpMethods.IsPost(method) && ApiEnvelope.IsCanonicalCreatePath(path);

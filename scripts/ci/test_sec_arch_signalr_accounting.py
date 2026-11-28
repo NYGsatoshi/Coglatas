@@ -121,6 +121,48 @@ class SignalRAccountingTests(unittest.TestCase):
         self.assertEqual([], result["unobservedOriginAssertions"])
         self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
 
+        self.add_aq_catalogue()
+        current = signalr.account(self.root, self.inventory, records, ET.tostring(trx), NOW)
+        self.assertEqual(16, current["eventTypeCount"])
+        self.assertEqual(17, current["reviewedRouteCount"])
+        self.assertEqual(result["controlCounts"], current["controlCounts"])
+        self.assertEqual(result["observedHubInvocationCount"], current["observedHubInvocationCount"])
+        self.assertEqual(result["observedOriginAssertionCount"], current["observedOriginAssertionCount"])
+        self.assertEqual("PASS", current["reviewedAssertionCoverageOutcome"])
+        self.assertEqual("UNVERIFIED", current["assertionCoverageOutcome"])
+        self.assertEqual([signalr.AQ_EVENT], current["unverifiedAdditionalEventTypes"])
+        aq_event = next(event for event in current["events"] if event["eventType"] == signalr.AQ_EVENT)
+        self.assertEqual([], aq_event["controls"])
+        self.assertEqual("UNVERIFIED", aq_event["fullContractCoverage"])
+
+    def add_aq_catalogue(self):
+        realtime = self.inventory["realtime"]
+        realtime["eventCatalogueGeneration"] = signalr.AQ_EVENT_CATALOGUE
+        realtime["events"].append({"eventType": signalr.AQ_EVENT, "payloadSchemaVersion": 1,
+                                   "observedDeliveryBoundary": signalr.AQ_BOUNDARY})
+
+    def test_additive_catalogue_requires_exact_generation_and_event_metadata(self):
+        self.add_aq_catalogue()
+        current = copy.deepcopy(self.inventory)
+        for change in (
+            lambda realtime: realtime.pop("eventCatalogueGeneration"),
+            lambda realtime: realtime["events"].pop(0),
+            lambda realtime: realtime["events"].append({"eventType": "UnexpectedEvent.v1"}),
+            lambda realtime: realtime["events"][-1].update(payloadSchemaVersion=True),
+            lambda realtime: realtime["events"][-1].update(observedDeliveryBoundary="UNKNOWN_REQUIRES_REVIEW"),
+        ):
+            self.inventory = copy.deepcopy(current)
+            change(self.inventory["realtime"])
+            with self.assertRaises(ValueError):
+                self.account()
+
+    def test_aq_event_cannot_borrow_predecessor_assertion_credit(self):
+        self.add_aq_catalogue()
+        record = copy.deepcopy(self.record)
+        record["observations"][0].update(eventType=signalr.AQ_EVENT, subscriptionType="User")
+        with self.assertRaises(ValueError):
+            self.account(record)
+
     def test_exact_candidate_binding_does_not_create_trusted_attestation(self):
         result = self.account(receipt=self.receipt, identity=self.identity)
         self.assertEqual("EXACT_RECEIPT_RECONCILED_TRUSTED_ATTESTATION_PENDING", result["candidateBinding"])

@@ -67,6 +67,9 @@ CATALOG = {
         "FreshMigratedCatalogueIndependentlyBindsEveryNativeSourceAndUnavailableDirectOperation": 1,
         "ActualNativeGuardFunctionAndConstraintMutationsInvalidateRetainedSourceIdentity": 1,
     },
+    "SecurityArchitectureRlsSurveyFixtureTests": {
+        "SeedBuildsSeparateValidSurveyAndOrdinaryFormGraphs": 1,
+    },
     "SecurityArchitectureRlsNativeLifecycleTests": {
         "ActualCanonicalAppendAndPersistenceLifecyclesPreserveImmutableRowsUnderAllDraftPolicies": 1,
         "ActualSecurityStoreTerminalizesOnceWithCurrentAuthorizationAndScopedRuleAppend": 1,

@@ -12,7 +12,7 @@ public sealed class RequestBodyLimitMiddleware(
     public async Task InvokeAsync(HttpContext context)
     {
         var maxRequestBodySize = securityOptions.Value.MaxRequestBodySizeBytes;
-        if (context.Request.ContentLength is long contentLength &&
+        if (context.Request.ContentLength is { } contentLength &&
             contentLength > maxRequestBodySize)
         {
             await WriteTooLargeResponseAsync(context);
@@ -38,6 +38,15 @@ public sealed class RequestBodyLimitMiddleware(
         context.Response.Clear();
         context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
         context.Response.ContentType = "application/json";
+        if (AqPublicRoutes.IsPublicSurvey(context.Request.Path))
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            await context.Response.WriteAsJsonAsync(ApiEnvelope.Error(
+                context, StatusCodes.Status413PayloadTooLarge, "RequestTooLarge",
+                "The request body exceeds the maximum allowed size."), context.RequestAborted);
+            return;
+        }
+
         await context.Response.WriteAsJsonAsync(new ErrorResponse(
             "RequestTooLarge",
             "The request body exceeds the maximum allowed size.",

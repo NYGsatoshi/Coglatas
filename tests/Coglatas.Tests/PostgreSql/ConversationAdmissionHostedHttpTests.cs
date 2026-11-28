@@ -20,6 +20,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -97,7 +98,12 @@ public sealed class ConversationAdmissionHostedHttpTests
         public User ForeignRecipient { get; private set; } = null!;
         public User OtherWorkspaceRecipient { get; private set; } = null!;
 
-        public static async Task<AdmissionHost> CreateAsync(string database, ILoggerProvider? logProvider = null)
+        public static async Task<AdmissionHost> CreateAsync(
+            string database,
+            ILoggerProvider? logProvider = null,
+            IReadOnlyDictionary<string, string?>? configurationOverrides = null,
+            Action<RateLimiterOptions>? configureRateLimiting = null,
+            IClock? clock = null)
         {
             var temporaryRoot = Path.Combine(Path.GetTempPath(), "coglatas-admission-http", Guid.NewGuid().ToString("N"));
             var keyPath = Path.Combine(temporaryRoot, "keys");
@@ -126,8 +132,11 @@ public sealed class ConversationAdmissionHostedHttpTests
                 ["FileStorage:AllowedExtensions:0"] = ".txt",
                 ["FileStorage:AllowedContentTypes:0"] = "text/plain"
             });
+            if (configurationOverrides is not null) builder.Configuration.AddInMemoryCollection(configurationOverrides);
             builder.Services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(keyPath));
             builder.Services.AddApplication().AddInfrastructure(builder.Configuration).AddWebServices(builder.Configuration);
+            if (clock is not null)
+                builder.Services.AddSingleton(clock);
             builder.Services.AddControllers().AddApplicationPart(typeof(ConversationsController).Assembly);
             builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(options =>
             {
@@ -138,12 +147,21 @@ public sealed class ConversationAdmissionHostedHttpTests
                 options.EventsType = typeof(DbSessionCookieAuthenticationEvents);
             });
             builder.Services.AddAuthorization();
+            var rateLimitingEnabled = builder.Configuration.GetValue<bool>("Security:EnableRateLimiting");
+            if (rateLimitingEnabled)
+            {
+                builder.Services.AddRateLimiter(configureRateLimiting ?? HttpSecurityPolicy.ConfigureRateLimiting);
+            }
             var app = builder.Build();
             app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
             app.UseMiddleware<SecurityHeadersMiddleware>();
             app.UseMiddleware<WorkspaceMemberManagementReadLoggingMiddleware>();
             app.UseMiddleware<TenantResolutionMiddleware>();
             app.UseAuthentication();
+            if (rateLimitingEnabled)
+            {
+                app.UseRateLimiter();
+            }
             app.Services.GetRequiredService<CsrfProtectionState>().MarkMiddlewareActive();
             app.UseMiddleware<CsrfProtectionMiddleware>();
             app.UseAuthorization();

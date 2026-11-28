@@ -114,7 +114,7 @@ services:
       dotnet ef database update --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web"
 
   postgres:
-    image: postgres:18-alpine
+    image: postgres:19-alpine
     container_name: coglatas-db
     restart: unless-stopped
     environment:

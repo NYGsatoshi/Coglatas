@@ -45,6 +45,7 @@ public sealed class FormResponse : AuditableEntity, ITenantEntity
     public Guid TenantId { get; set; }
     public Guid FormId { get; set; }
     public Guid? RespondentUserId { get; set; }
+    public bool MaskRespondent { get; set; }
     public DateTimeOffset SubmittedAt { get; set; }
 
     public InternalForm? Form { get; set; }

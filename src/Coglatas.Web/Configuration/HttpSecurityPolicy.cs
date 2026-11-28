@@ -1,3 +1,4 @@
+using Coglatas.Web.Models;
 using System.Globalization;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
@@ -19,6 +20,8 @@ public static class HttpSecurityPolicy
 {
     public const string CorsPolicyName = "canonical-browser-origin";
     public const string LoginRateLimitPolicy = "login";
+    public const string AqPublicReadRateLimitPolicy = "aq-public-read";
+    public const string AqPublicSubmitRateLimitPolicy = "aq-public-submit";
     public const string InviteRateLimitPolicy = "invite";
     public const string FileUploadRateLimitPolicy = "file-upload";
     public const string ApiTokenRateLimitPolicy = "api-token";
@@ -89,7 +92,11 @@ public static class HttpSecurityPolicy
         });
     }
 
-    public static void ConfigureRateLimiting(RateLimiterOptions options)
+    public static void ConfigureRateLimiting(RateLimiterOptions options) =>
+        ConfigureRateLimiting(options, aqReadPermitLimit: 4_800, aqSubmitPermitLimit: 2_400);
+
+    public static void ConfigureRateLimiting(
+        RateLimiterOptions options, int aqReadPermitLimit, int aqSubmitPermitLimit)
     {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
         options.OnRejected = async (rejection, cancellationToken) =>
@@ -102,17 +109,23 @@ public static class HttpSecurityPolicy
             }
 
             rejection.HttpContext.Response.ContentType = "application/json";
-            await rejection.HttpContext.Response.WriteAsJsonAsync(new
+            if (AqPublicRoutes.IsPublicSurvey(rejection.HttpContext.Request.Path))
             {
-                requestId = rejection.HttpContext.TraceIdentifier,
-                error = new
-                {
-                    code = "RateLimitExceeded",
-                    message = "Too many requests. Retry after the indicated interval."
-                }
-            }, cancellationToken);
+                await rejection.HttpContext.Response.WriteAsJsonAsync(ApiEnvelope.Error(
+                    rejection.HttpContext, StatusCodes.Status429TooManyRequests, "RateLimited",
+                    "Too many requests. Retry after the indicated interval."), cancellationToken);
+                return;
+            }
+            await rejection.HttpContext.Response.WriteAsJsonAsync(
+                new RateLimitResponse(rejection.HttpContext.TraceIdentifier,
+                    new RateLimitError("RateLimitExceeded", "Too many requests. Retry after the indicated interval.")),
+                cancellationToken);
         };
 
+        // Audience members can share a school NAT, including at the planned
+        // synthetic concurrency. Avoid low per-session limits on that origin.
+        AddFixedWindowPolicy(options, AqPublicReadRateLimitPolicy, aqReadPermitLimit, TimeSpan.FromMinutes(1));
+        AddFixedWindowPolicy(options, AqPublicSubmitRateLimitPolicy, aqSubmitPermitLimit, TimeSpan.FromMinutes(1));
         AddFixedWindowPolicy(options, LoginRateLimitPolicy, 10, TimeSpan.FromMinutes(1));
         AddFixedWindowPolicy(options, InviteRateLimitPolicy, 10, TimeSpan.FromMinutes(1));
         AddFixedWindowPolicy(options, FileUploadRateLimitPolicy, 20, TimeSpan.FromMinutes(1));
@@ -361,3 +374,11 @@ public static class HttpSecurityPolicy
         return true;
     }
 }
+
+internal sealed record RateLimitResponse(
+    [property: System.Text.Json.Serialization.JsonPropertyName("requestId")] string RequestId,
+    [property: System.Text.Json.Serialization.JsonPropertyName("error")] RateLimitError Error);
+
+internal sealed record RateLimitError(
+    [property: System.Text.Json.Serialization.JsonPropertyName("code")] string Code,
+    [property: System.Text.Json.Serialization.JsonPropertyName("message")] string Message);

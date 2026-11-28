@@ -15,7 +15,8 @@ public sealed class CsrfProtectionMiddleware(
 
     public async Task InvokeAsync(HttpContext context)
     {
-        if (!securityOptions.Value.EnableCsrfProtection ||
+        var publicSurvey = AqPublicRoutes.IsSurveySubmission(context.Request.Path);
+        if ((!securityOptions.Value.EnableCsrfProtection && !publicSurvey) ||
             IsSafeMethod(context.Request.Method) ||
             IsMethodNotAllowedEndpoint(context))
         {
@@ -41,6 +42,16 @@ public sealed class CsrfProtectionMiddleware(
         }
         catch (AntiforgeryValidationException ex)
         {
+            if (publicSurvey || AqPublicRoutes.IsProtectedSurvey(context))
+            {
+                logger.LogWarning("Rejected survey mutation without a valid antiforgery token.");
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await context.Response.WriteAsJsonAsync(ApiEnvelope.Error(
+                    context, StatusCodes.Status403Forbidden, "CsrfRejected",
+                    "A valid CSRF token is required."), context.RequestAborted);
+                return;
+            }
+
             var safeMethod = context.Request.Method
                 .Replace("\r", string.Empty, StringComparison.Ordinal)
                 .Replace("\n", string.Empty, StringComparison.Ordinal);

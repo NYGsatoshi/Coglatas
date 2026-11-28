@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Coglatas.Application.Realtime;
+using Coglatas.Application.SurveyFeedback;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Persistence;
@@ -12,6 +13,27 @@ namespace Coglatas.Tests.SecurityArchitecture;
 public sealed class SecurityArchitectureSignalREventTests
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    // This predecessor catalogue defines the existing SEC-ARCH transport receipts.
+    private static readonly IReadOnlyDictionary<string, RealtimeSubscriptionType> PreAqEventTargets =
+        new Dictionary<string, RealtimeSubscriptionType>(StringComparer.Ordinal)
+        {
+            ["Messaging.MessageCreated.v1"] = RealtimeSubscriptionType.Conversation,
+            ["Messaging.MessageUpdated.v1"] = RealtimeSubscriptionType.Conversation,
+            ["Messaging.MessageDeleted.v1"] = RealtimeSubscriptionType.Conversation,
+            ["Messaging.ThreadChanged.v1"] = RealtimeSubscriptionType.Conversation,
+            ["Messaging.ConversationUnreadChanged.v1"] = RealtimeSubscriptionType.User,
+            ["Notifications.NotificationCreated.v1"] = RealtimeSubscriptionType.User,
+            ["Notifications.NotificationReadStateChanged.v1"] = RealtimeSubscriptionType.User,
+            ["Projects.TaskChanged.v1"] = RealtimeSubscriptionType.Project,
+            ["Projects.TaskAssignmentChanged.v1"] = RealtimeSubscriptionType.Project,
+            ["Projects.TaskWorkflowChanged.v1"] = RealtimeSubscriptionType.Project,
+            ["Projects.TaskCommentChanged.v1"] = RealtimeSubscriptionType.Project,
+            ["Projects.ProjectChanged.v1"] = RealtimeSubscriptionType.Project,
+            ["Announcements.AnnouncementChanged.v1"] = RealtimeSubscriptionType.User,
+            ["Files.FileChanged.v1"] = RealtimeSubscriptionType.Workspace,
+            ["Security.AuthorizationStateChanged.v1"] = RealtimeSubscriptionType.User
+        };
 
     [PostgreSqlFact]
     public async Task EveryDeclaredEventHasLiveTenantAndCurrentMembershipControls()
@@ -33,8 +55,7 @@ public sealed class SecurityArchitectureSignalREventTests
             await SubscribeAllAsync(owner, alphaScope);
             await SubscribeAllAsync(beta, betaScope);
             var observations = new List<object>();
-            var events = RealtimeEventCatalog.EventTypes.Order(StringComparer.Ordinal).ToArray();
-            Assert.Equal(15, events.Length);
+            Assert.Equal(15, PreAqEventTargets.Count);
             foreach (var route in CatalogueRoutes())
             {
                 var eventType = route.EventType;
@@ -135,7 +156,8 @@ public sealed class SecurityArchitectureSignalREventTests
             await controls.SaveAsync();
             await SecurityArchitectureInventoryTests.WritePrivateInventoryAsync("signalr-event-execution.json", new
             {
-                schemaVersion = 1, eventTypeCount = events.Length, observations,
+                schemaVersion = 1, eventCatalogueGeneration = "SEC_ARCH_PRE_AQ_V1",
+                eventTypeCount = PreAqEventTargets.Count, observations,
                 fixture = "SYNTHETIC_DURABLE_ENVELOPES_THROUGH_PRODUCT_POSTGRESQL_OUTBOX_AND_WEBSOCKET_DISPATCH",
                 businessProducerOutcome = "UNVERIFIED", specMappingOutcome = "UNVERIFIED", approval = "DRAFT",
                 blindSpots = new[] { "Catalogue delivery controls do not execute every business producer or payload/role/capability combination.",
@@ -518,8 +540,9 @@ public sealed class SecurityArchitectureSignalREventTests
 
     internal static EventRoute[] CatalogueRoutes()
     {
-        var routes = RealtimeEventCatalog.EventTypes.Order(StringComparer.Ordinal)
-            .Select(item => new EventRoute(item, TargetFor(item))).Concat(
+        Assert.Equal(PreAqEventTargets.Keys.Append(SurveyFeedbackInvalidation.EventName).Order(StringComparer.Ordinal),
+            RealtimeEventCatalog.EventTypes.Order(StringComparer.Ordinal));
+        var routes = PreAqEventTargets.Select(item => new EventRoute(item.Key, item.Value)).Concat(
             [
                 new EventRoute("Projects.TaskChanged.v1", RealtimeSubscriptionType.User, RealtimeSubscriptionType.User),
                 new EventRoute("Projects.ProjectChanged.v1", RealtimeSubscriptionType.Workspace, RealtimeSubscriptionType.Workspace)
@@ -527,14 +550,4 @@ public sealed class SecurityArchitectureSignalREventTests
         Assert.Equal(17, routes.Length);
         return routes;
     }
-
-    private static RealtimeSubscriptionType TargetFor(string eventType) => eventType switch
-    {
-        "Messaging.ConversationUnreadChanged.v1" or "Announcements.AnnouncementChanged.v1" or
-            "Notifications.NotificationCreated.v1" or "Notifications.NotificationReadStateChanged.v1" or
-            "Security.AuthorizationStateChanged.v1" => RealtimeSubscriptionType.User,
-        "Files.FileChanged.v1" => RealtimeSubscriptionType.Workspace,
-        _ when eventType.StartsWith("Projects.", StringComparison.Ordinal) => RealtimeSubscriptionType.Project,
-        _ => RealtimeSubscriptionType.Conversation
-    };
 }

@@ -1,0 +1,25 @@
+// AQ-P0 workspace copy follows the existing Japanese-first product locale.
+export const AQ_WORKSPACE_COPY = {
+  managementSections: '運営画面のセクション',
+  reception: '公開と受付',
+  presentations: '発表と名簿',
+  questions: '共通フォームと設問',
+  distribution: 'アンケートの割り当てとQR資料',
+  invitations: '閲覧招待の承認',
+  moveUp: '上へ移動',
+  moveDown: '下へ移動',
+  required: '必須',
+  optional: '任意',
+  validAnswers: '有効回答',
+  mean: '平均',
+  countSuffix: '件',
+  fieldTypes: {
+    text: '自由記述',
+    number: '数値',
+    scale: '評価',
+    date: '日付',
+    boolean: 'はい・いいえ',
+    singleChoice: '単一選択',
+    multipleChoice: '複数選択',
+  },
+} as const;

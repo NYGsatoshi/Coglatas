@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Coglatas.Web.Controllers;
 using Coglatas.Web.Middleware;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -69,6 +70,60 @@ public sealed class GlobalExceptionHandlingMiddlewareTests
         Assert.Equal("InvalidRequest", root.GetProperty("code").GetString());
         Assert.Equal("The request body is invalid.", root.GetProperty("message").GetString());
         Assert.Equal("multipart-trace", root.GetProperty("traceId").GetString());
+    }
+
+    [Theory]
+    [InlineData(StatusCodes.Status400BadRequest, "InvalidRequest", "The request body is invalid.")]
+    [InlineData(StatusCodes.Status415UnsupportedMediaType, "UnsupportedMediaType", "The request Content-Type is not supported.")]
+    [Trait("Feature", "AQ")]
+    public async Task ProtectedAqTransportRejectionsUseTheirDocumentedBodies(
+        int status, string code, string message)
+    {
+        var middleware = new GlobalExceptionHandlingMiddleware(
+            _ => throw new BadHttpRequestException("Synthetic transport detail.", status),
+            NullLogger<GlobalExceptionHandlingMiddleware>.Instance);
+        var context = new DefaultHttpContext
+        {
+            TraceIdentifier = "aq-transport-trace",
+            Response = { Body = new MemoryStream() },
+            Request =
+            {
+                Method = HttpMethods.Post,
+                Path = "/api/v1/core/events/00000000-0000-0000-0000-000000000001/presentations/import-preview"
+            }
+        };
+        context.SetEndpoint(new Endpoint(
+            _ => Task.CompletedTask,
+            new EndpointMetadataCollection(typeof(AqRosterImportController).GetCustomAttributes(inherit: true)),
+            "AQ roster import"));
+
+        await middleware.InvokeAsync(context);
+
+        context.Response.Body.Position = 0;
+        using var payload = await JsonDocument.ParseAsync(context.Response.Body);
+        var root = payload.RootElement;
+        Assert.Equal(status, context.Response.StatusCode);
+        Assert.Contains("application/json", context.Response.ContentType);
+        Assert.DoesNotContain("Synthetic transport detail.", root.GetRawText(), StringComparison.Ordinal);
+        if (status == StatusCodes.Status400BadRequest)
+        {
+            Assert.Equal("aq-transport-trace", root.GetProperty("requestId").GetString());
+            Assert.False(string.IsNullOrWhiteSpace(root.GetProperty("traceId").GetString()));
+            Assert.Equal(status, root.GetProperty("status").GetInt32());
+            var error = root.GetProperty("error");
+            Assert.Equal(code, error.GetProperty("code").GetString());
+            Assert.Equal(message, error.GetProperty("message").GetString());
+            Assert.Equal(JsonValueKind.Null, error.GetProperty("target").ValueKind);
+            Assert.Empty(error.GetProperty("details").EnumerateArray());
+            Assert.False(error.GetProperty("redactionApplied").GetBoolean());
+        }
+        else
+        {
+            Assert.Equal(code, root.GetProperty("code").GetString());
+            Assert.Equal(message, root.GetProperty("message").GetString());
+            Assert.Equal("aq-transport-trace", root.GetProperty("traceId").GetString());
+            Assert.False(root.TryGetProperty("error", out _));
+        }
     }
 
     [Fact]
