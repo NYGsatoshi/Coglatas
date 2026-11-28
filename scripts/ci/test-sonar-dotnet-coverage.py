@@ -1033,6 +1033,57 @@ class CoverageTests(unittest.TestCase):
             MODULE.compare_shard_proof()
             self.assertEqual(json.loads(output.read_bytes()), result)
 
+            # The actual comparator, not the earlier synthetic minimal receipt,
+            # now provides the exact baseline compiler digest.
+            shutil.rmtree(self.root / MODULE.DOTNET_SHARD_INPUTS)
+            digest = MODULE.stage_shard_handoff(self.root, identity)
+            compiler_output = self.root / "compiler-output"
+            os.environ["EXPECTED_DOTNET_SHARD_DIGEST"] = digest
+            os.environ["GITHUB_OUTPUT"] = str(compiler_output)
+            baseline_archive = lanes["baseline"] / "compiler-identity"
+            original_packet = reproduction.manifest(baseline_archive)
+            expected = result["lanes"]["baseline"]["compilerFixture"]["compilerReceiptSha256"]
+            self.assertEqual(native.digest((baseline_archive / "receipt.json").read_bytes()), expected)
+            destination = self.root / "artifacts/sonar-openapi-reproduction"
+            malformed = json.loads(json.dumps(result))
+            del malformed["lanes"]["baseline"]["compilerFixture"]
+            with self.assertRaisesRegex(ValueError, "Missing qualified baseline compiler fixture"):
+                MODULE.stage_compiler_handoff(self.root, identity, malformed)
+            self.assertFalse(destination.exists())
+            malformed["lanes"]["baseline"]["compilerFixture"] = {"compilerReceiptSha256": "0" * 64}
+            with self.assertRaisesRegex(ValueError, "Compiler receipt differs from qualified baseline"):
+                MODULE.stage_compiler_handoff(self.root, identity, malformed)
+            self.assertFalse(destination.exists())
+            MODULE.shard_trial("shard-stage-compiler")
+            self.assertEqual(compiler_output.read_text(), "digest=" + expected + "\n")
+            self.assertEqual(reproduction.manifest(destination), original_packet)
+            self.assertEqual((destination / "receipt.json").read_bytes(),
+                             (baseline_archive / "receipt.json").read_bytes())
+            os.environ["EXPECTED_RECEIPT_DIGEST"] = expected
+            MODULE.shard_trial("shard-verify-compiler")
+            os.environ["EXPECTED_RECEIPT_DIGEST"] = "0" * 64
+            with self.assertRaisesRegex(ValueError, "Compiler handoff output digest differs"):
+                MODULE.shard_trial("shard-verify-compiler")
+            os.environ["EXPECTED_RECEIPT_DIGEST"] = expected
+            extra = destination / "extra"
+            extra.mkdir()
+            try:
+                with self.assertRaisesRegex(ValueError, "Unexpected compiler handoff inventory"):
+                    MODULE.shard_trial("shard-verify-compiler")
+            finally:
+                extra.rmdir()
+            mapping_file = destination / "mapping.original"
+            original_mapping = mapping_file.read_bytes()
+            try:
+                mapping_file.write_bytes(original_mapping + b"changed")
+                with self.assertRaisesRegex(ValueError, "Diagnostic producer evidence differs"):
+                    MODULE.shard_trial("shard-verify-compiler")
+            finally:
+                mapping_file.write_bytes(original_mapping)
+            MODULE.shard_trial("shard-verify-compiler")
+            self.assertEqual(reproduction.manifest(baseline_archive), original_packet)
+            self.assertEqual(reproduction.manifest(destination), original_packet)
+
 
 if __name__ == "__main__":
     unittest.main()

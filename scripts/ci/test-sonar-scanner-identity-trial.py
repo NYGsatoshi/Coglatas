@@ -91,14 +91,21 @@ class ScannerIdentityTrialTests(unittest.TestCase):
 
     def test_diagnostic_producer_does_not_supply_scanner_coverage(self):
         workflow = (MODULE.ROOT / ".github/workflows/sonarcloud-ci.yml").read_text()
-        producer = workflow.split("  dotnet-identity-probe:\n", 1)[1].split("\n  sonarcloud:\n", 1)[0]
+        proof = (MODULE.ROOT / ".github/workflows/sonar-dotnet-shard-proof.yml").read_text()
+        producer = proof.split("  compare:\n", 1)[1]
         scanner = workflow.split("  sonarcloud:\n", 1)[1]
-        self.assertIn("needs: target", producer)
+        self.assertIn("needs: collect", producer)
         self.assertIn("contents: read", producer)
         self.assertNotIn("secrets.", producer)
         self.assertNotIn("SONAR_TOKEN", producer)
         self.assertNotIn("environment: sonarcloud-analysis", producer)
-        self.assertIn("dotnet-identity-probe]", scanner)
+        self.assertNotIn("  dotnet-identity-probe:", workflow)
+        self.assertIn("dotnet-shard-coverage]", scanner)
+        self.assertIn("needs.dotnet-shard-coverage.outputs.compiler_digest", scanner)
+        self.assertIn("shard-stage-compiler", producer)
+        self.assertLess(producer.index("Compare full native test inventory"),
+                        producer.index("Stage exact qualified baseline compiler evidence"))
+        self.assertLess(scanner.index("shard-verify-compiler"), scanner.index("Verify diagnostic bytes"))
         self.assertEqual(scanner.count("secrets.SONAR_TOKEN"), 2)
         self.assertLess(scanner.index("Verify diagnostic bytes"), scanner.index("Begin pinned SonarCloud analysis"))
         self.assertLess(scanner.index("Build inside the SonarScanner"), scanner.index("Compare actual scanner build"))
