@@ -9,6 +9,7 @@ on:
       - ".github/workflows/sonarcloud-ci.yml"
       - "scripts/ci/sonar-python.coveragerc"
       - "scripts/ci/sonar-python-controls.sh"
+      - "scripts/ci/test-sonar-python-process-coverage.py"
       - "scripts/ci/sonar-coverage-requirements.txt"
       - "scripts/ci/sonar-python-coverage-bootstrap/**"
 

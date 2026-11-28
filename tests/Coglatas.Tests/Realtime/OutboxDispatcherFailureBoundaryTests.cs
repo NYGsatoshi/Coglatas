@@ -230,15 +230,8 @@ public sealed class OutboxDispatcherFailureBoundaryTests
     public async Task BatchFailureIsRecordedBeforeCanceledPollingExits()
     {
         await using var fixture = new Fixture();
-        using var stopping = new CancellationTokenSource();
-        fixture.Repository.ClaimOverride = _ =>
-        {
-            stopping.Cancel();
-            return Task.FromException<IReadOnlyList<OutboxEvent>>(new IOException("Synthetic claim failure."));
-        };
-
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            fixture.ExecuteAsync(stopping.Token).WaitAsync(TimeSpan.FromSeconds(30)));
+            fixture.ExecuteUntilFailedClaimCancelsAsync().WaitAsync(TimeSpan.FromSeconds(30)));
         Assert.Equal(1, fixture.Repository.ClaimCalls);
         Assert.Equal(1, fixture.Diagnostics.Snapshot().DispatcherFailureCount);
         Assert.Empty(fixture.Repository.Failures);
@@ -307,6 +300,26 @@ public sealed class OutboxDispatcherFailureBoundaryTests
                 case "acknowledgement": Repository.AcknowledgementException = exception; break;
                 default: throw new ArgumentOutOfRangeException(nameof(stage));
             }
+        }
+
+        public async Task ExecuteUntilFailedClaimCancelsAsync()
+        {
+            Repository.ClaimOverride = CancelLifetimeAndFailClaim;
+            try
+            {
+                await ExecuteAsync(_lifetime.Token);
+            }
+            finally
+            {
+                Repository.ClaimOverride = null;
+            }
+        }
+
+        private Task<IReadOnlyList<OutboxEvent>> CancelLifetimeAndFailClaim(CancellationToken token)
+        {
+            Assert.Equal(_lifetime.Token, token);
+            _lifetime.Cancel();
+            return Task.FromException<IReadOnlyList<OutboxEvent>>(new IOException("Synthetic claim failure."));
         }
 
         public Task ExecuteAsync(CancellationToken token)
