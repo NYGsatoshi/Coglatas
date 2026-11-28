@@ -1,0 +1,22 @@
+{
+  "Avalonia.Angle.Windows.Natives.2.1.27548.20260419.txt": {
+    "original_bytes_sha256": "54aff7276217df9f6b5181613999d208c9e40d2b1d51bf55217837e6871a4a63",
+    "repository_text_sha256": "bf4da21bd20bcfb5b60b7ecc67fa864a79be049e21d6178076887f178dd6c71a",
+    "change": "CRLF converted to repository LF; legal text unchanged"
+  },
+  "Interop.UIAutomationClient.10.19041.0.txt": {
+    "original_bytes_sha256": "ae507f8cb7ce8b34d9ba817d165492af4225482305a8b92c7620f5fa7b7c57a1",
+    "repository_text_sha256": "a48b4756bc58f791b3b350a534b6a0e7eac6608dfda72d098ef08d6634866b11",
+    "change": "CRLF converted to repository LF; legal text unchanged"
+  },
+  "FlaUI.UIA3.5.0.0.txt": {
+    "original_bytes_sha256": "5914c914df1029ae6f7f2682f04f6fc587e195424040933a43e6599d6cd8a529",
+    "repository_text_sha256": "5914c914df1029ae6f7f2682f04f6fc587e195424040933a43e6599d6cd8a529",
+    "change": "CRLF converted to repository LF; legal text unchanged"
+  },
+  "FlaUI.Core.5.0.0.txt": {
+    "original_bytes_sha256": "5914c914df1029ae6f7f2682f04f6fc587e195424040933a43e6599d6cd8a529",
+    "repository_text_sha256": "5914c914df1029ae6f7f2682f04f6fc587e195424040933a43e6599d6cd8a529",
+    "change": "CRLF converted to repository LF; legal text unchanged"
+  }
+}

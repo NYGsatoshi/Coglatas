@@ -1,0 +1,79 @@
+name: J17 isolated Windows UIA3 PoC (NO-MERGE)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [SecurityTestImplimation]
+    paths:
+      - .github/workflows/j17-windows-uia3-diagnostic.yml
+      - tools/diagnostics/j17-windows-uia3/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: j17-windows-uia3-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  synthetic-windows-uia3:
+    name: Synthetic Windows UIA3 (diagnostic NO-MERGE)
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.base_ref == 'SecurityTestImplimation' &&
+      github.head_ref == 'security/diagnostic-j17-windows-uia3-20261128' &&
+      github.event.pull_request.draft == true &&
+      contains(github.event.pull_request.title, 'NO-MERGE')
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      CI: 'true'
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      DOTNET_CLI_UI_LANGUAGE: en-US
+      NUGET_PACKAGES: ${{ runner.temp }}/j17-packages
+      EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Check out exact same-repository diagnostic head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reject false-positive receipts independently of UI execution
+        shell: pwsh
+        run: ./tools/diagnostics/j17-windows-uia3/test-receipt-controls.ps1
+      - name: Establish interactive input desktop or retain NOT_RUN
+        shell: pwsh
+        run: ./tools/diagnostics/j17-windows-uia3/desktop-preflight.ps1 -EvidenceDirectory "$env:RUNNER_TEMP/j17-evidence/public"
+      - name: Set up isolated pinned SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: tools/diagnostics/j17-windows-uia3/global.json
+      - name: Restore frozen isolated graphs and verify signatures and licenses
+        shell: pwsh
+        run: |
+          $probe = './tools/diagnostics/j17-windows-uia3'
+          foreach ($project in @('windows-host/WindowsHost.csproj', 'windows-uia/WindowsUiProbe.csproj')) {
+            dotnet restore "$probe/$project" --locked-mode --configfile "$probe/NuGet.Config" --disable-parallel
+            if ($LASTEXITCODE -ne 0) { throw 'Isolated locked restore failed.' }
+          }
+          & "$probe/verify-packages.ps1" -EvidenceDirectory "$env:RUNNER_TEMP/j17-evidence/public" -PackageRoot $env:NUGET_PACKAGES
+      - name: Build only the synthetic host and automation harness
+        shell: pwsh
+        run: |
+          foreach ($project in @('windows-host/WindowsHost.csproj', 'windows-uia/WindowsUiProbe.csproj')) {
+            dotnet build "./tools/diagnostics/j17-windows-uia3/$project" --no-restore -c Release --warnaserror -m:1 -p:UseSharedCompilation=false
+            if ($LASTEXITCODE -ne 0) { throw 'Isolated strict Release build failed.' }
+          }
+      - name: Run bounded actual Windows automation against the owned synthetic child
+        shell: pwsh
+        run: ./tools/diagnostics/j17-windows-uia3/run-probe.ps1 -EvidenceDirectory "$env:RUNNER_TEMP/j17-evidence/public" -PrivateDirectory "$env:RUNNER_TEMP/j17-evidence/private"
+      - name: Retain finite synthetic observations and original failures
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: j17-synthetic-windows-uia3-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/j17-evidence/public
+          if-no-files-found: error
+          retention-days: 14
