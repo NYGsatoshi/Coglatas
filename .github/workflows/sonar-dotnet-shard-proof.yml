@@ -20,6 +20,7 @@ on:
       - "scripts/ci/test-sonarcloud-routing.py"
       - "tests/Coglatas.Tests/Realtime/OutboxDispatcherFailureBoundaryTests.cs"
       - "tests/Coglatas.Tests/PostgreSql/Wpc02CCanonicalProjectCreatePostgreSqlTests.cs"
+      - "tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalREventTests.cs"
 
 permissions:
   contents: read
