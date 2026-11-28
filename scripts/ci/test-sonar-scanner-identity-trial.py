@@ -164,8 +164,6 @@ class ScannerIdentityTrialTests(unittest.TestCase):
                 mapping = root / "tests/Coglatas.Tests/bin/Release/net11.0/CoverletSourceRootsMapping_Coglatas.Tests"
                 mapping.write_bytes(b"fixture mapping")
                 (folder / "mapping.original").write_bytes(mapping.read_bytes())
-                actual_sources = {}
-                inventories = {}
                 for name, project in helper.PROJECTS.items():
                     producer = folder / name
                     producer.mkdir()
@@ -173,13 +171,11 @@ class ScannerIdentityTrialTests(unittest.TestCase):
                     obj.mkdir(parents=True)
                     data = ("fixture generated " + name).encode()
                     (producer / helper.GENERATOR).write_bytes(data)
-                    actual_sources[name] = obj / helper.GENERATOR
-                    actual_sources[name].write_bytes(data)
+                    (obj / helper.GENERATOR).write_bytes(data)
                     (producer / "inputs.txt").write_text(
                         "PROBE\n" + helper.FIXTURE_PREFIX + "1.xml\n" +
                         helper.FIXTURE_PREFIX + "2.xml\n", encoding="utf-8")
-                    inventories[name] = obj / MODULE.INVENTORY_NAME
-                    inventories[name].write_text(
+                    (obj / MODULE.INVENTORY_NAME).write_text(
                         "PROBE\nSCANNER=True\nSonarLint.xml\nSonarProjectConfig.xml\n"
                         "private-fixture.txt\n", encoding="utf-8")
                 receipt = dict(info, xmlCount=2, hashes=helper.manifest(folder), assemblies=assemblies)
@@ -211,33 +207,46 @@ class ScannerIdentityTrialTests(unittest.TestCase):
                 self.assertEqual(result["generated"]["Coglatas.Web"]["scannerInputs"]["nonXmlCount"], 1)
                 output.unlink()
 
-                def negative(changes, assertion):
-                    originals = {path: path.read_bytes() for path in changes}
+                def negative(streams, suffix, assertion):
+                    # Accept only already-open fixture streams, not paths from
+                    # receipts, compiler inventories or arbitrary mapping keys.
+                    originals = [(stream, stream.read()) for stream in streams]
+
+                    def replace_bytes(stream, value):
+                        stream.seek(0)
+                        stream.write(value)
+                        stream.truncate()
+                        stream.flush()
+
                     try:
-                        for path, value in changes.items():
-                            path.write_bytes(value)
+                        for stream, value in originals:
+                            replace_bytes(stream, value + suffix)
                         MODULE.compare()
                         altered = json.loads(output.read_bytes())
                         self.assertFalse(altered["byteIdentical"])
                         assertion(altered)
                         output.unlink()
                     finally:
-                        for path, value in originals.items():
-                            path.write_bytes(value)
+                        for stream, value in originals:
+                            replace_bytes(stream, value)
+                            stream.seek(0)
+                            self.assertEqual(stream.read(), value)
 
-                source_file = actual_sources["Coglatas.Web"]
-                negative({source_file: source_file.read_bytes() + b"\n"},
-                         lambda altered: self.assertFalse(altered["generated"]["Coglatas.Web"]["identical"]))
-                negative({mapping: mapping.read_bytes() + b" changed"},
-                         lambda altered: self.assertFalse(altered["mappingIdentical"]))
-                assembly = "Coglatas.Web"
-                relative = "bin/Release/net11.0/" + assembly + ".dll"
-                paths = {root / prefix / relative for prefix in
-                         (verifier.ASSEMBLIES[assembly], "tests/Coglatas.Tests")}
-                negative({path: path.read_bytes() + b" changed" for path in paths},
-                         lambda altered: self.assertEqual(altered["changedAssemblyFiles"],
-                                                          ["assemblies/Coglatas.Web.dll"]))
-                inventory = inventories["Coglatas.Web"]
+                # The temporary directory is created by this test. Bind
+                # each mutation to an explicit, locally created fixture file,
+                # independently of the contents of any captured evidence.
+                with (root / "src/Coglatas.Web/obj/Release/net11.0/OpenApiXmlCommentSupport.generated.cs").open("r+b") as generated:
+                    negative((generated,), b"\n",
+                             lambda altered: self.assertFalse(altered["generated"]["Coglatas.Web"]["identical"]))
+                with (root / "tests/Coglatas.Tests/bin/Release/net11.0/CoverletSourceRootsMapping_Coglatas.Tests").open("r+b") as source_map:
+                    negative((source_map,), b" changed",
+                             lambda altered: self.assertFalse(altered["mappingIdentical"]))
+                with ((root / "src/Coglatas.Web/bin/Release/net11.0/Coglatas.Web.dll").open("r+b") as project_output,
+                      (root / "tests/Coglatas.Tests/bin/Release/net11.0/Coglatas.Web.dll").open("r+b") as executed_copy):
+                    negative((project_output, executed_copy), b" changed",
+                             lambda altered: self.assertEqual(altered["changedAssemblyFiles"],
+                                                              ["assemblies/Coglatas.Web.dll"]))
+                inventory = root / "src/Coglatas.Web/obj/Release/net11.0/sonar-scanner-additional-files.txt"
                 raw = inventory.read_bytes()
                 try:
                     inventory.write_bytes(raw + b"/private/path.xml\n")
