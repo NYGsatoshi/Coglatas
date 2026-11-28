@@ -117,6 +117,58 @@ public sealed partial class AqPublicSurveyHostedPostgreSqlTests
         });
 
     [PostgreSqlFact]
+    public Task HeldSubmissionIntentReturnsConflictWithoutWritingAndRetryReplaysOneReceipt() =>
+        AqPostgreSqlScenario.WithHostedEventAsync(async (database, host, project, activity) =>
+        {
+            var survey = await SeedAsync(database, host, project, activity);
+            using var guest = AqPostgreSqlScenario.CreateGuestClient(host);
+            var key = Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture);
+            var payload = Payload(survey);
+            // Coordinate the real PostgreSQL lock independently of request
+            // scheduling. The original two-request race test remains unchanged.
+            var digest = AqPublicSurveyService.Hash(key);
+            var hash = System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes($"aq-public:{survey.TargetId:D}:{digest}"));
+            var lockKey = System.Buffers.Binary.BinaryPrimitives.ReadInt64BigEndian(hash);
+            await using (var blocker = new NpgsqlConnection(database))
+            {
+                await blocker.OpenAsync();
+                await using var transaction = await blocker.BeginTransactionAsync();
+                await using var hold = new NpgsqlCommand(
+                    "SELECT pg_try_advisory_xact_lock(@key)", blocker, transaction);
+                hold.Parameters.AddWithValue("key", lockKey);
+                Assert.True(Assert.IsType<bool>(await hold.ExecuteScalarAsync()));
+
+                using (var conflict = await SubmitAsync(guest, survey.TargetCode, key, payload))
+                    await AssertErrorAsync(conflict, HttpStatusCode.Conflict, "ConcurrentModification");
+
+                await using var before = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+                Assert.False(await before.Set<FormSubmission>().AnyAsync(row => row.SurveyTargetId == survey.TargetId));
+                Assert.False(await before.Set<SubmissionIdempotency>().AnyAsync(row => row.SurveyTargetId == survey.TargetId));
+                await transaction.CommitAsync();
+            }
+
+            string receiptId;
+            using (var accepted = await SubmitAsync(guest, survey.TargetCode, key, payload))
+                receiptId = await ReadMinimalReceiptAsync(accepted);
+            using (var replay = await SubmitAsync(guest, survey.TargetCode, key, payload))
+                Assert.Equal(receiptId, await ReadMinimalReceiptAsync(replay));
+
+            await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+            var saved = await db.Set<FormSubmission>().AsNoTracking().SingleAsync(row => row.SurveyTargetId == survey.TargetId);
+            Assert.Null(saved.RespondentUserId);
+            var value = await db.Set<FormSubmissionValue>().AsNoTracking().SingleAsync(row => row.FormSubmissionId == saved.Id);
+            using (var answer = JsonDocument.Parse(value.ValueJson))
+                Assert.Equal(AnswerText, answer.RootElement.GetString());
+            var record = await db.Set<SubmissionIdempotency>().AsNoTracking()
+                .SingleAsync(row => row.SurveyTargetId == survey.TargetId);
+            Assert.Equal(saved.Id, record.FormSubmissionId);
+            Assert.Equal(digest, record.KeyDigest);
+            Assert.Equal(saved.SubmittedAtUtc.AddHours(24), record.ExpiresAtUtc);
+            Assert.Equal(1, await db.AuditLogs.CountAsync(row => row.EntityId == saved.Id && row.Action == "AqPublicSurveySubmitted"));
+        });
+
+    [PostgreSqlFact]
     public Task SignedInAnonymousAndOptionalNameRemainUnlinkedUntilExplicitEligibleConsent() =>
         AqPostgreSqlScenario.WithHostedEventAsync(async (database, host, project, activity) =>
         {
