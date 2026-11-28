@@ -192,6 +192,31 @@ class AngularProofTests(unittest.TestCase):
                 MODULE.compare("baseline-only")
             for lane in ("shard-1", "shard-2"):
                 (parent / ("sonar-angular-shard-proof-" + lane + "-1")).rename(self.root / lane)
+            # Reproduce both the actual one-match flattening failure and the
+            # nested layout that extra matches would produce at the fixed path.
+            lane = parent / "sonar-angular-shard-proof-baseline-1"
+            flat = self.root / "flat-download"
+            lane.rename(flat)
+            for item in list(flat.iterdir()):
+                item.rename(parent / item.name)
+            with self.assertRaisesRegex(ValueError, "Missing, stale or unexpected"):
+                MODULE.compare("baseline-only")
+            self.assertFalse(output.exists())
+            lane.mkdir()
+            for item in list(parent.iterdir()):
+                if item != lane:
+                    item.rename(lane / item.name)
+            nested = lane / "sonar-angular-shard-proof-baseline-1"
+            nested.mkdir()
+            for item in list(lane.iterdir()):
+                if item != nested:
+                    item.rename(nested / item.name)
+            with self.assertRaisesRegex(ValueError, "Invalid Angular artifact contents"):
+                MODULE.compare("baseline-only")
+            self.assertFalse(output.exists())
+            for item in list(nested.iterdir()):
+                item.rename(lane / item.name)
+            nested.rmdir()
             MODULE.compare("baseline-only")
             canonical = json.loads(output.read_bytes())
             self.assertEqual(canonical["mode"], "baseline-only")
@@ -236,6 +261,20 @@ class AngularProofTests(unittest.TestCase):
         self.assertIn("needs: [target, angular-native-lanes]", admission)
         self.assertIn('verify-sonar-angular-coverage.py compare --mode "$PROOF_MODE"', admission)
         self.assertIn("analysis_kind == 'pull_request' && 'baseline-only' || 'full'", admission)
+        single = admission.split("- name: Download original Angular baseline into its exact lane directory", 1)[1].split("- name:", 1)[0]
+        full = admission.split("- name: Download original Angular baseline and shards from this attempt", 1)[1].split("- name:", 1)[0]
+        canonical = proof.split("- name: Download original full native Angular execution", 1)[1].split("- name:", 1)[0]
+        self.assertIn("if: needs.target.outputs.analysis_kind == 'pull_request'", single)
+        self.assertIn("if: needs.target.outputs.analysis_kind == 'main'", full)
+        for step in (single, full, canonical):
+            self.assertIn("uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2", step)
+            self.assertIn("merge-multiple: false", step)
+        self.assertIn("pattern: sonar-angular-shard-proof-*-${{ github.run_attempt }}", single)
+        self.assertIn("pattern: sonar-angular-shard-proof-*-${{ github.run_attempt }}", full)
+        self.assertIn("pattern: sonar-angular-shard-proof-baseline-${{ github.run_attempt }}", canonical)
+        self.assertIn("path: artifacts/sonar-angular-shard-proof/sonar-angular-shard-proof-baseline-${{ github.run_attempt }}", single)
+        self.assertIn("path: artifacts/sonar-angular-shard-proof/sonar-angular-shard-proof-baseline-${{ github.run_attempt }}", canonical)
+        self.assertIn("path: artifacts/sonar-angular-shard-proof\n", full)
         self.assertIn("Verify Angular coverage handoff before scanner credentials", scanner)
         self.assertLess(scanner.index("Verify Angular coverage handoff before scanner credentials"),
                         scanner.index("Begin pinned SonarCloud analysis"))

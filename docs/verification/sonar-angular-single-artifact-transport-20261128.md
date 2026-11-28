@@ -1,0 +1,7 @@
+# Angular single-artifact transport correction
+
+Reference actual integration run [46096273471](https://github.com/NYGsatoshi/Coglatas/actions/runs/46096273471), exact head 747025f0ae6d38656424e117ec9ca9671024eb14. The original complete Angular test producer passed. [Admission log](https://github.com/NYGsatoshi/Coglatas/actions/runs/46096273471/job/140829562346) records that pinned download-artifact v8.0.2 matched exactly one baseline artifact and extracted directly into artifacts/sonar-angular-shard-proof instead of creating its artifact-name subdirectory. The archive digest matched, but the correct fail-closed inventory check rejected this layout before scanner credentials.
+
+Use the exact baseline lane destination for trusted PR pattern downloads; Main retains the full multi-artifact root. Keep the wildcard attempt-scoped pattern and merge-multiple=false so unexpected additional matches produce nested directories and fail the existing exact artifact inventory check. No alternate layout acceptance, report rewriting, test selection or coverage scope change. The dedicated native proof now exercises a real single pattern match (previously it used the named-download shortcut). Regression fixtures reject both the observed flattened layout and nested extra-match layout, then admit exactly the correct original bytes.
+
+Require ordinary/static CI, native Angular proof and actual trusted staging publication. No speedup or Quality Gate pass claim from the failed original run. No Main merge.

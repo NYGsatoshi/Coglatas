@@ -860,11 +860,24 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # v8 extracts a single pattern match directly into path, whereas
+      # multiple matches get artifact-name subdirectories. Preserve the exact
+      # lane inventory in both modes; extra matches in PR mode fail admission.
+      - name: Download original Angular baseline into its exact lane directory
+        if: needs.target.outputs.analysis_kind == 'pull_request'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: sonar-angular-shard-proof-*-${{ github.run_attempt }}
+          path: artifacts/sonar-angular-shard-proof/sonar-angular-shard-proof-baseline-${{ github.run_attempt }}
+          merge-multiple: false
+
       - name: Download original Angular baseline and shards from this attempt
+        if: needs.target.outputs.analysis_kind == 'main'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: sonar-angular-shard-proof-*-${{ github.run_attempt }}
           path: artifacts/sonar-angular-shard-proof
+          merge-multiple: false
 
       - name: Require complete native Angular coverage admission
         env:
