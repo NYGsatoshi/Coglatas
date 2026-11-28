@@ -15,6 +15,10 @@ transaction without registering a Scenario entity in the default model.
 The base Source, settings, run bodies and regional contributions are absent
 from this table. The audit entry contains only the event and scope identities.
 The save, idempotency claim and audit entry share one transaction.
+After their writes flush, the shared coordinator rechecks current persisted
+viewer and save-operation authority for both the fixed base and the Scenario
+before committing. Revocation or operation denial at that boundary rolls back
+the entire set and leaves the same request available for an authorized retry.
 The development host composes the store, idempotency coordinator and audit
 adapter on one clean scoped DbContext. A save with unrelated tracked writes or
 an active transaction returns unavailable before the idempotency claim.

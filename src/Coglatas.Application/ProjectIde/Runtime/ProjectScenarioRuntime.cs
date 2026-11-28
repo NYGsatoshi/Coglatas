@@ -70,7 +70,7 @@ public sealed class ProjectScenarioRuntime(ProjectIdeOperationAccess access, IPr
             requestIdentity, plan.OverlayDigest.Value, "ProjectIdeScenario", id.Value);
         try
         {
-            var result = await idempotency.ExecuteAsync(claim,
+            var result = await idempotency.ExecuteWithCommitCheckAsync(claim,
                 async token =>
                 {
                     if (!await AllowedAsync(viewer, ProjectScenarioOperations.Save, scenario.Input, token))
@@ -89,6 +89,12 @@ public sealed class ProjectScenarioRuntime(ProjectIdeOperationAccess access, IPr
                 {
                     var existing = await FindAsync(viewer, baseSource, new(existingId), ProjectScenarioOperations.Save, token);
                     return existing?.Input.Identity.OverlayDigest == plan.OverlayDigest.Value ? existing : null;
+                },
+                async token =>
+                {
+                    if (!await AllowedAsync(viewer, ProjectScenarioOperations.Save, baseSource, token) ||
+                        !await AllowedAsync(viewer, ProjectScenarioOperations.Save, scenario.Input, token))
+                        throw new ScenarioAccessChangedException();
                 }, cancellationToken);
             return result.Value is { } saved &&
                 await AllowedAsync(viewer, ProjectScenarioOperations.Save, baseSource, cancellationToken) &&
