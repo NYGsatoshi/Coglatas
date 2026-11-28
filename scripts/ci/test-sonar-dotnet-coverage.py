@@ -866,9 +866,169 @@ class CoverageTests(unittest.TestCase):
         for invalid in (raw.replace(b'passed="2"', b'passed="1"'),
                         raw.replace(b'outcome="Passed"', b'outcome="Failed"'),
                         raw.replace(b'codeBase="', b'codeBase="/wrong'),
-                        raw.replace(b'testId="1"', b'testId="2"')):
+                        raw.replace(b'testId="1"', b'testId="2"'),
+                        # The TRX namespace is a format identifier, not a network endpoint.
+                        # Changing the standard namespace to HTTPS must not parse as TRX.
+                        raw.replace(b'xmlns="http:', b'xmlns="https:', 1)):
             with self.assertRaises(ValueError):
                 MODULE.trx_identities(invalid, self.root)
+
+
+    def test_full_native_shard_comparator_preserves_and_rejects_original_evidence(self):
+        """Exercise the real five-lane comparator with isolated native-format fixtures."""
+        import os
+        import shutil
+        from unittest import mock
+
+        folder, _, identity, prior, _ = self.actual_scanner_fixture()
+        native = MODULE._native_verifier()
+        spec = importlib.util.spec_from_file_location(
+            "scanner_trial_fixture", SCRIPT.with_name("verify-sonar-scanner-identity-trial.py"))
+        trial = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(trial)
+        reproduction = trial.reproduction()
+        before = json.loads((folder / "pre-test-rebuild/outputs.json").read_bytes())["artifacts"]
+        mapping = (folder / "deterministic-source-roots.original").read_bytes()
+        archive = folder / "compiler-identity"
+        archive.mkdir()
+        shutil.copytree(folder / "pre-test-rebuild/assemblies", archive / "assemblies")
+        (archive / "mapping.original").write_bytes(mapping)
+        inventory = ("PROBE\n" + reproduction.FIXTURE_PREFIX + "1.xml\n" +
+                     reproduction.FIXTURE_PREFIX + "2.xml\n")
+        for name in reproduction.PROJECTS:
+            target = archive / name
+            target.mkdir()
+            (target / reproduction.GENERATOR).write_bytes(("fixture generated " + name).encode())
+            (target / "inputs.txt").write_text(inventory, encoding="utf-8")
+        (archive / "receipt.json").write_text(json.dumps(dict(
+            identity, xmlCount=2, hashes=reproduction.manifest(archive), assemblies=before)),
+            encoding="utf-8")
+        (folder / "physical-compiler-inputs.txt").write_text(inventory, encoding="utf-8")
+        parent = self.root / "artifacts/sonar-dotnet-shard-proof"
+        lanes = {}
+        for lane in MODULE.SHARD_LANES:
+            target = parent / ("sonar-dotnet-shard-proof-" + lane + "-1")
+            lanes[lane] = target
+            for name in ("pre-test-rebuild", "executed-binaries", "compiler-identity"):
+                shutil.copytree(folder / name, target / name)
+            for name in ("deterministic-source-roots.original", "physical-test-source-roots.original",
+                         "physical-compiler-inputs.txt"):
+                shutil.copyfile(folder / name, target / name)
+            raw = (target / "verified.opencover.xml").read_bytes()
+            primary = target / "993ff674-8ddf-4916-ac9a-b6f614e902a2/coverage.opencover.xml"
+            primary.parent.mkdir()
+            primary.write_bytes(raw)
+            receipt = MODULE.verify_report(primary, self.root)
+            receipt.update(sourceSha=identity["sourceSha"], treeSha=identity["treeSha"],
+                           scope="DOTNET_COVERAGE_IMPORT_ONLY_NOT_RELEASE_ACCEPTANCE",
+                           collectorReport="artifacts/sonar-dotnet/" + primary.relative_to(target).as_posix(),
+                           identicalVSTestCopies=0)
+            (target / "receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
+            executed = json.loads((folder / "binary-provenance.json").read_bytes())
+            executed["trxSha256"] = native.digest((target / "backend-tests.trx").read_bytes())
+            (target / "binary-provenance.json").write_text(json.dumps(executed), encoding="utf-8")
+            fixture = MODULE.scanner_compatible_fixture(self.root, target, identity, before, mapping)
+            (target / "shard-lane.json").write_text(json.dumps(dict(
+                identity, lane=lane, filter=MODULE.shard_filter(lane), testSeconds=1.25,
+                compilerFixture=fixture)), encoding="utf-8")
+        output = self.root / "artifacts/sonar-dotnet-shard-equivalence.json"
+        output.unlink()
+        env = {"PROOF_SOURCE_SHA": identity["sourceSha"], "GITHUB_RUN_ID": identity["runId"],
+               "GITHUB_RUN_ATTEMPT": identity["attempt"], "GITHUB_WORKSPACE": str(self.root)}
+        original_reports = {lane: (target / "verified.opencover.xml").read_bytes()
+                            for lane, target in lanes.items()}
+        with (mock.patch.object(MODULE, "ROOT", self.root),
+              mock.patch.dict(os.environ, env), redirect_stdout(io.StringIO())):
+            MODULE.compare_shard_proof()
+            result = json.loads(output.read_bytes())
+            for key in MODULE.DOTNET_METRICS:
+                self.assertEqual(result[key], prior[key], key)
+            self.assertEqual(result["sourceSha"], identity["sourceSha"])
+            self.assertEqual(result["treeSha"], identity["treeSha"])
+            self.assertEqual(set(result["lanes"]), set(MODULE.SHARD_LANES))
+            self.assertEqual(result["scope"], MODULE.DOTNET_SHARD_SCOPE)
+            self.assertEqual({lane: (target / "verified.opencover.xml").read_bytes()
+                              for lane, target in lanes.items()}, original_reports)
+            output.unlink()
+
+            def rejected(path, replacement, message):
+                original = path.read_bytes()
+                try:
+                    path.write_bytes(replacement)
+                    with self.assertRaisesRegex(ValueError, message):
+                        MODULE.compare_shard_proof()
+                    self.assertFalse(output.exists())
+                finally:
+                    path.write_bytes(original)
+
+            unexpected = parent / "stale-attempt"
+            unexpected.mkdir()
+            try:
+                with self.assertRaisesRegex(ValueError, "Missing, unexpected or stale proof artifacts"):
+                    MODULE.compare_shard_proof()
+                self.assertFalse(output.exists())
+            finally:
+                unexpected.rmdir()
+
+            target = lanes["files-db"]
+            lane_path = target / "shard-lane.json"
+            lane_record = json.loads(lane_path.read_bytes())
+            for key, value, message in (
+                ("runId", "101", "Proof lane execution identity mismatch"),
+                ("testSeconds", 0, "Invalid proof duration"),
+                ("compilerFixture", {}, "Compiler fixture differs from native execution receipt"),
+            ):
+                with self.subTest(key=key):
+                    rejected(lane_path, json.dumps(lane_record | {key: value}).encode(), message)
+            primary = target / "993ff674-8ddf-4916-ac9a-b6f614e902a2/coverage.opencover.xml"
+            rejected(primary, primary.read_bytes() + b"\n",
+                     "Native collector bytes differ from published proof bytes")
+            receipt_path = target / "receipt.json"
+            receipt_raw = receipt_path.read_bytes()
+            rejected(receipt_path, json.dumps(json.loads(receipt_raw) |
+                     {"collectorReport": "wrong collector"}).encode(), "Native collector identity differs")
+            binary = target / "pre-test-rebuild/assemblies/Coglatas.Web.dll"
+            rejected(binary, binary.read_bytes() + b"changed",
+                     "Retained native binaries differ from receipts")
+
+            # Rebind a different physical source mapping within a single lane;
+            # its own valid receipt must not defeat cross-lane identity.
+            physical = target / "physical-test-source-roots.original"
+            physical_raw = physical.read_bytes()
+            lane_raw = lane_path.read_bytes()
+            try:
+                physical.write_bytes(physical_raw + b" different physical source roots")
+                changed_fixture = MODULE.scanner_compatible_fixture(
+                    self.root, target, identity, before, mapping)
+                lane_path.write_text(json.dumps(lane_record | {"compilerFixture": changed_fixture}),
+                                     encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "Shard and baseline binaries or mapping differ"):
+                    MODULE.compare_shard_proof()
+                self.assertFalse(output.exists())
+            finally:
+                physical.write_bytes(physical_raw)
+                lane_path.write_bytes(lane_raw)
+
+            # Change only a real native-format branch hit and rebind the
+            # isolated fixture's receipt. The semantic comparison must reject it.
+            published = target / "verified.opencover.xml"
+            raw = published.read_bytes()
+            changed = raw.replace(b'BranchPoint vc="1"', b'BranchPoint vc="0"', 1)
+            self.assertNotEqual(changed, raw)
+            try:
+                published.write_bytes(changed)
+                primary.write_bytes(changed)
+                receipt_path.write_text(json.dumps(json.loads(receipt_raw) |
+                                       MODULE.verify_report(primary, self.root)), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "Native source coverage differs"):
+                    MODULE.compare_shard_proof()
+                self.assertFalse(output.exists())
+            finally:
+                published.write_bytes(raw)
+                primary.write_bytes(raw)
+                receipt_path.write_bytes(receipt_raw)
+            MODULE.compare_shard_proof()
+            self.assertEqual(json.loads(output.read_bytes()), result)
 
 
 if __name__ == "__main__":

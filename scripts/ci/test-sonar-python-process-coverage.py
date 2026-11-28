@@ -459,6 +459,15 @@ class PythonProcessCoverageTests(unittest.TestCase):
         cohort = cohort.split('for control in \\\n', 1)[1].split('; do', 1)[0]
         markers = {
             'dotnet-coverage': (
+                'raise ValueError("Missing, unexpected or stale proof artifacts")',
+                'raise ValueError("Proof lane execution identity mismatch")',
+                'raise ValueError("Invalid proof duration")',
+                'raise ValueError("Native collector bytes differ from published proof bytes")',
+                'raise ValueError("Native collector identity differs")',
+                'raise ValueError("Retained native binaries differ from receipts")',
+                'raise ValueError("Compiler fixture differs from native execution receipt")',
+                'raise ValueError("Shard and baseline binaries or mapping differ")',
+                'result = require_shard_equivalence(baseline_tests, baseline_points, inventories)',
                 'raise ValueError("Actual scanner pre/post-rebuild binaries or mappings differ")',
                 'raise ValueError("Actual scanner executed binary changed")',
                 'raise ValueError("Actual scanner native baseline report differs")',
@@ -481,10 +490,17 @@ class PythonProcessCoverageTests(unittest.TestCase):
                 'result.update(expected, scope=scope, mode=mode, baselineCompared=mode == "full",',
             ),
             'openapi-reproduction': (
+                'raise ValueError("Injected XML count differs from MSBuild input inventory")',
+                'raise ValueError("Unexpected generated file inventory: " + name)',
+                'raise ValueError("Missing or linked native evidence: " + str(path))',
+                'shutil.copyfile(mapping, folder / "mapping.original")',
                 'raise ValueError("Invalid native build receipt")',
                 'print(json.dumps(receipt, sort_keys=True))',
             ),
             'scanner-identity-trial': (
+                'raise ValueError("Expected qualified two-XML diagnostic fixture")',
+                'write_observer(Path(os.environ["RUNNER_TEMP"]) / "sonar-scanner-input-observer")',
+                'print(json.dumps(result, sort_keys=True))',
                 'raise ValueError("Diagnostic producer receipt digest differs")',
                 'raise ValueError("Diagnostic producer evidence differs")',
                 'return record',
