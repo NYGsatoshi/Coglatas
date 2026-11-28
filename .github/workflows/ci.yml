@@ -867,6 +867,7 @@ jobs:
         run: bash scripts/ci/npm-ci-retry.sh frontend
 
       - name: Run frontend checks in parallel
+        id: run-frontend-checks
         if: needs.frontend-build.outputs.frontend == 'true'
         shell: bash
         env:
@@ -877,6 +878,7 @@ jobs:
           FRONTEND_STORYBOOK: "false"
           FRONTEND_PLAYWRIGHT: ${{ needs.frontend-build.outputs.frontend_playwright }}
           COGLATAS_PLAYWRIGHT_REUSE_HOST_BUILD: "true"
+          COGLATAS_FILES_ATTEMPT_REPORT: ${{ github.base_ref == 'projectide/integration-20261031' && '1' || '0' }}
         run: bash scripts/ci/run-frontend-parallel.sh
 
       - name: Upload browser artifacts on failure
@@ -917,6 +919,30 @@ jobs:
           name: search-drawer-observations
           path: artifacts/search-drawer-observation-validated/*.json
           if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Collect sanitized Files browser attempts
+        id: collect-files-attempts
+        if: >-
+          always() && github.base_ref == 'projectide/integration-20261031' &&
+          needs.frontend-build.outputs.frontend_playwright == 'true' &&
+          (steps.run-frontend-checks.outcome == 'success' || steps.run-frontend-checks.outcome == 'failure' ||
+          (steps.run-frontend-checks.outcome == 'cancelled' && hashFiles('artifacts/files-attempt-report/raw.json') != ''))
+        timeout-minutes: 2
+        env:
+          COGLATAS_FRONTEND_CHECKS_OUTCOME: ${{ steps.run-frontend-checks.outcome }}
+        run: node scripts/ci/collect-files-attempt-report.mjs
+
+      - name: Upload sanitized Files browser attempts after retry or failure
+        if: always() && steps.collect-files-attempts.outcome == 'success'
+        timeout-minutes: 2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: files-browser-attempts-attempt-${{ github.run_attempt }}
+          path: |
+            artifacts/files-attempt-validated/files-attempts.json
+            artifacts/files-attempt-validated/files-attempts.json.sha256
+          if-no-files-found: error
           retention-days: 7
 
   security-scan:
