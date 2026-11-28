@@ -196,7 +196,6 @@ def verify_parallel_handoff(root: Path, folder: Path, sha: str, run: str,
 # Qualification-only partitions. The fourth lane is an explicit complement,
 # not a list of today's namespaces; new tests cannot silently fall outside it.
 SHARD_LANES = ("baseline", "files-db", "other-db", "security-aq", "remaining")
-TRX_NS = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
 TEST_ASSEMBLY = "tests/Coglatas.Tests/bin/Release/net11.0/Coglatas.Tests.dll"
 
 
@@ -322,25 +321,25 @@ def trx_identities(raw: bytes, root: Path):
     from collections import Counter
 
     native = _native_verifier()
-    total = native.verify_trx(raw, str(root / TEST_ASSEMBLY))
-    document = native.parse_xml(raw)
-    summary = document.find("./t:ResultSummary", TRX_NS)
+    document, total = native.inspect_trx(raw, str(root / TEST_ASSEMBLY))
+    namespaces = {"t": native.TRX_NAMESPACE}
+    summary = document.find("./t:ResultSummary", namespaces)
     if summary is None or summary.get("outcome") not in {"Completed", "Passed"}:
         raise ValueError("Incomplete test result summary")
-    counters = summary.find("t:Counters", TRX_NS)
+    counters = summary.find("t:Counters", namespaces)
     if counters is None or any(int(value) for key, value in counters.attrib.items()
                                if key not in {"total", "executed", "passed"}):
         raise ValueError("Non-passing TRX accounting")
     methods = {}
-    for definition in document.findall("./t:TestDefinitions/t:UnitTest", TRX_NS):
-        method = definition.find("t:TestMethod", TRX_NS)
+    for definition in document.findall("./t:TestDefinitions/t:UnitTest", namespaces):
+        method = definition.find("t:TestMethod", namespaces)
         identity = definition.get("id")
         if (not identity or identity in methods or method is None
                 or not method.get("className") or not method.get("name")):
             raise ValueError("Missing or duplicated TRX test definition")
         methods[identity] = (method.attrib["className"], method.attrib["name"])
     result = Counter()
-    for case in document.findall("./t:Results/t:UnitTestResult", TRX_NS):
+    for case in document.findall("./t:Results/t:UnitTestResult", namespaces):
         if not case.get("testName") or case.get("testId") not in methods:
             raise ValueError("Missing executed test identity")
         result[(*methods[case.attrib["testId"]], case.attrib["testName"])] += 1

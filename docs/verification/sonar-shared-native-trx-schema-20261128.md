@@ -1,0 +1,9 @@
+# Shared native VSTest TRX protocol validation
+
+Alerts [4845](https://github.com/NYGsatoshi/Coglatas/security/code-scanning/4845) and [4846](https://github.com/NYGsatoshi/Coglatas/security/code-scanning/4846) refer to duplicated literal VSTest XML namespace identifiers in the new Linux parser and fixture. These strings are format identifiers, not connections; substituting HTTPS invalidates the TRX schema. The existing Windows verifier already has the same standard identifier.
+
+Consolidate the protocol declaration and native execution accounting in the existing Windows helper's shared parser. The Windows count API remains unchanged. The Linux identity/multiplicity parser receives the same already validated parsed document, avoiding a second XML parse and duplicated namespace declaration. Additionally require the exact namespaced TestRun root before admitting any result accounting. Existing all-passed/count, failed/skipped/error, executed assembly, Linux summary/multiplicity, malformed XML and evidence byte identity checks are retained.
+
+Generated Linux test fixtures share the protocol declaration. Keep the existing independently authored Windows TRX fixture literal as a separate protocol anchor, and explicitly test that both shared parser and Windows API reject changed root, HTTPS substitution and foreign namespace. Linux continues to test namespace and root rejection as well as actual row identity/multiplicity.
+
+This is a protocol-contract refactor and stricter root validation, not a warning waiver. Retain the exact standard namespace, no encoded/obfuscated identifier, no suppression, exclusions, severity or gate change. Official SonarCloud findings may require a separate reviewed false-positive disposition if the standard identifier is still flagged. Require exact-head ordinary/static CI, full native .NET proof, and fresh trusted Windows/Linux/Python scanner publication. No Main merge.
