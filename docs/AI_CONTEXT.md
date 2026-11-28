@@ -1,5 +1,10 @@
 # AI Context
 
+[Development model profiles and Compiler output capture](verification/projectide-inspection-runtime.md)
+reuse current persisted viewer and operation checks. The response projects
+aggregate model metrics and original Compiler output availability without
+exposing Source, trace events or generated bodies.
+
 [Development Compiler recording evidence](verification/projectide-runtime-compiler-recording-evidence.md)
 adds scoped immutable receipt storage using persisted viewer revalidation. The
 development host supplies operation policy for the exact Source. This work adds

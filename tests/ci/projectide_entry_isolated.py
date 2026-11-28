@@ -15,6 +15,8 @@ TEST_BASE = "3865b09a2d3ea3cb82f450c6d19ec643ffbae01f"
 PRODUCT_BASE = "3aebedb3d975b04070262751d4dc0a187e0df89b"
 REUSED_BASE = "b3de1eb90c85a17a02367c7f25522b5266547286"
 REUSED_HEAD = "0d4d4bea6cd8bebed9165e43148c8eec98953fe1"
+PURE_PROJECT_IDE_SELECTION = "FullyQualifiedName~Coglatas.Tests.ProjectIde.&Category!=PostgreSQLIntegration"
+PURE_PROJECT_IDE_PREFIX = "Coglatas.Tests.ProjectIde."
 TEST_PATHS = ("tests/Coglatas.ProjectIde.Entry.Tests/", "tests/ci/projectide_entry_isolated.py",
               ".github/workflows/projectide-entry-isolated.yml", ".github/workflows/resharper_pr.yml",
               "scripts/quality/projectide_entry_resharper.py", "scripts/quality/check-resharper-pr-sarif.py",
@@ -22,6 +24,19 @@ TEST_PATHS = ("tests/Coglatas.ProjectIde.Entry.Tests/", "tests/ci/projectide_ent
 REUSED_PATHS = ("tests/Coglatas.Tests/ProjectIde/VersionedArtifactTests.cs",
                 "tests/Coglatas.Tests/ProjectIde/Fixtures/artifact-reader-compat-vectors-v1.json",
                 "tests/ci/projectide-artifact-vectors.test.mjs")
+
+
+def require_pure_projectide_inventory(executed: list[str], retained: list[str]) -> None:
+    """This lane owns the literal pure namespace, not similarly named PostgreSQL adapters."""
+    if (not isinstance(retained, list) or not retained or len(retained) != len(set(retained)) or
+            any(not isinstance(name, str) or not name.startswith(PURE_PROJECT_IDE_PREFIX) for name in retained)):
+        raise ValueError("Retained pure ProjectIDE inventory is invalid")
+    if not executed or len(executed) != len(set(executed)):
+        raise ValueError("Pure ProjectIDE inventory is empty or duplicated")
+    if any(not name.startswith(PURE_PROJECT_IDE_PREFIX) for name in executed):
+        raise ValueError("Pure ProjectIDE inventory contains a foreign namespace")
+    if not set(retained).issubset(executed):
+        raise ValueError("A retained pure ProjectIDE test identity was lost")
 
 
 def require_retained_entry_identities(executed: list[str], baseline: dict) -> None:
@@ -139,7 +154,7 @@ def main() -> None:
             run(["dotnet", "build", project, "-c", "Release", "--no-restore", "--nologo", "-warnaserror"],
                 target, output / f"{name}-build.log")
             receipt["verification"][name + "Build"] = "Passed"
-        suites = (("projectIde", "tests/Coglatas.Tests/Coglatas.Tests.csproj", "FullyQualifiedName~ProjectIde"),
+        suites = (("projectIde", "tests/Coglatas.Tests/Coglatas.Tests.csproj", PURE_PROJECT_IDE_SELECTION),
                   ("entry", "tests/Coglatas.ProjectIde.Entry.Tests/Coglatas.ProjectIde.Entry.Tests.csproj", None),
                   ("architecture", "tests/Coglatas.Architecture.Tests/Coglatas.Architecture.Tests.csproj", None),
                   ("sourceTooling", "tests/Coglatas.Tests/Coglatas.Tests.csproj",
@@ -154,11 +169,15 @@ def main() -> None:
             discovered = sorted(line.strip() for line in discovery.splitlines() if line.startswith("    Coglatas."))
             if not discovered or len(discovered) != len(set(discovered)):
                 raise ValueError("Empty or duplicated compiled discovery")
+            if name == "projectIde":
+                require_pure_projectide_inventory(discovered, baseline[name])
             run(command + ["--logger", f"trx;LogFileName={name}.trx", "--results-directory", str(output)],
                 target, output / f"{name}-test.log")
             executed = inventory(output / f"{name}.trx")
             if executed != discovered:
                 raise ValueError("Discovery and actual results differ")
+            if name == "projectIde":
+                require_pure_projectide_inventory(executed, baseline[name])
             if name in baseline and not set(baseline[name]).issubset(executed):
                 raise ValueError("A retained test identity was lost")
             if name == "entry":

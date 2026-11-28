@@ -3,10 +3,16 @@ import copy
 from fnmatch import fnmatchcase
 import json
 import re
+import tempfile
 from pathlib import Path
 import unittest
+import xml.etree.ElementTree as ET
 
-from projectide_entry_isolated import TEST_PATHS, require_retained_entry_identities
+from projectide_core_isolated import inventory
+from projectide_entry_isolated import (
+    PURE_PROJECT_IDE_SELECTION, TEST_PATHS, require_pure_projectide_inventory, require_retained_entry_identities,
+)
+from test_projectide_core_isolated import valid_trx
 
 BASELINE = Path(__file__).resolve().parents[1] / "Coglatas.ProjectIde.Entry.Tests/retained-test-identities.v1.json"
 
@@ -15,6 +21,57 @@ RUNTIME_ROUTES = (
     "src/Coglatas.Infrastructure/Persistence/ProjectTestJob*.cs",
     "tests/Coglatas.Tests/PostgreSql/ProjectTestRuntimePostgreSqlTests.cs",
 )
+
+
+class PureProjectIdeClassificationTests(unittest.TestCase):
+    def test_selection_uses_the_owned_namespace_and_existing_postgresql_category(self):
+        self.assertEqual("FullyQualifiedName~Coglatas.Tests.ProjectIde.&Category!=PostgreSQLIntegration", PURE_PROJECT_IDE_SELECTION)
+
+    def test_postgresql_class_names_containing_projectide_are_not_pure_namespace_members(self):
+        pure = "Coglatas.Tests.ProjectIde.CompilerContractTests.KeepsOriginalFacts"
+        foreign = "Coglatas.Tests.PostgreSql.ProjectIdeInspectionRuntimePostgreSqlTests.OutputBindsOriginalCaptureAndLimitsReadsExportsAndDeletion"
+        self.assertIn("ProjectIde", foreign)
+        require_pure_projectide_inventory([pure], [pure])
+        with self.assertRaisesRegex(ValueError, "foreign namespace"):
+            require_pure_projectide_inventory([pure, foreign], [pure])
+
+    def test_all_retained_pure_identities_remain_mandatory(self):
+        root = Path(__file__).resolve().parents[2]
+        retained = json.loads((root / "tests/ci/projectide_integration_inventory.json").read_text(encoding="utf-8"))["projectIde"]
+        require_pure_projectide_inventory(retained, retained)
+        with self.assertRaisesRegex(ValueError, "retained pure"):
+            require_pure_projectide_inventory(retained[:-1], retained)
+        with self.assertRaisesRegex(ValueError, "duplicated"):
+            require_pure_projectide_inventory(retained + [retained[0]], retained)
+        with self.assertRaisesRegex(ValueError, "empty"):
+            require_pure_projectide_inventory([], retained)
+
+    def test_empty_or_foreign_retained_baselines_cannot_hide_identity_loss(self):
+        pure = "Coglatas.Tests.ProjectIde.CompilerContractTests.KeepsOriginalFacts"
+        for retained in ([], [pure, pure], ["Coglatas.Tests.PostgreSql.ProjectIdeFixture.Case"], [1]):
+            with self.subTest(retained=retained), self.assertRaisesRegex(ValueError, "Retained pure"):
+                require_pure_projectide_inventory([pure], retained)
+
+    def test_zero_skipped_and_missing_trx_cases_still_refuse_credit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "result.trx"
+            for mutation in ("valid", "zero", "skipped", "missing"):
+                with self.subTest(mutation=mutation):
+                    root = valid_trx()
+                    root.find("Results/UnitTestResult").set("testName", "Coglatas.Tests.ProjectIde.CompilerContractTests.KeepsOriginalFacts")
+                    if mutation == "zero":
+                        root.find("ResultSummary/Counters").set("total", "0")
+                    elif mutation == "skipped":
+                        root.find("Results/UnitTestResult").set("outcome", "NotExecuted")
+                    elif mutation == "missing":
+                        root.remove(root.find("TestDefinitions"))
+                    ET.ElementTree(root).write(path)
+                    if mutation == "valid":
+                        names = inventory(path)
+                        require_pure_projectide_inventory(names, names)
+                    else:
+                        with self.assertRaises(ValueError):
+                            inventory(path)
 
 
 def require_runtime_routes(workflow):
