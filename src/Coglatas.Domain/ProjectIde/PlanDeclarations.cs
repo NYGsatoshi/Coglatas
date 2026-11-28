@@ -45,6 +45,7 @@ public sealed class ProjectPlanDeclaration : PlanDeclaration
 
 public sealed class TaskPlanDeclaration : PlanDeclaration
 {
+    private readonly Dictionary<PortId, PortDefinition> _portsById;
     public TypedProjectValue Duration { get; }
     public IReadOnlyList<PortDefinition> Ports { get; }
     internal TaskPlanDeclaration(SourceJson data, DocumentId document) : base(data, document)
@@ -55,9 +56,15 @@ public sealed class TaskPlanDeclaration : PlanDeclaration
             throw new FormatException("Task work duration must be nonnegative or explicitly Unknown.");
         var ports = SourceFields.Array(Payload.Value, "ports").EnumerateArray()
             .Select(port => new PortDefinition(SourceJson.FromElement(port, Data.Limits))).ToArray();
-        if (ports.Select(port => port.PortId).Distinct().Count() != ports.Length) throw new FormatException("Duplicate PortId.");
+        _portsById = new(ports.Length);
+        foreach (var port in ports)
+        {
+            if (!_portsById.TryAdd(port.PortId, port)) throw new FormatException("Duplicate PortId.");
+        }
         Ports = new ImmutableListView<PortDefinition>(ports);
     }
+
+    internal PortDefinition GetPort(PortId portId) => _portsById[portId];
 }
 
 public sealed class MilestonePlanDeclaration : PlanDeclaration
