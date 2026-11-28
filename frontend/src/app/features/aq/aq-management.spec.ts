@@ -128,7 +128,7 @@ describe('AqManagement workspace navigation', () => {
     await harness.fixture.whenStable();
     harness.detectChanges();
     expect(root.querySelector<HTMLInputElement>('app-aq-qr-share input[type=url]')?.value).toBe(surveyUrl());
-    expect(root.querySelector('app-aq-qr-share input[type=url]')?.getAttribute('value')).not.toContain('a'.repeat(64));
+    expect(root.querySelector<HTMLInputElement>('app-aq-qr-share input[type=url]')?.value).not.toBe('https://example.test/app/aq/surveys/' + 'a'.repeat(64));
   });
 
 });

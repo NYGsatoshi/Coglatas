@@ -127,7 +127,7 @@ public sealed class AqOperatorHostedPostgreSqlTests
             using (var cache = await host.Client.GetAsync(shareRoute))
             {
                 Assert.Equal(HttpStatusCode.OK, cache.StatusCode);
-                Assert.True(cache.Headers.CacheControl?.NoStore);
+                Assert.True(cache.Headers.CacheControl?.NoStore is true);
             }
             using (var invalidTarget = await host.Client.GetAsync(campaignRoute + $"/qr-share?targetId={Guid.Empty:D}"))
                 Assert.Equal(HttpStatusCode.BadRequest, invalidTarget.StatusCode);
