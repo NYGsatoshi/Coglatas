@@ -116,5 +116,155 @@ class ScannerIdentityTrialTests(unittest.TestCase):
         self.assertIn("Publish SonarCloud report", scanner)
 
 
+    def test_bind_prepare_and_compare_actual_on_disk_diagnostic_evidence(self):
+        """Verify orchestration, original bytes, negative results, and sanitized observations."""
+        import contextlib
+        import io
+        import os
+        import shutil
+        import subprocess
+        from unittest import mock
+
+        source = MODULE.ROOT / "scripts/ci"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            scripts = root / "scripts/ci"
+            scripts.mkdir(parents=True)
+            for name in ("verify-sonar-openapi-reproduction.py", "verify-sonar-windows-coverage.py"):
+                shutil.copyfile(source / name, scripts / name)
+            for args in (["init", "--quiet"], ["add", "scripts"],
+                         ["-c", "user.name=Coverage fixture", "-c", "user.email=coverage@example.test",
+                          "-c", "commit.gpgsign=false", "commit", "--quiet", "-m", "Scanner fixture"]):
+                subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+            sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+            runner = root / "runner"
+            runner.mkdir()
+            github_output = runner / "output"
+            folder = root / "artifacts/sonar-openapi-reproduction"
+            folder.mkdir(parents=True)
+            output = root / "artifacts/sonar-scanner-identity-result.json"
+            env = {"PROOF_SOURCE_SHA": sha, "GITHUB_RUN_ID": "123", "GITHUB_RUN_ATTEMPT": "1",
+                   "GITHUB_WORKSPACE": str(root), "RUNNER_TEMP": str(runner),
+                   "GITHUB_OUTPUT": str(github_output), "PROOF_XML_COUNT": "2"}
+            with (mock.patch.object(MODULE, "ROOT", root),
+                  mock.patch.object(MODULE, "FOLDER", folder),
+                  mock.patch.dict(os.environ, env), contextlib.redirect_stdout(io.StringIO())):
+                helper = MODULE.reproduction()
+                verifier = MODULE.native()
+                info = helper.identity()
+                for name, project in verifier.ASSEMBLIES.items():
+                    for ext in ("dll", "pdb"):
+                        relative = "bin/Release/net11.0/" + name + "." + ext
+                        data = (name + ext + sha).encode()
+                        for prefix in (project, "tests/Coglatas.Tests"):
+                            path = root / prefix / relative
+                            path.parent.mkdir(parents=True, exist_ok=True)
+                            path.write_bytes(data)
+                assemblies = verifier.assemblies(root, folder, sha, True)
+                mapping = root / "tests/Coglatas.Tests/bin/Release/net11.0/CoverletSourceRootsMapping_Coglatas.Tests"
+                mapping.write_bytes(b"fixture mapping")
+                (folder / "mapping.original").write_bytes(mapping.read_bytes())
+                actual_sources = {}
+                inventories = {}
+                for name, project in helper.PROJECTS.items():
+                    producer = folder / name
+                    producer.mkdir()
+                    obj = root / project / "obj/Release/net11.0"
+                    obj.mkdir(parents=True)
+                    data = ("fixture generated " + name).encode()
+                    (producer / helper.GENERATOR).write_bytes(data)
+                    actual_sources[name] = obj / helper.GENERATOR
+                    actual_sources[name].write_bytes(data)
+                    (producer / "inputs.txt").write_text(
+                        "PROBE\n" + helper.FIXTURE_PREFIX + "1.xml\n" +
+                        helper.FIXTURE_PREFIX + "2.xml\n", encoding="utf-8")
+                    inventories[name] = obj / MODULE.INVENTORY_NAME
+                    inventories[name].write_text(
+                        "PROBE\nSCANNER=True\nSonarLint.xml\nSonarProjectConfig.xml\n"
+                        "private-fixture.txt\n", encoding="utf-8")
+                receipt = dict(info, xmlCount=2, hashes=helper.manifest(folder), assemblies=assemblies)
+                receipt_file = folder / "receipt.json"
+                receipt_file.write_text(json.dumps(receipt), encoding="utf-8")
+                digest = helper.digest(receipt_file)
+
+                MODULE.bind()
+                self.assertEqual(github_output.read_text(encoding="utf-8"), "digest=" + digest + "\n")
+                os.environ["EXPECTED_RECEIPT_DIGEST"] = "0" * 64
+                with self.assertRaisesRegex(ValueError, "Diagnostic producer receipt digest differs"):
+                    MODULE.prepare()
+                observer = runner / "sonar-scanner-input-observer/observer.targets"
+                self.assertFalse(observer.exists())
+                os.environ["EXPECTED_RECEIPT_DIGEST"] = digest
+                MODULE.prepare()
+                self.assertTrue(observer.is_file())
+                self.assertEqual(helper.manifest(folder), receipt["hashes"])
+
+                MODULE.compare()
+                result = json.loads(output.read_bytes())
+                self.assertTrue(result["byteIdentical"])
+                self.assertTrue(result["mappingIdentical"])
+                self.assertEqual(result["changedAssemblyFiles"], [])
+                self.assertEqual(result["scannerAssemblyDigests"], assemblies)
+                self.assertEqual(result["producerReceiptSha256"], digest)
+                self.assertEqual(result["scope"], "DIAGNOSTIC_ONLY_SCANNER_NATIVE_TESTS_REMAIN_REQUIRED")
+                self.assertNotIn("private-fixture.txt", output.read_text(encoding="utf-8"))
+                self.assertEqual(result["generated"]["Coglatas.Web"]["scannerInputs"]["nonXmlCount"], 1)
+                output.unlink()
+
+                def negative(changes, assertion):
+                    originals = {path: path.read_bytes() for path in changes}
+                    try:
+                        for path, value in changes.items():
+                            path.write_bytes(value)
+                        MODULE.compare()
+                        altered = json.loads(output.read_bytes())
+                        self.assertFalse(altered["byteIdentical"])
+                        assertion(altered)
+                        output.unlink()
+                    finally:
+                        for path, value in originals.items():
+                            path.write_bytes(value)
+
+                source_file = actual_sources["Coglatas.Web"]
+                negative({source_file: source_file.read_bytes() + b"\n"},
+                         lambda altered: self.assertFalse(altered["generated"]["Coglatas.Web"]["identical"]))
+                negative({mapping: mapping.read_bytes() + b" changed"},
+                         lambda altered: self.assertFalse(altered["mappingIdentical"]))
+                assembly = "Coglatas.Web"
+                relative = "bin/Release/net11.0/" + assembly + ".dll"
+                paths = {root / prefix / relative for prefix in
+                         (verifier.ASSEMBLIES[assembly], "tests/Coglatas.Tests")}
+                negative({path: path.read_bytes() + b" changed" for path in paths},
+                         lambda altered: self.assertEqual(altered["changedAssemblyFiles"],
+                                                          ["assemblies/Coglatas.Web.dll"]))
+                inventory = inventories["Coglatas.Web"]
+                raw = inventory.read_bytes()
+                try:
+                    inventory.write_bytes(raw + b"/private/path.xml\n")
+                    with self.assertRaisesRegex(ValueError, "Unexpected non-basename compiler input"):
+                        MODULE.compare()
+                    self.assertFalse(output.exists())
+                finally:
+                    inventory.write_bytes(raw)
+                self.assertEqual(helper.manifest(folder), receipt["hashes"])
+                self.assertEqual(helper.digest(receipt_file), digest)
+                MODULE.compare()
+                self.assertEqual(json.loads(output.read_bytes()), result)
+
+    def test_collect_requires_the_qualified_two_xml_fixture(self):
+        import os
+        from unittest import mock
+
+        helper = mock.Mock()
+        with mock.patch.object(MODULE, "reproduction", return_value=helper):
+            with mock.patch.dict(os.environ, {"PROOF_XML_COUNT": "1"}):
+                with self.assertRaisesRegex(ValueError, "Expected qualified two-XML diagnostic fixture"):
+                    MODULE.collect()
+                helper.collect.assert_not_called()
+            with mock.patch.dict(os.environ, {"PROOF_XML_COUNT": "2"}):
+                MODULE.collect()
+                helper.collect.assert_called_once_with()
+
+
 if __name__ == "__main__":
     unittest.main()

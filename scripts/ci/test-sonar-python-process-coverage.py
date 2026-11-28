@@ -459,6 +459,15 @@ class PythonProcessCoverageTests(unittest.TestCase):
         cohort = cohort.split('for control in \\\n', 1)[1].split('; do', 1)[0]
         markers = {
             'dotnet-coverage': (
+                'raise ValueError("Missing, unexpected or stale proof artifacts")',
+                'raise ValueError("Proof lane execution identity mismatch")',
+                'raise ValueError("Invalid proof duration")',
+                'raise ValueError("Native collector bytes differ from published proof bytes")',
+                'raise ValueError("Native collector identity differs")',
+                'raise ValueError("Retained native binaries differ from receipts")',
+                'raise ValueError("Compiler fixture differs from native execution receipt")',
+                'raise ValueError("Shard and baseline binaries or mapping differ")',
+                'result = require_shard_equivalence(baseline_tests, baseline_points, inventories)',
                 'raise ValueError("Actual scanner pre/post-rebuild binaries or mappings differ")',
                 'raise ValueError("Actual scanner executed binary changed")',
                 'raise ValueError("Actual scanner native baseline report differs")',
@@ -481,10 +490,17 @@ class PythonProcessCoverageTests(unittest.TestCase):
                 'result.update(expected, scope=scope, mode=mode, baselineCompared=mode == "full",',
             ),
             'openapi-reproduction': (
+                'raise ValueError("Injected XML count differs from MSBuild input inventory")',
+                'raise ValueError("Unexpected generated file inventory: " + name)',
+                'raise ValueError("Missing or linked native evidence: " + str(path))',
+                'shutil.copyfile(mapping, folder / "mapping.original")',
                 'raise ValueError("Invalid native build receipt")',
                 'print(json.dumps(receipt, sort_keys=True))',
             ),
             'scanner-identity-trial': (
+                'raise ValueError("Expected qualified two-XML diagnostic fixture")',
+                'write_observer(Path(os.environ["RUNNER_TEMP"]) / "sonar-scanner-input-observer")',
+                'print(json.dumps(result, sort_keys=True))',
                 'raise ValueError("Diagnostic producer receipt digest differs")',
                 'raise ValueError("Diagnostic producer evidence differs")',
                 'return record',
@@ -516,8 +532,24 @@ class PythonProcessCoverageTests(unittest.TestCase):
                 source = subject.read_text(encoding='utf-8').splitlines()
                 for marker in required:
                     matching = [i for i, line in enumerate(source, 1) if line.strip() == marker]
-                    self.assertEqual(len(matching), 1, marker)
-                    self.assertIn(matching[0], lines, marker)
+                    if (stem == 'dotnet-coverage' and marker ==
+                            'result = require_shard_equivalence(baseline_tests, baseline_points, inventories)'):
+                        # Require execution in both independent proof and
+                        # scanner rebuild admission, not just either function.
+                        functions = {
+                            node.name: node for node in ast.parse('\n'.join(source)).body
+                            if isinstance(node, ast.FunctionDef)
+                        }
+                        expected = ('compare_shard_proof', 'require_actual_scanner_rebuild')
+                        self.assertEqual(len(matching), len(expected), marker)
+                        for name in expected:
+                            node = functions[name]
+                            found = [i for i in matching if node.lineno <= i <= node.end_lineno]
+                            self.assertEqual(len(found), 1, name)
+                            self.assertIn(found[0], lines, name)
+                    else:
+                        self.assertEqual(len(matching), 1, marker)
+                        self.assertIn(matching[0], lines, marker)
                 self.assertTrue(measured.arcs(by_path[subject]))
 
     def test_subject_scope_branch_and_parallel_configuration_are_explicit(self):
