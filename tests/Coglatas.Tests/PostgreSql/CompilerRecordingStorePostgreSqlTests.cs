@@ -109,6 +109,19 @@ public sealed class CompilerRecordingStorePostgreSqlTests
         fixture.Authorization.AllowRead = true;
         Assert.Equal(expected, await store.FindAsync(expected.Source, expected.SourceDigest, expected.RunId, default));
         Assert.Equal(original.Receipt.Digest.Value, expected.OriginReceiptDigest);
+
+        await using var administrator = PostgreSqlMigrationTestDatabase.CreatePlatformContext(fixture.Database);
+        var tenant = await administrator.Tenants.FindAsync(fixture.Seed.TenantId);
+        Assert.NotNull(tenant);
+        tenant.Status = TenantStatus.Suspended;
+        await administrator.SaveChangesAsync();
+        Assert.Null(await store.FindAsync(expected.Source, expected.SourceDigest, expected.RunId, default));
+        Assert.Equal(CompilerRecordingWriteOutcome.Unavailable, await store.RecordAsync(child, default));
+
+        tenant.Status = TenantStatus.Active;
+        await administrator.SaveChangesAsync();
+        Assert.Equal(expected, await store.FindAsync(expected.Source, expected.SourceDigest, expected.RunId, default));
+        Assert.Equal(CompilerRecordingWriteOutcome.AlreadyRecorded, await store.RecordAsync(child, default));
     });
 
     private static CompilerInputManifest CreateInput(Seed seed)
