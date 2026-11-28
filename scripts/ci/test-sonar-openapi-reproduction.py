@@ -128,5 +128,107 @@ class ReproductionTests(unittest.TestCase):
         self.assertNotIn("verify-sonar-openapi-reproduction.py", production)
 
 
+    def test_collect_binds_real_git_identity_and_observed_compiler_fixture(self):
+        """Run the production collector with isolated compiler-output fixtures."""
+        import os
+        import shutil
+        import subprocess
+
+        native_path = MODULE.ROOT / "scripts/ci/verify-sonar-windows-coverage.py"
+        spec = importlib.util.spec_from_file_location("fixture_native", native_path)
+        native = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(native)
+        for fault in (None, "wrong-input-count", "missing-generator", "missing-mapping", "dirty-source"):
+            with self.subTest(fault=fault), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory).resolve()
+                scripts = root / "scripts/ci"
+                scripts.mkdir(parents=True)
+                shutil.copyfile(native_path, scripts / native_path.name)
+                tracked = root / "tracked.txt"
+                tracked.write_text("original\n", encoding="utf-8")
+                for args in (["init", "--quiet"], ["add", "scripts", "tracked.txt"],
+                             ["-c", "user.name=Coverage fixture", "-c", "user.email=coverage@example.test",
+                              "-c", "commit.gpgsign=false", "commit", "--quiet", "-m", "Compiler fixture"]):
+                    subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+                sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+                runner = root / "runner"
+                runner.mkdir()
+                env = {"PROOF_SOURCE_SHA": sha, "GITHUB_RUN_ID": "123", "GITHUB_RUN_ATTEMPT": "1",
+                       "GITHUB_WORKSPACE": str(root), "RUNNER_TEMP": str(runner), "PROOF_XML_COUNT": "2"}
+                built = []
+
+                def execute(command, **kwargs):
+                    if command[0] != "dotnet":
+                        return subprocess.run(command, **kwargs)
+                    # Only the external compiler boundary is substituted. All
+                    # fixture generation, copying, digests and Git checks are real.
+                    built.append(command)
+                    self.assertEqual(kwargs["cwd"], root)
+                    self.assertTrue(kwargs["check"])
+                    self.assertEqual(command[:3], ["dotnet", "build", "Coglatas.slnx"])
+                    self.assertIn("--no-restore", command)
+                    self.assertIn("-p:ContinuousIntegrationBuild=true", command)
+                    self.assertIn("-p:DeterministicSourcePaths=true", command)
+                    self.assertIn("-p:EmitCompilerGeneratedFiles=true", command)
+                    fixture = Path(next(arg.split("=", 1)[1] for arg in command
+                                        if arg.startswith("-p:CustomAfterMicrosoftCommonTargets=")))
+                    names = sorted(path.name for path in fixture.parent.glob("*.xml"))
+                    self.assertEqual(len(names), 2)
+                    self.assertEqual(len(ET.parse(fixture).findall(".//AdditionalFiles")), 2)
+                    for name, project in native.ASSEMBLIES.items():
+                        for ext in ("dll", "pdb"):
+                            data = (name + ext + sha).encode()
+                            for prefix in (project, "tests/Coglatas.Tests"):
+                                path = root / prefix / ("bin/Release/net11.0/" + name + "." + ext)
+                                path.parent.mkdir(parents=True, exist_ok=True)
+                                path.write_bytes(data)
+                    for name, project in MODULE.PROJECTS.items():
+                        obj = root / project / "obj/Release/net11.0"
+                        obj.mkdir(parents=True, exist_ok=True)
+                        if not (fault == "missing-generator" and name == "Coglatas.Web"):
+                            (obj / MODULE.GENERATOR).write_bytes(("fixture generated " + name).encode())
+                        observed = names[:1] if fault == "wrong-input-count" else names
+                        (obj / "sonar-openapi-additional-files.txt").write_text(
+                            "PROBE\n" + "\n".join(observed) + "\n", encoding="utf-8")
+                    mapping = root / "tests/Coglatas.Tests/bin/Release/net11.0/CoverletSourceRootsMapping_Coglatas.Tests"
+                    if fault != "missing-mapping":
+                        mapping.write_bytes(b"fixture deterministic mapping")
+                    if fault == "dirty-source":
+                        tracked.write_text("changed\n", encoding="utf-8")
+                    return subprocess.CompletedProcess(command, 0)
+
+                external = mock.Mock(wraps=subprocess)
+                external.run.side_effect = execute
+                output = root / "artifacts/sonar-openapi-reproduction"
+                with (mock.patch.object(MODULE, "ROOT", root),
+                      mock.patch.object(MODULE, "subprocess", external),
+                      mock.patch.dict(os.environ, env)):
+                    if fault == "dirty-source":
+                        with self.assertRaises(subprocess.CalledProcessError):
+                            MODULE.collect()
+                    elif fault is not None:
+                        messages = {"wrong-input-count": "Injected XML count differs",
+                                    "missing-generator": "Unexpected generated file inventory",
+                                    "missing-mapping": "Missing or linked native evidence"}
+                        with self.assertRaisesRegex(ValueError, messages[fault]):
+                            MODULE.collect()
+                    else:
+                        MODULE.collect()
+                        record = json.loads((output / "receipt.json").read_bytes())
+                        self.assertEqual(record["sourceSha"], sha)
+                        self.assertEqual(record["treeSha"], subprocess.check_output(
+                            ["git", "rev-parse", "HEAD^{tree}"], cwd=root, text=True).strip())
+                        self.assertEqual(record["xmlCount"], 2)
+                        self.assertEqual(record["hashes"], MODULE.manifest(output))
+                        self.assertEqual(len(record["assemblies"]), 2 * len(native.ASSEMBLIES))
+                        self.assertEqual((output / "mapping.original").read_bytes(),
+                                         b"fixture deterministic mapping")
+                        for project in MODULE.PROJECTS:
+                            self.assertEqual(MODULE.fixture_count(output / project / "inputs.txt"), 2)
+                    if fault is not None:
+                        self.assertFalse((output / "receipt.json").exists())
+                    self.assertEqual(len(built), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

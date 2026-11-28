@@ -458,8 +458,9 @@ public sealed class SecurityArchitectureSignalREventTests
         // Each route retains its original enqueue, recipient delivery, terminal
         // database state and peer delivery checks with the same per-event deadlines.
         Assert.NotEmpty(routes);
-        Assert.DoesNotContain(routes, route => route.EventType is
-            "Announcements.AnnouncementChanged.v1" or "Security.AuthorizationStateChanged.v1");
+        var eventTypes = routes.Select(route => route.EventType).ToArray();
+        Assert.DoesNotContain("Announcements.AnnouncementChanged.v1", eventTypes);
+        Assert.DoesNotContain("Security.AuthorizationStateChanged.v1", eventTypes);
         foreach (var batch in routes.Chunk(4))
             await Task.WhenAll(batch.Select(route => AssertRecipientPositiveAsync(database, app, scope, member, owner, route)));
     }
