@@ -1,5 +1,6 @@
 """Reject entry-suite identity loss even when passing case counts are unchanged."""
 import copy
+from fnmatch import fnmatchcase
 import json
 import re
 from pathlib import Path
@@ -8,6 +9,83 @@ import unittest
 from projectide_entry_isolated import TEST_PATHS, require_retained_entry_identities
 
 BASELINE = Path(__file__).resolve().parents[1] / "Coglatas.ProjectIde.Entry.Tests/retained-test-identities.v1.json"
+
+RUNTIME_ROUTES = (
+    "src/Coglatas.Application/ProjectIde/Runtime/**",
+    "src/Coglatas.Infrastructure/Persistence/ProjectTestJob*.cs",
+    "tests/Coglatas.Tests/PostgreSql/ProjectTestRuntimePostgreSqlTests.cs",
+)
+
+
+def require_runtime_routes(workflow):
+    lines = workflow.replace("\r\n", "\n").splitlines()
+    marker = ["on:", "  pull_request:", "    paths:"]
+    try:
+        start = lines.index(marker[0])
+        if lines[start:start + len(marker)] != marker:
+            raise ValueError("Missing pull request paths filter")
+        patterns = []
+        for line in lines[start + len(marker):]:
+            if line.startswith("      - "):
+                patterns.append(line.removeprefix("      - ").strip().strip("\"'"))
+            elif line.strip() and not line.lstrip().startswith("#"):
+                break
+    except ValueError as error:
+        raise ValueError("Missing pull request paths filter") from error
+    if any(pattern.startswith("!") for pattern in patterns):
+        raise ValueError("Entry routes must retain inclusion-only patterns")
+    if len(patterns) != len(set(patterns)):
+        raise ValueError("Duplicate Entry route")
+    for required in RUNTIME_ROUTES:
+        if required not in patterns:
+            raise ValueError("Missing Runtime route: " + required)
+    return patterns
+
+
+class EntryRuntimeRoutingTests(unittest.TestCase):
+    def setUp(self):
+        root = Path(__file__).resolve().parents[2]
+        self.workflow = (root / ".github/workflows/projectide-entry-isolated.yml").read_text(encoding="utf-8")
+
+    def test_runtime_service_store_provisioner_and_postgresql_only_changes_select_the_paired_build(self):
+        patterns = require_runtime_routes(self.workflow)
+        for path in (
+            "src/Coglatas.Application/ProjectIde/Runtime/ProjectTestRuntime.cs",
+            "src/Coglatas.Application/ProjectIde/Runtime/ProjectIdeOperationAuthorization.cs",
+            "src/Coglatas.Infrastructure/Persistence/ProjectTestJobStore.cs",
+            "src/Coglatas.Infrastructure/Persistence/ProjectTestJobDevelopmentProvisioning.cs",
+            "tests/Coglatas.Tests/PostgreSql/ProjectTestRuntimePostgreSqlTests.cs",
+        ):
+            with self.subTest(path=path):
+                self.assertTrue(any(fnmatchcase(path, pattern) for pattern in patterns))
+        self.assertFalse(any(fnmatchcase("docs/unrelated.md", pattern) for pattern in patterns))
+
+    def test_each_missing_runtime_trigger_is_rejected(self):
+        for path in RUNTIME_ROUTES:
+            with self.subTest(path=path):
+                changed = self.workflow.replace("      - " + path + "\n", "")
+                with self.assertRaisesRegex(ValueError, "Missing Runtime route"):
+                    require_runtime_routes(changed)
+
+    def test_matching_exclusions_cannot_disable_runtime_routes(self):
+        excluded = self.workflow.replace("    paths:\n", "    paths:\n      - '!src/**'\n", 1)
+        with self.assertRaisesRegex(ValueError, "inclusion-only"):
+            require_runtime_routes(excluded)
+
+    def test_missing_event_filter_and_duplicate_selectors_are_rejected(self):
+        for changed in (
+            self.workflow.replace("  pull_request:\n", "  push:\n", 1),
+            self.workflow.replace("    paths:\n", "    paths-ignore:\n", 1),
+        ):
+            with self.subTest(changed=changed[:60]), self.assertRaisesRegex(ValueError, "Missing pull request"):
+                require_runtime_routes(changed)
+        duplicated = self.workflow.replace("    paths:\n", "    paths:\n      - global.json\n", 1)
+        with self.assertRaisesRegex(ValueError, "Duplicate"):
+            require_runtime_routes(duplicated)
+
+    def test_crlf_checkout_keeps_the_same_runtime_routes(self):
+        self.assertEqual(require_runtime_routes(self.workflow),
+                         require_runtime_routes(self.workflow.replace("\n", "\r\n")))
 
 
 class EntryIdentityRetentionTests(unittest.TestCase):

@@ -49,3 +49,10 @@ shared operation policy and the immutable Source resolver. Activation of live
 permissions, production endpoint and client adoption, artifact eligibility,
 required-suite admission, shared Merge use and Release qualification have
 separate approval and evidence requirements.
+
+The existing paired Entry route includes Runtime-only service, Project Test
+store/provisioning and PostgreSQL-test changes. It builds the exact solution
+on Windows and Ubuntu and retains the existing pure regression inventories.
+Its receipt remains `PURE_CORE_ONLY`; it does not establish Windows PostgreSQL,
+actual Native UI or independent Runtime acceptance. The backend CI and explicit
+PostgreSQL fixtures retain their separate database evidence.

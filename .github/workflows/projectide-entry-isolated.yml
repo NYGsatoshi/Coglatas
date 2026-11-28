@@ -5,6 +5,11 @@ on:
     paths:
       - tests/Coglatas.ProjectIde.Entry.Tests/**
       - src/Coglatas.Domain/ProjectIde/**
+      # Runtime-only changes still need the exact solution built on both hosts.
+      # The retained test receipt remains PURE_CORE_ONLY, not runtime acceptance.
+      - src/Coglatas.Application/ProjectIde/Runtime/**
+      - src/Coglatas.Infrastructure/Persistence/ProjectTestJob*.cs
+      - tests/Coglatas.Tests/PostgreSql/ProjectTestRuntimePostgreSqlTests.cs
       - tools/Coglatas.SecurityArchitecture/SourceEntryValidator.cs
       - tools/Coglatas.SecurityArchitecture/SpecTraceabilityValidator.cs
       - tests/Coglatas.Tests/ProjectIde/**
