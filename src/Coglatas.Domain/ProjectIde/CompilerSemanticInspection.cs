@@ -25,7 +25,7 @@ public sealed partial class CompilerSemanticInspection
             SourceJson? type = null;
             if (symbol.PortId is { } portId && declarations.TryGetValue(symbol.EntityId, out var entries) && entries.Length == 1 &&
                 entries[0].Declaration is TaskPlanDeclaration task)
-                type = task.Ports.Single(port => port.PortId == portId).Type.Data;
+                type = task.GetPort(portId).Type.Data;
             symbols.Add(new(symbol, type));
         }
         Symbols = new ImmutableListView<CompilerInspectedSymbol>(symbols.OrderBy(item => item.Symbol.Key, StringComparer.Ordinal));
