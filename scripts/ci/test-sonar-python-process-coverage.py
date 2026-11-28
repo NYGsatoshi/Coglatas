@@ -532,8 +532,24 @@ class PythonProcessCoverageTests(unittest.TestCase):
                 source = subject.read_text(encoding='utf-8').splitlines()
                 for marker in required:
                     matching = [i for i, line in enumerate(source, 1) if line.strip() == marker]
-                    self.assertEqual(len(matching), 1, marker)
-                    self.assertIn(matching[0], lines, marker)
+                    if (stem == 'dotnet-coverage' and marker ==
+                            'result = require_shard_equivalence(baseline_tests, baseline_points, inventories)'):
+                        # Require execution in both independent proof and
+                        # scanner rebuild admission, not just either function.
+                        functions = {
+                            node.name: node for node in ast.parse('\n'.join(source)).body
+                            if isinstance(node, ast.FunctionDef)
+                        }
+                        expected = ('compare_shard_proof', 'require_actual_scanner_rebuild')
+                        self.assertEqual(len(matching), len(expected), marker)
+                        for name in expected:
+                            node = functions[name]
+                            found = [i for i in matching if node.lineno <= i <= node.end_lineno]
+                            self.assertEqual(len(found), 1, name)
+                            self.assertIn(found[0], lines, name)
+                    else:
+                        self.assertEqual(len(matching), 1, marker)
+                        self.assertIn(matching[0], lines, marker)
                 self.assertTrue(measured.arcs(by_path[subject]))
 
     def test_subject_scope_branch_and_parallel_configuration_are_explicit(self):

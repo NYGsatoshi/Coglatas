@@ -635,13 +635,17 @@ class SonarParallelCoverageTests(unittest.TestCase):
                     scanner.index("Begin pinned SonarCloud analysis"),
                 )
                 for report in reports:
-                    self.assertIn("            " + report, producer)
+                    if kind == "Angular":
+                        self.assertIn("path: artifacts/sonar-angular-inputs/", producer)
+                        self.assertIn(report, producer)
+                    else:
+                        self.assertIn("            " + report, producer)
                     self.assertIn(report, scanner)
         node = self.job(workflow, "javascript-coverage")
         angular = self.job(workflow, "angular-coverage")
         self.assertNotIn("npm --prefix frontend run test:coverage", node)
         lanes = self.job(workflow, "angular-native-lanes")
-        self.assertIn("lane: [baseline, shard-1, shard-2]", lanes)
+        self.assertIn("lane: ${{ fromJSON(needs.target.outputs.analysis_kind == 'pull_request' && '[\"baseline\"]' || '[\"baseline\",\"shard-1\",\"shard-2\"]') }}", lanes)
         self.assertIn('collect --lane "$PROOF_LANE"', lanes)
         self.assertIn("needs: [target, angular-native-lanes]", angular)
         self.assertIn("contents: read", angular)
@@ -649,13 +653,16 @@ class SonarParallelCoverageTests(unittest.TestCase):
         self.assertNotIn("SONAR_TOKEN", angular)
         self.assertNotIn("environment: sonarcloud-analysis", angular)
         self.assertIn("verify-sonar-angular-coverage.py compare", angular)
-        self.assertLess(angular.index("Require exact native Angular coverage equivalence"),
-                        angular.index("Stage only the two original native shard reports"))
-        self.assertLess(angular.index("Stage only the two original native shard reports"),
+        self.assertLess(angular.index("Require complete native Angular coverage admission"),
+                        angular.index("Stage only the selected original native Angular reports"))
+        self.assertLess(angular.index("Stage only the selected original native Angular reports"),
                         angular.index("Bind Angular coverage handoff to exact execution"))
         self.assertIn('cmp -- "$source" "$target"', angular)
         self.assertIn("sonar-angular-shard-proof-*-${{ github.run_attempt }}", angular)
-        self.assertIn("sonar.javascript.lcov.reportPaths=artifacts/sonar-angular-inputs/shard-1/lcov.info,artifacts/sonar-angular-inputs/shard-2/lcov.info,", scanner)
+        self.assertIn("analysis_kind == 'pull_request' && 'baseline-only' || 'full'", angular)
+        self.assertIn("angular_reports=artifacts/sonar-angular-inputs/shard-1/lcov.info,artifacts/sonar-angular-inputs/shard-2/lcov.info", scanner)
+        self.assertIn("angular_reports=artifacts/sonar-angular-inputs/baseline/lcov.info", scanner)
+        self.assertIn("sonar.javascript.lcov.reportPaths=$angular_reports,", scanner)
         self.assertNotIn("sonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info", scanner)
         self.assertNotIn("Measure existing operational contract controls", angular)
         self.assertIn("Measure existing operational contract controls", node)
@@ -674,8 +681,11 @@ class SonarParallelCoverageTests(unittest.TestCase):
 
     def test_real_handoff_shell_rejects_stale_or_tampered_inputs(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
-        for kind, reports in self.REPORTS.items():
-            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as directory:
+        cases = [(kind, reports, "main") for kind, reports in self.REPORTS.items()]
+        cases.append(("Angular", ("artifacts/sonar-angular-inputs/baseline/lcov.info",
+                                  "artifacts/sonar-angular-inputs/receipt.json"), "pull_request"))
+        for kind, reports, analysis_kind in cases:
+            with self.subTest(kind=kind, analysis_kind=analysis_kind), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 subprocess.run(["git", "init", "-q"], cwd=root, check=True)
                 subprocess.run(
@@ -691,6 +701,7 @@ class SonarParallelCoverageTests(unittest.TestCase):
                     "GITHUB_RUN_ATTEMPT": "1",
                     "GITHUB_WORKSPACE": str(root),
                     "GITHUB_OUTPUT": str(output),
+                    "SONAR_ANALYSIS_KIND": analysis_kind,
                 }
                 for index, report in enumerate(reports):
                     path = root / report
@@ -712,6 +723,13 @@ class SonarParallelCoverageTests(unittest.TestCase):
                 accepted = env | {"EXPECTED_DIGEST": value.split("=", 1)[1]}
                 result = invoke(verify, accepted)
                 self.assertEqual(result.returncode, 0, result.stderr)
+                if kind == "Angular":
+                    for invalid in ("unknown", "main" if analysis_kind == "pull_request" else "pull_request"):
+                        self.assertNotEqual(invoke(verify, accepted | {"SONAR_ANALYSIS_KIND": invalid}).returncode, 0)
+                    unexpected = root / "artifacts/sonar-angular-inputs/unexpected"
+                    unexpected.write_bytes(b"unexpected")
+                    self.assertNotEqual(invoke(verify, accepted).returncode, 0)
+                    unexpected.unlink()
                 for key, invalid in (
                     ("GITHUB_SHA", "0" * 40),
                     ("GITHUB_RUN_ID", "101"),
