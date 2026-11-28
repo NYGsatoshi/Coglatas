@@ -152,6 +152,24 @@ public sealed class ProjectIdeInspectionRuntimePostgreSqlTests
         Assert.Null(await fixture.Runtime.QueryOutputAsync(raceKey));
         fixture.Retention.BeforeDecision = null;
 
+        foreach (var export in new[] { false, true })
+        {
+            var lateKey = key with { CaptureId = Guid.NewGuid() };
+            Assert.Equal(view, await fixture.Runtime.CaptureOutputAsync(lateKey, snapshot.RetainedBodyBytes));
+            fixture.Captures.BeforeReadAuthorization = async () =>
+            {
+                var blocked = await Assert.ThrowsAsync<PostgresException>(() => LockCaptureForUpdateAsync(fixture.Database, lateKey.CaptureId));
+                Assert.Equal(PostgresErrorCodes.LockNotAvailable, blocked.SqlState);
+            };
+            Assert.Equal(view, export ? await fixture.Runtime.ExportOutputAsync(lateKey) : await fixture.Runtime.QueryOutputAsync(lateKey));
+            await LockCaptureForUpdateAsync(fixture.Database, lateKey.CaptureId);
+            fixture.Captures.BeforeReadAuthorization = fixture.RevokeSessionAsync;
+            Assert.Null(export ? await fixture.Runtime.ExportOutputAsync(lateKey) : await fixture.Runtime.QueryOutputAsync(lateKey));
+            fixture.Captures.BeforeReadAuthorization = null;
+            await fixture.RestoreSessionAsync();
+            Assert.Equal(view, export ? await fixture.Runtime.ExportOutputAsync(lateKey) : await fixture.Runtime.QueryOutputAsync(lateKey));
+        }
+
         fixture.Captures.BeforeWrite = fixture.RevokeSessionAsync;
         var revokedKey = key with { CaptureId = Guid.NewGuid() };
         Assert.Null(await fixture.Runtime.CaptureOutputAsync(revokedKey, snapshot.RetainedBodyBytes));
@@ -160,6 +178,18 @@ public sealed class ProjectIdeInspectionRuntimePostgreSqlTests
 
     private static ProjectIdeInspectionReference Reference(CompilerInputManifest input, Guid id, ContentDigest digest) =>
         new(SecuritySourceIdentitySnapshot.Capture(input.Source.Context, input.InputDigest), input.Source.Digest, id, digest);
+
+    private static async Task LockCaptureForUpdateAsync(string database, Guid captureId)
+    {
+        await using var connection = new NpgsqlConnection(database);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("""
+            SELECT 1 FROM projectide_development.projectide_compiler_output_captures
+            WHERE "CaptureId" = @id FOR UPDATE NOWAIT
+            """, connection);
+        command.Parameters.AddWithValue("id", captureId);
+        Assert.Equal(1, await command.ExecuteScalarAsync());
+    }
 
     private static Task WithRuntimeAsync(Func<RuntimeFixture, Task> test) =>
         PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(PostgreSqlTestEnvironment.RequireConnectionString(), async connection =>
@@ -200,11 +230,14 @@ public sealed class ProjectIdeInspectionRuntimePostgreSqlTests
             var runtime = new ProjectIdeInspectionRuntime(access, retention, recordings, evidence, captures);
             await test(new(connection, plan, runtime, authorization, retention, recordings, evidence, captures,
                 () => PostgreSqlMigrationTestDatabase.ExecuteAsync(connection,
-                    "UPDATE sessions SET \"RevokedAt\" = now() WHERE \"Id\" = @session", ("session", session.Id))));
+                    "UPDATE sessions SET \"RevokedAt\" = now() WHERE \"Id\" = @session", ("session", session.Id)),
+                () => PostgreSqlMigrationTestDatabase.ExecuteAsync(connection,
+                    "UPDATE sessions SET \"RevokedAt\" = NULL WHERE \"Id\" = @session", ("session", session.Id))));
         });
 
     private sealed record RuntimeFixture(string Database, CompilerExecutionPlan Plan, ProjectIdeInspectionRuntime Runtime, TestAuthorization Authorization,
-        TestRetention Retention, TestRecordings Recordings, CompilerRecordingStore Evidence, TestCaptures Captures, Func<Task> RevokeSessionAsync);
+        TestRetention Retention, TestRecordings Recordings, CompilerRecordingStore Evidence, TestCaptures Captures,
+        Func<Task> RevokeSessionAsync, Func<Task> RestoreSessionAsync);
 
     private sealed class TestAuthorization(BranchRef branch) : IProjectIdeOperationAuthorization
     {
@@ -250,9 +283,18 @@ public sealed class ProjectIdeInspectionRuntimePostgreSqlTests
     private sealed class TestCaptures(CompilerOutputCaptureStore store) : ICompilerOutputCaptureStore
     {
         public Func<Task>? BeforeWrite { get; set; }
+        public Func<Task>? BeforeReadAuthorization { get; set; }
 
         public Task<CompilerOutputCapture?> FindAsync(CompilerOutputCaptureKey key, CancellationToken cancellationToken) =>
             store.FindAsync(key, cancellationToken);
+
+        public Task<CompilerOutputCapture?> ReadAsync(CompilerOutputCaptureKey key, Func<CancellationToken, Task<bool>> reauthorize,
+            CancellationToken cancellationToken) => store.ReadAsync(key, async token =>
+            {
+                if (BeforeReadAuthorization is not null)
+                    await BeforeReadAuthorization();
+                return await reauthorize(token);
+            }, cancellationToken);
 
         public Task<CompilerOutputCapture?> RetainAsync(CompilerOutputCapture capture, Func<CancellationToken, Task<bool>> reauthorize,
             CancellationToken cancellationToken) => store.RetainAsync(capture, async token =>

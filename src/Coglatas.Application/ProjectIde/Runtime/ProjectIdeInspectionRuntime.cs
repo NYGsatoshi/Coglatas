@@ -43,6 +43,10 @@ public interface ICompilerOutputCaptureStore
 {
     Task<CompilerOutputCapture?> FindAsync(CompilerOutputCaptureKey key, CancellationToken cancellationToken);
 
+    /// <summary>Holds the exact live capture stable while checking current disclosure authority.</summary>
+    Task<CompilerOutputCapture?> ReadAsync(CompilerOutputCaptureKey key, Func<CancellationToken, Task<bool>> reauthorize,
+        CancellationToken cancellationToken);
+
     /// <summary>Commits an immutable redacted capture or returns its exact replay. Reauthorizes before committing.</summary>
     Task<CompilerOutputCapture?> RetainAsync(CompilerOutputCapture capture, Func<CancellationToken, Task<bool>> reauthorize,
         CancellationToken cancellationToken);
@@ -153,13 +157,13 @@ public sealed class ProjectIdeInspectionRuntime(ProjectIdeOperationAccess access
         if (key.CaptureId == Guid.Empty || await AdmitAsync(key.Recording, operation, cancellationToken) is not { } viewer)
             return null;
 
-        var capture = await captures.FindAsync(key, cancellationToken);
-        if (capture is null || capture.Key != key || !await IsAllowedAsync(viewer, operation, key.Recording, cancellationToken))
+        if (!await IsAllowedAsync(viewer, operation, key.Recording, cancellationToken))
             return null;
 
-        var current = await captures.FindAsync(key, cancellationToken);
+        Task<bool> Allowed(CancellationToken token) => IsAllowedAsync(viewer, operation, key.Recording, token);
+        var capture = await captures.ReadAsync(key, Allowed, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
-        return current == capture && access.CaptureViewer() == viewer ? capture.View : null;
+        return capture?.Key == key && access.CaptureViewer() == viewer ? capture.View : null;
     }
 
     private async Task<ProjectIdeViewerContext?> AdmitAsync(ProjectIdeInspectionReference reference, SecurityOperationRef operation,

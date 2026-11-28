@@ -29,6 +29,12 @@ atomic tombstone removes the projection, byte bound, binding digest and original
 run link. The tombstone preserves the scoped capture identity so a retry cannot
 restore a deleted capture.
 
+Query and export hold a shared lock on the exact live capture while performing
+the final persisted viewer and operation authorization checks. Concurrent
+tombstoning waits for that disclosure transaction; a policy callback that has
+already tombstoned the row is refused. Session revocation at this final capture
+boundary withholds both query and export, and an authorized retry remains usable.
+
 Development hosts supply their approved retention and disclosure policy and an
 original recording provider. Lifetime and purge policy, Web and Native consumers,
 and independent operational qualification remain open under #1962 and #1966.

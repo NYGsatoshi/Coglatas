@@ -28,6 +28,7 @@ public sealed class CompilerOutputCaptureStore(AppDbContext context, IClock cloc
             FROM projectide_development.projectide_compiler_output_captures
             WHERE "TenantId" = {reference.Source.TenantId} AND "ProjectId" = {reference.Source.ProjectId} AND "CaptureId" = {key.CaptureId}
                 AND "RunId" = {reference.RecordingId} AND "BindingDigest" = {binding} AND "DeletedAtUtc" IS NULL
+            FOR SHARE
             """).SingleOrDefaultAsync(cancellationToken);
         if (row is not { Projection: { } projection, MaximumBodyBytes: { } maximumBodyBytes } || !MatchesScope(key))
             return null;
@@ -41,6 +42,21 @@ public sealed class CompilerOutputCaptureStore(AppDbContext context, IClock cloc
         {
             return null;
         }
+    }
+
+    public async Task<CompilerOutputCapture?> ReadAsync(CompilerOutputCaptureKey key, Func<CancellationToken, Task<bool>> reauthorize,
+        CancellationToken cancellationToken)
+    {
+        if (!MatchesScope(key))
+            return null;
+
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        var capture = await FindAsync(key, cancellationToken);
+        if (capture is null || !await reauthorize(cancellationToken) || !MatchesScope(key))
+            return null;
+
+        await transaction.CommitAsync(cancellationToken);
+        return capture;
     }
 
     public async Task<CompilerOutputCapture?> RetainAsync(CompilerOutputCapture capture, Func<CancellationToken, Task<bool>> reauthorize,
