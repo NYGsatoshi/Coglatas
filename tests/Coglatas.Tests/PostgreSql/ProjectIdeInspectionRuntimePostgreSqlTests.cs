@@ -156,18 +156,19 @@ public sealed class ProjectIdeInspectionRuntimePostgreSqlTests
         {
             var lateKey = key with { CaptureId = Guid.NewGuid() };
             Assert.Equal(view, await fixture.Runtime.CaptureOutputAsync(lateKey, snapshot.RetainedBodyBytes));
+            fixture.Captures.BeforeReadAuthorization = fixture.RevokeSessionAsync;
+            Assert.Null(export ? await fixture.Runtime.ExportOutputAsync(lateKey) : await fixture.Runtime.QueryOutputAsync(lateKey));
+            fixture.Captures.BeforeReadAuthorization = null;
+            await fixture.RestoreSessionAsync();
+            Assert.Equal(view, export ? await fixture.Runtime.ExportOutputAsync(lateKey) : await fixture.Runtime.QueryOutputAsync(lateKey));
             fixture.Captures.BeforeReadAuthorization = async () =>
             {
                 var blocked = await Assert.ThrowsAsync<PostgresException>(() => LockCaptureForUpdateAsync(fixture.Database, lateKey.CaptureId));
                 Assert.Equal(PostgresErrorCodes.LockNotAvailable, blocked.SqlState);
             };
             Assert.Equal(view, export ? await fixture.Runtime.ExportOutputAsync(lateKey) : await fixture.Runtime.QueryOutputAsync(lateKey));
-            await LockCaptureForUpdateAsync(fixture.Database, lateKey.CaptureId);
-            fixture.Captures.BeforeReadAuthorization = fixture.RevokeSessionAsync;
-            Assert.Null(export ? await fixture.Runtime.ExportOutputAsync(lateKey) : await fixture.Runtime.QueryOutputAsync(lateKey));
             fixture.Captures.BeforeReadAuthorization = null;
-            await fixture.RestoreSessionAsync();
-            Assert.Equal(view, export ? await fixture.Runtime.ExportOutputAsync(lateKey) : await fixture.Runtime.QueryOutputAsync(lateKey));
+            await LockCaptureForUpdateAsync(fixture.Database, lateKey.CaptureId);
         }
 
         fixture.Captures.BeforeWrite = fixture.RevokeSessionAsync;
@@ -282,11 +283,23 @@ public sealed class ProjectIdeInspectionRuntimePostgreSqlTests
 
     private sealed class TestCaptures(CompilerOutputCaptureStore store) : ICompilerOutputCaptureStore
     {
+        private Func<Task>? _beforeReadAuthorization;
+        private int _findsAfterArming;
         public Func<Task>? BeforeWrite { get; set; }
-        public Func<Task>? BeforeReadAuthorization { get; set; }
+        public Func<Task>? BeforeReadAuthorization
+        {
+            get => _beforeReadAuthorization;
+            set { _beforeReadAuthorization = value; _findsAfterArming = 0; }
+        }
 
-        public Task<CompilerOutputCapture?> FindAsync(CompilerOutputCaptureKey key, CancellationToken cancellationToken) =>
-            store.FindAsync(key, cancellationToken);
+        public async Task<CompilerOutputCapture?> FindAsync(CompilerOutputCaptureKey key, CancellationToken cancellationToken)
+        {
+            var capture = await store.FindAsync(key, cancellationToken);
+            // Retain the legacy final-read boundary so the unchanged regression exposes its stale authority.
+            if (BeforeReadAuthorization is not null && ++_findsAfterArming == 2)
+                await BeforeReadAuthorization();
+            return capture;
+        }
 
         public Task<CompilerOutputCapture?> ReadAsync(CompilerOutputCaptureKey key, Func<CancellationToken, Task<bool>> reauthorize,
             CancellationToken cancellationToken) => store.ReadAsync(key, async token =>
