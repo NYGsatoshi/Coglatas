@@ -4,6 +4,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot 'process-lifecycle.ps1')
 [System.IO.Directory]::CreateDirectory($EvidenceDirectory) | Out-Null
 [System.IO.Directory]::CreateDirectory($PrivateDirectory) | Out-Null
 $hostExecutable = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'windows-host/bin/Release/net11.0/WindowsHost.exe'))
@@ -12,8 +13,12 @@ $receiptPath = Join-Path $EvidenceDirectory 'receipt.json'
 $ownershipPath = Join-Path $PrivateDirectory 'owned-child.json'
 $expectedHostHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $hostExecutable).Hash.ToLowerInvariant()
 $harnessProcess = $null
+$stdout = $null
+$stderr = $null
 $probeExit = 1
-$wrapperCleanup = $true
+$wrapperCleanup = @{ succeeded = $false; state = 'NOT_ESTABLISHED' }
+$harnessCleanup = $false
+$outputDrained = $false
 try {
     $start = [Diagnostics.ProcessStartInfo]::new($harness)
     $start.UseShellExecute = $false
@@ -29,8 +34,6 @@ try {
         [void]$harnessProcess.WaitForExit(5000)
         throw 'Synthetic UI probe exceeded its bounded runtime.'
     }
-    $stdout.GetAwaiter().GetResult() | Set-Content -Encoding utf8 (Join-Path $EvidenceDirectory 'probe-output.json')
-    $stderr.GetAwaiter().GetResult() | Set-Content -Encoding utf8 (Join-Path $EvidenceDirectory 'probe-errors.log')
     $probeExit = $harnessProcess.ExitCode
 } catch {
     $probeExit = 1
@@ -42,32 +45,32 @@ try {
         } | ConvertTo-Json | Set-Content -Encoding utf8 $receiptPath
     }
 } finally {
-    if ($null -ne $harnessProcess) { $harnessProcess.Dispose() }
-    # A timeout may prevent managed finally from running. Cleanup is restricted to
-    # the exact child PID, original creation instant, executable path and hash.
-    if (Test-Path -LiteralPath $ownershipPath) {
-        $child = $null
+    if ($null -ne $harnessProcess) {
         try {
-            $owned = Get-Content -Raw -LiteralPath $ownershipPath | ConvertFrom-Json
-            $child = Get-Process -Id ([int]$owned.processId) -ErrorAction SilentlyContinue
-            if ($null -ne $child) {
-                if ($child.StartTime.ToUniversalTime().Ticks -ne [long]$owned.startTimeUtcTicks -or
-                    [IO.Path]::GetFullPath($child.Path) -ne $hostExecutable -or
-                    [IO.Path]::GetFullPath([string]$owned.executablePath) -ne $hostExecutable -or
-                    [string]$owned.executableSha256 -ne $expectedHostHash) {
-                    $wrapperCleanup = $false
-                } else {
-                    $child.Kill()
-                    $wrapperCleanup = $child.WaitForExit(5000)
-                }
-            }
-        } catch { $wrapperCleanup = $false }
-        finally { if ($null -ne $child) { $child.Dispose() } }
+            if (-not $harnessProcess.HasExited) { $harnessProcess.Kill() }
+            $harnessCleanup = $harnessProcess.WaitForExit(5000)
+        } catch { $harnessCleanup = $false }
     }
-    @{ ownedSyntheticChildCleanupSucceeded = $wrapperCleanup } |
+    # A timeout/crash may prevent managed finally from running. No ownership
+    # journal means cleanup is unproven, including the launch-to-journal gap.
+    $wrapperCleanup = Complete-OwnedSyntheticChild $ownershipPath $hostExecutable $expectedHostHash
+    # Cleanup precedes bounded pipe draining, since a surviving child can keep
+    # an inherited pipe open after the harness itself has exited.
+    $outputDrained = Complete-ProbeOutput $stdout $stderr $EvidenceDirectory
+    if ($null -ne $harnessProcess) {
+        $harnessProcess.StandardOutput.Dispose()
+        $harnessProcess.StandardError.Dispose()
+        $harnessProcess.Dispose()
+    }
+    @{
+        ownedSyntheticChildCleanupSucceeded = $wrapperCleanup.succeeded; childCleanupState = $wrapperCleanup.state
+        ownedHarnessCleanupSucceeded = $harnessCleanup; outputDrainSucceeded = $outputDrained
+    } |
         ConvertTo-Json | Set-Content -Encoding utf8 (Join-Path $EvidenceDirectory 'cleanup.json')
 }
-if ($probeExit -ne 0 -or -not $wrapperCleanup) { throw 'Synthetic Windows probe failed or did not run; inspect its finite receipt.' }
+if ($probeExit -ne 0 -or -not $wrapperCleanup.succeeded -or -not $harnessCleanup -or -not $outputDrained) {
+    throw 'Synthetic Windows probe failed or did not run; inspect its finite receipt.'
+}
 $receipt = Get-Content -Raw -LiteralPath $receiptPath | ConvertFrom-Json
 . (Join-Path $PSScriptRoot 'verify-receipt.ps1')
 Assert-SyntheticWindowsReceipt $receipt

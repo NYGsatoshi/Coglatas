@@ -42,7 +42,9 @@ jobs:
           persist-credentials: false
       - name: Reject false-positive receipts independently of UI execution
         shell: pwsh
-        run: ./tools/diagnostics/j17-windows-uia3/test-receipt-controls.ps1
+        run: |
+          ./tools/diagnostics/j17-windows-uia3/test-receipt-controls.ps1
+          ./tools/diagnostics/j17-windows-uia3/test-process-controls.ps1
       - name: Establish interactive input desktop or retain NOT_RUN
         shell: pwsh
         run: ./tools/diagnostics/j17-windows-uia3/desktop-preflight.ps1 -EvidenceDirectory "$env:RUNNER_TEMP/j17-evidence/public"
