@@ -103,12 +103,16 @@ public sealed partial class SyntheticWorkbenchViewModel
         }
         finally { if (generation == _simulationGeneration) _debugBusy = false; }
     }
-    public bool StepSyntheticSimulation(SimulationDebugSnapshot basis, CancellationToken token = default) => ControlSimulation(basis, debugger => debugger.Step(basis.Stamp, token));
-    public bool ContinueSyntheticSimulation(SimulationDebugSnapshot basis, CancellationToken token = default) => ControlSimulation(basis, debugger => debugger.Continue(basis.Stamp, token));
-    public bool StepOverSyntheticSimulation(SimulationDebugSnapshot basis, ProjectLocation location, CancellationToken token = default) => ControlSimulation(basis, debugger => debugger.StepOver(basis.Stamp, location, token));
+    public bool StepSyntheticSimulation(SimulationDebugSnapshot basis, CancellationToken token = default) =>
+        ControlSimulation(basis, debugger => debugger.Step(basis.Stamp, token), token);
+    public bool ContinueSyntheticSimulation(SimulationDebugSnapshot basis, CancellationToken token = default) =>
+        ControlSimulation(basis, debugger => debugger.Continue(basis.Stamp, token), token);
+    public bool StepOverSyntheticSimulation(SimulationDebugSnapshot basis, ProjectLocation location, CancellationToken token = default) =>
+        ControlSimulation(basis, debugger => debugger.StepOver(basis.Stamp, location, token), token);
     public bool InspectSyntheticSimulation(SimulationDebugSnapshot basis, ProjectLocation location) => ControlSimulation(basis, debugger => debugger.Inspect(basis.Stamp, location));
     public bool SetSyntheticSimulationBreakpoints(SimulationDebugSnapshot basis, IEnumerable<SimulationBreakpoint> requests) => ControlSimulation(basis, debugger => debugger.SetBreakpoints(basis.Stamp, requests));
-    private bool ControlSimulation(SimulationDebugSnapshot basis, Func<ProjectSimulationDebugger, SimulationControlResponse> command)
+    private bool ControlSimulation(SimulationDebugSnapshot basis, Func<ProjectSimulationDebugger, SimulationControlResponse> command,
+        CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this); ArgumentNullException.ThrowIfNull(basis);
         var debugger = _simulationDebugger; var generation = _simulationGeneration;
@@ -116,20 +120,36 @@ public sealed partial class SyntheticWorkbenchViewModel
         bool ContextCurrent() => !_disposed && generation == _simulationGeneration && ReferenceEquals(_simulationDebugger, debugger);
         bool Current() => ContextCurrent() && ReferenceEquals(SimulationDebug, basis);
         _debugBusy = true;
+        var cancelledAtPublication = false;
         try {
             var response = command(debugger);
             if (!Current()) return false;
             SimulationDebugControlReason = response.Reason;
             if (!response.Accepted) { Changed(); return false; }
-            if (!ReferenceEquals(_simulationRun, response.Snapshot!.Result))
+            var snapshot = response.Snapshot!;
+            if (!ReferenceEquals(_simulationRun, snapshot.Result))
             {
                 ClearSimulationTraceProfile();
                 ClearScenarioScheduleImpact();
             }
-            _simulationDebugSnapshot = response.Snapshot!; _simulationRun = response.Snapshot!.Result; Changed();
-            return !_disposed && generation == _simulationGeneration && ReferenceEquals(_simulationDebugger, debugger) && ReferenceEquals(SimulationDebug, response.Snapshot);
+            _simulationDebugSnapshot = snapshot;
+            _simulationRun = snapshot.Result;
+            Exception? withdrawalFailure = null;
+            try { Changed(); }
+            finally
+            {
+                cancelledAtPublication = snapshot.Result?.Execution != CompilerExecutionState.Cancelled && cancellationToken.IsCancellationRequested;
+                if (cancelledAtPublication && ContextCurrent() && ReferenceEquals(_simulationDebugSnapshot, snapshot))
+                {
+                    ClearSimulation();
+                    withdrawalFailure = NotifySimulationWithdrawal();
+                }
+            }
+            if (cancelledAtPublication)
+                throw new OperationCanceledException("Simulation debugger command publication was cancelled.", withdrawalFailure, cancellationToken);
+            return ContextCurrent() && ReferenceEquals(SimulationDebug, snapshot);
         }
-        catch (ObjectDisposedException) when (!ContextCurrent()) { return false; }
+        catch (ObjectDisposedException) when (!cancelledAtPublication && !ContextCurrent()) { return false; }
         finally { if (generation == _simulationGeneration) _debugBusy = false; }
     }
     public bool NavigateSimulationDebugEvent(SimulationDebugSnapshot basis, SourceJson traceEvent)
