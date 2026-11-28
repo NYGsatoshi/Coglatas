@@ -334,20 +334,29 @@ class SonarSourceScopeTests(unittest.TestCase):
         start = workflow.index("      - name: Measure existing CI regression controls without analysis credentials")
         end = workflow.index("\n      - name:", start + 1)
         block = workflow[start:end]
+        self.assertIn('collect --lane "$PROOF_LANE"', block)
         self.assertNotIn("GITHUB_ENV", block)
-        self.assertIn('export SONAR_PYTHON_SOURCE_ROOT="$PWD"', block)
-        self.assertNotIn("export COVERAGE_PROCESS_START", block)
-        self.assertNotIn("export PYTHONPATH", block)
-        self.assertIn('COVERAGE_PROCESS_START="$COVERAGE_RCFILE"', block)
-        self.assertIn('sonar-python-coverage-bootstrap:$PYTHONPATH', block)
-        self.assertLess(block.index('python3 -B -m coverage run "$control"'), block.index("coverage combine"))
-        self.assertIn("test-sonar-python-process-coverage.py", block)
-        self.assertIn("test-workspace-icon-disclosure-policy.py", block)
-        self.assertIn("scripts/ci/test_sec_arch_evidence.py", block)
-        self.assertIn("scripts/ci/test-postgres-log-privacy.py", block)
-        self.assertIn("scripts/ci/test-functional-setup-failure-probe.py", block)
-        self.assertIn("tests/ci/test_security_zap_attribution.py", block)
-        self.assertIn("tests/ci/test_performance_db_ci.py", block)
+        self.assertNotIn("SONAR_TOKEN", block)
+        canonical = (ROOT / "scripts/ci/sonar-python-controls.sh").read_text(encoding="utf-8")
+        collector = (ROOT / "scripts/ci/verify-sonar-python-sharding.py").read_text(encoding="utf-8")
+        self.assertNotIn("GITHUB_ENV", canonical)
+        self.assertNotIn("GITHUB_ENV", collector)
+        self.assertIn('env["SONAR_PYTHON_SOURCE_ROOT"] = str(root)', collector)
+        self.assertIn('env.pop("COVERAGE_PROCESS_START", None)', collector)
+        self.assertNotIn("export COVERAGE_PROCESS_START", canonical)
+        self.assertNotIn("export PYTHONPATH", canonical)
+        self.assertIn('COVERAGE_PROCESS_START="$COVERAGE_RCFILE"', canonical)
+        self.assertIn('sonar-python-coverage-bootstrap:$PYTHONPATH', canonical)
+        self.assertIn('python3 -B -m coverage run "$control"', canonical)
+        self.assertLess(collector.index("subprocess.run(command(control, dispatch)"),
+                        collector.index('native_coverage("combine", env=env)'))
+        for control in (
+            "test-sonar-python-process-coverage.py", "test-workspace-icon-disclosure-policy.py",
+            "scripts/ci/test_sec_arch_evidence.py", "scripts/ci/test-postgres-log-privacy.py",
+            "scripts/ci/test-functional-setup-failure-probe.py",
+            "tests/ci/test_security_zap_attribution.py", "tests/ci/test_performance_db_ci.py",
+        ):
+            self.assertIn(control, canonical)
 
     def test_native_node_mapping_is_complete_before_credentials(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
@@ -542,6 +551,280 @@ class SonarSourceScopeTests(unittest.TestCase):
             self.assertIn("artifacts/**", patterns)
             self.assertNotIn("**/artifacts/**", patterns)
         self.assertNotIn("sonar.scm.exclusions.disabled", settings)
+
+
+class SonarParallelCoverageTests(unittest.TestCase):
+    REPORTS = {
+        "Python": (
+            "artifacts/sonar-python/coverage.xml",
+            "artifacts/sonar-gcp/coverage.xml",
+            "artifacts/sonar-python/receipt.json",
+        ),
+        "JavaScript": (
+            "artifacts/sonar-node/lcov.info",
+            "artifacts/sonar-pilot-helper/lcov.info",
+            "artifacts/sonar-operational/c8/lcov.info",
+        ),
+        "Angular": (
+            "artifacts/sonar-angular-inputs/shard-1/lcov.info",
+            "artifacts/sonar-angular-inputs/shard-2/lcov.info",
+            "artifacts/sonar-angular-inputs/receipt.json",
+        ),
+    }
+
+    @staticmethod
+    def job(workflow: str, name: str) -> str:
+        import re
+        match = re.search(r"(?ms)^  " + re.escape(name) + r":\n(.*?)(?=^  [a-z][\w-]*:\n|\Z)", workflow)
+        if match is None:
+            raise AssertionError("Missing job: " + name)
+        return match.group(1)
+
+    @staticmethod
+    def shell(workflow: str, name: str) -> str:
+        lines = workflow.splitlines()
+        anchor = lines.index("      - name: " + name)
+        start = lines.index("        run: |", anchor + 1)
+        body = []
+        for line in lines[start + 1:]:
+            if line.startswith("          "):
+                body.append(line[10:])
+            elif not line.strip():
+                body.append("")
+            else:
+                break
+        if not body:
+            raise AssertionError("Missing shell for " + name)
+        return "\n".join(body)
+
+    def test_parallel_producers_are_required_and_credential_free(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        scanner = self.job(workflow, "sonarcloud")
+        self.assertIn("needs: [target, windows-dotnet, python-coverage, javascript-coverage, angular-coverage, dotnet-shard-coverage]", scanner)
+        self.assertIn("environment: sonarcloud-analysis", scanner)
+        self.assertNotIn("if: always()", scanner.split("    steps:", 1)[0])
+        for name in ("windows-dotnet", "python-native-lanes", "javascript-coverage", "angular-native-lanes", "dotnet-shard-coverage"):
+            producer = self.job(workflow, name)
+            self.assertIn("    needs: target", producer)
+            self.assertIn("    permissions:\n      contents: read", producer)
+            self.assertNotIn("environment: sonarcloud-analysis", producer)
+            self.assertNotIn("secrets.", producer)
+            self.assertNotIn("SONAR_TOKEN", producer)
+        python_join = self.job(workflow, "python-coverage")
+        self.assertIn("needs: [target, python-native-lanes]", python_join)
+        self.assertIn("contents: read", python_join)
+        self.assertNotIn("secrets.", python_join)
+        self.assertNotIn("SONAR_TOKEN", python_join)
+        self.assertNotIn("environment: sonarcloud-analysis", python_join)
+        self.assertIn("Require complete native Python coverage admission", python_join)
+        self.assertIn("analysis_kind == 'pull_request' && 'single-pass' || 'full'", python_join)
+        self.assertLess(python_join.index("Require complete native Python coverage admission"),
+                        python_join.index("Bind Python coverage handoff to exact execution"))
+        self.assertEqual(scanner.count("secrets.SONAR_TOKEN"), 2)
+        for kind, reports in self.REPORTS.items():
+            with self.subTest(kind=kind):
+                producer_id = kind.lower() + "-coverage"
+                producer = self.job(workflow, producer_id)
+                name = "sonar-" + kind.lower() + "-handoff-${{ github.run_attempt }}"
+                self.assertIn("name: " + name, producer)
+                self.assertIn("name: " + name, scanner)
+                self.assertIn("needs." + producer_id + ".outputs.digest", scanner)
+                self.assertIn("steps.handoff.outputs.digest", producer)
+                self.assertLess(
+                    scanner.index("Verify " + kind + " coverage handoff before scanner credentials"),
+                    scanner.index("Begin pinned SonarCloud analysis"),
+                )
+                for report in reports:
+                    if kind == "Angular":
+                        self.assertIn("path: artifacts/sonar-angular-inputs/", producer)
+                        self.assertIn(report, producer)
+                    else:
+                        self.assertIn("            " + report, producer)
+                    self.assertIn(report, scanner)
+        node = self.job(workflow, "javascript-coverage")
+        angular = self.job(workflow, "angular-coverage")
+        self.assertNotIn("npm --prefix frontend run test:coverage", node)
+        lanes = self.job(workflow, "angular-native-lanes")
+        self.assertIn("lane: ${{ fromJSON(needs.target.outputs.analysis_kind == 'pull_request' && '[\"baseline\"]' || '[\"baseline\",\"shard-1\",\"shard-2\"]') }}", lanes)
+        self.assertIn('collect --lane "$PROOF_LANE"', lanes)
+        self.assertIn("needs: [target, angular-native-lanes]", angular)
+        self.assertIn("contents: read", angular)
+        self.assertNotIn("secrets.", angular)
+        self.assertNotIn("SONAR_TOKEN", angular)
+        self.assertNotIn("environment: sonarcloud-analysis", angular)
+        self.assertIn("verify-sonar-angular-coverage.py compare", angular)
+        self.assertLess(angular.index("Require complete native Angular coverage admission"),
+                        angular.index("Stage only the selected original native Angular reports"))
+        self.assertLess(angular.index("Stage only the selected original native Angular reports"),
+                        angular.index("Bind Angular coverage handoff to exact execution"))
+        self.assertIn('cmp -- "$source" "$target"', angular)
+        single = angular.split("- name: Download original Angular baseline into its exact lane directory", 1)[1].split("- name:", 1)[0]
+        full = angular.split("- name: Download original Angular baseline and shards from this attempt", 1)[1].split("- name:", 1)[0]
+        self.assertIn("if: needs.target.outputs.analysis_kind == 'pull_request'", single)
+        self.assertIn("if: needs.target.outputs.analysis_kind == 'main'", full)
+        self.assertIn("pattern: sonar-angular-shard-proof-*-${{ github.run_attempt }}", single)
+        self.assertIn("pattern: sonar-angular-shard-proof-*-${{ github.run_attempt }}", full)
+        self.assertIn("path: artifacts/sonar-angular-shard-proof/sonar-angular-shard-proof-baseline-${{ github.run_attempt }}", single)
+        self.assertIn("path: artifacts/sonar-angular-shard-proof\n", full)
+        self.assertIn("merge-multiple: false", single)
+        self.assertIn("merge-multiple: false", full)
+        self.assertIn("analysis_kind == 'pull_request' && 'baseline-only' || 'full'", angular)
+        self.assertIn("angular_reports=artifacts/sonar-angular-inputs/shard-1/lcov.info,artifacts/sonar-angular-inputs/shard-2/lcov.info", scanner)
+        self.assertIn("angular_reports=artifacts/sonar-angular-inputs/baseline/lcov.info", scanner)
+        self.assertIn("sonar.javascript.lcov.reportPaths=$angular_reports,", scanner)
+        self.assertNotIn("sonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info", scanner)
+        self.assertNotIn("Measure existing operational contract controls", angular)
+        self.assertIn("Measure existing operational contract controls", node)
+        self.assertIn("Measure existing Pilot helpers", node)
+        self.assertIn("Measure existing Functional and roster Node controls", node)
+        self.assertIn("          path: artifacts\n", scanner.split(
+            "- name: Download JavaScript scanner inputs from this attempt", 1
+        )[1].split("- name: Verify JavaScript coverage handoff", 1)[0])
+        self.assertIn("          path: artifacts/sonar-angular-inputs\n", scanner.split(
+            "- name: Download Angular scanner inputs from this attempt", 1
+        )[1].split("- name: Verify Angular coverage handoff", 1)[0])
+        self.assertNotIn("npm --prefix frontend run test:coverage", scanner)
+        self.assertNotIn("python3 -B -m coverage run", scanner)
+        self.assertIn("Build inside the SonarScanner begin/end interval", scanner)
+        self.assertIn("Generate .NET coverage without analysis credentials", scanner)
+
+    def test_real_handoff_shell_rejects_stale_or_tampered_inputs(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        cases = [(kind, reports, "main") for kind, reports in self.REPORTS.items()]
+        cases.append(("Angular", ("artifacts/sonar-angular-inputs/baseline/lcov.info",
+                                  "artifacts/sonar-angular-inputs/receipt.json"), "pull_request"))
+        for kind, reports, analysis_kind in cases:
+            with self.subTest(kind=kind, analysis_kind=analysis_kind), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+                subprocess.run(
+                    ["git", "-c", "user.name=CI", "-c", "user.email=ci@example.invalid",
+                     "-c", "commit.gpgsign=false", "commit", "-q", "--allow-empty", "-m", "fixture"],
+                    cwd=root, check=True,
+                )
+                sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+                output = root / "github-output"
+                env = os.environ | {
+                    "GITHUB_SHA": sha,
+                    "GITHUB_RUN_ID": "100",
+                    "GITHUB_RUN_ATTEMPT": "1",
+                    "GITHUB_WORKSPACE": str(root),
+                    "GITHUB_OUTPUT": str(output),
+                    "SONAR_ANALYSIS_KIND": analysis_kind,
+                }
+                for index, report in enumerate(reports):
+                    path = root / report
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(("native fixture " + str(index)).encode())
+                produce = self.shell(workflow, "Bind " + kind + " coverage handoff to exact execution")
+                verify = self.shell(workflow, "Verify " + kind + " coverage handoff before scanner credentials")
+
+                def invoke(script, values):
+                    return subprocess.run(
+                        ["bash", "-c", script], cwd=root, env=values,
+                        text=True, capture_output=True, check=False, timeout=15,
+                    )
+
+                result = invoke(produce, env)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                value = output.read_text().strip()
+                self.assertRegex(value, r"^digest=[0-9a-f]{64}$")
+                accepted = env | {"EXPECTED_DIGEST": value.split("=", 1)[1]}
+                result = invoke(verify, accepted)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                if kind == "Angular":
+                    for invalid in ("unknown", "main" if analysis_kind == "pull_request" else "pull_request"):
+                        self.assertNotEqual(invoke(verify, accepted | {"SONAR_ANALYSIS_KIND": invalid}).returncode, 0)
+                    unexpected = root / "artifacts/sonar-angular-inputs/unexpected"
+                    unexpected.write_bytes(b"unexpected")
+                    self.assertNotEqual(invoke(verify, accepted).returncode, 0)
+                    unexpected.unlink()
+                for key, invalid in (
+                    ("GITHUB_SHA", "0" * 40),
+                    ("GITHUB_RUN_ID", "101"),
+                    ("GITHUB_RUN_ATTEMPT", "2"),
+                    ("GITHUB_WORKSPACE", str(root / "other")),
+                    ("EXPECTED_DIGEST", ""),
+                    ("EXPECTED_DIGEST", "0" * 64),
+                ):
+                    self.assertNotEqual(invoke(verify, accepted | {key: invalid}).returncode, 0, key)
+                report = root / reports[0]
+                original = report.read_bytes()
+                for changed in (b"modified", b""):
+                    report.write_bytes(changed)
+                    self.assertNotEqual(invoke(verify, accepted).returncode, 0)
+                report.unlink()
+                self.assertNotEqual(invoke(verify, accepted).returncode, 0)
+                other = root / "substitute"
+                other.write_bytes(original)
+                report.symlink_to(other)
+                self.assertNotEqual(invoke(verify, accepted).returncode, 0)
+                report.unlink()
+                report.write_bytes(original)
+                self.assertEqual(invoke(verify, accepted).returncode, 0)
+
+
+    def test_sharding_uses_one_credential_free_proof_and_actual_scanner_baseline(self):
+        proof = (ROOT / ".github/workflows/sonar-dotnet-shard-proof.yml").read_text()
+        production = WORKFLOW.read_text()
+        self.assertIn('branches: ["ci/sonar-coverage-*"]', proof)
+        self.assertIn("lane: [baseline, files-db, other-db, security-aq, remaining]", proof)
+        self.assertIn("fail-fast: false", proof)
+        self.assertIn("needs: collect", proof)
+        self.assertIn("shard-compare", proof)
+        self.assertIn('PROOF_XML_COUNT: "2"', proof)
+        self.assertIn("verify-sonar-scanner-identity-trial.py collect", proof)
+        self.assertIn('CustomAfterMicrosoftCommonTargets="$RUNNER_TEMP/sonar-openapi-fixture/probe.targets"', proof)
+        self.assertIn("physical-compiler-inputs.txt", proof)
+        self.assertLess(proof.index("Remove earlier compiler input observation"),
+                        proof.index("Preserve physical caller source paths"))
+        self.assertLess(proof.index("Retain actual physical test rebuild compiler input inventory"),
+                        proof.index("Generate native baseline or shard coverage"))
+        self.assertIn('shard-run --lane "$PROOF_LANE"', proof)
+        self.assertIn("Verify executed tests and production coverage before publication", proof)
+        self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", proof)
+        self.assertNotIn("secrets.", proof)
+        self.assertNotIn("SONAR_TOKEN", proof)
+        self.assertNotIn("sonarcloud-analysis", proof)
+        self.assertNotIn("shard-run", production)
+        self.assertNotIn("shard-compare", production)
+        self.assertIn("workflow_call:", proof)
+        self.assertIn("shard-stage", proof)
+        self.assertIn("jobs.compare.outputs.digest", proof)
+        self.assertIn("jobs.compare.outputs.compiler_digest", proof)
+        compare = self.job(proof, "compare")
+        self.assertIn("steps.compiler.outputs.digest", compare)
+        self.assertIn("shard-stage-compiler", compare)
+        self.assertIn("sonar-openapi-native-identity-", compare)
+        self.assertIn("EXPECTED_DOTNET_SHARD_DIGEST: ${{ steps.handoff.outputs.digest }}", compare)
+        self.assertLess(compare.index("Compare full native test inventory"), compare.index("shard-stage-compiler"))
+        self.assertNotIn("dotnet build", compare)
+        self.assertNotIn("  dotnet-identity-probe:", production)
+        caller = self.job(production, "dotnet-shard-coverage")
+        scanner = self.job(production, "sonarcloud")
+        self.assertIn("uses: ./.github/workflows/sonar-dotnet-shard-proof.yml", caller)
+        self.assertIn("source_sha: ${{ github.sha }}", caller)
+        self.assertIn("needs.target.outputs.should_scan == 'true'", caller)
+        self.assertNotIn("secrets", caller)
+        self.assertIn("needs.dotnet-shard-coverage.outputs.digest", scanner)
+        self.assertLess(scanner.index("shard-verify-compiler"), scanner.index("Begin pinned SonarCloud analysis"))
+        self.assertLess(scanner.index("shard-verify-compiler"), scanner.index("Verify diagnostic bytes"))
+        self.assertIn("needs.dotnet-shard-coverage.outputs.compiler_digest", scanner)
+        self.assertLess(scanner.index("Verify executed tests and production coverage before publication"),
+                        scanner.index("shard-admit"))
+        self.assertLess(scanner.index("shard-admit"), scanner.index("Publish SonarCloud report"))
+        for name in ("Apply migrations to the isolated coverage database",
+                     "Generate .NET coverage without analysis credentials",
+                     "Verify executed tests and production coverage before publication",
+                     "Require actual scanner baseline and all shard binaries and points to agree"):
+            self.assertIn("- name: " + name + "\n        if: env.SONAR_ANALYSIS_KIND == 'main'", scanner)
+        self.assertIn("- name: Require rebuilt scanner identity and original independent full-baseline equivalence"
+                      "\n        if: env.SONAR_ANALYSIS_KIND == 'pull_request'", scanner)
+        self.assertLess(scanner.index("Restore original production mapping"), scanner.index("shard-admit-rebuilt"))
+        self.assertLess(scanner.index("shard-admit-rebuilt"), scanner.index("Publish SonarCloud report"))
+        self.assertNotIn("sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet-shard-inputs/baseline/", scanner)
+        self.assertIn("sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet-shard-inputs/files-db/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/other-db/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/security-aq/verified.opencover.xml,artifacts/sonar-dotnet-shard-inputs/remaining/verified.opencover.xml", scanner)
+        self.assertNotIn("sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet/verified.opencover.xml", scanner)
 
 
 if __name__ == "__main__":

@@ -70,6 +70,7 @@ test('CI PostgreSQL services use the reviewed immutable PostgreSQL 18.7 image', 
     '.github/workflows/sec17-deep.yml',
     '.github/workflows/sec17-file-policy.yml',
     '.github/workflows/sonarcloud-ci.yml',
+    '.github/workflows/sonar-dotnet-shard-proof.yml',
   ];
   for (const path of paths) {
     const source = await readFile(path, 'utf8');

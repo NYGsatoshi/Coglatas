@@ -1,0 +1,7 @@
+# Phase 6b: authenticated native Python sharding ingestion trial
+
+Stack on the scanner-identity qualification branch. The original control loop is relocated verbatim into `scripts/ci/sonar-python-controls.sh` so the credential-free full and shard lanes have one canonical inventory and dispatch. The collector binds the loop's bytes to the exact source/run/attempt receipt. Existing tests retain the original control and subprocess checks against that actual source. No cohort is removed.
+
+A trusted push runs baseline, shard 1 and shard 2 in parallel with the pinned Python coverage tool. A read-only join combines the two native coverage.py databases, requires identical control results, mutation identities, native line/arc sets, JSON file/branch evidence and XML except generation timestamp. Only the original coverage.py combined report is staged (byte copies verified); preserve GCP's independent measurement and original scanner XML paths. Bind the comparator receipt along with both XML files to the independent job-output digest. Retain raw process coverage from both complementary lanes and each original lane archive. No cross-run artifacts, fabricated coverage or credential changes.
+
+The full baseline remains required for this ingestion trial. It is not a final throughput improvement. Authenticate a staged run, inspect actual Python sensor import and per-file measures, then separately decide baseline removal. The independent same-SHA .NET scanner identity trial is preserved unchanged and must be qualified first. No Main merge or Quality Gate relaxation.

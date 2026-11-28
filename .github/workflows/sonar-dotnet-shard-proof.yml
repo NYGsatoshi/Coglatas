@@ -1,0 +1,316 @@
+name: Sonar .NET sharding qualification
+
+on:
+  workflow_call:
+    inputs:
+      source_sha:
+        required: true
+        type: string
+    outputs:
+      digest:
+        description: Exact-attempt native OpenCover handoff digest
+        value: ${{ jobs.compare.outputs.digest }}
+      compiler_digest:
+        description: Qualified baseline native compiler receipt digest
+        value: ${{ jobs.compare.outputs.compiler_digest }}
+  pull_request:
+    branches: ["ci/sonar-coverage-*"]
+    paths:
+      - ".github/workflows/sonar-dotnet-shard-proof.yml"
+      - "scripts/ci/*sonar-dotnet-coverage.py"
+      - "scripts/ci/*sonar-openapi-reproduction.py"
+      - "scripts/ci/*sonar-scanner-identity-trial.py"
+      - "scripts/ci/test-sonarcloud-routing.py"
+      - "tests/Coglatas.Tests/Realtime/OutboxDispatcherFailureBoundaryTests.cs"
+      - "tests/Coglatas.Tests/PostgreSql/Wpc02CCanonicalProjectCreatePostgreSqlTests.cs"
+      - "tests/Coglatas.Tests/PostgreSql/TaskV1Pr07NotificationFoundationPostgreSqlTests.cs"
+      - "tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalREventTests.cs"
+      - "tests/Coglatas.Tests/SecurityArchitecture/SecurityArchitectureSignalRTests.cs"
+      - "tests/Coglatas.Tests/Aq/AqOperatorHostedPostgreSqlTests.cs"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sonar-dotnet-shard-proof-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  collect:
+    name: Native coverage proof / ${{ matrix.lane }}
+    permissions:
+      contents: read
+    if: >-
+      github.repository == 'NYGsatoshi/Coglatas' &&
+      ((github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        startsWith(github.head_ref, 'ci/sonar-coverage-sharding-')) ||
+       (github.event_name == 'push' && inputs.source_sha == github.sha))
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [baseline, files-db, other-db, security-aq, remaining]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    services:
+      postgres:
+        image: postgres:18.7@sha256:64c8b0d31e4ab6ea665e8426ea406a94bf52de3c05b3a4a8bf713704eefa9328 # PostgreSQL 18.7
+        env:
+          POSTGRES_DB: coglatas_ci
+          POSTGRES_USER: coglatas_ci
+          POSTGRES_PASSWORD: coglatas_ci_password
+          POSTGRES_INITDB_ARGS: >-
+            --set=log_error_verbosity=terse
+            --set=log_min_error_statement=panic
+            --set=log_parameter_max_length=0
+            --set=log_parameter_max_length_on_error=0
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U coglatas_ci -d coglatas_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      ASPNETCORE_ENVIRONMENT: Test
+      COGLATAS_TEST_USE_MIGRATED_TEMPLATE: "true"
+      ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=coglatas_ci;Username=coglatas_ci;Password=coglatas_ci_password
+      POSTGRES_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=coglatas_ci;Username=coglatas_ci;Password=coglatas_ci_password
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+      PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || inputs.source_sha }}
+      PROOF_LANE: ${{ matrix.lane }}
+
+    steps:
+      - name: Checkout exact trusted repository revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || inputs.source_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up repository-pinned .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore the solution without analysis credentials
+        run: dotnet restore Coglatas.slnx --verbosity minimal
+
+      - name: Restore repository-pinned EF tooling without analysis credentials
+        run: dotnet tool restore
+
+      - name: Verify PostgreSQL diagnostic privacy
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: python3 -B scripts/ci/verify-postgres-log-privacy.py --container "$POSTGRES_CONTAINER"
+
+      - name: Set up repository frontend Node version
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "26"
+
+      - name: Install pinned frontend package manager
+        run: npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
+
+      - name: Install frontend dependencies without analysis credentials
+        run: bash scripts/ci/npm-ci-retry.sh frontend
+
+      - name: Install existing reporter dependencies without analysis credentials
+        run: bash scripts/ci/npm-ci-retry.sh .
+
+      - name: Build scanner-compatible deterministic Ubuntu coverage binaries
+        env:
+          PROOF_XML_COUNT: "2"
+        run: |
+          set -euo pipefail
+          python3 -B scripts/ci/verify-sonar-scanner-identity-trial.py collect
+          mkdir -p artifacts/sonar-dotnet
+          test ! -e artifacts/sonar-dotnet/compiler-identity
+          mv -- artifacts/sonar-openapi-reproduction artifacts/sonar-dotnet/compiler-identity
+
+      - name: Retain original deterministic production source mapping
+        run: |
+          set -euo pipefail
+          mapping=tests/Coglatas.Tests/bin/Release/net11.0/CoverletSourceRootsMapping_Coglatas.Tests
+          test -s "$mapping"
+          mkdir -p artifacts/sonar-dotnet
+          cp "$mapping" artifacts/sonar-dotnet/deterministic-source-roots.original
+          sha256sum artifacts/sonar-dotnet/deterministic-source-roots.original
+          python3 - <<'PY'
+          import importlib.util, json, os
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location('native_binaries', 'scripts/ci/verify-sonar-windows-coverage.py')
+          verifier = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(verifier)
+          folder = Path('artifacts/sonar-dotnet/pre-test-rebuild')
+          folder.mkdir()
+          record = {'sourceSha': os.environ['PROOF_SOURCE_SHA'],
+                    'artifacts': verifier.assemblies(verifier.ROOT, folder, os.environ['PROOF_SOURCE_SHA'], True)}
+          (folder / 'outputs.json').write_text(json.dumps(record, indent=2) + '\n', encoding='utf-8')
+          PY
+
+      - name: Remove earlier compiler input observation before physical rebuild
+        run: |
+          set -euo pipefail
+          source=tests/Coglatas.Tests/obj/Release/net11.0/sonar-openapi-additional-files.txt
+          test -s "$source"
+          test ! -L "$source"
+          rm -- "$source"
+
+      - name: Preserve physical caller source paths in the test assembly
+        # Recorders hash the actual caller source; production binaries retain
+        # their deterministic paths and are not rebuilt by this project build.
+        run: >-
+          dotnet build tests/Coglatas.Tests/Coglatas.Tests.csproj
+          --configuration Release --no-restore --no-incremental --no-dependencies
+          --disable-build-servers -m:1
+          -p:ContinuousIntegrationBuild=false -p:DeterministicSourcePaths=false
+          -p:CustomAfterMicrosoftCommonTargets="$RUNNER_TEMP/sonar-openapi-fixture/probe.targets"
+
+      - name: Retain actual physical test rebuild compiler input inventory
+        run: |
+          set -euo pipefail
+          source=tests/Coglatas.Tests/obj/Release/net11.0/sonar-openapi-additional-files.txt
+          test -s "$source"
+          test ! -L "$source"
+          cp -- "$source" artifacts/sonar-dotnet/physical-compiler-inputs.txt
+          cmp -- "$source" artifacts/sonar-dotnet/physical-compiler-inputs.txt
+
+      - name: Restore original production mapping for native instrumentation
+        # The test-only build regenerates reference maps with physical paths.
+        # Production PDBs still use the original deterministic paths. Restore
+        # their unmodified build metadata, never edit collected report paths.
+        run: |
+          set -euo pipefail
+          mapping=tests/Coglatas.Tests/bin/Release/net11.0/CoverletSourceRootsMapping_Coglatas.Tests
+          cp "$mapping" artifacts/sonar-dotnet/physical-test-source-roots.original
+          cp artifacts/sonar-dotnet/deterministic-source-roots.original "$mapping"
+          cmp artifacts/sonar-dotnet/deterministic-source-roots.original "$mapping"
+
+      - name: Apply migrations to the isolated coverage database
+        run: dotnet ef database update --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web --configuration Release --no-build
+
+      - name: Generate native baseline or shard coverage
+        run: python3 -B scripts/ci/verify-sonar-dotnet-coverage.py shard-run --lane "$PROOF_LANE"
+
+      - name: Record actual collector report layout
+        if: always()
+        shell: bash
+        run: |
+          if [[ -d artifacts/sonar-dotnet ]]; then
+            find artifacts/sonar-dotnet -maxdepth 3 -name coverage.opencover.xml -printf '%P %s bytes\n'
+          fi
+
+      - name: Verify executed tests and production coverage before publication
+        run: |
+          set -euo pipefail
+          cmp artifacts/sonar-dotnet/deterministic-source-roots.original \
+            tests/Coglatas.Tests/bin/Release/net11.0/CoverletSourceRootsMapping_Coglatas.Tests
+          bash scripts/ci/verify-trx-results.sh artifacts/sonar-dotnet/backend-tests.trx \
+            --minimum-total 1 --label "Sonar .NET coverage suite"
+          python3 scripts/ci/verify-sonar-dotnet-coverage.py
+          python3 - <<'PY'
+          import importlib.util, json, os
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location('native_binaries', 'scripts/ci/verify-sonar-windows-coverage.py')
+          verifier = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(verifier)
+          folder = Path('artifacts/sonar-dotnet')
+          before = json.loads((folder / 'pre-test-rebuild/outputs.json').read_bytes())
+          if before['sourceSha'] != os.environ['PROOF_SOURCE_SHA']:
+              raise ValueError('Pre-rebuild source revision differs')
+          executed = folder / 'executed-binaries'
+          executed.mkdir()
+          after = verifier.assemblies(verifier.ROOT, executed, os.environ['PROOF_SOURCE_SHA'], True)
+          for name, digest in before['artifacts'].items():
+              if name not in ('assemblies/Coglatas.Tests.dll', 'assemblies/Coglatas.Tests.pdb') and after[name] != digest:
+                  raise ValueError('Test-only rebuild or collection changed a production binary')
+          record = {'sourceSha': os.environ['PROOF_SOURCE_SHA'], 'runId': os.environ['GITHUB_RUN_ID'],
+                    'attempt': os.environ['GITHUB_RUN_ATTEMPT'], 'executedArtifacts': after,
+                    'trxSha256': verifier.digest((folder / 'backend-tests.trx').read_bytes()),
+                    'sourceMappingSha256': verifier.digest((folder / 'deterministic-source-roots.original').read_bytes()),
+                    'productionBinariesUnchanged': True}
+          (folder / 'binary-provenance.json').write_text(json.dumps(record, indent=2) + '\n', encoding='utf-8')
+          PY
+
+      - name: Retain full native shard evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-dotnet-shard-proof-${{ matrix.lane }}-${{ github.run_attempt }}
+          path: artifacts/sonar-dotnet/
+          if-no-files-found: error
+          retention-days: 7
+
+  compare:
+    name: Require exact test and source coverage equivalence
+    needs: collect
+    outputs:
+      digest: ${{ steps.handoff.outputs.digest }}
+      compiler_digest: ${{ steps.compiler.outputs.digest }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact candidate revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || inputs.source_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download all original proof lanes from this attempt
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: sonar-dotnet-shard-proof-*-${{ github.run_attempt }}
+          path: artifacts/sonar-dotnet-shard-proof
+
+      - name: Compare full native test inventory and source point coverage
+        env:
+          PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || inputs.source_sha }}
+        run: python3 -B scripts/ci/verify-sonar-dotnet-coverage.py shard-compare
+
+      - name: Stage exact native shard reports and bind handoff
+        id: handoff
+        env:
+          PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || inputs.source_sha }}
+        run: python3 -B scripts/ci/verify-sonar-dotnet-coverage.py shard-stage
+
+      - name: Test native reproduction controls
+        run: python3 -B scripts/ci/test-sonar-openapi-reproduction.py
+
+      - name: Test same-SHA scanner identity trial controls
+        run: python3 -B scripts/ci/test-sonar-scanner-identity-trial.py
+
+      - name: Stage exact qualified baseline compiler evidence
+        id: compiler
+        env:
+          PROOF_SOURCE_SHA: ${{ github.event.pull_request.head.sha || inputs.source_sha }}
+          EXPECTED_DOTNET_SHARD_DIGEST: ${{ steps.handoff.outputs.digest }}
+        run: python3 -B scripts/ci/verify-sonar-dotnet-coverage.py shard-stage-compiler
+
+      - name: Retain exact diagnostic build evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-openapi-native-identity-${{ github.run_attempt }}
+          path: artifacts/sonar-openapi-reproduction/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Retain staged native shard handoff
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-dotnet-shard-handoff-${{ github.run_attempt }}
+          path: artifacts/sonar-dotnet-shard-inputs/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Retain comparison receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-dotnet-shard-equivalence-${{ github.run_attempt }}
+          path: artifacts/sonar-dotnet-shard-equivalence.json
+          if-no-files-found: error
+          retention-days: 7

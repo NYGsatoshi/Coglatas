@@ -407,8 +407,7 @@ public sealed class SecurityArchitectureSignalREventTests
                     ? resourceEvents.Where(item => item.EventType.StartsWith("Messaging.", StringComparison.Ordinal)).ToArray()
                     : resourceEvents;
                 Assert.Equal(boundary == RealtimeSubscriptionType.Conversation ? 5 : 15, events.Length);
-                foreach (var route in events)
-                    await AssertRecipientPositiveAsync(database, app, scope, member, owner, route);
+                await AssertRecipientPositivesAsync(database, app, scope, member, owner, events);
 
                 await ChangeResourceReadAsync(database, scope, boundary, authorized: false);
                 var deniedEvents = new List<(EventRoute Route, Guid Event)>();
@@ -438,8 +437,7 @@ public sealed class SecurityArchitectureSignalREventTests
 
                 await ChangeResourceReadAsync(database, scope, boundary, authorized: true);
                 await SubscribeAllAsync(member, scope);
-                foreach (var route in events)
-                    await AssertRecipientPositiveAsync(database, app, scope, member, owner, route);
+                await AssertRecipientPositivesAsync(database, app, scope, member, owner, events);
                 foreach (var (route, denied) in deniedEvents)
                 {
                     await ReplayAsync(database, app, denied);
@@ -450,6 +448,21 @@ public sealed class SecurityArchitectureSignalREventTests
             }
             await controls.SaveAsync();
         });
+    }
+
+    private static async Task AssertRecipientPositivesAsync(string database, SecurityArchitectureSignalRFixture app,
+        Scope scope, RealtimeSocket member, RealtimeSocket owner, IReadOnlyList<EventRoute> routes)
+    {
+        // This is only for the stable-authority positive phases. Invalidation,
+        // denial, membership changes and durable replay keep their serial fences.
+        // Each route retains its original enqueue, recipient delivery, terminal
+        // database state and peer delivery checks with the same per-event deadlines.
+        Assert.NotEmpty(routes);
+        var eventTypes = routes.Select(route => route.EventType).ToArray();
+        Assert.DoesNotContain("Announcements.AnnouncementChanged.v1", eventTypes);
+        Assert.DoesNotContain("Security.AuthorizationStateChanged.v1", eventTypes);
+        foreach (var batch in routes.Chunk(4))
+            await Task.WhenAll(batch.Select(route => AssertRecipientPositiveAsync(database, app, scope, member, owner, route)));
     }
 
     private static async Task AssertRecipientPositiveAsync(string database, SecurityArchitectureSignalRFixture app,

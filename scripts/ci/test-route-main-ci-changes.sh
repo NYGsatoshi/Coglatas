@@ -41,6 +41,8 @@ route_repo() {
     cd "$repo"
     BASE_SHA="$base" \
     HEAD_SHA="$head" \
+    CI_DIFF_MODE="${4:-direct}" \
+    PR_MERGE_SHA="${5:-}" \
     GITHUB_OUTPUT="$output" \
     GITHUB_STEP_SUMMARY="$summary" \
     RUNNER_TEMP="$repo" \
@@ -431,5 +433,64 @@ filter="$(value_of "$output" backend_test_filter)"
 assert_contains "$filter" 'FullyQualifiedName~Coglatas.Tests.TestInfrastructure' "renamed helper controls"
 assert_contains "$filter" 'FullyQualifiedName~Coglatas.Tests.SecurityArchitecture' "renamed helper SEC-ARCH owners"
 assert_contains "$filter" 'FullyQualifiedName~Coglatas.Tests.PostgreSql' "renamed helper PostgreSQL HTTP owners"
+
+# A target-only source change must not route an unrelated documentation PR.
+# Use a real two-parent merge commit matching GitHub's tested preview.
+repo="$tmp_root/pr-merge-preview"
+init_repo "$repo" Projects
+mkdir -p "$repo/src/Coglatas.Application/Projects"
+printf 'original\n' > "$repo/src/Coglatas.Application/Projects/ProjectService.cs"
+printf 'original docs\n' > "$repo/README.md"
+common="$(commit_all "$repo" common)"
+git -C "$repo" checkout -qb pr-source "$common"
+printf 'updated documentation\n' > "$repo/README.md"
+pr_head="$(commit_all "$repo" pr-docs)"
+git -C "$repo" checkout -qb target "$common"
+printf 'target-only product change\n' > "$repo/src/Coglatas.Application/Projects/ProjectService.cs"
+pr_base="$(commit_all "$repo" target-update)"
+git -C "$repo" merge --quiet --no-ff --no-edit "$pr_head"
+preview="$(git -C "$repo" rev-parse HEAD)"
+output="$(route_repo "$repo" "$pr_base" "$pr_head" pr-merge "$preview")"
+assert_eq false "$(value_of "$output" backend)" "target-only change must not route backend"
+assert_eq false "$(value_of "$output" backend_tests)" "target-only change must not route backend tests"
+assert_eq false "$(value_of "$output" frontend)" "docs-only merged PR frontend"
+assert_eq false "$(value_of "$output" functional)" "docs-only merged PR Functional"
+assert_eq validated-documentation-only "$(value_of "$output" functional_reason)" "verified preview reason"
+
+# Incorrect identity, absent preview or reversed parents must fail closed.
+for invalid in "$common" "$pr_head" "" "$(printf '0%.0s' {1..40})"; do
+  output="$(route_repo "$repo" "$pr_base" "$pr_head" pr-merge "$invalid")"
+  assert_eq true "$(value_of "$output" backend_tests)" "invalid preview runs backend tests"
+  assert_eq true "$(value_of "$output" frontend_unit)" "invalid preview runs frontend tests"
+  assert_eq true "$(value_of "$output" functional)" "invalid preview runs Functional"
+  assert_eq unknown-diff-run-all "$(value_of "$output" functional_reason)" "invalid preview reason"
+done
+output="$(route_repo "$repo" "$pr_head" "$pr_base" pr-merge "$preview")"
+assert_eq unknown-diff-run-all "$(value_of "$output" functional_reason)" "reversed preview parents"
+git -C "$repo" checkout --quiet --detach "$pr_head"
+output="$(route_repo "$repo" "$pr_base" "$pr_head" pr-merge "$preview")"
+assert_eq unknown-diff-run-all "$(value_of "$output" functional_reason)" "stale checked-out tree"
+
+# Unicode names must be classified by the actual path, not Git's quoted
+# display format. Newlines/control characters conservatively require all work.
+repo="$tmp_root/encoded-paths"
+init_repo "$repo" Projects
+printf 'base\n' > "$repo/README.md"
+base="$(commit_all "$repo" base)"
+mkdir -p "$repo/src/Coglatas.Application/Projects"
+printf 'product change\n' > "$repo/src/Coglatas.Application/Projects/変更.cs"
+head="$(commit_all "$repo" unicode-source)"
+output="$(route_repo "$repo" "$base" "$head")"
+assert_eq true "$(value_of "$output" backend_tests)" "Unicode source path backend owner"
+assert_contains "$(value_of "$output" backend_test_filter)" "Coglatas.Tests.Projects" "Unicode source scope"
+repo="$tmp_root/control-path"
+init_repo "$repo" Projects
+printf 'base\n' > "$repo/README.md"
+base="$(commit_all "$repo" base)"
+printf 'ambiguous\n' > "$repo/"$'new\npath'
+head="$(commit_all "$repo" control-character)"
+output="$(route_repo "$repo" "$base" "$head")"
+assert_eq unknown-diff-run-all "$(value_of "$output" functional_reason)" "ambiguous path runs all"
+assert_eq true "$(value_of "$output" security)" "ambiguous path security"
 
 echo "route-main-ci-changes regression tests passed"

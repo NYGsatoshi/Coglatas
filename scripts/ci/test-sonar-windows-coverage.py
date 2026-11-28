@@ -122,6 +122,27 @@ class WindowsCoverageTests(unittest.TestCase):
             with self.subTest(raw=raw), self.assertRaises(ValueError):
                 MODULE.verify_trx(raw)
 
+    def test_shared_trx_parser_validates_root_and_independent_standard_fixture(self):
+        # TRX is an independently authored, pinned native-format sample above;
+        # do not construct this protocol anchor from the production constant.
+        raw = (self.folder / "windows-tests.trx").read_bytes()
+        document, total = MODULE.inspect_trx(raw, self.assembly_path)
+        self.assertEqual(total, 1)
+        self.assertEqual(document.tag, MODULE.parse_xml(raw).tag)
+        self.assertEqual(document.tag, f"{{{MODULE.TRX_NAMESPACE}}}TestRun")
+        self.assertEqual(MODULE.verify_trx(raw, self.assembly_path), total)
+        for invalid in (
+            raw.replace(b"<TestRun ", b"<UnexpectedRun ", 1).replace(
+                b"</TestRun>", b"</UnexpectedRun>", 1),
+            raw.replace(b'xmlns="http:', b'xmlns="https:', 1),
+            raw.replace(b'xmlns="', b'xmlns="urn:other:', 1),
+        ):
+            with self.subTest(invalid=invalid):
+                with self.assertRaisesRegex(ValueError, "Expected native VSTest TestRun namespace"):
+                    MODULE.inspect_trx(invalid, self.assembly_path)
+                with self.assertRaisesRegex(ValueError, "Expected native VSTest TestRun namespace"):
+                    MODULE.verify_trx(invalid, self.assembly_path)
+
     def test_generated_virtual_documents_are_retained_without_git_source_credit(self):
         filename = (b'C:/runner/src/Coglatas.Application/obj/Release/net11.0/'
                     b'System.Text.RegularExpressions.Generator/'

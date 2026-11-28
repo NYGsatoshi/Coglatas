@@ -8,6 +8,8 @@ using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Audit;
 using Coglatas.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Npgsql;
 
 namespace Coglatas.Tests.PostgreSql;
 
@@ -329,14 +331,28 @@ public sealed class Wpc02CCanonicalProjectCreatePostgreSqlTests
 
     [PostgreSqlFact]
     [Trait("Category", "PostgreSQLIntegration")]
-    public async Task ConcurrentRetryCommitsOneProjectMembershipAuditAndAuthorizationEvent()
+    public Task ConcurrentRetryCommitsOneProjectMembershipAuditAndAuthorizationEvent() =>
+        AssertConcurrentRetryAsync(includeSourcePolicyRepository: false);
+
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public Task ConcurrentRetryWithSourcePolicyRepositoryCommitsOneProjectAndOneSideEffectSet() =>
+        AssertConcurrentRetryAsync(includeSourcePolicyRepository: true);
+
+    private static async Task AssertConcurrentRetryAsync(bool includeSourcePolicyRepository)
     {
         var connectionString = PostgreSqlTestEnvironment.RequireConnectionString();
         await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(connectionString, async database =>
         {
             var graph = await SeedAuthorityAsync(database, "concurrent");
-            await using var first = CreateServiceScope(database, graph, graph.OwnerUserId, SystemRole.NormalUser);
-            await using var second = CreateServiceScope(database, graph, graph.OwnerUserId, SystemRole.NormalUser);
+            // Both real PostgreSQL requests must reach their first INSERT after
+            // observing no committed idempotency record. This exercises the
+            // losing claim path, not merely the already-committed replay path.
+            var barrier = new IdempotencyClaimBarrier();
+            await using var first = CreateServiceScope(database, graph, graph.OwnerUserId, SystemRole.NormalUser,
+                barrier, includeSourcePolicyRepository);
+            await using var second = CreateServiceScope(database, graph, graph.OwnerUserId, SystemRole.NormalUser,
+                barrier, includeSourcePolicyRepository);
             var request = new CanonicalCreateProjectRequest("Concurrent canonical project");
 
             var results = await Task.WhenAll(
@@ -344,6 +360,8 @@ public sealed class Wpc02CCanonicalProjectCreatePostgreSqlTests
                 second.Service.CreateAsync(graph.WorkspaceId, request, "wpc02c-concurrent-create"));
 
             Assert.All(results, result => Assert.True(result.IsSuccess, result.Error));
+            Assert.Equal(2, barrier.Arrivals);
+            Assert.Equal(1, barrier.UniqueClaimViolations);
             var firstProject = results[0].Value!;
             Assert.Equal(firstProject.Id, results[1].Value!.Id);
             var projectId = firstProject.Id;
@@ -357,6 +375,44 @@ public sealed class Wpc02CCanonicalProjectCreatePostgreSqlTests
             Assert.Equal(1, await verification.OutboxEvents.CountAsync(item =>
                 item.EventType == "Security.AuthorizationStateChanged.v1"));
         });
+    }
+
+    private sealed class IdempotencyClaimBarrier : SaveChangesInterceptor
+    {
+        private readonly TaskCompletionSource _bothReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _arrivals;
+        private int _uniqueClaimViolations;
+
+        public int Arrivals => Volatile.Read(ref _arrivals);
+        public int UniqueClaimViolations => Volatile.Read(ref _uniqueClaimViolations);
+
+        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData,
+            InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            if (eventData.Context?.ChangeTracker.Entries<IdempotencyRecord>()
+                .Any(entry => entry.State == EntityState.Added) == true)
+            {
+                if (Interlocked.Increment(ref _arrivals) == 2)
+                    _bothReady.TrySetResult();
+                await _bothReady.Task.WaitAsync(TimeSpan.FromSeconds(60), cancellationToken);
+            }
+            return result;
+        }
+
+        public override Task SaveChangesFailedAsync(
+            DbContextErrorEventData eventData,
+            CancellationToken cancellationToken = default)
+        {
+            if (eventData.Exception is DbUpdateException { InnerException: PostgresException postgres }
+                && postgres.SqlState == PostgresErrorCodes.UniqueViolation
+                && postgres.ConstraintName == "UX_idempotency_tenant_actor_operation_key")
+            {
+                Interlocked.Increment(ref _uniqueClaimViolations);
+            }
+            return base.SaveChangesFailedAsync(eventData, cancellationToken);
+        }
     }
 
     private static async Task<AuthorityGraph> SeedAuthorityAsync(
@@ -473,12 +529,16 @@ public sealed class Wpc02CCanonicalProjectCreatePostgreSqlTests
         string connectionString,
         AuthorityGraph graph,
         Guid userId,
-        SystemRole systemRole)
+        SystemRole systemRole,
+        IInterceptor? claimInterceptor = null,
+        bool includeSourcePolicyRepository = false)
     {
         var currentTenant = new CurrentTenantService();
         currentTenant.SetTenant(graph.TenantId, graph.TenantSlug);
-        var options = new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(connectionString).Options;
-        var db = new AppDbContext(options, currentTenant);
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(connectionString);
+        if (claimInterceptor is not null)
+            options.AddInterceptors(claimInterceptor);
+        var db = new AppDbContext(options.Options, currentTenant);
         var clock = new FixedClock(graph.Now);
         var currentUser = new TestCurrentUser(userId, systemRole);
         var projectRepository = new ProjectRepository(db);
@@ -506,7 +566,8 @@ public sealed class Wpc02CCanonicalProjectCreatePostgreSqlTests
             clock,
             new DbAuditLogger(db, clock, currentUser, currentTenant),
             authorizationChanges,
-            new EfCreateIdempotencyCoordinator(db));
+            new EfCreateIdempotencyCoordinator(db,
+                includeSourcePolicyRepository ? new TaskExecutionScopeRepository(db) : null));
         return new ServiceScope(db, service);
     }
 
