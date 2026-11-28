@@ -74,9 +74,16 @@ def native_report(folder: Path) -> tuple[str, list[str]]:
     return selected, copies
 
 
-def verify_trx(raw: bytes, expected_assembly: str | None = None) -> int:
+# VSTest TRX format namespace identifier, not a network destination.
+TRX_NAMESPACE = "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"
+
+
+def inspect_trx(raw: bytes, expected_assembly: str | None = None) -> tuple[ET.Element, int]:
+    """Parse once and validate the original native TRX execution accounting."""
     document = parse_xml(raw)
-    ns = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
+    if document.tag != f"{{{TRX_NAMESPACE}}}TestRun":
+        raise ValueError("Expected native VSTest TestRun namespace")
+    ns = {"t": TRX_NAMESPACE}
     counters = document.find("./t:ResultSummary/t:Counters", ns)
     cases = document.findall("./t:Results/t:UnitTestResult", ns)
     if counters is None or not cases or any(c.get("outcome") != "Passed" for c in cases):
@@ -99,7 +106,12 @@ def verify_trx(raw: bytes, expected_assembly: str | None = None) -> int:
             if ((actual.lower() != expected.lower()) if re.match(r"[A-Za-z]:/", expected)
                     else actual != expected):
                 raise ValueError("TRX references a different executed test assembly")
-    return count
+    return document, count
+
+
+def verify_trx(raw: bytes, expected_assembly: str | None = None) -> int:
+    """Retain the existing Windows counter API over the shared TRX parser."""
+    return inspect_trx(raw, expected_assembly)[1]
 
 
 def verify_report(raw: bytes, source) -> dict:

@@ -538,7 +538,7 @@ class CoverageTests(unittest.TestCase):
             return ET.tostring(document, encoding="utf-8")
 
         def trx_bytes(indices):
-            root = ET.Element("TestRun", xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010")
+            root = ET.Element("TestRun", xmlns=native.TRX_NAMESPACE)
             results = ET.SubElement(root, "Results")
             definitions = ET.SubElement(root, "TestDefinitions")
             for index in indices:
@@ -857,7 +857,8 @@ class CoverageTests(unittest.TestCase):
 
     def test_shard_trx_identity_preserves_theory_row_multiplicity(self):
         path = str(self.root / MODULE.TEST_ASSEMBLY)
-        raw = f"""<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+        namespace = MODULE._native_verifier().TRX_NAMESPACE
+        raw = f"""<TestRun xmlns="{namespace}">
 <Results><UnitTestResult testId="1" testName="Case(1)" outcome="Passed"/>
 <UnitTestResult testId="1" testName="Case(1)" outcome="Passed"/></Results>
 <TestDefinitions><UnitTest id="1"><TestMethod className="Fixture" name="Case" codeBase="{path}"/></UnitTest></TestDefinitions>
@@ -869,7 +870,9 @@ class CoverageTests(unittest.TestCase):
                         raw.replace(b'testId="1"', b'testId="2"'),
                         # The TRX namespace is a format identifier, not a network endpoint.
                         # Changing the standard namespace to HTTPS must not parse as TRX.
-                        raw.replace(b'xmlns="http:', b'xmlns="https:', 1)):
+                        raw.replace(b'xmlns="http:', b'xmlns="https:', 1),
+                        raw.replace(b"<TestRun ", b"<UnexpectedRun ", 1).replace(
+                            b"</TestRun>", b"</UnexpectedRun>", 1)):
             with self.assertRaises(ValueError):
                 MODULE.trx_identities(invalid, self.root)
 
